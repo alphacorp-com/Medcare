@@ -17,7 +17,7 @@
     "active": "Active",
     "disabled": "Disabled",
     "tenant_env": "Tenant Environment",
-    "main_network": "Main Hospital Network",
+    "hospital_name": "Foumbot general hospital",
     "actions": "Actions",
     "save": "Save",
     "cancel": "Cancel",
