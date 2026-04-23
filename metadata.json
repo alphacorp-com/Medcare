@@ -1,6 +1,6 @@
 {
-  "name": "",
-  "description": "",
+  "name": "Medcare",
+  "description": "Next-generation Hospital Management System for clinical and administrative operations.",
   "requestFramePermissions": [],
   "majorCapabilities": []
 }
