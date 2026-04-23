@@ -2,6 +2,7 @@ import { Inter } from 'next/font/google';
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages } from 'next-intl/server';
 import { cn } from "@/lib/utils";
+import { AuthInitializer } from '@/components/auth/AuthInitializer';
 import "../globals.css";
 
 const inter = Inter({
@@ -23,8 +24,9 @@ export default async function RootLayout({
     <html lang={locale} className={cn("font-sans", inter.variable)} suppressHydrationWarning>
       <body className="bg-slate-100 text-slate-800 h-screen w-full flex overflow-hidden">
         <NextIntlClientProvider messages={messages} locale={locale}>
-          
-          {children}
+          <AuthInitializer>
+            {children}
+          </AuthInitializer>
         </NextIntlClientProvider>
       </body>
     </html>

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { useAppStore } from "@/lib/store/useAppStore";
 import { useRouter, usePathname } from "@/i18n/routing";
 import { useTranslations, useLocale } from "next-intl";
+import Cookies from "js-cookie";
 import { cn } from "@/lib/utils";
 
 export function Header() {
@@ -18,6 +19,7 @@ export function Header() {
   const router = useRouter();
 
   const handleLogout = () => {
+    Cookies.remove("auth-token");
     setUser(null);
     setActiveModules([]);
     router.push("/login");

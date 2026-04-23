@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "@/i18n/routing";
 import { useTranslations } from "next-intl";
+import Cookies from "js-cookie";
 import { useAppStore } from "@/lib/store/useAppStore";
 import { useUsersStore } from "@/lib/store/useUsersStore";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,7 @@ export default function LoginPage() {
     
     // Simulate network delay
     setTimeout(() => {
+      Cookies.set("auth-token", selectedMock.id, { expires: 1 });
       setUser({
         id: selectedMock.id,
         fullName: selectedMock.fullName,
