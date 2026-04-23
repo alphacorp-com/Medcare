@@ -17,7 +17,7 @@
     "active": "Actif",
     "disabled": "Désactivé",
     "tenant_env": "Environnement Tenant",
-    "main_network": "Réseau Hospitalier Principal",
+    "hospital_name": "Hopital Général de Foumbot",
     "actions": "Actions",
     "save": "Enregistrer",
     "cancel": "Annuler",

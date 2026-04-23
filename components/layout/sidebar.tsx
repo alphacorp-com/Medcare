@@ -1,7 +1,7 @@
 "use client";
 
-import {Link, usePathname} from "@/i18n/routing";
-import {useTranslations} from "next-intl";
+import { Link, usePathname } from "@/i18n/routing";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/store/useAppStore";
 import {
@@ -48,7 +48,7 @@ export function Sidebar() {
         {navigation.map((item) => {
           const isEnabled = !item.module || hasModule(item.module);
           const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
-          
+
           if (!isEnabled) {
             return (
               <div key={item.name} className="flex items-center justify-between px-4 py-2 text-slate-400 opacity-50 cursor-not-allowed">
@@ -67,8 +67,8 @@ export function Sidebar() {
               href={item.href}
               className={cn(
                 "flex items-center justify-between px-4 py-2",
-                isActive 
-                  ? "bg-slate-800 text-white border-l-4 border-blue-500 pl-3" 
+                isActive
+                  ? "bg-slate-800 text-white border-l-4 border-blue-500 pl-3"
                   : "text-slate-400 hover:text-white hover:bg-slate-800 border-l-4 border-transparent pl-3"
               )}
             >
@@ -81,7 +81,7 @@ export function Sidebar() {
           );
         })}
         <div className="px-4 mt-6 mb-2 text-[10px] uppercase tracking-widest text-slate-500 font-semibold">{t('administrative')}</div>
-        
+
         {hasModule('MODULE_BILLING') ? (
           <Link href="/billing" className={cn("flex items-center justify-between px-4 py-2 hover:bg-slate-800 border-l-4 pl-3", pathname.startsWith('/billing') ? "bg-slate-800 text-white border-blue-500" : "text-slate-400 hover:text-white border-transparent")}>
             <div className="flex items-center gap-3 truncate">
@@ -100,6 +100,24 @@ export function Sidebar() {
           </div>
         )}
 
+        {hasModule('MODULE_PLANNING') ? (
+          <Link href="/planning" className={cn("flex items-center justify-between px-4 py-2 hover:bg-slate-800 border-l-4 pl-3", pathname.startsWith('/planning') ? "bg-slate-800 text-white border-blue-500" : "text-slate-400 hover:text-white border-transparent")}>
+            <div className="flex items-center gap-3 truncate">
+              <CalendarDays className="h-4 w-4 shrink-0" />
+              <span className="text-sm truncate">{t('planning')}</span>
+            </div>
+            <span className="shrink-0 ml-2 px-1.5 py-0.5 bg-green-500/20 text-green-400 text-[9px] rounded uppercase">{t('active')}</span>
+          </Link>
+        ) : (
+          <div className="flex items-center justify-between px-4 py-2 text-slate-400 opacity-50 cursor-not-allowed">
+            <div className="flex items-center gap-3 truncate pl-3">
+              <CalendarDays className="h-4 w-4 shrink-0" />
+              <span className="text-sm italic truncate">{t('planning')}</span>
+            </div>
+            <span className="shrink-0 ml-2 px-1.5 py-0.5 bg-slate-700 text-slate-500 text-[9px] rounded uppercase">{t('disabled')}</span>
+          </div>
+        )}
+
         <Link href="/settings" className={cn("flex items-center justify-between px-4 py-2 hover:bg-slate-800 border-l-4 pl-3", pathname.startsWith('/settings') ? "bg-slate-800 text-white border-blue-500" : "text-slate-400 hover:text-white border-transparent")}>
           <div className="flex items-center gap-3 truncate">
             <Settings className="h-4 w-4 shrink-0" />
@@ -109,7 +127,7 @@ export function Sidebar() {
       </nav>
       <div className="p-4 bg-slate-950 shrink-0">
         <div className="text-[10px] text-slate-500">{t('tenant_env')}</div>
-        <div className="text-xs text-white font-medium truncate">{t('main_network')}</div>
+        <div className="text-xs text-white font-medium truncate">{t('hospital_name')}</div>
       </div>
     </aside>
   );
