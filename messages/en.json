@@ -56,6 +56,7 @@
     "title": "Title",
     "author": "Author",
     "date_prescribed": "Date Prescribed",
+    "discharge_date": "Discharge Date",
     "medication": "Medication",
     "dispense_history": "Dispense History",
     "test_id": "Test ID",
@@ -165,7 +166,7 @@
     "contact_info": "Contact Information",
     "emergency_contact": "Emergency Contact",
     "relationship": "Relationship",
-    "save_record": "Save Patient Record",
+    "save_patient_record": "Save Patient Record",
     "showing_total": "Showing {count} total patients",
     "module_desc": "The patient management module is not active for your role, or has been disabled across the environment.",
     "medical_records": "Medical Records",
@@ -186,7 +187,19 @@
     "no_laboratory_tests": "No laboratory tests on file",
     "no_imaging_studies": "No imaging studies on file",
     "no_billing_records": "No billing records on file",
+    "add_medical_record": "Add Medical Record",
     "relation_other": "Other"
+  },
+  "record": {
+    "new_medical_record": "New Medical Record",
+    "new_medical_record_desc": "Add a new medical record for this patient.",
+    "record_type": "Type",
+    "record_title": "Title (Optional)",
+    "record_content": "Content",
+    "link_to_stay": "Link to Stay (Optional)",
+    "author_uuid": "Author UUID",
+    "sign_record": "Sign this record",
+    "save_record": "Save Record"
   },
   "pharmacy": {
     "title": "Pharmacy & Stock",
@@ -341,6 +354,16 @@
     "chief_complaint": "Chief Complaint",
     "arrival_mode": "Arrival Mode",
     "queue_status": "Showing {count} of {total} patients in active queue",
+    "attending_doctor": "Attending doctor",
+    "unassigned": "Unassigned",
+    "patient": "Patient",
+    "admission_type": "Admission Type",
+    "type_emergency": "Emergency",
+    "type_scheduled": "Scheduled",
+    "type_day_care": "Day Hospitalization",
+    "type_outpatient": "Outpatient Consultation",
+    "assigned_department": "Assigned Department",
+    "bed": "Lit",
     "module_desc": "The Admission & Triage module is not active for your role, or has been disabled across the environment."
   },
   "roles": {
