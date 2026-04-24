@@ -185,6 +185,8 @@ function describePrescription(items: unknown): string {
 export default function PatientDetailPage() {
   const t = useTranslations('patients');
   const tc = useTranslations('common');
+  const trec = useTranslations('record');
+  const tad = useTranslations('admissions');
   const trx = useTranslations('pharmacy');
   const trad = useTranslations('radiology');
   const params = useParams();
@@ -691,7 +693,7 @@ export default function PatientDetailPage() {
               <TabsContent value="records" className="m-0 border-none outline-none">
                 <div className="flex justify-end p-2 border-b border-slate-100">
                   <Button size="sm" className="h-8 text-xs bg-blue-600 hover:bg-blue-700 text-white" onClick={openRecordSheet}>
-                    + {t('add_medical_record') || 'Add Medical Record'}
+                    + {t('add_medical_record')}
                   </Button>
                 </div>
                 <table className="w-full text-left">
@@ -1007,7 +1009,7 @@ export default function PatientDetailPage() {
           <SheetFooter className="p-4 border-t border-slate-200 bg-white shrink-0 shadow-[0_-4px_6px_-1px_rgb(0,0,0,0.05)]">
             <Button variant="outline" className="text-xs h-8" onClick={() => setIsEditOpen(false)} disabled={saving}>{tc('cancel')}</Button>
             <Button className="text-xs h-8 bg-blue-600 hover:bg-blue-700" onClick={handleSaveEdit} disabled={saving}>
-              {saving ? "Saving..." : t('save_record')}
+              {saving ? "Saving..." : tad('new_admission')}
             </Button>
           </SheetFooter>
         </SheetContent>
@@ -1027,7 +1029,7 @@ export default function PatientDetailPage() {
              )}
              
              <div className="space-y-1">
-               <label className="text-[10px] font-bold text-slate-500 uppercase">{tc('patient')}</label>
+               <label className="text-[10px] font-bold text-slate-500 uppercase">{tad('patient')}</label>
                <div className="h-8 px-3 py-1.5 bg-slate-100 border border-slate-200 rounded text-xs text-slate-700">
                  {patient.firstName} {patient.lastName} ({patient.ipp})
                </div>
@@ -1074,13 +1076,13 @@ export default function PatientDetailPage() {
              </div>
 
              <div className="space-y-1">
-               <label className="text-[10px] font-bold text-slate-500 uppercase">{tc('attending_doctor')}</label>
+               <label className="text-[10px] font-bold text-slate-500 uppercase">{tad('attending_doctor')}</label>
                <select
                  value={stayForm.attendingDoctorId}
                  onChange={(e) => updateStayForm("attendingDoctorId", e.target.value)}
                  className="flex h-8 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-xs shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
                >
-                 <option value="">{tc('unassigned')}</option>
+                 <option value="">{tad('unassigned')}</option>
                  {doctors.map((d) => (
                    <option key={d.id} value={d.id}>
                      Dr. {d.fullName}{d.specialty ? ` — ${d.specialty}` : ""}
@@ -1104,7 +1106,7 @@ export default function PatientDetailPage() {
           <SheetFooter className="p-4 border-t border-slate-200 bg-white shrink-0 shadow-[0_-4px_6px_-1px_rgb(0,0,0,0.05)]">
             <Button variant="outline" className="text-xs h-8" onClick={() => setIsStayOpen(false)} disabled={savingStay}>{tc('cancel')}</Button>
             <Button className="text-xs h-8 bg-blue-600 hover:bg-blue-700" onClick={handleSaveStay} disabled={savingStay}>
-              {savingStay ? "Creating..." : tc('create')}
+              {savingStay ? "Creating..." : tc('save')}
             </Button>
           </SheetFooter>
         </SheetContent>
@@ -1112,9 +1114,9 @@ export default function PatientDetailPage() {
       <Sheet open={isRecordOpen} onOpenChange={setIsRecordOpen}>
         <SheetContent className="sm:max-w-md w-full right-0 p-0 flex flex-col bg-slate-50">
           <SheetHeader className="p-4 border-b border-slate-200 bg-white shrink-0">
-            <SheetTitle className="text-lg">New Medical Record</SheetTitle>
+            <SheetTitle className="text-lg">{trec('new_medical_record')}</SheetTitle>
             <SheetDescription className="text-xs">
-              Add a new medical record for this patient.
+              {trec('new_medical_record_desc')}
             </SheetDescription>
           </SheetHeader>
           <div className="p-4 flex-1 overflow-y-auto space-y-4">
@@ -1123,7 +1125,7 @@ export default function PatientDetailPage() {
             )}
             
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-500 uppercase">Type</label>
+              <label className="text-[10px] font-bold text-slate-500 uppercase">{trec('record_type')}</label>
               <select
                 value={recordForm.type}
                 onChange={(e) => updateRecordForm("type", e.target.value as NewMedRecordForm["type"])}
@@ -1140,7 +1142,7 @@ export default function PatientDetailPage() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-500 uppercase">Title (Optional)</label>
+              <label className="text-[10px] font-bold text-slate-500 uppercase">{trec('record_title')}</label>
               <Input
                 value={recordForm.title}
                 onChange={(e) => updateRecordForm("title", e.target.value)}
@@ -1150,7 +1152,7 @@ export default function PatientDetailPage() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-500 uppercase">Content</label>
+              <label className="text-[10px] font-bold text-slate-500 uppercase">{trec('record_content')}</label>
               <textarea
                 value={recordForm.content}
                 onChange={(e) => updateRecordForm("content", e.target.value)}
@@ -1160,7 +1162,7 @@ export default function PatientDetailPage() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-500 uppercase">Link to Stay (Optional)</label>
+              <label className="text-[10px] font-bold text-slate-500 uppercase">{trec('link_to_stay')}</label>
               <select
                 value={recordForm.stayId}
                 onChange={(e) => updateRecordForm("stayId", e.target.value)}
@@ -1174,7 +1176,7 @@ export default function PatientDetailPage() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-500 uppercase">Author UUID</label>
+              <label className="text-[10px] font-bold text-slate-500 uppercase">{trec('author_uuid')}</label>
               <Input
                 value={recordForm.authorId}
                 onChange={(e) => updateRecordForm("authorId", e.target.value)}
@@ -1191,14 +1193,14 @@ export default function PatientDetailPage() {
                 className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
               />
               <label htmlFor="isSigned" className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                Sign this record
+                {trec('sign_record')}
               </label>
             </div>
           </div>
           <SheetFooter className="p-4 border-t border-slate-200 bg-white shrink-0 shadow-[0_-4px_6px_-1px_rgb(0,0,0,0.05)]">
             <Button variant="outline" className="text-xs h-8" onClick={() => setIsRecordOpen(false)} disabled={savingRecord}>{tc('cancel')}</Button>
             <Button className="text-xs h-8 bg-blue-600 hover:bg-blue-700" onClick={handleSaveRecord} disabled={savingRecord || !recordForm.content || !recordForm.authorId}>
-              {savingRecord ? "Saving..." : "Save Record"}
+              {savingRecord ? "Saving..." : trec('save_record')}
             </Button>
           </SheetFooter>
         </SheetContent>

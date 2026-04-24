@@ -285,7 +285,7 @@ export default function AdmissionsPage() {
               <thead>
                 <tr className="bg-slate-50 text-[10px] text-slate-500 uppercase font-bold border-b border-slate-200 sticky top-0 z-10">
                   <th className="px-4 py-2">{t("stay_number")}</th>
-                  <th className="px-4 py-2">{tc("patient")}</th>
+                  <th className="px-4 py-2">{t("patient")}</th>
                   <th className="px-4 py-2">{tc("type")}</th>
                   <th className="px-4 py-2">{tc("admission_date")}</th>
                   <th className="px-4 py-2">{tc("discharge_date")}</th>
@@ -407,7 +407,7 @@ export default function AdmissionsPage() {
 
             {/* Patient */}
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-500 uppercase">{tc("patient")}</label>
+              <label className="text-[10px] font-bold text-slate-500 uppercase">{t("patient")}</label>
               <PatientSearchAutocomplete
                 className="h-8 text-xs bg-white border-slate-200"
                 onSelect={(patient: any) => updateStayForm("patientId", patient.id)}
@@ -423,7 +423,7 @@ export default function AdmissionsPage() {
                 {t("admission_type")}
               </label>
               <select
-                value={stayForm.type}
+                value={stayForm.type} 
                 onChange={(e) => updateStayForm("type", e.target.value as NewStayForm["type"])}
                 className="flex h-8 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-xs shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
               >
@@ -469,14 +469,14 @@ export default function AdmissionsPage() {
             {/* Attending Doctor */}
             <div className="space-y-1">
               <label className="text-[10px] font-bold text-slate-500 uppercase">
-                {tc("attending_doctor")}
+                {t("attending_doctor")}
               </label>
               <select
                 value={stayForm.attendingDoctorId}
                 onChange={(e) => updateStayForm("attendingDoctorId", e.target.value)}
                 className="flex h-8 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-xs shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
               >
-                <option value="">{tc("unassigned")}</option>
+                <option value="">{t("unassigned")}</option>
                 {doctors.map((d) => (
                   <option key={d.id} value={d.id}>
                     Dr. {d.fullName}{d.specialty ? ` — ${d.specialty}` : ""}
@@ -488,7 +488,7 @@ export default function AdmissionsPage() {
             {/* Bed ID (free text until beds API) */}
             <div className="space-y-1">
               <label className="text-[10px] font-bold text-slate-500 uppercase">
-                Bed ID <span className="text-slate-400 normal-case font-normal">(UUID)</span>
+                {t("bed")} <span className="text-slate-400 normal-case font-normal">(UUID)</span>
               </label>
               <Input
                 value={stayForm.bedId}
@@ -512,7 +512,7 @@ export default function AdmissionsPage() {
               onClick={handleSaveStay}
               disabled={savingStay || !stayForm.patientId}
             >
-              {savingStay ? "Creating..." : tc("create")}
+              {savingStay ? "Creating..." : t("create")}
             </Button>
           </SheetFooter>
         </SheetContent>
