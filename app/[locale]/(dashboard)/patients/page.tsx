@@ -1,25 +1,68 @@
 "use client";
 
 import { useAppStore } from "@/lib/store/useAppStore";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Search, Plus, Filter, UserPlus, Printer, Download, Mail, Activity } from "lucide-react";
+import { Search, Filter, UserPlus, Printer, Download } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useRouter } from "@/i18n/routing";
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import { useTranslations } from "next-intl";
 
-// Stub data
-const patients = [
-  { id: "PAT-001", ipp: "100000123", name: "John Doe", gender: "M", dob: "1980-05-15", status: "Active" },
-  { id: "PAT-002", ipp: "100000124", name: "Jane Smith", gender: "F", dob: "1992-11-20", status: "Discharged" },
-  { id: "PAT-003", ipp: "100000125", name: "Alice Johnson", gender: "F", dob: "1975-02-03", status: "Active" },
-  { id: "PAT-004", ipp: "100000126", name: "Bob Brown", gender: "M", dob: "2001-08-30", status: "Transfer" },
-  { id: "PAT-005", ipp: "100000127", name: "Charlie Davis", gender: "M", dob: "1960-12-10", status: "Active" },
-];
+type PatientRow = {
+  id: string;
+  ipp: string;
+  firstName: string;
+  lastName: string;
+  gender: "M" | "F" | "U";
+  birthDate: string;
+  bloodGroup: string | null;
+  phone: string | null;
+  email: string | null;
+  isDeceased: boolean;
+  createdAt: string;
+};
+
+type NewPatientForm = {
+  firstName: string;
+  lastName: string;
+  birthDate: string;
+  gender: "" | "M" | "F" | "U";
+  nss: string;
+  bloodGroup: string;
+  phone: string;
+  email: string;
+  address: string;
+  emergencyName: string;
+  emergencyRelation: string;
+  emergencyPhone: string;
+};
+
+const EMPTY_FORM: NewPatientForm = {
+  firstName: "",
+  lastName: "",
+  birthDate: "",
+  gender: "",
+  nss: "",
+  bloodGroup: "",
+  phone: "",
+  email: "",
+  address: "",
+  emergencyName: "",
+  emergencyRelation: "",
+  emergencyPhone: "",
+};
+
+function ageFromBirthDate(iso: string): number {
+  const b = new Date(iso);
+  const now = new Date();
+  let age = now.getFullYear() - b.getFullYear();
+  const m = now.getMonth() - b.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < b.getDate())) age--;
+  return age;
+}
 
 export default function PatientsPage() {
   const hasModule = useAppStore((state) => state.hasModule);
@@ -29,24 +72,135 @@ export default function PatientsPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [isNewPatientOpen, setIsNewPatientOpen] = useState(false);
 
+  const [patients, setPatients] = useState<PatientRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [searchInput, setSearchInput] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"active" | "deceased">("active");
+  const [pendingStatus, setPendingStatus] = useState<"active" | "deceased">("active");
+
+  const [form, setForm] = useState<NewPatientForm>(EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Debounce the search input
+  useEffect(() => {
+    const handle = setTimeout(() => setSearchQuery(searchInput.trim()), 300);
+    return () => clearTimeout(handle);
+  }, [searchInput]);
+
+  const fetchPatients = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const url = new URL("/api/v1/patients", window.location.origin);
+      if (searchQuery) url.searchParams.set("q", searchQuery);
+      url.searchParams.set("status", statusFilter);
+      const res = await fetch(url.toString());
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error ?? "Failed to load");
+      setPatients(json.data as PatientRow[]);
+      setTotal(json.total as number);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load patients");
+      setPatients([]);
+      setTotal(0);
+    } finally {
+      setLoading(false);
+    }
+  }, [searchQuery, statusFilter]);
+
+  useEffect(() => {
+    fetchPatients();
+  }, [fetchPatients]);
+
   const handleExportCSV = () => {
-     let csvContent = [
+    const csvContent: string[][] = [
       [`Organization: ${tc('app_name')}`, "123 Health Ave", "", ""],
       [""],
-      [tc('ipp'), tc('name'), tc('gender'), tc('dob'), tc('status')]
-     ];
-     patients.forEach(p => {
-       csvContent.push([p.ipp, `"${p.name}"`, p.gender, p.dob, p.status]);
-     });
-     const blob = new Blob([csvContent.map(e => e.join(",")).join("\n")], { type: 'text/csv;charset=utf-8;' });
-     const link = document.createElement("a");
-     link.href = URL.createObjectURL(blob);
-     link.download = `patient_directory_export_${format(new Date(), 'yyyyMMdd')}.csv`;
-     link.click();
+      [tc('ipp'), tc('name'), tc('gender'), tc('dob'), tc('status')],
+    ];
+    patients.forEach((p) => {
+      csvContent.push([
+        p.ipp,
+        `"${p.lastName} ${p.firstName}"`,
+        p.gender,
+        format(new Date(p.birthDate), "yyyy-MM-dd"),
+        p.isDeceased ? "Deceased" : "Active",
+      ]);
+    });
+    const blob = new Blob([csvContent.map((e) => e.join(",")).join("\n")], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `patient_directory_export_${format(new Date(), 'yyyyMMdd')}.csv`;
+    link.click();
   };
 
   const handlePrint = () => {
-      window.print();
+    window.print();
+  };
+
+  const applyFilters = () => {
+    setStatusFilter(pendingStatus);
+  };
+
+  const clearFilters = () => {
+    setPendingStatus("active");
+    setStatusFilter("active");
+    setShowFilters(false);
+  };
+
+  const updateForm = <K extends keyof NewPatientForm>(key: K, value: NewPatientForm[K]) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const canSubmit = useMemo(
+    () => form.firstName && form.lastName && form.birthDate && form.gender,
+    [form],
+  );
+
+  const handleSave = async () => {
+    if (!canSubmit || saving) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const payload = {
+        firstName: form.firstName,
+        lastName: form.lastName,
+        birthDate: form.birthDate,
+        gender: form.gender,
+        nss: form.nss || null,
+        bloodGroup: form.bloodGroup || null,
+        phone: form.phone || null,
+        email: form.email || null,
+        address: form.address || null,
+        emergencyContact:
+          form.emergencyName || form.emergencyPhone
+            ? {
+                name: form.emergencyName,
+                relation: form.emergencyRelation,
+                phone: form.emergencyPhone,
+              }
+            : {},
+      };
+      const res = await fetch("/api/v1/patients", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error ?? "Failed to save");
+      setIsNewPatientOpen(false);
+      setForm(EMPTY_FORM);
+      await fetchPatients();
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : "Failed to save patient");
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (!hasModule('MODULE_CORE_PATIENT')) {
@@ -91,25 +245,29 @@ export default function PatientsPage() {
                 <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-slate-400" />
                 <Input
                   type="search"
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
                   placeholder={t('search_placeholder')}
                   className="pl-8 h-8 text-xs bg-white border-slate-200 focus:border-blue-400"
                 />
               </div>
            </div>
-           
+
            {showFilters && (
              <div className="flex flex-wrap items-center gap-3 pt-2 mt-1 border-t border-slate-200/60">
                <div className="flex items-center gap-2">
                  <label className="text-[10px] font-bold text-slate-500 uppercase">{tc('status')}:</label>
-                 <select className="h-7 text-xs bg-white border border-slate-200 rounded px-2 outline-none focus:border-blue-400 text-slate-700">
-                   <option>{tc('all')}</option>
-                   <option>Active</option>
-                   <option>Discharged</option>
-                   <option>Transfer</option>
+                 <select
+                   value={pendingStatus}
+                   onChange={(e) => setPendingStatus(e.target.value as "active" | "deceased")}
+                   className="h-7 text-xs bg-white border border-slate-200 rounded px-2 outline-none focus:border-blue-400 text-slate-700"
+                 >
+                   <option value="active">{tc('status_active')}</option>
+                   <option value="deceased">Deceased</option>
                  </select>
                </div>
-               <Button size="sm" variant="secondary" className="h-7 text-xs ml-auto">{t('apply_filters')}</Button>
-               <Button size="sm" variant="ghost" className="h-7 text-xs text-slate-500" onClick={() => setShowFilters(false)}>{t('clear')}</Button>
+               <Button size="sm" variant="secondary" className="h-7 text-xs ml-auto" onClick={applyFilters}>{t('apply_filters')}</Button>
+               <Button size="sm" variant="ghost" className="h-7 text-xs text-slate-500" onClick={clearFilters}>{t('clear')}</Button>
              </div>
            )}
         </div>
@@ -126,30 +284,53 @@ export default function PatientsPage() {
               </tr>
             </thead>
             <tbody className="text-xs divide-y divide-slate-100">
-              {patients.map((patient) => (
-                <tr 
-                  key={patient.id} 
+              {loading && (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={`skeleton-${i}`} className="animate-pulse">
+                    <td className="px-4 py-3"><div className="h-3 bg-slate-200 rounded w-24" /></td>
+                    <td className="px-4 py-3"><div className="h-3 bg-slate-200 rounded w-40" /></td>
+                    <td className="px-4 py-3"><div className="h-3 bg-slate-200 rounded w-6" /></td>
+                    <td className="px-4 py-3"><div className="h-3 bg-slate-200 rounded w-24" /></td>
+                    <td className="px-4 py-3"><div className="h-3 bg-slate-200 rounded w-16" /></td>
+                    <td className="px-4 py-3"><div className="h-3 bg-slate-200 rounded w-10 ml-auto" /></td>
+                  </tr>
+                ))
+              )}
+              {!loading && error && (
+                <tr>
+                  <td colSpan={6} className="px-4 py-8 text-center text-red-600 text-xs">{error}</td>
+                </tr>
+              )}
+              {!loading && !error && patients.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-4 py-8 text-center text-slate-500 text-xs">
+                    {t('no_patients_found') || "No patients found"}
+                  </td>
+                </tr>
+              )}
+              {!loading && !error && patients.map((patient) => (
+                <tr
+                  key={patient.id}
                   className="hover:bg-blue-50/50 cursor-pointer"
                   onClick={() => router.push(`/patients/${patient.id}`)}
                 >
                   <td className="px-4 py-2 font-mono text-slate-600">{patient.ipp}</td>
-                  <td className="px-4 py-2 font-medium text-slate-900">{patient.name}</td>
+                  <td className="px-4 py-2 font-medium text-slate-900">{patient.lastName} {patient.firstName}</td>
                   <td className="px-4 py-2">{patient.gender}</td>
-                  <td className="px-4 py-2">{patient.dob}</td>
+                  <td className="px-4 py-2">
+                    {format(new Date(patient.birthDate), "yyyy-MM-dd")}
+                    <span className="text-slate-400 ml-1">({ageFromBirthDate(patient.birthDate)}y)</span>
+                  </td>
                   <td className="px-4 py-2">
                     <span className={cn(
                        "px-2 py-0.5 text-[10px] rounded uppercase font-semibold",
-                       patient.status === 'Active' ? "bg-green-100 text-green-700" :
-                       patient.status === 'Transfer' ? "bg-yellow-100 text-yellow-700" :
-                       "bg-slate-100 text-slate-600"
+                       patient.isDeceased ? "bg-slate-200 text-slate-700" : "bg-green-100 text-green-700"
                     )}>
-                      {patient.status === 'Active' ? tc('status_active') : 
-                       patient.status === 'Transfer' ? tc('status_transfer') : 
-                       tc('status_discharged')}
+                      {patient.isDeceased ? "Deceased" : tc('status_active')}
                     </span>
                   </td>
                   <td className="px-4 py-2 text-right">
-                    <button 
+                    <button
                       className="text-blue-600 hover:text-blue-800 font-semibold px-2 py-1 rounded hover:bg-blue-50"
                       onClick={(e) => {
                         e.stopPropagation();
@@ -165,7 +346,7 @@ export default function PatientsPage() {
           </table>
         </div>
         <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-between items-center text-[11px] text-slate-500 shrink-0">
-          <span>{t('showing_total', { count: patients.length })}</span>
+          <span>{t('showing_total', { count: total })}</span>
         </div>
       </div>
 
@@ -178,32 +359,39 @@ export default function PatientsPage() {
             </SheetDescription>
           </SheetHeader>
           <div className="p-4 flex-1 overflow-y-auto space-y-6">
+             {saveError && (
+               <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded p-2">{saveError}</div>
+             )}
              {/* Demographics */}
              <div className="space-y-3">
                <h4 className="text-[11px] font-bold text-slate-900 uppercase border-b border-slate-200 pb-1">{t('demographics')}</h4>
                <div className="grid grid-cols-2 gap-3">
                  <div className="space-y-1">
                    <label className="text-[10px] font-bold text-slate-500 uppercase">{t('first_name')} *</label>
-                   <Input placeholder="eg. John" className="h-8 text-xs bg-white border-slate-200 focus:border-blue-400" />
+                   <Input value={form.firstName} onChange={(e) => updateForm("firstName", e.target.value)} placeholder="eg. John" className="h-8 text-xs bg-white border-slate-200 focus:border-blue-400" />
                  </div>
                  <div className="space-y-1">
                    <label className="text-[10px] font-bold text-slate-500 uppercase">{t('last_name')} *</label>
-                   <Input placeholder="eg. Doe" className="h-8 text-xs bg-white border-slate-200 focus:border-blue-400" />
+                   <Input value={form.lastName} onChange={(e) => updateForm("lastName", e.target.value)} placeholder="eg. Doe" className="h-8 text-xs bg-white border-slate-200 focus:border-blue-400" />
                  </div>
                </div>
-               
+
                <div className="grid grid-cols-2 gap-3">
                  <div className="space-y-1">
                    <label className="text-[10px] font-bold text-slate-500 uppercase">{tc('dob')} *</label>
-                   <Input type="date" className="h-8 text-xs bg-white border-slate-200 focus:border-blue-400 text-slate-700" />
+                   <Input type="date" value={form.birthDate} onChange={(e) => updateForm("birthDate", e.target.value)} className="h-8 text-xs bg-white border-slate-200 focus:border-blue-400 text-slate-700" />
                  </div>
                  <div className="space-y-1">
                    <label className="text-[10px] font-bold text-slate-500 uppercase">{tc('gender')} *</label>
-                   <select className="flex h-8 w-full items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-1 text-xs shadow-sm ring-offset-white focus:outline-none focus:ring-1 focus:ring-blue-400">
+                   <select
+                     value={form.gender}
+                     onChange={(e) => updateForm("gender", e.target.value as NewPatientForm["gender"])}
+                     className="flex h-8 w-full items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-1 text-xs shadow-sm ring-offset-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+                   >
                       <option value="">Select...</option>
-                      <option>{t('gender_male')}</option>
-                      <option>{t('gender_female')}</option>
-                      <option>{t('gender_other')}</option>
+                      <option value="M">{t('gender_male')}</option>
+                      <option value="F">{t('gender_female')}</option>
+                      <option value="U">{t('gender_other')}</option>
                    </select>
                  </div>
                </div>
@@ -211,16 +399,20 @@ export default function PatientsPage() {
                <div className="grid grid-cols-2 gap-3">
                  <div className="space-y-1">
                    <label className="text-[10px] font-bold text-slate-500 uppercase">{t('ssn')}</label>
-                   <Input placeholder="Optional" className="h-8 text-xs bg-white border-slate-200 focus:border-blue-400 font-mono" />
+                   <Input value={form.nss} onChange={(e) => updateForm("nss", e.target.value)} placeholder="Optional" className="h-8 text-xs bg-white border-slate-200 focus:border-blue-400 font-mono" />
                  </div>
                  <div className="space-y-1">
                    <label className="text-[10px] font-bold text-slate-500 uppercase">{t('blood_group')}</label>
-                   <select className="flex h-8 w-full items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-1 text-xs shadow-sm ring-offset-white focus:outline-none focus:ring-1 focus:ring-blue-400">
+                   <select
+                     value={form.bloodGroup}
+                     onChange={(e) => updateForm("bloodGroup", e.target.value)}
+                     className="flex h-8 w-full items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-1 text-xs shadow-sm ring-offset-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+                   >
                       <option value="">Unknown</option>
-                      <option>O+</option><option>O-</option>
-                      <option>A+</option><option>A-</option>
-                      <option>B+</option><option>B-</option>
-                      <option>AB+</option><option>AB-</option>
+                      <option value="O+">O+</option><option value="O-">O-</option>
+                      <option value="A+">A+</option><option value="A-">A-</option>
+                      <option value="B+">B+</option><option value="B-">B-</option>
+                      <option value="AB+">AB+</option><option value="AB-">AB-</option>
                    </select>
                  </div>
                </div>
@@ -231,17 +423,19 @@ export default function PatientsPage() {
                <h4 className="text-[11px] font-bold text-slate-900 uppercase border-b border-slate-200 pb-1">{t('contact_info')}</h4>
                <div className="space-y-1">
                  <label className="text-[10px] font-bold text-slate-500 uppercase">{tc('phone')}</label>
-                 <Input type="tel" placeholder="+1 (555) 000-0000" className="h-8 text-xs bg-white border-slate-200 focus:border-blue-400" />
+                 <Input type="tel" value={form.phone} onChange={(e) => updateForm("phone", e.target.value)} placeholder="+237 6..." className="h-8 text-xs bg-white border-slate-200 focus:border-blue-400" />
                </div>
                <div className="space-y-1">
                  <label className="text-[10px] font-bold text-slate-500 uppercase">{tc('email')}</label>
-                 <Input type="email" placeholder="patient@example.com" className="h-8 text-xs bg-white border-slate-200 focus:border-blue-400" />
+                 <Input type="email" value={form.email} onChange={(e) => updateForm("email", e.target.value)} placeholder="patient@example.com" className="h-8 text-xs bg-white border-slate-200 focus:border-blue-400" />
                </div>
                <div className="space-y-1">
                  <label className="text-[10px] font-bold text-slate-500 uppercase">{tc('address')}</label>
-                 <textarea 
+                 <textarea
+                    value={form.address}
+                    onChange={(e) => updateForm("address", e.target.value)}
                     className="flex min-h-[60px] w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400"
-                    placeholder="123 Main St, City, Country"
+                    placeholder="Quartier, Ville, Pays"
                  />
                </div>
              </div>
@@ -252,29 +446,35 @@ export default function PatientsPage() {
                <div className="grid grid-cols-2 gap-3">
                  <div className="space-y-1">
                    <label className="text-[10px] font-bold text-slate-500 uppercase">{tc('name')}</label>
-                   <Input placeholder="Contact Name" className="h-8 text-xs bg-white border-slate-200 focus:border-blue-400" />
+                   <Input value={form.emergencyName} onChange={(e) => updateForm("emergencyName", e.target.value)} placeholder="Contact Name" className="h-8 text-xs bg-white border-slate-200 focus:border-blue-400" />
                  </div>
                  <div className="space-y-1">
                    <label className="text-[10px] font-bold text-slate-500 uppercase">{t('relationship')}</label>
-                   <select className="flex h-8 w-full items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-1 text-xs shadow-sm ring-offset-white focus:outline-none focus:ring-1 focus:ring-blue-400">
+                   <select
+                     value={form.emergencyRelation}
+                     onChange={(e) => updateForm("emergencyRelation", e.target.value)}
+                     className="flex h-8 w-full items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-1 text-xs shadow-sm ring-offset-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+                   >
                       <option value="">Select...</option>
-                      <option>Spouse</option>
-                      <option>Child</option>
-                      <option>Parent</option>
-                      <option>Sibling</option>
-                      <option>Other</option>
+                      <option value="Spouse">Spouse</option>
+                      <option value="Child">Child</option>
+                      <option value="Parent">Parent</option>
+                      <option value="Sibling">Sibling</option>
+                      <option value="Other">Other</option>
                    </select>
                  </div>
                </div>
                <div className="space-y-1">
                  <label className="text-[10px] font-bold text-slate-500 uppercase">{tc('phone')}</label>
-                 <Input type="tel" placeholder="+1..." className="h-8 text-xs bg-white border-slate-200 focus:border-blue-400" />
+                 <Input type="tel" value={form.emergencyPhone} onChange={(e) => updateForm("emergencyPhone", e.target.value)} placeholder="+237 6..." className="h-8 text-xs bg-white border-slate-200 focus:border-blue-400" />
                </div>
              </div>
           </div>
           <SheetFooter className="p-4 border-t border-slate-200 bg-white shrink-0 shadow-[0_-4px_6px_-1px_rgb(0,0,0,0.05)]">
-            <Button variant="outline" className="text-xs h-8" onClick={() => setIsNewPatientOpen(false)}>{tc('cancel')}</Button>
-            <Button className="text-xs h-8 bg-blue-600 hover:bg-blue-700">{t('save_record')}</Button>
+            <Button variant="outline" className="text-xs h-8" onClick={() => setIsNewPatientOpen(false)} disabled={saving}>{tc('cancel')}</Button>
+            <Button className="text-xs h-8 bg-blue-600 hover:bg-blue-700" onClick={handleSave} disabled={!canSubmit || saving}>
+              {saving ? "Saving..." : t('save_record')}
+            </Button>
           </SheetFooter>
         </SheetContent>
       </Sheet>

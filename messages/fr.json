@@ -160,6 +160,7 @@
     "relation_child": "Enfant",
     "relation_parent": "Parent",
     "relation_sibling": "Frère/Sœur",
+    "no_patients_found": "Aucun patient trouvé",
     "relation_other": "Autre"
   },
   "pharmacy": {
@@ -301,6 +302,8 @@
     "appointments": "Rendez-vous Programmés",
     "waiting_list": "Liste d'Attente",
     "reported": "Compte-rendu Fait",
+    "region": "Région à Imager",
+    "modality": "Modalité",
     "module_desc": "Le module Radiologie n'est pas actif pour votre rôle ou a été désactivé dans tout l'environnement."
   },
   "admissions": {

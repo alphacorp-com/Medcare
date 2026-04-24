@@ -160,6 +160,7 @@
     "relation_child": "Child",
     "relation_parent": "Parent",
     "relation_sibling": "Sibling",
+    "no_patients_found": "No patients found",
     "relation_other": "Other"
   },
   "pharmacy": {
@@ -301,6 +302,8 @@
     "appointments": "Scheduled Appointments",
     "waiting_list": "Waiting List",
     "reported": "Reported",
+    "region": "Region to Image",
+    "modality": "Modality",
     "module_desc": "The Radiology module is not active for your role, or has been disabled across the environment."
   },
   "admissions": {
