@@ -1,6 +1,19 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import type { StayStatus } from "@prisma/client";
+import type { StayStatus, StayType } from "@prisma/client";
+
+// Only accept valid UUIDs for FK fields; treat anything else as null
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const toUuid = (v: unknown): string | null =>
+  typeof v === "string" && UUID_RE.test(v) ? v : null;
+
+const STAY_STATUSES: StayStatus[] = [
+  "pre_admission",
+  "in_progress",
+  "discharged",
+  "transferred",
+  "deceased",
+];
 
 // ── GET /api/v1/patients/:id/stays ────────────────────────────────────────────
 // Query params:
@@ -27,6 +40,88 @@ export async function GET(
     console.error("[GET /api/v1/patients/:id/stays]", error);
     return NextResponse.json(
       { error: "Failed to fetch stays", success: false },
+      { status: 500 }
+    );
+  }
+}
+
+// ── POST /api/v1/patients/:id/stays ───────────────────────────────────────────
+// Body (all Stay model writable fields):
+//   type*         – StayType (emergency | scheduled | day_care | outpatient)
+//   status        – StayStatus (default: in_progress)
+//   admissionDate – ISO datetime (default: now)
+//   admissionReason
+//   dischargeDate – ISO datetime
+//   dischargeSummary
+//   pmsiCode
+//   pmsiValidated  – boolean (default false)
+//   departmentId   – UUID
+//   bedId          – UUID
+//   attendingDoctorId – UUID
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const body = await request.json();
+
+    const {
+      type,
+      status,
+      admissionDate,
+      admissionReason,
+      dischargeDate,
+      dischargeSummary,
+      pmsiCode,
+      pmsiValidated,
+      departmentId,
+      bedId,
+      attendingDoctorId,
+    } = body;
+
+    // ── Validate required fields ───────────────────────────────────────────
+    if (!type) {
+      return NextResponse.json(
+        { error: "type is required", success: false },
+        { status: 400 }
+      );
+    }
+
+    // Validate status enum if provided
+    const resolvedStatus: StayStatus =
+      status && STAY_STATUSES.includes(status as StayStatus)
+        ? (status as StayStatus)
+        : "in_progress";
+
+    // ── Generate stay number ───────────────────────────────────────────────
+    const count = await prisma.stay.count();
+    const stayNumber = `STAY${String(count + 1).padStart(6, "0")}`;
+
+    // ── Create ─────────────────────────────────────────────────────────────
+    const stay = await prisma.stay.create({
+      data: {
+        patientId: id,
+        stayNumber,
+        type: type as StayType,
+        status: resolvedStatus,
+        admissionDate: admissionDate ? new Date(admissionDate) : new Date(),
+        admissionReason: admissionReason || null,
+        dischargeDate: dischargeDate ? new Date(dischargeDate) : null,
+        dischargeSummary: dischargeSummary || null,
+        pmsiCode: pmsiCode || null,
+        pmsiValidated: typeof pmsiValidated === "boolean" ? pmsiValidated : false,
+        departmentId: toUuid(departmentId),
+        bedId: toUuid(bedId),
+        attendingDoctorId: toUuid(attendingDoctorId),
+      },
+    });
+
+    return NextResponse.json({ data: stay, success: true }, { status: 201 });
+  } catch (error) {
+    console.error("[POST /api/v1/patients/:id/stays]", error);
+    return NextResponse.json(
+      { error: "Failed to create stay", success: false },
       { status: 500 }
     );
   }
