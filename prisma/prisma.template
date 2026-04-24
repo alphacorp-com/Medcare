@@ -1,12 +1,11 @@
 generator client {
   provider        = "prisma-client-js"
-  previewFeatures = ["multiSchema", "views", "postgresqlExtensions"]
+  previewFeatures = ["multiSchema", "views"]
 }
 
 datasource db {
   provider = "postgresql"
   schemas  = ["public", "tenant_template"]
-  extensions = [uuidOssp(map: "uuid-ossp")]
 }
 
 // =============================================================================
