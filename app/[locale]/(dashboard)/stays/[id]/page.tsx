@@ -8,40 +8,32 @@ import { ArrowLeft, Clock, BedDouble, ArrowRightLeft, History, Activity, Stethos
 import { cn } from "@/lib/utils";
 import { Link } from "@/i18n/routing";
 import { useParams } from "next/navigation";
+import { useState, useEffect } from "react";
+import { format } from "date-fns";
 
-// Extended stub data simulating a fetched admission/stay
-const stayData = {
-  id: "STAY-001",
-  stayNumber: "ADM-2025-001",
-  patientName: "John Doe",
-  patientId: "PAT-001",
-  type: "Emergency",
-  priority: "2-EMR",
-  status: "In Progress",
-  admissionDate: "Oct 12, 2025 10:30 AM",
-  arrivalMode: "Ambulance",
-  complaint: "Patient reports severe chest pain radiating to left arm. Sweating profusely.",
-  department: "ICU",
-  bed: "ICU-04",
-  attendingPhysician: "Dr. S. Chen",
-  primaryNurse: "Nurse G. Lee",
-  vitals: {
-    hr: "110 bpm",
-    bp: "155/95 mmHg",
-    spo2: "94%",
-    temp: "37.2 °C"
-  },
-  timeline: [
-    { id: "T-01", time: "Oct 12, 10:30 AM", event: "Admission", desc: "Registered at ER Triage by Auto-Kiosk" },
-    { id: "T-02", time: "Oct 12, 10:35 AM", event: "Triage Assessment", desc: "Priority 2 assigned by Nurse G. Lee. Vitals taken." },
-    { id: "T-03", time: "Oct 12, 10:45 AM", event: "Physician Consult", desc: "Dr. S. Chen evaluated patient. ECG ordered." },
-    { id: "T-04", time: "Oct 12, 11:15 AM", event: "Bed Transfer", desc: "Moved from ER Bay 3 to ICU-04" },
-  ],
-  medications: [
-    { id: "M-01", time: "Oct 12, 10:50 AM", name: "Aspirin 324mg (Chewed)", adminBy: "Nurse G. Lee", status: "Administered" },
-    { id: "M-02", time: "Oct 12, 11:00 AM", name: "Nitroglycerin 0.4mg SL", adminBy: "Nurse G. Lee", status: "Administered" },
-    { id: "M-03", time: "Oct 12, 02:00 PM", name: "Heparin IV Drip (800 units/hr)", adminBy: "--", status: "Due" },
-  ]
+type StayDetail = {
+  id: string;
+  stayNumber: string;
+  type: string;
+  status: string;
+  admissionDate: string;
+  dischargeDate: string | null;
+  admissionReason: string | null;
+  dischargeSummary: string | null;
+  departmentId: string | null;
+  bedId: string | null;
+  attendingDoctorId: string | null;
+  pmsiCode: string | null;
+  pmsiValidated: boolean;
+  patient: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    ipp: string;
+    birthDate: string;
+  };
+  medicalRecords: any[];
+  prescriptions: any[];
 };
 
 export default function AdmissionDetailPage() {
@@ -50,8 +42,43 @@ export default function AdmissionDetailPage() {
   const tp = useTranslations('patients');
   const params = useParams();
   const id = params.id as string;
-  // Stub fetch
-  const stay = stayData;
+  const [stay, setStay] = useState<StayDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchStay = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(`/api/v1/stays/${id}`);
+        const json = await res.json();
+        if (!res.ok || !json.success) throw new Error(json.error ?? "Failed to fetch stay");
+        setStay(json.data as StayDetail);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Failed to fetch stay");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStay();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-slate-500 text-sm">Loading...</div>
+      </div>
+    );
+  }
+
+  if (error || !stay) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-red-500 text-sm">{error || "Stay not found"}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full space-y-4">
@@ -66,31 +93,25 @@ export default function AdmissionDetailPage() {
               <h1 className="text-xl font-bold text-slate-900">{stay.stayNumber}</h1>
               <span className={cn(
                   "px-2 py-0.5 text-[10px] rounded uppercase font-semibold",
-                  stay.status === 'In Progress' ? "bg-orange-100 text-orange-700" :
+                  stay.status === 'in_progress' ? "bg-orange-100 text-orange-700" :
+                  stay.status === 'discharged' ? "bg-green-100 text-green-700" :
                   "bg-slate-100 text-slate-600"
               )}>
-                {stay.status}
+                {stay.status.replace('_', ' ')}
               </span>
               <span className={cn(
                   "px-2 py-0.5 text-[10px] rounded uppercase font-semibold",
-                  stay.type === 'Emergency' ? "bg-red-100 text-red-700" :
-                  stay.type === 'Scheduled' ? "bg-blue-100 text-blue-700" :
+                  stay.type === 'emergency' ? "bg-red-100 text-red-700" :
+                  stay.type === 'scheduled' ? "bg-blue-100 text-blue-700" :
                   "bg-slate-100 text-slate-700"
               )}>
                 {stay.type}
               </span>
-              {stay.priority && (
-                 <span className="px-2 py-0.5 bg-orange-500 text-white text-[10px] rounded uppercase font-bold">
-                   {stay.priority}
-                 </span>
-              )}
             </div>
             <div className="text-xs text-slate-500 mt-1 flex items-center gap-3">
-              <span className="font-semibold text-slate-700">{tc('patient')}: {stay.patientName}</span>
+              <span className="font-semibold text-slate-700">{tc('patient')}: {stay.patient.firstName} {stay.patient.lastName}</span>
               <span>&bull;</span>
-              <span>{tc('date')}: {stay.admissionDate}</span>
-              <span>&bull;</span>
-              <span>Dr. {stay.attendingPhysician}</span>
+              <span>{tc('date')}: {format(new Date(stay.admissionDate), "MMM d, yyyy HH:mm")}</span>
             </div>
           </div>
         </div>
@@ -114,50 +135,43 @@ export default function AdmissionDetailPage() {
               <div>
                 <div className="text-[10px] text-slate-500 mb-0.5 flex items-center gap-1"><MapPin className="h-3 w-3" /> Location</div>
                 <div className="text-xs font-semibold text-slate-900 border border-slate-200 bg-slate-50 rounded px-2 py-1 mt-1 inline-block">
-                  {stay.department} <span className="text-slate-400">/</span> {stay.bed}
+                  {stay.departmentId || "Unassigned"} {stay.bedId && <><span className="text-slate-400">/</span> {stay.bedId}</>}
                 </div>
               </div>
               <div>
-                <div className="text-[10px] text-slate-500 mb-0.5">{t('arrival_mode')}</div>
-                <div className="text-xs font-semibold text-slate-900">{stay.arrivalMode}</div>
+                <div className="text-[10px] text-slate-500 mb-0.5">{t('chief_complaint')}</div>
+                <div className="text-xs font-semibold text-slate-900">{stay.admissionReason || "—"}</div>
               </div>
               <div>
-                <div className="text-[10px] text-slate-500 mb-0.5 flex items-center gap-1">Primary Care Team</div>
-                <div className="text-xs font-semibold text-slate-900">{stay.attendingPhysician}</div>
-                <div className="text-xs text-slate-600">Primary RN: {stay.primaryNurse}</div>
+                <div className="text-[10px] text-slate-500 mb-0.5 flex items-center gap-1">Attending Doctor</div>
+                <div className="text-xs font-semibold text-slate-900">{stay.attendingDoctorId || "Unassigned"}</div>
               </div>
             </div>
           </div>
 
-          <div className="bg-red-50 rounded border border-red-100 shadow-sm p-4">
-            <div className="text-[10px] font-bold text-red-800 uppercase tracking-widest mb-2 border-b border-red-200/50 pb-2">{t('chief_complaint')}</div>
-            <p className="text-xs text-red-900 font-medium leading-relaxed">&quot;{stay.complaint}&quot;</p>
-          </div>
+          {stay.dischargeSummary && (
+            <div className="bg-blue-50 rounded border border-blue-100 shadow-sm p-4">
+              <div className="text-[10px] font-bold text-blue-800 uppercase tracking-widest mb-2 border-b border-blue-200/50 pb-2">Discharge Summary</div>
+              <p className="text-xs text-blue-900 font-medium leading-relaxed">{stay.dischargeSummary}</p>
+            </div>
+          )}
 
-          <div className="bg-slate-900 text-white rounded border border-slate-800 shadow-sm p-4">
-            <div className="text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-3 flex items-center justify-between">
-              <span>Latest Vitals</span>
-              <span className="text-[9px] text-slate-500 font-normal">25m ago</span>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <div className="text-[10px] text-slate-500">Heart Rate</div>
-                <div className="text-sm font-bold text-red-400">{stay.vitals.hr}</div>
-              </div>
-              <div>
-                <div className="text-[10px] text-slate-500">Blood Pressure</div>
-                <div className="text-sm font-bold text-yellow-400">{stay.vitals.bp}</div>
-              </div>
-              <div>
-                <div className="text-[10px] text-slate-500">SpO2</div>
-                <div className="text-sm font-bold">{stay.vitals.spo2}</div>
-              </div>
-              <div>
-                <div className="text-[10px] text-slate-500">Temp</div>
-                <div className="text-sm font-bold">{stay.vitals.temp}</div>
+          {stay.pmsiCode && (
+            <div className="bg-slate-100 rounded border border-slate-200 shadow-sm p-4">
+              <div className="text-[10px] font-bold text-slate-800 uppercase tracking-widest mb-2 border-b border-slate-300/50 pb-2">PMSI Code</div>
+              <div className="flex items-center gap-2">
+                <span className={cn(
+                  "px-2 py-0.5 rounded text-[10px] font-semibold font-mono",
+                  stay.pmsiValidated ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
+                )}>
+                  {stay.pmsiCode}
+                </span>
+                {stay.pmsiValidated && (
+                  <span className="text-[10px] text-green-600 font-semibold">Validated</span>
+                )}
               </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Right Column: Multi-tab content */}
@@ -197,13 +211,18 @@ export default function AdmissionDetailPage() {
                     </tr>
                   </thead>
                   <tbody className="text-xs divide-y divide-slate-100">
-                    {stay.timeline.map((item) => (
-                      <tr key={item.id} className="hover:bg-slate-50">
-                        <td className="px-4 py-3 font-mono text-[10px] text-slate-500">{item.time}</td>
-                        <td className="px-4 py-3 font-semibold text-slate-800">{item.event}</td>
-                        <td className="px-4 py-3 text-slate-600">{item.desc}</td>
+                    <tr className="hover:bg-slate-50">
+                      <td className="px-4 py-3 font-mono text-[10px] text-slate-500">{format(new Date(stay.admissionDate), "MMM d, yyyy HH:mm")}</td>
+                      <td className="px-4 py-3 font-semibold text-slate-800">Admission</td>
+                      <td className="px-4 py-3 text-slate-600">Patient admitted</td>
+                    </tr>
+                    {stay.dischargeDate && (
+                      <tr className="hover:bg-slate-50">
+                        <td className="px-4 py-3 font-mono text-[10px] text-slate-500">{format(new Date(stay.dischargeDate), "MMM d, yyyy HH:mm")}</td>
+                        <td className="px-4 py-3 font-semibold text-slate-800">Discharge</td>
+                        <td className="px-4 py-3 text-slate-600">Patient discharged</td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
               </TabsContent>
@@ -219,19 +238,27 @@ export default function AdmissionDetailPage() {
                     </tr>
                   </thead>
                   <tbody className="text-xs divide-y divide-slate-100">
-                    {stay.medications.map((med) => (
-                      <tr key={med.id} className="hover:bg-slate-50">
-                        <td className="px-4 py-3 font-mono text-[10px] text-slate-500">{med.time}</td>
-                        <td className="px-4 py-3 font-semibold text-slate-900">{med.name}</td>
-                        <td className="px-4 py-3 text-slate-600">{med.adminBy}</td>
-                        <td className="px-4 py-3">
-                           <span className={cn("px-2 py-0.5 rounded text-[10px] uppercase font-semibold", 
-                            med.status === 'Administered' ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700")}>
-                            {med.status}
-                          </span>
+                    {stay.prescriptions.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="px-4 py-6 text-center text-slate-500 italic">
+                          No prescriptions on file.
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      stay.prescriptions.map((rx: any) => (
+                        <tr key={rx.id} className="hover:bg-slate-50">
+                          <td className="px-4 py-3 font-mono text-[10px] text-slate-500">{format(new Date(rx.prescribedAt), "MMM d, yyyy HH:mm")}</td>
+                          <td className="px-4 py-3 font-semibold text-slate-900">{rx.drug || rx.name || "Unknown"}</td>
+                          <td className="px-4 py-3 text-slate-600">{rx.prescriberId || "—"}</td>
+                          <td className="px-4 py-3">
+                             <span className={cn("px-2 py-0.5 rounded text-[10px] uppercase font-semibold", 
+                              rx.status === 'dispensed' ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700")}>
+                              {rx.status || "Pending"}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </TabsContent>

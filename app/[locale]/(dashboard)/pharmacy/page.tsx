@@ -11,25 +11,32 @@ import {
 import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import { useTranslations } from "next-intl";
 
-// Stub data
-const prescriptions = [
-  { id: "RX-001", patientName: "John Doe", prescriber: "Dr. Kelly", date: new Date(), status: "Validated", items: 2, ipp: "100000123" },
-  { id: "RX-002", patientName: "Charlie Davis", prescriber: "Dr. Smith", date: new Date(), status: "Pending Queue", items: 5, alert: true, ipp: "100000127" },
-  { id: "RX-003", patientName: "Alice Johnson", prescriber: "Dr. Kelly", date: new Date(Date.now() - 3600000), status: "Dispensed", items: 1, ipp: "100000125" },
-  { id: "RX-004", patientName: "Bob Brown", prescriber: "Dr. Davis", date: new Date(Date.now() - 7200000), status: "Pending Queue", items: 3, alert: false, ipp: "100000126" }
-];
+type PrescriptionRow = {
+  id: string;
+  patientName: string;
+  prescriber: string;
+  date: string;
+  status: string;
+  items: number;
+  itemsData: any[];
+  alert: boolean;
+  ipp: string;
+};
 
-const inventory = [
-  { id: "MED-001", name: "Amoxicillin 500mg Capsule", manufacturer: "PharmaCorp", category: "Antibiotic", stock: 1250, threshold: 500, unit: "capsules", status: "In Stock" },
-  { id: "MED-002", name: "Ibuprofen 400mg Tablet", manufacturer: "MediLife", category: "NSAID", stock: 4200, threshold: 1000, unit: "tablets", status: "In Stock" },
-  { id: "MED-003", name: "Metformin 500mg Tablet", manufacturer: "GlucoCare", category: "Antidiabetic", stock: 240, threshold: 500, unit: "tablets", status: "Low Stock" },
-  { id: "MED-004", name: "Salbutamol 100mcg Inhaler", manufacturer: "BreatheEasy", category: "Bronchodilator", stock: 15, threshold: 50, unit: "inhalers", status: "Low Stock" },
-  { id: "MED-005", name: "Omeprazole 20mg Capsule", manufacturer: "GastroHealth", category: "PPI", stock: 0, threshold: 200, unit: "capsules", status: "Out of Stock" }
-];
+type InventoryRow = {
+  id: string;
+  name: string;
+  manufacturer: string;
+  category: string;
+  stock: number;
+  threshold: number;
+  unit: string;
+  isActive: boolean;
+};
 
 export default function PharmacyPage() {
   const hasModule = useAppStore((state) => state.hasModule);
@@ -38,7 +45,16 @@ export default function PharmacyPage() {
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
   const [invSearch, setInvSearch] = useState("");
-  const [selectedRx, setSelectedRx] = useState<any>(null);
+  const [selectedRx, setSelectedRx] = useState<PrescriptionRow | null>(null);
+
+  const [prescriptions, setPrescriptions] = useState<PrescriptionRow[]>([]);
+  const [inventory, setInventory] = useState<InventoryRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const [isAddMedOpen, setIsAddMedOpen] = useState(false);
+  const [medForm, setMedForm] = useState({ name: '', manufacturer: '', category: '', stock: 0, threshold: 0, unit: '' });
+  const [savingMed, setSavingMed] = useState(false);
+
 
   if (!hasModule('MODULE_PHARMACY')) {
     return (
@@ -53,6 +69,26 @@ export default function PharmacyPage() {
       </div>
     );
   }
+
+  const fetchPrescriptions = async () => {
+    try {
+      const res = await fetch("/api/v1/pharmacy/prescriptions");
+      const json = await res.json();
+      if (json.success) setPrescriptions(json.data);
+    } catch (e) {}
+  };
+
+  const fetchInventory = async () => {
+    try {
+      const res = await fetch("/api/v1/pharmacy/inventory");
+      const json = await res.json();
+      if (json.success) setInventory(json.data);
+    } catch (e) {}
+  };
+
+  useEffect(() => {
+    Promise.all([fetchPrescriptions(), fetchInventory()]).finally(() => setLoading(false));
+  }, []);
 
   const filteredPrescriptions = prescriptions.filter(rx => {
     if (filter !== "All" && rx.status !== filter) return false;
@@ -75,7 +111,7 @@ export default function PharmacyPage() {
         <div className="flex gap-2">
            <Button variant="outline" size="sm" className="h-8 text-xs">{tc('print')}</Button>
            <Button variant="outline" size="sm" className="h-8 text-xs">{tc('export')}</Button>
-           <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white h-8 text-xs">
+           <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white h-8 text-xs" onClick={() => setIsAddMedOpen(true)}>
              <Plus className="mr-2 h-3 w-3" />
              {t('add_medication')}
            </Button>
@@ -240,7 +276,7 @@ export default function PharmacyPage() {
                   <Button variant="outline" size="sm" className="h-8 text-xs text-slate-700">
                     <Filter className="mr-2 h-3 w-3" /> {t('advanced_filters')}
                   </Button>
-                  <Button size="sm" className="bg-blue-600 hover:bg-blue-700 h-8 text-xs text-white">
+                  <Button size="sm" className="bg-blue-600 hover:bg-blue-700 h-8 text-xs text-white" onClick={() => setIsAddMedOpen(true)}>
                     <Plus className="mr-2 h-3 w-3" /> {t('add_medication')}
                   </Button>
                 </div>
@@ -280,7 +316,7 @@ export default function PharmacyPage() {
                            item.stock > 0 ? "bg-yellow-100 text-yellow-700" :
                            "bg-red-100 text-red-700"
                         )}>
-                          {item.status}
+                          {item.stock > item.threshold ? "In Stock" : item.stock > 0 ? "Low Stock" : "Out of Stock"}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right space-x-2">
@@ -383,13 +419,29 @@ export default function PharmacyPage() {
                           <Button variant="outline" className="text-xs h-8 border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800">
                             <X className="mr-2 h-3.5 w-3.5" /> {tc('cancel')}
                           </Button>
-                          <Button className="text-xs h-8 bg-blue-600 hover:bg-blue-700" onClick={() => { setSelectedRx({...selectedRx, status: 'Validated'}); }}>
+                          <Button className="text-xs h-8 bg-blue-600 hover:bg-blue-700" onClick={async () => { 
+                             await fetch(`/api/v1/pharmacy/prescriptions/${selectedRx.id}/status`, {
+                               method: 'PATCH',
+                               headers: { 'Content-Type': 'application/json' },
+                               body: JSON.stringify({ status: 'validated' })
+                             });
+                             fetchPrescriptions();
+                             setSelectedRx({...selectedRx, status: 'Validated'}); 
+                          }}>
                             <Check className="mr-2 h-3.5 w-3.5" /> {t('validate')}
                           </Button>
                         </>
                      )}
                      {selectedRx.status === 'Validated' && (
-                        <Button className="text-xs h-8 bg-green-600 hover:bg-green-700 text-white" onClick={() => { setSelectedRx({...selectedRx, status: 'Dispensed'}); }}>
+                        <Button className="text-xs h-8 bg-green-600 hover:bg-green-700 text-white" onClick={async () => { 
+                             await fetch(`/api/v1/pharmacy/prescriptions/${selectedRx.id}/status`, {
+                               method: 'PATCH',
+                               headers: { 'Content-Type': 'application/json' },
+                               body: JSON.stringify({ status: 'dispensed' })
+                             });
+                             fetchPrescriptions();
+                             setSelectedRx({...selectedRx, status: 'Dispensed'}); 
+                        }}>
                           <PillBottle className="mr-2 h-3.5 w-3.5" /> {t('dispense')}
                         </Button>
                      )}
@@ -402,6 +454,94 @@ export default function PharmacyPage() {
              </SheetFooter>
            </SheetContent>
         )}
+      </Sheet>
+
+      <Sheet open={isAddMedOpen} onOpenChange={setIsAddMedOpen}>
+        <SheetContent className="sm:max-w-md w-full right-0 p-0 flex flex-col bg-slate-50">
+          <SheetHeader className="p-4 border-b border-slate-200 bg-white shrink-0">
+            <SheetTitle className="text-lg">Add Medication</SheetTitle>
+            <SheetDescription className="text-xs">
+              Add a new medication to the pharmacy inventory.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="p-4 flex-1 overflow-y-auto space-y-4">
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-500 uppercase">{tc('name')}</label>
+              <Input
+                value={medForm.name}
+                onChange={(e) => setMedForm({ ...medForm, name: e.target.value })}
+                placeholder="e.g., Amoxicillin 500mg"
+                className="h-8 text-xs bg-white border-slate-200"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-500 uppercase">Manufacturer</label>
+              <Input
+                value={medForm.manufacturer}
+                onChange={(e) => setMedForm({ ...medForm, manufacturer: e.target.value })}
+                className="h-8 text-xs bg-white border-slate-200"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-500 uppercase">Category</label>
+              <Input
+                value={medForm.category}
+                onChange={(e) => setMedForm({ ...medForm, category: e.target.value })}
+                className="h-8 text-xs bg-white border-slate-200"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Initial Stock</label>
+                <Input
+                  type="number"
+                  value={medForm.stock}
+                  onChange={(e) => setMedForm({ ...medForm, stock: parseInt(e.target.value) || 0 })}
+                  className="h-8 text-xs bg-white border-slate-200"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Threshold</label>
+                <Input
+                  type="number"
+                  value={medForm.threshold}
+                  onChange={(e) => setMedForm({ ...medForm, threshold: parseInt(e.target.value) || 0 })}
+                  className="h-8 text-xs bg-white border-slate-200"
+                />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-500 uppercase">Unit (e.g., tablets)</label>
+              <Input
+                value={medForm.unit}
+                onChange={(e) => setMedForm({ ...medForm, unit: e.target.value })}
+                className="h-8 text-xs bg-white border-slate-200"
+              />
+            </div>
+          </div>
+          <SheetFooter className="p-4 border-t border-slate-200 bg-white shrink-0">
+            <Button variant="outline" className="text-xs h-8" onClick={() => setIsAddMedOpen(false)} disabled={savingMed}>{tc('cancel')}</Button>
+            <Button className="text-xs h-8 bg-blue-600 hover:bg-blue-700" disabled={savingMed || !medForm.name} onClick={async () => {
+              setSavingMed(true);
+              try {
+                const res = await fetch('/api/v1/pharmacy/inventory', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(medForm)
+                });
+                if (res.ok) {
+                  setIsAddMedOpen(false);
+                  setMedForm({ name: '', manufacturer: '', category: '', stock: 0, threshold: 0, unit: '' });
+                  fetchInventory();
+                }
+              } finally {
+                setSavingMed(false);
+              }
+            }}>
+              {savingMed ? 'Saving...' : tc('save')}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
       </Sheet>
     </div>
   );
