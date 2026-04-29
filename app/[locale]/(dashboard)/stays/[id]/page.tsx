@@ -130,12 +130,12 @@ export default function AdmissionDetailPage() {
         {/* Left Column: Triage & Bed Info */}
         <div className="col-span-3 flex flex-col gap-4 overflow-y-auto">
           <div className="bg-white rounded border border-slate-200 shadow-sm p-4">
-            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4 border-b border-slate-100 pb-2">Admission Details</div>
+            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4 border-b border-slate-100 pb-2">{t('admission_details')}</div>
             <div className="space-y-3">
               <div>
-                <div className="text-[10px] text-slate-500 mb-0.5 flex items-center gap-1"><MapPin className="h-3 w-3" /> Location</div>
+                <div className="text-[10px] text-slate-500 mb-0.5 flex items-center gap-1"><MapPin className="h-3 w-3" /> {t('location')}</div>
                 <div className="text-xs font-semibold text-slate-900 border border-slate-200 bg-slate-50 rounded px-2 py-1 mt-1 inline-block">
-                  {stay.departmentId || "Unassigned"} {stay.bedId && <><span className="text-slate-400">/</span> {stay.bedId}</>}
+                  {stay.departmentId || t('unassigned')} {stay.bedId && <><span className="text-slate-400">/</span> {stay.bedId}</>}
                 </div>
               </div>
               <div>
@@ -143,22 +143,22 @@ export default function AdmissionDetailPage() {
                 <div className="text-xs font-semibold text-slate-900">{stay.admissionReason || "—"}</div>
               </div>
               <div>
-                <div className="text-[10px] text-slate-500 mb-0.5 flex items-center gap-1">Attending Doctor</div>
-                <div className="text-xs font-semibold text-slate-900">{stay.attendingDoctorId || "Unassigned"}</div>
+                <div className="text-[10px] text-slate-500 mb-0.5 flex items-center gap-1">{t('attending_doctor_label')}</div>
+                <div className="text-xs font-semibold text-slate-900">{stay.attendingDoctorId || t('unassigned')}</div>
               </div>
             </div>
           </div>
 
           {stay.dischargeSummary && (
             <div className="bg-blue-50 rounded border border-blue-100 shadow-sm p-4">
-              <div className="text-[10px] font-bold text-blue-800 uppercase tracking-widest mb-2 border-b border-blue-200/50 pb-2">Discharge Summary</div>
+              <div className="text-[10px] font-bold text-blue-800 uppercase tracking-widest mb-2 border-b border-blue-200/50 pb-2">{t('discharge_summary')}</div>
               <p className="text-xs text-blue-900 font-medium leading-relaxed">{stay.dischargeSummary}</p>
             </div>
           )}
 
           {stay.pmsiCode && (
             <div className="bg-slate-100 rounded border border-slate-200 shadow-sm p-4">
-              <div className="text-[10px] font-bold text-slate-800 uppercase tracking-widest mb-2 border-b border-slate-300/50 pb-2">PMSI Code</div>
+              <div className="text-[10px] font-bold text-slate-800 uppercase tracking-widest mb-2 border-b border-slate-300/50 pb-2">{t('pmsi_code')}</div>
               <div className="flex items-center gap-2">
                 <span className={cn(
                   "px-2 py-0.5 rounded text-[10px] font-semibold font-mono",
@@ -167,7 +167,7 @@ export default function AdmissionDetailPage() {
                   {stay.pmsiCode}
                 </span>
                 {stay.pmsiValidated && (
-                  <span className="text-[10px] text-green-600 font-semibold">Validated</span>
+                  <span className="text-[10px] text-green-600 font-semibold">{t('validated')}</span>
                 )}
               </div>
             </div>
@@ -183,19 +183,19 @@ export default function AdmissionDetailPage() {
                   value="timeline" 
                   className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs"
                 >
-                  <History className="h-3.5 w-3.5 mr-2" /> Stay Timeline
+                  <History className="h-3.5 w-3.5 mr-2" /> {t('stay_timeline')}
                 </TabsTrigger>
                 <TabsTrigger 
                   value="medications" 
                   className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs"
                 >
-                  <Pill className="h-3.5 w-3.5 mr-2" /> Meds Administered
+                  <Pill className="h-3.5 w-3.5 mr-2" /> {t('meds_administered')}
                 </TabsTrigger>
                 <TabsTrigger 
                   value="orders" 
                   className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs"
                 >
-                  <Stethoscope className="h-3.5 w-3.5 mr-2" /> Doctor Orders
+                  <Stethoscope className="h-3.5 w-3.5 mr-2" /> {t('doctor_orders')}
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -206,8 +206,8 @@ export default function AdmissionDetailPage() {
                   <thead>
                     <tr className="bg-slate-50/50 text-[10px] text-slate-500 uppercase font-bold border-b border-slate-200">
                       <th className="px-4 py-2 w-32">{tc('time')}</th>
-                      <th className="px-4 py-2 w-48">Event</th>
-                      <th className="px-4 py-2">{tc('description')}</th>
+                      <th className="px-4 py-2 w-48">{t('event')}</th>
+                      <th className="px-4 py-2">{t('description')}</th>
                     </tr>
                   </thead>
                   <tbody className="text-xs divide-y divide-slate-100">
@@ -241,7 +241,7 @@ export default function AdmissionDetailPage() {
                     {stay.prescriptions.length === 0 ? (
                       <tr>
                         <td colSpan={4} className="px-4 py-6 text-center text-slate-500 italic">
-                          No prescriptions on file.
+                          {t('no_prescriptions')}
                         </td>
                       </tr>
                     ) : (
