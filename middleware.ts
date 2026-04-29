@@ -6,7 +6,7 @@ const handleI18nRouting = createMiddleware(routing);
 
 export default function middleware(request: NextRequest) {
   const {pathname} = request.nextUrl;
-  const token = request.cookies.get('auth-token');
+  const token = request.cookies.get('next-auth.session-token') || request.cookies.get('__Secure-next-auth.session-token');
 
   // Check if the page is public (login)
   const isPublicPage = pathname.endsWith('/login') || pathname.includes('/login/');
