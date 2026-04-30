@@ -11,6 +11,7 @@ import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
+import { PDFPreviewModal } from "@/components/templates/PDFPreviewModal";
 
 type EmergencyContact = { name?: string; relation?: string; phone?: string };
 
@@ -81,6 +82,7 @@ type StayRow = {
   status: string;
   admissionDate: string;
   dischargeDate: string | null;
+  admissionReason: string | null;
   dischargeSummary: string | null;
   pmsiCode: string | null;
   pmsiValidated: boolean;
@@ -246,6 +248,9 @@ export default function PatientDetailPage() {
   });
   const [savingStay, setSavingStay] = useState(false);
   const [stayError, setStayError] = useState<string | null>(null);
+
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [pdfData, setPdfData] = useState<any>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -480,6 +485,36 @@ export default function PatientDetailPage() {
     }
   };
 
+  const handleExportFile = () => {
+    if (!patient) return;
+
+    const data = {
+      patient: {
+        ipp: patient.ipp,
+        fullName: `${patient.firstName} ${patient.lastName}`,
+        dob: format(new Date(patient.birthDate), "dd/MM/yyyy"),
+        gender: patient.gender === "M" ? "Male" : patient.gender === "F" ? "Female" : "Other",
+        phone: patient.phone || "N/A",
+        address: patient.address || "N/A",
+        bloodGroup: patient.bloodGroup || "N/A",
+        allergies: Array.isArray(patient.allergies) ? patient.allergies : [],
+        chronicConditions: Array.isArray(patient.chronicConditions) ? patient.chronicConditions : []
+      },
+      medicalSummary: records.length > 0 
+        ? records[0].content.substring(0, 500) + (records[0].content.length > 500 ? "..." : "")
+        : "No recent medical notes available.",
+      recentVisits: stays.slice(0, 5).map(s => ({
+        date: format(new Date(s.admissionDate), "dd/MM/yyyy"),
+        type: s.type.charAt(0).toUpperCase() + s.type.slice(1),
+        reason: s.admissionReason || "N/A",
+        doctor: s.attendingDoctorId || "N/A"
+      }))
+    };
+
+    setPdfData(data);
+    setIsPreviewOpen(true);
+  };
+
   const age = ageFromBirthDate(patient.birthDate);
   const dobLabel = `${format(new Date(patient.birthDate), "yyyy-MM-dd")} (${age} y.o.)`;
 
@@ -515,6 +550,10 @@ export default function PatientDetailPage() {
           </div>
         </div>
         <div className="flex gap-2">
+           <Button variant="outline" size="sm" className="text-xs h-8 text-slate-600" onClick={handleExportFile}>
+             <FileText className="mr-2 h-3 w-3" />
+             {tc('export')}
+           </Button>
            <Button variant="outline" size="sm" className="text-xs h-8 text-slate-600" onClick={openEditSheet}>
              <Edit className="mr-2 h-3 w-3" />
              {tc('edit')}
@@ -1205,6 +1244,15 @@ export default function PatientDetailPage() {
           </SheetFooter>
         </SheetContent>
       </Sheet>
+
+      <PDFPreviewModal
+        isOpen={isPreviewOpen}
+        onClose={() => setIsPreviewOpen(false)}
+        templateId="patient_files"
+        data={pdfData}
+        facility={{ name: tc('hospital_name') }}
+        settings={{ watermark: true }}
+      />
     </div>
   );
 }

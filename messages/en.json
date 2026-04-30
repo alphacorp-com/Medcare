@@ -85,7 +85,9 @@
     "status_paid": "Paid",
     "status_pending_claim": "Pending Claim",
     "select_placeholder": "Select...",
-    "unknown": "Unknown"
+    "unknown": "Unknown",
+    "status_deceased": "Deceased",
+    "not_applicable": "N/A"
   },
   "login": {
     "welcome": "Welcome to your",
@@ -188,7 +190,19 @@
     "no_imaging_studies": "No imaging studies on file",
     "no_billing_records": "No billing records on file",
     "add_medical_record": "Add Medical Record",
-    "relation_other": "Other"
+    "relation_other": "Other",
+    "status_deceased": "Deceased",
+    "error_load": "Failed to load patients",
+    "error_save": "Failed to save",
+    "error_save_patient": "Failed to save patient",
+    "placeholder_first_name": "eg. John",
+    "placeholder_last_name": "eg. Doe",
+    "placeholder_email": "patient@example.com",
+    "placeholder_address": "Quartier, Ville, Pays",
+    "placeholder_nss": "Optional",
+    "placeholder_contact_name": "Contact Name",
+    "placeholder_phone": "+237 6...",
+    "age_years": "{age}y"
   },
   "record": {
     "new_medical_record": "New Medical Record",

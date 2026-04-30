@@ -85,7 +85,9 @@
     "status_paid": "Payé",
     "status_pending_claim": "Réclamation en cours",
     "select_placeholder": "Sélectionner...",
-    "unknown": "Inconnu"
+    "unknown": "Inconnu",
+    "status_deceased": "Décédé",
+    "not_applicable": "N/A"
   },
   "login": {
     "welcome": "Bienvenue sur votre",
@@ -188,7 +190,19 @@
     "no_imaging_studies": "Aucune étude d'imagerie",
     "no_billing_records": "Aucun enregistrement de facturation",
     "add_medical_record": "Ajouter un dossier médical",
-    "relation_other": "Autre"
+    "relation_other": "Autre",
+    "status_deceased": "Décédé",
+    "error_load": "Échec du chargement des patients",
+    "error_save": "Échec de l'enregistrement",
+    "error_save_patient": "Échec de l'enregistrement du patient",
+    "placeholder_first_name": "ex. Jean",
+    "placeholder_last_name": "ex. Dupont",
+    "placeholder_email": "patient@exemple.com",
+    "placeholder_address": "Quartier, Ville, Pays",
+    "placeholder_nss": "Optionnel",
+    "placeholder_contact_name": "Nom du contact",
+    "placeholder_phone": "+237 6...",
+    "age_years": "{age} ans"
   },
   "record": {
     "new_medical_record": "Nouveau Dossier Médical",

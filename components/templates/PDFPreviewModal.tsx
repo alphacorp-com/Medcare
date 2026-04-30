@@ -26,12 +26,14 @@ interface PDFPreviewModalProps {
   templateId: string;
   facility: any;
   settings: any;
+  data?: any;
 }
 
-export function PDFPreviewModal({ isOpen, onClose, templateId, facility, settings }: PDFPreviewModalProps) {
+export function PDFPreviewModal({ isOpen, onClose, templateId, facility, settings, data }: PDFPreviewModalProps) {
   const [isClient, setIsClient] = useState(false);
   const tDocs = useTranslations('documents');
   const tTemplates = useTranslations('templates');
+  const tCommon = useTranslations('common');
 
   useEffect(() => {
     setIsClient(true);
@@ -100,7 +102,8 @@ export function PDFPreviewModal({ isOpen, onClose, templateId, facility, setting
     how_to_take: tDocs('how_to_take'),
     best_time: tDocs('best_time'),
     warnings: tDocs('warnings'),
-    side_effects: tDocs('side_effects')
+    side_effects: tDocs('side_effects'),
+    not_applicable: tCommon('not_applicable')
   };
 
   const getTemplate = () => {
@@ -173,7 +176,7 @@ export function PDFPreviewModal({ isOpen, onClose, templateId, facility, setting
       case 'patient_lists':
         return (
           <PatientListTemplate
-            data={{
+            data={data || {
               title: labels.patient_list,
               department: 'General Medicine - Wing B',
               date: new Date().toLocaleDateString(),
@@ -238,7 +241,7 @@ export function PDFPreviewModal({ isOpen, onClose, templateId, facility, setting
       case 'patient_files':
         return (
           <PatientFileTemplate
-            data={{
+            data={data || {
               patient: {
                 ipp: '12345678',
                 fullName: 'Samantha Richards',

@@ -121,7 +121,7 @@ export const PatientListTemplate = ({ data, facility, settings, labels }: Patien
             <View style={[styles.tableCol, { width: '25%' }]}><Text style={styles.tableCell}>{p.name}</Text></View>
             <View style={[styles.tableCol, { width: '10%' }]}><Text style={styles.tableCell}>{p.gender}</Text></View>
             <View style={[styles.tableCol, { width: '10%' }]}><Text style={styles.tableCell}>{p.age}</Text></View>
-            <View style={[styles.tableCol, { width: '15%' }]}><Text style={styles.tableCell}>{p.bed || 'N/A'}</Text></View>
+            <View style={[styles.tableCol, { width: '15%' }]}><Text style={styles.tableCell}>{p.bed || labels.not_applicable}</Text></View>
             <View style={[styles.tableCol, { width: '25%' }]}><Text style={styles.tableCell}>{p.status}</Text></View>
           </View>
         ))}
