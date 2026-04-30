@@ -4,11 +4,12 @@ import { useParams } from "next/navigation";
 import { useRouter } from "@/i18n/routing";
 import { useUsersStore } from "@/lib/store/useUsersStore";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Printer, Download, Activity, ShieldAlert, User as UserIcon, Calendar, Mail, Building2, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Printer, Download, Activity, ShieldAlert, User as UserIcon, Calendar, Mail, Building2, ShieldCheck, Loader2 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
+import { useEffect, useState } from "react";
 
 export default function UserActivityPage() {
   const t = useTranslations('settings');
@@ -18,9 +19,30 @@ export default function UserActivityPage() {
   const router = useRouter();
   
   const userId = params.id as string;
-  const user = useUsersStore(state => state.users.find(u => u.id === userId));
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
   const allActivities = useUsersStore(state => state.activities);
   const activities = allActivities.filter(a => a.userId === userId);
+
+  useEffect(() => {
+    fetch(`/api/v1/users/${userId}`)
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        setUser(data);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, [userId]);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 text-slate-500 min-h-[400px]">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        <p className="text-sm mt-4">Loading user profile...</p>
+      </div>
+    );
+  }
 
   if (!user) {
     return (
@@ -94,7 +116,7 @@ export default function UserActivityPage() {
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mt-2 text-sm text-slate-500">
             <span className="flex items-center gap-1.5"><Building2 className="w-4 h-4 text-slate-400" /> {tr('admin')}</span>
             <span className="flex items-center gap-1.5"><Mail className="w-4 h-4 text-slate-400" /> {user.email}</span>
-            <span className="flex items-center gap-1.5"><ShieldCheck className="w-4 h-4 text-slate-400" /> {user.modules.length} {t('authorized')}</span>
+            <span className="flex items-center gap-1.5"><ShieldCheck className="w-4 h-4 text-slate-400" /> {user.modules?.length || 0} {t('authorized')}</span>
           </div>
         </div>
         <div className="shrink-0 right-0 top-0 mt-4 md:mt-0 text-right">

@@ -89,8 +89,11 @@ export function UsersManagement() {
     u.role?.toLowerCase().includes(search.toLowerCase())
   );
 
+  const [selectedRole, setSelectedRole] = useState<string>(SYSTEM_ROLES[0].id);
+
   const handleEdit = (user: SystemUser) => {
     setEditingUser(user);
+    setSelectedRole(user.role);
     setIsAddOpen(true);
   };
 
@@ -115,12 +118,24 @@ export function UsersManagement() {
     const role = formData.get("role") as string;
     const status = formData.get("status") as 'active' | 'inactive';
     
-    const selectedModules = ALL_MODULES
-        .filter(m => formData.get(`module-${m.id}`) === "on")
-        .map(m => m.id);
+    let selectedModules: any[] = [];
 
-    if (!selectedModules.includes("MODULE_CORE_PATIENT")) {
-        selectedModules.push("MODULE_CORE_PATIENT");
+    if (role !== 'tenant_admin') {
+      selectedModules = ALL_MODULES.map(mod => {
+        const actions: string[] = [];
+        if (formData.get(`module-${mod.id}-read`) === "on") actions.push("read");
+        if (formData.get(`module-${mod.id}-create`) === "on") actions.push("create");
+        if (formData.get(`module-${mod.id}-update`) === "on") actions.push("update");
+        if (formData.get(`module-${mod.id}-delete`) === "on") actions.push("delete");
+        return { moduleId: mod.id, actions };
+      }).filter(m => m.actions.length > 0 || m.moduleId === "MODULE_CORE_PATIENT");
+
+      const core = selectedModules.find(m => m.moduleId === "MODULE_CORE_PATIENT");
+      if (core) {
+        if (!core.actions.includes("read")) core.actions.push("read");
+      } else {
+        selectedModules.push({ moduleId: "MODULE_CORE_PATIENT", actions: ["read"] });
+      }
     }
 
     const payload = { fullName, email, role, status, modules: selectedModules };
@@ -163,12 +178,12 @@ export function UsersManagement() {
         </div>
         
         <div>
-          <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white gap-2" onClick={() => { setEditingUser(null); setIsAddOpen(true); }}>
+          <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white gap-2" onClick={() => { setEditingUser(null); setSelectedRole(SYSTEM_ROLES[0].id); setIsAddOpen(true); }}>
             <PlusCircle className="w-4 h-4" /> {t('add_personnel')}
           </Button>
 
           <Sheet open={isAddOpen} onOpenChange={(v) => { setIsAddOpen(v); if(!v) setEditingUser(null); }}>
-            <SheetContent className="overflow-y-auto sm:max-w-xl">
+            <SheetContent className="overflow-y-auto sm:max-w-2xl">
               <SheetHeader>
                 <SheetTitle>{editingUser ? t('edit_user') : t('add_new_user')}</SheetTitle>
               </SheetHeader>
@@ -184,7 +199,7 @@ export function UsersManagement() {
                 </div>
                 <div className="space-y-2">
                   <Label>{tc('role')}</Label>
-                  <select name="role" defaultValue={editingUser?.role || SYSTEM_ROLES[0].id} required className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500">
+                  <select name="role" value={selectedRole} onChange={(e) => setSelectedRole(e.target.value)} required className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500">
                     {SYSTEM_ROLES.map((role) => (
                       <option key={role.id} value={role.id}>{role.name}</option>
                     ))}
@@ -201,22 +216,48 @@ export function UsersManagement() {
 
               <div className="pt-4 border-t border-slate-100">
                 <Label className="mb-3 block font-bold text-slate-700">{t('module_access_scopes')}</Label>
-                <div className="grid grid-cols-2 gap-3">
-                  {ALL_MODULES.map((mod) => (
-                    <label key={mod.id} className="flex items-center gap-2 text-sm border p-3 rounded-md hover:bg-slate-50 cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        name={`module-${mod.id}`}
-                        defaultChecked={editingUser ? editingUser.modules.includes(mod.id) : mod.id === "MODULE_CORE_PATIENT"}
-                        disabled={mod.id === "MODULE_CORE_PATIENT"}
-                        className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className={cn("text-slate-700", mod.id === "MODULE_CORE_PATIENT" && "text-slate-400")}>
-                        {mod.name}
-                      </span>
-                    </label>
-                  ))}
-                </div>
+                {selectedRole === 'tenant_admin' ? (
+                  <div className="bg-blue-50 p-4 rounded-md border border-blue-100 text-center">
+                    <p className="text-sm font-semibold text-blue-700">Full System Access</p>
+                    <p className="text-xs text-blue-600 mt-1">Tenant Administrators have implicit access to all modules and actions.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {ALL_MODULES.map((mod) => {
+                      const modPerm = editingUser ? (editingUser.modules as any[])?.find(m => m.moduleId === mod.id) : null;
+                      const hasRead = modPerm ? modPerm.actions.includes("read") : mod.id === "MODULE_CORE_PATIENT";
+                      const hasCreate = modPerm ? modPerm.actions.includes("create") : false;
+                      const hasUpdate = modPerm ? modPerm.actions.includes("update") : false;
+                      const hasDelete = modPerm ? modPerm.actions.includes("delete") : false;
+
+                      return (
+                        <div key={mod.id} className="flex flex-col gap-2 text-sm border p-3 rounded-md hover:bg-slate-50">
+                          <div className="font-semibold text-slate-700 flex justify-between items-center">
+                            <span>{mod.name}</span>
+                          </div>
+                          <div className="grid grid-cols-4 gap-2 mt-1">
+                            <label className="flex items-center gap-1.5 cursor-pointer">
+                              <input type="checkbox" name={`module-${mod.id}-read`} defaultChecked={hasRead} disabled={mod.id === "MODULE_CORE_PATIENT"} className="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+                              <span className="text-xs text-slate-600">Read</span>
+                            </label>
+                            <label className="flex items-center gap-1.5 cursor-pointer">
+                              <input type="checkbox" name={`module-${mod.id}-create`} defaultChecked={hasCreate} className="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+                              <span className="text-xs text-slate-600">Create</span>
+                            </label>
+                            <label className="flex items-center gap-1.5 cursor-pointer">
+                              <input type="checkbox" name={`module-${mod.id}-update`} defaultChecked={hasUpdate} className="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+                              <span className="text-xs text-slate-600">Update</span>
+                            </label>
+                            <label className="flex items-center gap-1.5 cursor-pointer">
+                              <input type="checkbox" name={`module-${mod.id}-delete`} defaultChecked={hasDelete} className="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+                              <span className="text-xs text-slate-600">Delete</span>
+                            </label>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-end gap-3 pt-6 border-t">

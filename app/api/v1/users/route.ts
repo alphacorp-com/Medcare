@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-
-const prisma = new PrismaClient();
-
 export async function GET(req: Request) {
   try {
     const users = await prisma.tenantUser.findMany({
@@ -13,7 +10,6 @@ export async function GET(req: Request) {
         fullName: true,
         role: true,
         modules: true,
-        status: true, // We don't have status in DB, we have isActive. Wait, let's map it.
         isActive: true,
         lastLoginAt: true,
         departmentId: true,

@@ -28,69 +28,65 @@ async function main() {
   const defaultPassword = 'password123';
   const hashedPassword = await bcrypt.hash(defaultPassword, 10);
 
+  const defaultActions = ['read', 'create', 'update', 'delete'];
+  
+  const toPermissions = (modules: string[]) => 
+    modules.map(mod => ({ moduleId: mod, actions: defaultActions }));
+
   const users = [
     {
       email: 'admin@hospital.com',
       fullName: 'Jane Admin',
       role: TenantUserRole.tenant_admin,
-      modules: [
-        'MODULE_CORE_PATIENT',
-        'MODULE_ADMISSION',
-        'MODULE_PHARMACY',
-        'MODULE_LAB',
-        'MODULE_SURGERY',
-        'MODULE_RADIOLOGY',
-        'MODULE_BILLING',
-        'MODULE_PLANNING',
-      ],
+      modules: [], // tenant_admin bypasses module checks
     },
     {
       email: 'doctor@hospital.com',
       fullName: 'Dr. Gregory House',
       role: TenantUserRole.doctor,
-      modules: [
+      modules: toPermissions([
         'MODULE_CORE_PATIENT',
         'MODULE_ADMISSION',
         'MODULE_LAB',
         'MODULE_SURGERY',
         'MODULE_RADIOLOGY',
         'MODULE_PHARMACY',
-      ],
+      ]),
     },
     {
       email: 'nurse@hospital.com',
       fullName: 'Carla Espinosa',
       role: TenantUserRole.nurse,
-      modules: [
+      modules: toPermissions([
         'MODULE_CORE_PATIENT',
         'MODULE_ADMISSION',
         'MODULE_PHARMACY',
         'MODULE_LAB',
-      ],
+      ]),
     },
     {
       email: 'pharmacy@hospital.com',
       fullName: 'John Mortar',
       role: TenantUserRole.pharmacist,
-      modules: ['MODULE_CORE_PATIENT', 'MODULE_PHARMACY'],
+      modules: toPermissions(['MODULE_CORE_PATIENT', 'MODULE_PHARMACY']),
     },
     {
       email: 'lab@hospital.com',
       fullName: 'Sarah Microscope',
       role: TenantUserRole.lab_tech,
-      modules: ['MODULE_CORE_PATIENT', 'MODULE_LAB'],
+      modules: toPermissions(['MODULE_CORE_PATIENT', 'MODULE_LAB']),
     },
     {
       email: 'billing@hospital.com',
       fullName: 'Amanda Ledger',
       role: TenantUserRole.billing,
-      modules: ['MODULE_CORE_PATIENT', 'MODULE_BILLING'],
+      modules: toPermissions(['MODULE_CORE_PATIENT', 'MODULE_BILLING']),
     },
     {
       email: 'hr@hospital.com',
       fullName: 'David Resources',
       role: TenantUserRole.hr,
-      modules: ['MODULE_PLANNING'],
+      modules: toPermissions(['MODULE_PLANNING']),
     },
   ];
 
