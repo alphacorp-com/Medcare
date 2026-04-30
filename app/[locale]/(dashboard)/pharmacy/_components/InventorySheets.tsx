@@ -88,13 +88,24 @@ export function AddMedicationSheet({
               />
             </div>
           </div>
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-500 uppercase">{t('unit_placeholder')}</label>
-            <Input
-              value={form.unit}
-              onChange={(e) => onUpdateForm({ ...form, unit: e.target.value })}
-              className="h-8 text-xs bg-white border-slate-200"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-500 uppercase">{t('unit_placeholder')}</label>
+              <Input
+                value={form.unit}
+                onChange={(e) => onUpdateForm({ ...form, unit: e.target.value })}
+                className="h-8 text-xs bg-white border-slate-200"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-500 uppercase">{t('unit_price')} (XAF)</label>
+              <Input
+                type="number"
+                value={form.unitPrice || ''}
+                onChange={(e) => onUpdateForm({ ...form, unitPrice: parseFloat(e.target.value) || null })}
+                className="h-8 text-xs bg-white border-slate-200 font-mono"
+              />
+            </div>
           </div>
         </div>
         <SheetFooter className="p-4 border-t border-slate-200 bg-white shrink-0">
@@ -184,13 +195,24 @@ export function EditMedicationSheet({
                   />
                 </div>
               </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase">{t('unit_placeholder')}</label>
-                <Input
-                  value={form.unit}
-                  onChange={(e) => onUpdateForm({ ...form, unit: e.target.value })}
-                  className="h-8 text-xs bg-white border-slate-200"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase">{t('unit_placeholder')}</label>
+                  <Input
+                    value={form.unit}
+                    onChange={(e) => onUpdateForm({ ...form, unit: e.target.value })}
+                    className="h-8 text-xs bg-white border-slate-200"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase">{t('unit_price')} (XAF)</label>
+                  <Input
+                    type="number"
+                    value={form.unitPrice || ''}
+                    onChange={(e) => onUpdateForm({ ...form, unitPrice: parseFloat(e.target.value) || null })}
+                    className="h-8 text-xs bg-white border-slate-200 font-mono"
+                  />
+                </div>
               </div>
             </>
           )}

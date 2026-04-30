@@ -1,8 +1,6 @@
 "use client";
 
 import { useAppStore } from "@/lib/store/useAppStore";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PillBottle, PackageSearch } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 
@@ -26,6 +24,7 @@ export default function PharmacyPage() {
   const tc = useTranslations('common');
 
   // UI State
+  const [activeTab, setActiveTab] = useState<"prescriptions" | "inventory">("prescriptions");
   const [rxFilter, setRxFilter] = useState("All");
   const [rxSearch, setRxSearch] = useState("");
   const [invSearch, setInvSearch] = useState("");
@@ -38,7 +37,7 @@ export default function PharmacyPage() {
 
   // Medication Sheets State
   const [isAddMedOpen, setIsAddMedOpen] = useState(false);
-  const [medForm, setMedForm] = useState<MedForm>({ name: '', manufacturer: '', category: '', stock: 0, threshold: 0, unit: '' });
+  const [medForm, setMedForm] = useState<MedForm>({ name: '', manufacturer: '', category: '', stock: 0, threshold: 0, unit: '', unitPrice: null });
   const [savingMed, setSavingMed] = useState(false);
 
   const [editMedOpen, setEditMedOpen] = useState(false);
@@ -114,7 +113,7 @@ export default function PharmacyPage() {
       });
       if (res.ok) {
         setIsAddMedOpen(false);
-        setMedForm({ name: '', manufacturer: '', category: '', stock: 0, threshold: 0, unit: '' });
+        setMedForm({ name: '', manufacturer: '', category: '', stock: 0, threshold: 0, unit: '', unitPrice: null });
         fetchInventory();
       }
     } finally {
@@ -138,6 +137,37 @@ export default function PharmacyPage() {
     } finally {
       setSavingEditMed(false);
     }
+  };
+
+  const handleMarkPaid = async (id: string) => {
+    try {
+      const res = await fetch(`/api/v1/pharmacy/prescriptions/${id}/invoice`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'paid' })
+      });
+      if (res.ok) {
+        fetchPrescriptions();
+        if (selectedRx?.id === id) {
+          setSelectedRx({ ...selectedRx, invoiceStatus: 'paid' });
+        }
+      }
+    } catch (e) { }
+  };
+
+  const handleExportRx = () => {
+    // TODO: Export prescriptions to PDF
+    console.log('Export prescriptions');
+  };
+
+  const handleExportInventory = () => {
+    // TODO: Export inventory to PDF
+    console.log('Export inventory');
+  };
+
+  const handlePreviewInvoice = (rx: PrescriptionRow) => {
+    // TODO: Open PDF preview modal
+    console.log('Preview invoice for', rx);
   };
 
   const handleRestock = async () => {
@@ -177,47 +207,36 @@ export default function PharmacyPage() {
   return (
     <div className="flex flex-col h-full space-y-4">
       {/* Header */}
-      <PharmacyHeader onAddMedication={() => setIsAddMedOpen(true)} />
+      <PharmacyHeader 
+        tab={activeTab} 
+        onTabChange={setActiveTab} 
+        onAddMedication={() => setIsAddMedOpen(true)}
+        onExportRx={handleExportRx}
+        onExportInventory={handleExportInventory}
+      />
 
-      {/* Main Tabs */}
-      <Tabs defaultValue="queue" className="flex-1 flex flex-col gap-4 overflow-hidden">
-        <TabsList className="bg-transparent p-0 flex justify-start gap-6 border-b border-slate-200 rounded-none h-10 w-full shrink-0 px-2">
-          <TabsTrigger
-            value="queue"
-            className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-blue-600 rounded-none data-[state=active]:text-blue-700 h-full text-sm font-semibold tracking-wide"
-          >
-            <PillBottle className="h-4 w-4 mr-2" /> {t('queue_tab')}
-          </TabsTrigger>
-          <TabsTrigger
-            value="inventory"
-            className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-blue-600 rounded-none data-[state=active]:text-blue-700 h-full text-sm font-semibold tracking-wide"
-          >
-            <PackageSearch className="h-4 w-4 mr-2" /> {t('inventory_tab')}
-          </TabsTrigger>
-        </TabsList>
+      {/* Main Content */}
+      {activeTab === "prescriptions" && (
+        <PrescriptionQueue 
+          prescriptions={prescriptions} 
+          filter={rxFilter} 
+          setFilter={setRxFilter} 
+          search={rxSearch} 
+          setSearch={setRxSearch} 
+          onSelectRx={setSelectedRx} 
+          onAction={setSelectedRx} 
+        />
+      )}
 
-        <TabsContent value="queue" className="m-0 border-none outline-none flex-1 flex flex-col overflow-hidden gap-4">
-          <PrescriptionQueue 
-            prescriptions={prescriptions} 
-            filter={rxFilter} 
-            setFilter={setRxFilter} 
-            search={rxSearch} 
-            setSearch={setRxSearch} 
-            onSelectRx={setSelectedRx} 
-            onAction={setSelectedRx} 
-          />
-        </TabsContent>
-
-        <TabsContent value="inventory" className="m-0 border-none outline-none flex-1 flex flex-col overflow-hidden gap-4">
-          <InventoryTab 
-            inventory={inventory} 
-            search={invSearch} 
-            setSearch={setInvSearch} 
-            onRestock={(item) => { setRestockMed(item); setRestockAmount(0); setRestockOpen(true); }} 
-            onEdit={(item) => { setEditMedForm(item); setEditMedOpen(true); }} 
-          />
-        </TabsContent>
-      </Tabs>
+      {activeTab === "inventory" && (
+        <InventoryTab 
+          inventory={inventory} 
+          search={invSearch} 
+          setSearch={setInvSearch} 
+          onRestock={(item) => { setRestockMed(item); setRestockAmount(0); setRestockOpen(true); }} 
+          onEdit={(item) => { setEditMedForm(item); setEditMedOpen(true); }} 
+        />
+      )}
 
       {/* Sheets / Modals */}
       <RxDetailSheet 
@@ -225,6 +244,8 @@ export default function PharmacyPage() {
         onClose={() => setSelectedRx(null)} 
         onValidate={handleValidateRx} 
         onDispense={handleDispenseRx} 
+        onMarkPaid={handleMarkPaid}
+        onPreviewInvoice={handlePreviewInvoice}
       />
 
       <AddMedicationSheet 

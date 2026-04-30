@@ -847,6 +847,7 @@ model MedicationInventory {
   stock        Int      @default(0)
   threshold    Int      @default(0)
   unit         String?  @db.VarChar(50)
+  unitPrice    Decimal? @map("unit_price") @db.Decimal(12, 2)
   isActive     Boolean  @default(true) @map("is_active")
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz

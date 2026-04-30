@@ -31,8 +31,24 @@ export function PrescriptionQueue({
   const tc = useTranslations('common');
 
   const filteredPrescriptions = prescriptions.filter(rx => {
-    if (filter !== "All" && rx.status !== filter) return false;
-    if (search && !rx.patientName.toLowerCase().includes(search.toLowerCase()) && !rx.id.toLowerCase().includes(search.toLowerCase())) return false;
+    // Status Filter
+    if (filter !== "All") {
+      if (filter === "Pending Queue" && rx.status !== "Pending Queue") return false;
+      if (filter === "Validated" && rx.status !== "Validated") return false;
+      if (filter === "Dispensed" && rx.status !== "Dispensed") return false;
+    }
+
+    // Search
+    if (search) {
+      const s = search.toLowerCase();
+      const matches = 
+        rx.patientName.toLowerCase().includes(s) || 
+        rx.id.toLowerCase().includes(s) ||
+        rx.prescriber.toLowerCase().includes(s) ||
+        rx.ipp.toLowerCase().includes(s);
+      if (!matches) return false;
+    }
+    
     return true;
   });
 
@@ -51,7 +67,7 @@ export function PrescriptionQueue({
             <div className="text-3xl font-bold text-slate-900">{prescriptions.filter(r => r.status === 'Validated').length}</div>
           </div>
         </div>
-        <div className="bg-red-50 p-4 rounded border border-red-200 shadow-sm flex items-end justify-between">
+        <div className="bg-red-50 p-4 rounded border border-red-200 shadow-sm flex items-end justify-between hover:border-red-400 transition-colors cursor-pointer">
           <div>
             <div className="text-xs font-semibold text-red-800 uppercase tracking-wider mb-1">{t('interaction_alerts')}</div>
             <div className="text-3xl font-bold text-red-700">{prescriptions.filter(r => r.alert).length}</div>
@@ -76,6 +92,7 @@ export function PrescriptionQueue({
             <button onClick={() => setFilter("All")} className={cn("px-3 py-1 rounded text-[10px] uppercase font-bold", filter === "All" ? "bg-white shadow-sm text-slate-700" : "text-slate-500 hover:text-slate-700")}>{tc('all')}</button>
             <button onClick={() => setFilter("Pending Queue")} className={cn("px-3 py-1 rounded text-[10px] uppercase font-bold", filter === "Pending Queue" ? "bg-white shadow-sm text-slate-700" : "text-slate-500 hover:text-slate-700")}>{t('to_validate')}</button>
             <button onClick={() => setFilter("Validated")} className={cn("px-3 py-1 rounded text-[10px] uppercase font-bold", filter === "Validated" ? "bg-white shadow-sm text-slate-700" : "text-slate-500 hover:text-slate-700")}>{t('to_dispense')}</button>
+            <button onClick={() => setFilter("Dispensed")} className={cn("px-3 py-1 rounded text-[10px] uppercase font-bold", filter === "Dispensed" ? "bg-white shadow-sm text-slate-700" : "text-slate-500 hover:text-slate-700")}>{t('dispensed_tab')}</button>
           </div>
         </div>
         <div className="flex-1 overflow-auto">
@@ -94,7 +111,7 @@ export function PrescriptionQueue({
             <tbody className="text-xs divide-y divide-slate-100">
               {filteredPrescriptions.map((rx) => (
                 <tr key={rx.id} className="hover:bg-blue-50/50 cursor-pointer" onClick={() => onSelectRx(rx)}>
-                  <td className="px-4 py-2 font-mono text-slate-600">{rx.id}</td>
+                  <td className="px-4 py-2 font-mono text-slate-600">{rx.id.slice(0, 8)}</td>
                   <td className="px-4 py-2 font-medium text-slate-900">
                     <div className="flex items-center gap-2">
                       {rx.patientName}

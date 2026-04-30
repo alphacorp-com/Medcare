@@ -111,7 +111,7 @@ export function PDFPreviewModal({ isOpen, onClose, templateId, facility, setting
       case 'invoices':
         return (
           <InvoiceTemplate
-            invoice={{
+            invoice={data?.invoice ?? {
               number: 'INV-2024-001',
               date: new Date().toLocaleDateString(),
               patientName: 'John Doe',
@@ -123,7 +123,7 @@ export function PDFPreviewModal({ isOpen, onClose, templateId, facility, setting
                 { description: 'Medication - Paracetamol', quantity: 2, amount: 1200 },
               ],
               subtotal: 24700,
-              total: 24700
+              total: 24700,
             }}
             facility={facility}
             settings={settings}
