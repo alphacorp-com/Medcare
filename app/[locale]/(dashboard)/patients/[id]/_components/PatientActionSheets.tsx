@@ -53,13 +53,13 @@ export function EditPatientSheet({
             {t('edit_desc')}
           </SheetDescription>
         </SheetHeader>
-        <div className="p-4 flex-1 overflow-y-auto space-y-6">
+        <div className="p-6 flex-1 overflow-y-auto space-y-8">
           {error && (
-            <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded p-2">{error}</div>
+            <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded p-3 mb-4">{error}</div>
           )}
-          <div className="space-y-3">
-            <h4 className="text-[11px] font-bold text-slate-900 uppercase border-b border-slate-200 pb-1">{t('demographics')}</h4>
-            <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-4">
+            <h4 className="text-[11px] font-bold text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-2 mb-4">{t('demographics')}</h4>
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-slate-500 uppercase">{t('first_name')} *</label>
                 <Input value={form.firstName} onChange={(e) => onUpdateForm("firstName", e.target.value)} placeholder="eg. John" className="h-8 text-xs bg-white border-slate-200 focus:border-blue-400" />
@@ -111,30 +111,32 @@ export function EditPatientSheet({
             </div>
           </div>
 
-          <div className="space-y-3">
-            <h4 className="text-[11px] font-bold text-slate-900 uppercase border-b border-slate-200 pb-1">{t('contact_info')}</h4>
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-500 uppercase">{tc('phone')}</label>
-              <Input type="tel" value={form.phone} onChange={(e) => onUpdateForm("phone", e.target.value)} placeholder="+237 6..." className="h-8 text-xs bg-white border-slate-200 focus:border-blue-400" />
-            </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-500 uppercase">{tc('email')}</label>
-              <Input type="email" value={form.email} onChange={(e) => onUpdateForm("email", e.target.value)} placeholder="patient@example.com" className="h-8 text-xs bg-white border-slate-200 focus:border-blue-400" />
-            </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-500 uppercase">{tc('address')}</label>
-              <textarea
-                value={form.address}
-                onChange={(e) => onUpdateForm("address", e.target.value)}
-                className="flex min-h-[60px] w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400"
-                placeholder="Quartier, Ville, Pays"
-              />
+          <div className="space-y-4">
+            <h4 className="text-[11px] font-bold text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-2 mb-4">{t('contact_info')}</h4>
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase">{tc('phone')}</label>
+                <Input type="tel" value={form.phone} onChange={(e) => onUpdateForm("phone", e.target.value)} placeholder="+237 6..." className="h-8 text-xs bg-white border-slate-200 focus:border-blue-400" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase">{tc('email')}</label>
+                <Input type="email" value={form.email} onChange={(e) => onUpdateForm("email", e.target.value)} placeholder="patient@example.com" className="h-8 text-xs bg-white border-slate-200 focus:border-blue-400" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase">{tc('address')}</label>
+                <textarea
+                  value={form.address}
+                  onChange={(e) => onUpdateForm("address", e.target.value)}
+                  className="flex min-h-[60px] w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400"
+                  placeholder="Quartier, Ville, Pays"
+                />
+              </div>
             </div>
           </div>
 
-          <div className="space-y-3">
-            <h4 className="text-[11px] font-bold text-slate-900 uppercase border-b border-slate-200 pb-1">{t('emergency_contact')}</h4>
-            <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-4">
+            <h4 className="text-[11px] font-bold text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-2 mb-4">{t('emergency_contact')}</h4>
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-slate-500 uppercase">{tc('name')}</label>
                 <Input value={form.emergencyName} onChange={(e) => onUpdateForm("emergencyName", e.target.value)} placeholder="Contact Name" className="h-8 text-xs bg-white border-slate-200 focus:border-blue-400" />
@@ -210,13 +212,13 @@ export function NewAdmissionSheet({
             {t('new_admission_desc')}
           </SheetDescription>
         </SheetHeader>
-        <div className="p-4 flex-1 overflow-y-auto space-y-4">
+        <div className="p-6 flex-1 overflow-y-auto space-y-6">
           {error && (
-            <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded p-2">{error}</div>
+            <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded p-3 mb-4">{error}</div>
           )}
           
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-500 uppercase">{tad('patient')}</label>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{tad('patient')}</label>
             <div className="h-8 px-3 py-1.5 bg-slate-100 border border-slate-200 rounded text-xs text-slate-700">
               {patient.firstName} {patient.lastName} ({patient.ipp})
             </div>
@@ -307,6 +309,7 @@ interface NewMedicalRecordSheetProps {
   form: NewMedRecordForm;
   onUpdateForm: <K extends keyof NewMedRecordForm>(key: K, value: NewMedRecordForm[K]) => void;
   stays: StayRow[];
+  doctors: Doctor[];
   saving: boolean;
   error: string | null;
   onSubmit: () => Promise<void>;
@@ -318,6 +321,7 @@ export function NewMedicalRecordSheet({
   form,
   onUpdateForm,
   stays,
+  doctors,
   saving,
   error,
   onSubmit,
@@ -335,13 +339,13 @@ export function NewMedicalRecordSheet({
             {trec('new_medical_record_desc')}
           </SheetDescription>
         </SheetHeader>
-        <div className="p-4 flex-1 overflow-y-auto space-y-4">
+        <div className="p-6 flex-1 overflow-y-auto space-y-6">
           {error && (
-            <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded p-2">{error}</div>
+            <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded p-3 mb-4">{error}</div>
           )}
           
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-500 uppercase">{trec('record_type')}</label>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{trec('record_type')}</label>
             <select
               value={form.type}
               onChange={(e) => onUpdateForm("type", e.target.value as NewMedRecordForm["type"])}
@@ -392,12 +396,19 @@ export function NewMedicalRecordSheet({
           </div>
 
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-500 uppercase">{trec('author_uuid')}</label>
-            <Input
+            <label className="text-[10px] font-bold text-slate-500 uppercase">{tc('author')}</label>
+            <select
               value={form.authorId}
               onChange={(e) => onUpdateForm("authorId", e.target.value)}
-              className="h-8 text-xs bg-white border-slate-200 focus:border-blue-400 font-mono"
-            />
+              className="flex h-8 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-xs shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+            >
+              <option value="">{tc('select_placeholder')}</option>
+              {doctors.map((d) => (
+                <option key={d.id} value={d.id}>
+                  Dr. {d.fullName}{d.specialty ? ` — ${d.specialty}` : ""}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="flex items-center space-x-2 pt-2">

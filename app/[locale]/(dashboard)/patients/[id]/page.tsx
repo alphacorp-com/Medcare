@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
+import { useSession } from "next-auth/react";
 import { PDFPreviewModal } from "@/components/templates/PDFPreviewModal";
 
 // Internal Components
@@ -37,6 +38,7 @@ export default function PatientDetailPage() {
   const tc = useTranslations('common');
   const params = useParams();
   const id = params.id as string;
+  const { data: session } = useSession();
 
   // Data State
   const [patient, setPatient] = useState<PatientDetail | null>(null);
@@ -74,7 +76,7 @@ export default function PatientDetailPage() {
   const [stayError, setStayError] = useState<string | null>(null);
 
   const [recordForm, setRecordForm] = useState<NewMedRecordForm>({
-    type: "consultation", title: "", content: "", stayId: "", authorId: "00000000-0000-0000-0000-000000000001", isSigned: false
+    type: "consultation", title: "", content: "", stayId: "", authorId: "", isSigned: false
   });
   const [savingRecord, setSavingRecord] = useState(false);
   const [recordError, setRecordError] = useState<string | null>(null);
@@ -255,7 +257,11 @@ export default function PatientDetailPage() {
           prescriptions={prescriptions} 
           exams={exams} 
           billing={billing} 
-          onAddRecord={() => setIsRecordOpen(true)}
+          onAddRecord={() => {
+          const defaultAuthorId = session?.user?.id || "";
+          setRecordForm(prev => ({ ...prev, authorId: defaultAuthorId }));
+          setIsRecordOpen(true);
+        }}
         />
       </div>
 
@@ -276,7 +282,7 @@ export default function PatientDetailPage() {
       <NewMedicalRecordSheet 
         open={isRecordOpen} onOpenChange={setIsRecordOpen} 
         form={recordForm} onUpdateForm={(k, v) => setRecordForm(p => ({ ...p, [k]: v }))} 
-        stays={stays} saving={savingRecord} error={recordError} onSubmit={handleSaveRecord} 
+        stays={stays} doctors={doctors} saving={savingRecord} error={recordError} onSubmit={handleSaveRecord} 
       />
 
       <PDFPreviewModal
