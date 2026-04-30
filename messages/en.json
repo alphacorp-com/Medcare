@@ -276,6 +276,8 @@
     "facility_config": "Facility Configuration",
     "facility_config_desc": "Configure public details for your healthcare facility.",
     "facility_name": "Facility Name",
+    "tax_id": "Tax ID / FINESS",
+    "website": "Website",
     "physical_address": "Physical Address",
     "module_config": "Module Configuration",
     "module_config_desc": "Enable or disable clinical subsystems for the entire tenant.",
@@ -393,7 +395,7 @@
     "meds_administered": "Meds Administered",
     "doctor_orders": "Doctor Orders",
     "event": "Event",
-    "description": "Description",
+    "description_label": "Description",
     "no_prescriptions": "No prescriptions on file."
   },
   "roles": {
@@ -404,5 +406,31 @@
     "lab": "Lab Technician",
     "billing": "Billing Manager",
     "hr": "HR Director"
+  },
+  "templates": {
+    "title": "Document Templates",
+    "description": "Configure layout and branding for system-generated documents and reports.",
+    "edit_template": "Edit Template",
+    "preview": "Preview",
+    "global_branding": "Global Branding Settings",
+    "global_branding_desc": "These settings apply to all document templates automatically.",
+    "show_logo": "Show facility logo on header",
+    "include_qr": "Include QR code for validation",
+    "digital_signature": "Add digital signature field",
+    "confidentiality_watermark": "Confidentiality watermark",
+    "invoices_title": "Invoices & Billing",
+    "invoices_desc": "Patient invoices, receipts, and payment statements.",
+    "patient_lists_title": "Patient Lists",
+    "patient_lists_desc": "Department-wise and facility-wide patient admission lists.",
+    "medications_title": "Medication Guides",
+    "medications_desc": "Drug instruction sheets and administration guides.",
+    "stock_reports_title": "Inventory & Stock",
+    "stock_reports_desc": "Pharmacy stock levels and restocking reports.",
+    "patient_files_title": "Patient Files",
+    "patient_files_desc": "Full medical history and patient detail summaries.",
+    "lab_results_title": "Laboratory Results",
+    "lab_results_desc": "Standardized lab test result reports.",
+    "prescriptions_title": "Medical Prescriptions",
+    "prescriptions_desc": "Doctor prescriptions and treatment orders."
   }
 }

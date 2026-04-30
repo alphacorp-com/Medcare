@@ -276,6 +276,8 @@
     "facility_config": "Configuration de l'Établissement",
     "facility_config_desc": "Configurez les informations publiques de votre établissement de santé.",
     "facility_name": "Nom de l'Établissement",
+    "tax_id": "Identifiant Fiscal / FINESS",
+    "website": "Site Web",
     "physical_address": "Adresse Physique",
     "module_config": "Configuration des Modules",
     "module_config_desc": "Activer ou désactiver les sous-systèmes cliniques pour l'ensemble du tenant.",
@@ -394,7 +396,7 @@
     "meds_administered": "Médicaments Administrés",
     "doctor_orders": "Ordres Médicaux",
     "event": "Événement",
-    "description": "Description",
+    "description_label": "Description",
     "no_prescriptions": "Aucune prescription."
   },
   "roles": {
@@ -405,5 +407,31 @@
     "lab": "Technicien Laboratoire",
     "billing": "Responsable Facturation",
     "hr": "Directeur RH"
+  },
+  "templates": {
+    "title": "Modèles de Documents",
+    "description": "Configurez la mise en page et l'image de marque des documents et rapports générés par le système.",
+    "edit_template": "Modifier le Modèle",
+    "preview": "Aperçu",
+    "global_branding": "Paramètres d'Image de Marque Globaux",
+    "global_branding_desc": "Ces paramètres s'appliquent automatiquement à tous les modèles de documents.",
+    "show_logo": "Afficher le logo de l'établissement dans l'en-tête",
+    "include_qr": "Inclure un code QR pour la validation",
+    "digital_signature": "Ajouter un champ de signature numérique",
+    "confidentiality_watermark": "Filigrane de confidentialité",
+    "invoices_title": "Factures & Facturation",
+    "invoices_desc": "Factures des patients, reçus et relevés de paiement.",
+    "patient_lists_title": "Listes des Patients",
+    "patient_lists_desc": "Listes d'admission des patients par service et pour tout l'établissement.",
+    "medications_title": "Guides de Médicaments",
+    "medications_desc": "Fiches d'instructions sur les médicaments et guides d'administration.",
+    "stock_reports_title": "Inventaire & Stock",
+    "stock_reports_desc": "Niveaux de stock de la pharmacie et rapports de réapprovisionnement.",
+    "patient_files_title": "Dossiers Patients",
+    "patient_files_desc": "Historique médical complet et résumés détaillés des patients.",
+    "lab_results_title": "Résultats de Laboratoire",
+    "lab_results_desc": "Rapports de résultats de tests de laboratoire standardisés.",
+    "prescriptions_title": "Prescriptions Médicales",
+    "prescriptions_desc": "Prescriptions des médecins et ordonnances de traitement."
   }
 }

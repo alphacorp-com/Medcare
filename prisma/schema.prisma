@@ -875,6 +875,7 @@ model Department {
 
 model TenantUser {
   id           String         @id @default(uuid()) @db.Uuid
+  tenantId     String?        @map("tenant_id") @db.Uuid
   email        String         @unique @db.VarChar(255)
   fullName     String         @map("full_name") @db.VarChar(255)
   role         TenantUserRole
