@@ -1,36 +1,31 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Cookies from "js-cookie";
+import { useSession } from "next-auth/react";
 import { useAppStore } from "@/lib/store/useAppStore";
-import { useUsersStore } from "@/lib/store/useUsersStore";
 
 export function AuthInitializer({ children }: { children: React.ReactNode }) {
   const { currentUser, setUser, setActiveModules } = useAppStore();
-  const users = useUsersStore((state) => state.users);
+  const { data: session, status } = useSession();
   const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
-    if (!currentUser) {
-      const token = Cookies.get("auth-token");
-      if (token) {
-        const user = users.find((u) => u.id === token);
-        if (user) {
-          setUser({
-            id: user.id,
-            fullName: user.fullName,
-            email: user.email,
-            role: user.role,
-          });
-          setActiveModules(user.modules);
-        } else {
-          // If token exists but user not found (mock data changed?), clear it
-          Cookies.remove("auth-token");
-        }
-      }
+    if (status === "authenticated" && session?.user) {
+      setUser({
+        id: session.user.id,
+        fullName: session.user.name || "",
+        email: session.user.email || "",
+        role: session.user.role,
+      });
+      setActiveModules(session.user.modules || []);
+    } else if (status === "unauthenticated") {
+      setUser(null);
     }
-    setIsHydrated(true);
-  }, [currentUser, users, setUser, setActiveModules]);
+    
+    if (status !== "loading") {
+      setIsHydrated(true);
+    }
+  }, [session, status, setUser, setActiveModules]);
 
   // Optionally prevent flash of unauthenticated content
   // But since we have middleware, if we get here we should have a token if it's protected

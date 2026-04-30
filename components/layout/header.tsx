@@ -10,6 +10,8 @@ import { useTranslations, useLocale } from "next-intl";
 import Cookies from "js-cookie";
 import { cn } from "@/lib/utils";
 
+import { signOut } from "next-auth/react";
+
 export function Header() {
   const t = useTranslations('common');
   const tr = useTranslations('roles');
@@ -18,11 +20,10 @@ export function Header() {
   const { currentUser, setUser, setActiveModules } = useAppStore();
   const router = useRouter();
 
-  const handleLogout = () => {
-    Cookies.remove("auth-token");
+  const handleLogout = async () => {
     setUser(null);
     setActiveModules([]);
-    router.push("/login");
+    await signOut({ callbackUrl: `/${locale}/login` });
   };
 
   const handleLocaleChange = (newLocale: string) => {

@@ -1,57 +1,63 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "@/i18n/routing";
 import { useTranslations } from "next-intl";
-import Cookies from "js-cookie";
-import { useAppStore } from "@/lib/store/useAppStore";
-import { useUsersStore } from "@/lib/store/useUsersStore";
+import { signIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Building2, UserCircle2, ArrowRight, ShieldCheck, Mail, KeyRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+// Pre-defined personas matching the seed script for easy testing
+const DEMO_PERSONAS = [
+  { id: "admin", role: "System Administrator", email: "admin@hospital.com", fullName: "Jane Admin" },
+  { id: "doctor", role: "Lead Physician", email: "doctor@hospital.com", fullName: "Dr. Gregory House" },
+  { id: "nurse", role: "Head Nurse", email: "nurse@hospital.com", fullName: "Carla Espinosa" },
+  { id: "pharm", role: "Pharmacist", email: "pharmacy@hospital.com", fullName: "John Mortar" },
+  { id: "lab", role: "Lab Technician", email: "lab@hospital.com", fullName: "Sarah Microscope" },
+  { id: "bill", role: "Billing Manager", email: "billing@hospital.com", fullName: "Amanda Ledger" },
+  { id: "hr", role: "HR Director", email: "hr@hospital.com", fullName: "David Resources" },
+];
+
 export default function LoginPage() {
   const t = useTranslations('login');
   const commonT = useTranslations('common');
-  const users = useUsersStore((state) => state.users);
-  const logActivity = useUsersStore((state) => state.logActivity);
   
-  const [selectedMock, setSelectedMock] = useState(users[0]);
+  const [email, setEmail] = useState(DEMO_PERSONAS[0].email);
+  const [password, setPassword] = useState("password123");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [error, setError] = useState("");
   
   const router = useRouter();
-  const { setUser, setActiveModules } = useAppStore();
 
-  useEffect(() => {
-    if (users.length > 0 && !selectedMock) {
-      setSelectedMock(users[0]);
-    }
-  }, [users, selectedMock]);
-
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedMock) return;
-
+    setError("");
     setIsLoggingIn(true);
     
-    // Simulate network delay
-    setTimeout(() => {
-      Cookies.set("auth-token", selectedMock.id, { expires: 1 });
-      setUser({
-        id: selectedMock.id,
-        fullName: selectedMock.fullName,
-        email: selectedMock.email,
-        role: selectedMock.role,
+    try {
+      const res = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
       });
-      setActiveModules(selectedMock.modules);
-      logActivity(selectedMock.id, 'Login', 'Logged in via mock auth form');
-      router.push("/");
-    }, 600);
-  };
 
-  if (!selectedMock) return null;
+      if (res?.error) {
+        setError(res.error);
+        setIsLoggingIn(false);
+      } else if (res?.ok) {
+        // Force full page reload to sync NextAuth session with all server and client components properly
+        window.location.href = "/";
+      } else {
+        setIsLoggingIn(false);
+      }
+    } catch (err) {
+      setError("An unexpected error occurred.");
+      setIsLoggingIn(false);
+    }
+  };
 
   return (
     <div className="min-h-screen w-full bg-slate-50 flex items-center justify-center p-4">
@@ -59,7 +65,6 @@ export default function LoginPage() {
         
         {/* Left Side - Brand & Information */}
         <div className="bg-slate-900 text-white p-10 flex flex-col justify-between hidden md:flex relative overflow-hidden">
-          {/* Subtle grid background */}
           <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
           <div className="absolute left-0 right-0 top-0 -mt-20 h-96 w-full bg-blue-600/20 blur-3xl rounded-full"></div>
           
@@ -111,9 +116,10 @@ export default function LoginPage() {
                   <Input 
                     id="email" 
                     type="email" 
-                    value={selectedMock.email}
-                    readOnly
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     className="pl-10 h-12 bg-slate-50 border-slate-200 text-slate-900 font-medium" 
+                    required
                   />
                 </div>
               </div>
@@ -124,13 +130,20 @@ export default function LoginPage() {
                   <Input 
                     id="password" 
                     type="password" 
-                    value="••••••••••••"
-                    readOnly
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                     className="pl-10 h-12 bg-slate-50 border-slate-200 text-slate-900 font-medium tracking-widest" 
+                    required
                   />
                 </div>
               </div>
             </div>
+
+            {error && (
+              <div className="text-sm text-red-600 bg-red-50 p-3 rounded border border-red-200">
+                {error}
+              </div>
+            )}
 
             <Button 
               type="submit" 
@@ -145,33 +158,32 @@ export default function LoginPage() {
           <div className="mt-10 pt-8 border-t border-slate-100">
             <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">{t('personas')}</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[300px] overflow-y-auto pr-2 pb-2">
-              {users.map((mock) => (
+              {DEMO_PERSONAS.map((mock) => (
                 <button
                   key={mock.id}
                   type="button"
-                  onClick={() => setSelectedMock(mock)}
+                  onClick={() => {
+                    setEmail(mock.email);
+                    setPassword("password123");
+                  }}
                   className={cn(
                     "flex flex-col items-start p-3 rounded-lg border text-left transition-all",
-                    selectedMock.id === mock.id 
+                    email === mock.email 
                       ? "bg-blue-50 border-blue-200 ring-1 ring-blue-500 shadow-sm" 
-                      : "bg-white border-slate-200 hover:border-blue-300 hover:bg-slate-50",
-                    mock.status === 'inactive' && "opacity-50 grayscale"
+                      : "bg-white border-slate-200 hover:border-blue-300 hover:bg-slate-50"
                   )}
                 >
                   <div className="flex w-full justify-between items-center">
                     <span className={cn(
                       "text-sm font-semibold truncate",
-                      selectedMock.id === mock.id ? "text-blue-900" : "text-slate-700"
+                      email === mock.email ? "text-blue-900" : "text-slate-700"
                     )}>
                       {mock.role}
                     </span>
-                    {mock.status === 'inactive' && (
-                      <span className="text-[9px] uppercase font-bold text-red-600 bg-red-100 px-1 py-0.5 rounded">Inactive</span>
-                    )}
                   </div>
                   <span className={cn(
                     "text-xs truncate w-full mt-0.5",
-                    selectedMock.id === mock.id ? "text-blue-600" : "text-slate-500"
+                    email === mock.email ? "text-blue-600" : "text-slate-500"
                   )}>
                     {mock.fullName}
                   </span>
