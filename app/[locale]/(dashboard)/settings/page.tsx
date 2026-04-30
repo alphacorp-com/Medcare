@@ -210,6 +210,7 @@ export default function SettingsPage() {
 
                 <TabsContent value="templates" className="m-0 mt-0 focus-visible:outline-none">
                   <DocumentTemplates 
+                    facility={orgData}
                     templateSettings={templateSettings} 
                     setTemplateSettings={setTemplateSettings} 
                     ttpl={ttpl} 

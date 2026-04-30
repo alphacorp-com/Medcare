@@ -39,7 +39,7 @@ export const authOptions: NextAuthOptions = {
                     email: user.email,
                     name: user.fullName,
                     role: user.role as string,
-                    tenantId: user.tenantId,
+                    tenantId: (user as any).tenantId,
                     modules: ((user as any).modules ?? []) as unknown as ModulePermission[],
                 };
             },
