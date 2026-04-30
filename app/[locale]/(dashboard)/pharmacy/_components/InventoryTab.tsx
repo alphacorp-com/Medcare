@@ -1,0 +1,129 @@
+"use client";
+
+import { useTranslations } from "next-intl";
+import { Button } from "@/components/ui/button";
+import { Search, AlertTriangle, BatteryWarning, Filter } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
+import { InventoryRow } from "../types";
+
+interface InventoryTabProps {
+  inventory: InventoryRow[];
+  search: string;
+  setSearch: (search: string) => void;
+  onRestock: (item: InventoryRow) => void;
+  onEdit: (item: InventoryRow) => void;
+}
+
+export function InventoryTab({
+  inventory,
+  search,
+  setSearch,
+  onRestock,
+  onEdit,
+}: InventoryTabProps) {
+  const t = useTranslations('pharmacy');
+  const tc = useTranslations('common');
+
+  const filteredInventory = inventory.filter(item => {
+    if (search && !item.name.toLowerCase().includes(search.toLowerCase()) && !item.id.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
+
+  return (
+    <div className="flex-1 flex flex-col gap-4 overflow-hidden">
+      <div className="grid gap-4 md:grid-cols-4 shrink-0">
+        <div className="bg-white p-4 rounded border border-slate-200 shadow-sm">
+          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">{t('total_skus')}</div>
+          <div className="text-3xl font-bold text-slate-900">{inventory.length}</div>
+        </div>
+        <div className="bg-yellow-50 p-4 rounded border border-yellow-200 shadow-sm flex items-end justify-between">
+          <div>
+            <div className="text-xs font-semibold text-yellow-800 uppercase tracking-wider mb-1">{t('low_stock_alerts')}</div>
+            <div className="text-3xl font-bold text-yellow-700">{inventory.filter(i => i.stock < i.threshold).length}</div>
+          </div>
+          <BatteryWarning className="h-8 w-8 text-yellow-300" />
+        </div>
+        <div className="bg-red-50 p-4 rounded border border-red-200 shadow-sm flex items-end justify-between">
+          <div>
+            <div className="text-xs font-semibold text-red-800 uppercase tracking-wider mb-1">{t('out_of_stock')}</div>
+            <div className="text-3xl font-bold text-red-700">{inventory.filter(i => i.stock === 0).length}</div>
+          </div>
+          <AlertTriangle className="h-8 w-8 text-red-300" />
+        </div>
+      </div>
+
+      <div className="flex-1 flex flex-col bg-white rounded border border-slate-200 shadow-sm overflow-hidden">
+        <div className="p-2 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+          <div className="relative w-96 flex-1">
+            <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-slate-400" />
+            <Input
+              type="search"
+              placeholder={t('search_inventory')}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-8 h-8 text-xs bg-white border-slate-200 focus:border-blue-400 max-w-sm"
+            />
+          </div>
+          <div className="flex gap-2 ml-4">
+            <Button variant="outline" size="sm" className="h-8 text-xs text-slate-700">
+              <Filter className="mr-2 h-3 w-3" /> {t('advanced_filters')}
+            </Button>
+          </div>
+        </div>
+        <div className="flex-1 overflow-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="bg-slate-50 text-[10px] text-slate-500 uppercase font-bold border-b border-slate-200 sticky top-0 z-10">
+                <th className="px-4 py-2">{tc('ipp')}</th>
+                <th className="px-4 py-2">{tc('name')}</th>
+                <th className="px-4 py-2">{t('category')}</th>
+                <th className="px-4 py-2">{t('current_stock')}</th>
+                <th className="px-4 py-2">{t('threshold')}</th>
+                <th className="px-4 py-2">{tc('status')}</th>
+                <th className="px-4 py-2 text-right">{tc('actions')}</th>
+              </tr>
+            </thead>
+            <tbody className="text-xs divide-y divide-slate-100">
+              {filteredInventory.map((item) => (
+                <tr key={item.id} className="hover:bg-slate-50">
+                  <td className="px-4 py-3 font-mono text-slate-600">{item.id}</td>
+                  <td className="px-4 py-3">
+                    <div className="font-semibold text-slate-900">{item.name}</div>
+                    <div className="text-[10px] text-slate-500">{item.manufacturer}</div>
+                  </td>
+                  <td className="px-4 py-3 text-slate-600">{item.category}</td>
+                  <td className="px-4 py-3 font-mono font-medium">
+                    {item.stock} <span className="text-slate-400 text-[10px] ml-1">{item.unit}</span>
+                  </td>
+                  <td className="px-4 py-3 font-mono text-slate-500">
+                    {item.threshold}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={cn(
+                      "px-2 py-0.5 rounded text-[10px] uppercase font-bold",
+                      item.stock > item.threshold ? "bg-green-100 text-green-700" :
+                        item.stock > 0 ? "bg-yellow-100 text-yellow-700" :
+                          "bg-red-100 text-red-700"
+                    )}>
+                      {item.stock > item.threshold ? "In Stock" : item.stock > 0 ? "Low Stock" : "Out of Stock"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-right space-x-2">
+                    <button className="text-blue-600 hover:underline font-medium" onClick={() => onRestock(item)}>{t('restock')}</button>
+                    <button className="text-slate-500 hover:text-slate-800 hover:underline font-medium" onClick={() => onEdit(item)}>{tc('edit')}</button>
+                  </td>
+                </tr>
+              ))}
+              {filteredInventory.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="text-center py-8 text-slate-500 text-xs">{tc('no_data')}</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}

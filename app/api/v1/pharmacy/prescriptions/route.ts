@@ -16,6 +16,14 @@ export async function GET() {
       }
     });
 
+    // Fetch all doctors to map prescriberId to name
+    const doctors = await prisma.tenantUser.findMany({
+      where: { role: 'doctor' },
+      select: { id: true, fullName: true }
+    });
+
+    const doctorMap = new Map(doctors.map(d => [d.id, d.fullName]));
+
     // We format the prescriptions to match the UI expectations
     const formattedData = prescriptions.map((rx) => {
       // items is a Json field, so we parse it safely
@@ -33,7 +41,7 @@ export async function GET() {
       return {
         id: rx.id,
         patientName: `${rx.patient.firstName} ${rx.patient.lastName}`,
-        prescriber: `Prescriber (${rx.prescriberId})`, // Mocked since prescriber name requires resolving TenantUser
+        prescriber: doctorMap.get(rx.prescriberId) || `ID: ${rx.prescriberId}`,
         date: rx.prescribedAt,
         status: rx.status === 'pending' ? 'Pending Queue' : rx.status === 'validated' ? 'Validated' : 'Dispensed',
         items: itemsList.length || 0,
