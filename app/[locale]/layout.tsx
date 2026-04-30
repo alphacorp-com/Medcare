@@ -11,6 +11,11 @@ const inter = Inter({
   variable: '--font-sans',
 });
 
+export const metadata = {
+  title: "Medcare System",
+  description: "Medical management system",
+};
+
 export default async function RootLayout({
   children,
   params,

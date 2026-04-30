@@ -27,6 +27,9 @@ export async function GET(
         prescriptions: {
           orderBy: { prescribedAt: "desc" },
         },
+        examRequests: {
+          orderBy: { requestedAt: "desc" },
+        },
       },
     });
 
