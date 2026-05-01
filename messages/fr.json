@@ -318,6 +318,11 @@
     "module_active": "Actif",
     "security": "Paramètres de Sécurité",
     "integrations": "Intégrations Externes",
+    "database_backup": "Sauvegarde Base de Données",
+    "database_backup_desc": "Créer et gérer des sauvegardes de sécurité de la base de données.",
+    "backup_database": "Sauvegarder la Base de Données",
+    "backup_database_desc": "Créer une sauvegarde complète de toutes les données du tenant actuel.",
+    "create_backup": "Créer une Sauvegarde",
     "audit_history": "Journal d'Audit",
     "audit_history_desc": "Historique chronologique des interactions et modifications système de cet utilisateur.",
     "print_report": "Imprimer le rapport",
@@ -426,6 +431,7 @@
     "pmsi_code": "Code PMSI",
     "validated": "Validé",
     "stay_timeline": "Chronologie du Séjour",
+    "medications": "Médicaments",
     "meds_administered": "Médicaments Administrés",
     "doctor_orders": "Ordres Médicaux",
     "event": "Événement",
@@ -485,7 +491,11 @@
     "order_notes_placeholder": "Contexte clinique ou instructions particulières...",
     "save_order": "Enregistrer l'Ordre",
     "saving": "Enregistrement...",
-    "error_save": "Échec de l'enregistrement. Veuillez réessayer."
+    "error_save": "Échec de l'enregistrement. Veuillez réessayer.",
+    "doses": "doses",
+    "per_day": "par jour",
+    "during": "pendant",
+    "days": "jours"
   },
   "roles": {
     "admin": "Administrateur Système",

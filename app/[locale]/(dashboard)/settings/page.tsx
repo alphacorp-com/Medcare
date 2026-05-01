@@ -41,6 +41,10 @@ export default function SettingsPage() {
     watermark: false
   });
 
+  // Database Backup State
+  const [isBackingUp, setIsBackingUp] = useState(false);
+  const [backupHistory, setBackupHistory] = useState<any[]>([]);
+
   const t = useTranslations('settings');
   const tc = useTranslations('common');
   const tp = useTranslations('patients');
@@ -53,13 +57,16 @@ export default function SettingsPage() {
   const tplan = useTranslations('planning');
   const ttpl = useTranslations('templates');
 
+  const isSysAdmin = currentUser?.role === "tenant_admin";
+
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const [orgRes, tplRes] = await Promise.all([
+        const [orgRes, tplRes, backupRes] = await Promise.all([
           fetch('/api/v1/settings/organization'),
-          fetch('/api/v1/settings/templates')
+          fetch('/api/v1/settings/templates'),
+          isSysAdmin ? fetch('/api/v1/settings/database') : Promise.resolve(null)
         ]);
 
         if (orgRes.ok) {
@@ -79,6 +86,11 @@ export default function SettingsPage() {
           const data = await tplRes.json();
           setTemplateSettings(prev => ({ ...prev, ...data }));
         }
+
+        if (backupRes && backupRes.ok) {
+          const data = await backupRes.json();
+          setBackupHistory(data.backups || []);
+        }
       } catch (error) {
         console.error("Failed to fetch settings:", error);
       } finally {
@@ -89,7 +101,7 @@ export default function SettingsPage() {
     if (currentUser) {
       fetchData();
     }
-  }, [currentUser]);
+  }, [currentUser, isSysAdmin]);
 
   const APP_MODULES = [
     { id: "MODULE_CORE_PATIENT", name: tp('module_title'), desc: tp('module_desc'), required: true },
@@ -101,8 +113,6 @@ export default function SettingsPage() {
     { id: "MODULE_BILLING", name: tbill('title'), desc: tbill('description') },
     { id: "MODULE_PLANNING", name: tplan('title'), desc: tplan('description') }
   ];
-
-  const isSysAdmin = currentUser?.role === "tenant_admin";
 
   const handleModuleToggle = (moduleId: string, isRequired?: boolean) => {
     if (isRequired) return;
@@ -134,6 +144,35 @@ export default function SettingsPage() {
       console.error("Failed to save settings:", error);
     } finally {
       setTimeout(() => setIsSaving(false), 500);
+    }
+  };
+
+  const handleCreateBackup = async () => {
+    setIsBackingUp(true);
+    try {
+      const response = await fetch('/api/v1/settings/database', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Refresh backup history
+        const backupRes = await fetch('/api/v1/settings/database');
+        if (backupRes.ok) {
+          const backupData = await backupRes.json();
+          setBackupHistory(backupData.backups || []);
+        }
+        alert(`Sauvegarde créée avec succès: ${data.backupFile} (${data.size})`);
+      } else {
+        const error = await response.json();
+        alert(`Erreur lors de la sauvegarde: ${error.error}`);
+      }
+    } catch (error) {
+      console.error("Failed to create backup:", error);
+      alert("Erreur lors de la création de la sauvegarde");
+    } finally {
+      setIsBackingUp(false);
     }
   };
 
@@ -172,6 +211,9 @@ export default function SettingsPage() {
                 </TabsTrigger>
                 <TabsTrigger value="templates" className="justify-start px-4 py-2.5 text-sm rounded-md text-slate-600 transition-all data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:font-semibold data-[state=active]:shadow-none hover:bg-slate-100">
                   <FileText className="h-4 w-4 mr-3" /> {ttpl('title')}
+                </TabsTrigger>
+                <TabsTrigger value="database" className="justify-start px-4 py-2.5 text-sm rounded-md text-slate-600 transition-all data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:font-semibold data-[state=active]:shadow-none hover:bg-slate-100">
+                  <Database className="h-4 w-4 mr-3" /> {t('database_backup')}
                 </TabsTrigger>
                 <div className="h-px bg-slate-200 my-4 mx-2"></div>
                 <TabsTrigger value="security" className="justify-start px-4 py-2.5 text-sm rounded-md text-slate-600 transition-all data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:font-semibold data-[state=active]:shadow-none hover:bg-slate-100">
@@ -215,6 +257,58 @@ export default function SettingsPage() {
                     setTemplateSettings={setTemplateSettings} 
                     ttpl={ttpl} 
                   />
+                </TabsContent>
+
+                <TabsContent value="database" className="m-0 mt-0 focus-visible:outline-none">
+                  <div className="bg-white rounded border border-slate-200 shadow-sm p-6 space-y-6">
+                    <div>
+                      <h2 className="text-lg font-bold text-slate-900">{t('database_backup')}</h2>
+                      <p className="text-xs text-slate-500">{t('database_backup_desc')}</p>
+                    </div>
+
+                    <div className="p-6 text-center border-2 border-dashed border-slate-200 rounded-lg bg-amber-50/30">
+                      <Database className="h-10 w-10 text-amber-300 mx-auto mb-3" />
+                      <h3 className="text-sm font-bold text-amber-800">{t('backup_database')}</h3>
+                      <p className="text-xs text-amber-600/70 mt-1 max-w-sm mx-auto">{t('backup_database_desc')}</p>
+                      <Button
+                        onClick={handleCreateBackup}
+                        disabled={isBackingUp}
+                        variant="outline"
+                        size="sm"
+                        className="mt-4 border-amber-200 text-amber-700 hover:bg-amber-50 text-xs"
+                      >
+                        {isBackingUp ? (
+                          <>
+                            <Loader2 className="h-3 w-3 animate-spin mr-2" />
+                            {tc('saving')}
+                          </>
+                        ) : (
+                          t('create_backup')
+                        )}
+                      </Button>
+                    </div>
+
+                    {backupHistory.length > 0 && (
+                      <div className="space-y-3">
+                        <h3 className="text-sm font-semibold text-slate-700">Historique des sauvegardes</h3>
+                        <div className="space-y-2 max-h-48 overflow-y-auto">
+                          {backupHistory.map((backup, index) => (
+                            <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded border">
+                              <div className="flex-1">
+                                <p className="text-sm font-medium text-slate-800">{backup.filename}</p>
+                                <p className="text-xs text-slate-500">
+                                  {new Date(backup.createdAt).toLocaleString()} • {backup.size}
+                                </p>
+                              </div>
+                              <Button variant="ghost" size="sm" className="text-xs text-slate-600 hover:text-slate-800">
+                                Télécharger
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </TabsContent>
 
                 <TabsContent value="security" className="m-0 mt-0 focus-visible:outline-none">

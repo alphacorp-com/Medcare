@@ -184,12 +184,12 @@ async function main() {
   // Seed Medication Inventory
   console.log('Seeding medication inventory...');
   const medications = [
-    { name: 'Paracetamol 500mg Tablets', manufacturer: 'Generic', category: 'Analgesic', stock: 1500, threshold: 200, unit: 'tablets', unitPrice: 0.05 },
-    { name: 'Ibuprofen 200mg Tablets', manufacturer: 'Generic', category: 'Anti-inflammatory', stock: 1200, threshold: 150, unit: 'tablets', unitPrice: 0.08 },
-    { name: 'Amoxicillin 500mg Capsules', manufacturer: 'Generic', category: 'Antibiotic', stock: 800, threshold: 100, unit: 'capsules', unitPrice: 0.15 },
-    { name: 'Omeprazole 20mg Capsules', manufacturer: 'Generic', category: 'Gastrointestinal', stock: 600, threshold: 80, unit: 'capsules', unitPrice: 0.20 },
-    { name: 'Metformin 500mg Tablets', manufacturer: 'Generic', category: 'Antidiabetic', stock: 900, threshold: 120, unit: 'tablets', unitPrice: 0.10 },
-    { name: 'Amlodipine 5mg Tablets', manufacturer: 'Generic', category: 'Cardiovascular', stock: 700, threshold: 90, unit: 'tablets', unitPrice: 0.12 },
+    { name: 'Paracetamol 500mg Tablets', manufacturer: 'Generic', category: 'Analgesic', stock: 1500, threshold: 200, unit: 'tablets', unitPrice: 100 },
+    { name: 'Ibuprofen 200mg Tablets', manufacturer: 'Generic', category: 'Anti-inflammatory', stock: 1200, threshold: 150, unit: 'tablets', unitPrice: 80 },
+    { name: 'Amoxicillin 500mg Capsules', manufacturer: 'Generic', category: 'Antibiotic', stock: 800, threshold: 100, unit: 'capsules', unitPrice: 150 },
+    { name: 'Omeprazole 20mg Capsules', manufacturer: 'Generic', category: 'Gastrointestinal', stock: 600, threshold: 80, unit: 'capsules', unitPrice: 200 },
+    { name: 'Metformin 500mg Tablets', manufacturer: 'Generic', category: 'Antidiabetic', stock: 900, threshold: 120, unit: 'tablets', unitPrice: 100 },
+    { name: 'Amlodipine 5mg Tablets', manufacturer: 'Generic', category: 'Cardiovascular', stock: 700, threshold: 90, unit: 'tablets', unitPrice: 120 },
     { name: 'Simvastatin 20mg Tablets', manufacturer: 'Generic', category: 'Cardiovascular', stock: 500, threshold: 70, unit: 'tablets', unitPrice: 0.18 },
     { name: 'Losartan 50mg Tablets', manufacturer: 'Generic', category: 'Cardiovascular', stock: 650, threshold: 85, unit: 'tablets', unitPrice: 0.14 },
     { name: 'Prednisone 5mg Tablets', manufacturer: 'Generic', category: 'Corticosteroid', stock: 400, threshold: 50, unit: 'tablets', unitPrice: 0.25 },

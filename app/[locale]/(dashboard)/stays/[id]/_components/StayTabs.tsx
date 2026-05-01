@@ -130,8 +130,10 @@ export function StayTabs({ stay, onPrescriptionOpen, onOrderOpen, getDoctorName 
                                 <div className="h-1.5 w-1.5 rounded-full bg-blue-400" />
                                 <span className="font-bold text-slate-900">{item.drug}</span>
                                 <span className="text-slate-400">—</span>
-                                <span className="text-slate-600 font-medium">{item.dosage}</span>
-                                <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-600 text-[10px] font-bold">{item.frequency}</span>
+                                <span className="text-slate-600 font-medium">{item.dosage} {t('doses')}</span>
+                                <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-600 text-[10px] font-bold">{item.frequency} {t('per_day')}</span>
+                                <span className="text-slate-400">/</span>
+                                <span className="text-slate-600 font-medium">{t('during')} {item.duration} {t('days')}</span>
                               </div>
                             ))}
                           </div>

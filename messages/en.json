@@ -299,6 +299,11 @@
     "module_active": "Active",
     "security": "Security Settings",
     "integrations": "External Integrations",
+    "database_backup": "Database Backup",
+    "database_backup_desc": "Create and manage secure database backups.",
+    "backup_database": "Backup Database",
+    "backup_database_desc": "Create a complete backup of all data for the current tenant.",
+    "create_backup": "Create Backup",
     "audit_history": "Audit History Log",
     "audit_history_desc": "Chronological history of interactions and system changes by this user.",
     "print_report": "Print Report",
@@ -406,6 +411,7 @@
     "pmsi_code": "PMSI Code",
     "validated": "Validated",
     "stay_timeline": "Stay Timeline",
+    "medications": "Medications",
     "meds_administered": "Meds Administered",
     "doctor_orders": "Doctor Orders",
     "event": "Event",
@@ -465,7 +471,11 @@
     "order_notes_placeholder": "Clinical context or special instructions...",
     "save_order": "Save Order",
     "saving": "Saving...",
-    "error_save": "Failed to save. Please try again."
+    "error_save": "Failed to save. Please try again.",
+    "doses": "doses",
+    "per_day": "per day",
+    "during": "for",
+    "days": "days"
   },
   "roles": {
     "admin": "System Administrator",
