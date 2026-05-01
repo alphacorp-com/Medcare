@@ -17,10 +17,18 @@ import { ModuleConfiguration } from "@/components/settings/module-configuration"
 import { DocumentTemplates } from "@/components/settings/document-templates";
 
 export default function SettingsPage() {
-  const { currentUser, activeModules, setActiveModules } = useAppStore();
+  const { currentUser, activeModules, setActiveModules, setUser } = useAppStore();
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("profile");
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileData, setProfileData] = useState({
+    fullName: "",
+    email: "",
+    language: "en",
+    password: "",
+    confirmPassword: ""
+  });
 
   // Organization State
   const [orgData, setOrgData] = useState({
@@ -103,6 +111,16 @@ export default function SettingsPage() {
     }
   }, [currentUser, isSysAdmin]);
 
+  useEffect(() => {
+    if (currentUser) {
+      setProfileData(prev => ({
+        ...prev,
+        fullName: currentUser.fullName || "",
+        email: currentUser.email || ""
+      }));
+    }
+  }, [currentUser]);
+
   const APP_MODULES = [
     { id: "MODULE_CORE_PATIENT", name: tp('module_title'), desc: tp('module_desc'), required: true },
     { id: "MODULE_ADMISSION", name: tadm('title'), desc: tadm('description') },
@@ -126,8 +144,54 @@ export default function SettingsPage() {
 
   const handleSaveSettings = async () => {
     setIsSaving(true);
+    setProfileError(null);
     try {
-      if (activeTab === "organization") {
+      if (activeTab === "profile") {
+        if (!currentUser?.id) {
+          setProfileError(tc('save_error'));
+          return;
+        }
+
+        if (profileData.password || profileData.confirmPassword) {
+          if (profileData.password !== profileData.confirmPassword) {
+            setProfileError(tc('password_mismatch'));
+            return;
+          }
+          if (profileData.password.length > 0 && profileData.password.length < 8) {
+            setProfileError(tc('password_min_length'));
+            return;
+          }
+        }
+
+        const response = await fetch(`/api/v1/users/${currentUser?.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fullName: profileData.fullName,
+            email: profileData.email,
+            password: profileData.password || undefined
+          })
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          setProfileError(error?.error || tc('save_error'));
+          return;
+        }
+
+        const updatedUser = await response.json();
+        setUser({
+          id: updatedUser.id,
+          fullName: updatedUser.fullName,
+          email: updatedUser.email,
+          role: updatedUser.role
+        });
+        setProfileData({
+          ...profileData,
+          password: "",
+          confirmPassword: ""
+        });
+      } else if (activeTab === "organization") {
         await fetch('/api/v1/settings/organization', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -142,6 +206,9 @@ export default function SettingsPage() {
       }
     } catch (error) {
       console.error("Failed to save settings:", error);
+      if (activeTab === "profile") {
+        setProfileError(tc('save_error'));
+      }
     } finally {
       setTimeout(() => setIsSaving(false), 500);
     }
@@ -257,7 +324,14 @@ export default function SettingsPage() {
 
           <div className="flex-1 max-w-3xl min-w-0">
             <TabsContent value="profile" className="m-0 mt-0 focus-visible:outline-none">
-              <ProfileSettings currentUser={currentUser} t={t} tc={tc} />
+              <ProfileSettings
+                currentUser={currentUser}
+                profileData={profileData}
+                setProfileData={setProfileData}
+                t={t}
+                tc={tc}
+                error={profileError}
+              />
             </TabsContent>
 
             {isSysAdmin && (

@@ -2,12 +2,11 @@
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuGroup } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Search, Languages } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { Languages } from "lucide-react";
+import { useState, useEffect } from "react";
 import { useAppStore } from "@/lib/store/useAppStore";
 import { useRouter, usePathname } from "@/i18n/routing";
 import { useTranslations, useLocale } from "next-intl";
-import Cookies from "js-cookie";
 import { cn } from "@/lib/utils";
 
 import { signOut } from "next-auth/react";
@@ -30,6 +29,12 @@ export function Header() {
     router.push(pathname, { locale: newLocale as any });
   };
 
+  const [orgInfo, setOrgInfo] = useState({
+    name: '',
+    address: '',
+    logoUrl: ''
+  });
+
   const roleTranslations: Record<string, string> = {
     "System Administrator": tr('admin'),
     "Lead Physician": tr('physician'),
@@ -40,18 +45,38 @@ export function Header() {
     "HR Director": tr('hr')
   };
 
+  useEffect(() => {
+    const fetchOrg = async () => {
+      try {
+        const response = await fetch('/api/v1/settings/organization');
+        if (!response.ok) return;
+        const data = await response.json();
+        setOrgInfo({
+          name: data.name || '',
+          address: data.address || '',
+          logoUrl: data.logoUrl || ''
+        });
+      } catch (error) {
+        console.error('Failed to load organization info', error);
+      }
+    };
+
+    fetchOrg();
+  }, []);
+
   return (
     <header className="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0">
-      <div className="flex items-center gap-4">
-        <div className="relative">
-          <Input
-            type="text"
-            placeholder={t('search') + "..."}
-            className="w-96 pl-10 pr-4 py-1.5 h-8 text-xs bg-slate-50 border border-slate-200 rounded focus:outline-none focus:border-blue-400"
-          />
-          <div className="absolute left-3 top-2 text-slate-400">
-            <Search className="h-4 w-4" />
-          </div>
+      <div className="flex items-center gap-3">
+        <Avatar className="h-10 w-10 border border-slate-200 bg-slate-50 text-slate-700">
+          {orgInfo.logoUrl ? (
+            <AvatarImage src={orgInfo.logoUrl} alt={orgInfo.name || t('hospital_name')} />
+          ) : (
+            <AvatarFallback>H</AvatarFallback>
+          )}
+        </Avatar>
+        <div className="leading-tight">
+          <div className="text-sm font-semibold text-slate-900">{orgInfo.name || t('hospital_name')}</div>
+          <div className="text-[11px] text-slate-500">{orgInfo.address || t('hospital_address')}</div>
         </div>
       </div>
       <div className="flex items-center gap-4">

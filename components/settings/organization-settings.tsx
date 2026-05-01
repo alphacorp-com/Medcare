@@ -17,6 +17,21 @@ interface OrganizationSettingsProps {
 }
 
 export function OrganizationSettings({ orgData, setOrgData, t, tc }: OrganizationSettingsProps) {
+  const handleFileChange = (file: File | null) => {
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setOrgData({ ...orgData, logoUrl: reader.result });
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   return (
     <div className="bg-white rounded border border-slate-200 shadow-sm p-6 space-y-6">
       <div>
@@ -28,16 +43,26 @@ export function OrganizationSettings({ orgData, setOrgData, t, tc }: Organizatio
         <div>
           <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Facility Logo</label>
           <div className="flex gap-6 items-center">
-            <div className="h-20 w-20 flex-shrink-0 bg-slate-50 border border-slate-200 rounded flex items-center justify-center p-2 shadow-sm">
-              {orgData.logoUrl ? <img src={orgData.logoUrl} alt="Logo" className="h-full w-full object-contain" /> : <ImageIcon className="h-8 w-8 text-slate-300" />}
+            <div className="h-20 w-20 flex-shrink-0 bg-slate-50 border border-slate-200 rounded flex items-center justify-center p-2 shadow-sm overflow-hidden">
+              {orgData.logoUrl ? (
+                <img src={orgData.logoUrl} alt="Logo" className="h-full w-full object-contain" />
+              ) : (
+                <ImageIcon className="h-8 w-8 text-slate-300" />
+              )}
             </div>
-            <div className="flex-1 border-2 border-dashed border-slate-200 rounded-lg p-4 text-center hover:bg-slate-50 hover:border-blue-300 transition-colors cursor-pointer group">
+            <label className="flex-1 border-2 border-dashed border-slate-200 rounded-lg p-4 text-center hover:bg-slate-50 hover:border-blue-300 transition-colors cursor-pointer group">
               <div className="flex flex-col items-center gap-1">
                 <UploadCloud className="h-5 w-5 text-slate-400 group-hover:text-blue-500 transition-colors" />
                 <p className="text-xs text-slate-600 font-medium">Click to upload or drag and drop</p>
                 <p className="text-[10px] text-slate-400">SVG, PNG, JPG or GIF (max. 2MB)</p>
               </div>
-            </div>
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(event) => handleFileChange(event.target.files?.[0] ?? null)}
+              />
+            </label>
           </div>
         </div>
 

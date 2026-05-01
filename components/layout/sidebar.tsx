@@ -127,7 +127,7 @@ export function Sidebar() {
       </nav>
       <div className="p-4 bg-slate-950 shrink-0">
         <div className="text-[10px] text-slate-500">{t('tenant_env')}</div>
-        <div className="text-xs text-white font-medium truncate">{t('hospital_name')}</div>
+        {/* <div className="text-xs text-white font-medium truncate">{t('hospital_name')}</div> */}
       </div>
     </aside>
   );

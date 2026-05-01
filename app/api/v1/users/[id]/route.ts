@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next";
+import bcrypt from "bcryptjs";
 import prisma from "@/lib/prisma";
+import { authOptions } from "@/lib/auth";
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -36,8 +39,18 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (session.user.id !== id && session.user.role !== 'admin') {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const body = await req.json();
-    const { fullName, email, role, modules, status } = body;
+    const { fullName, email, role, modules, status, password } = body;
 
     const existingUser = await prisma.tenantUser.findUnique({
       where: { id },
@@ -47,14 +60,19 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
+    if (password && password.length < 8) {
+      return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 });
+    }
+
     const updatedUser = await prisma.tenantUser.update({
       where: { id },
       data: {
         ...(fullName && { fullName }),
         ...(email && { email }),
-        ...(role && { role }),
-        ...(modules && { modules }),
-        ...(status && { isActive: status === 'active' }),
+        ...(role && session.user.role === 'admin' && { role }),
+        ...(modules && session.user.role === 'admin' && { modules }),
+        ...(status && session.user.role === 'admin' && { isActive: status === 'active' }),
+        ...(password && { passwordHash: await bcrypt.hash(password, 10) }),
       },
     });
 
