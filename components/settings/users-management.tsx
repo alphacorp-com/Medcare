@@ -5,19 +5,26 @@ import { useRouter } from "@/i18n/routing";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetFooter, SheetTitle } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PlusCircle, Search, Edit2, Activity, Trash2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 
+export type ModuleAction = 'read' | 'create' | 'update' | 'delete';
+
+export type ModulePermission = {
+  moduleId: string;
+  actions: ModuleAction[];
+};
+
 export type SystemUser = {
   id: string;
   role: string;
   email: string;
   fullName: string;
-  modules: string[];
+  modules: ModulePermission[];
   lastActive?: string;
   status: 'active' | 'inactive';
 };
@@ -90,11 +97,60 @@ export function UsersManagement() {
   );
 
   const [selectedRole, setSelectedRole] = useState<string>(SYSTEM_ROLES[0].id);
+  const [selectedModules, setSelectedModules] = useState<Record<string, ModuleAction[]>>({
+    MODULE_CORE_PATIENT: ['read'],
+  });
 
   const handleEdit = (user: SystemUser) => {
     setEditingUser(user);
     setSelectedRole(user.role);
+    setSelectedModules(
+      user.modules?.reduce((acc, module) => {
+        acc[module.moduleId] = module.actions;
+        return acc;
+      }, {} as Record<string, ModuleAction[]>)
+    );
     setIsAddOpen(true);
+  };
+
+  useEffect(() => {
+    if (!editingUser) {
+      setSelectedModules({ MODULE_CORE_PATIENT: ['read'] });
+      setSelectedRole(SYSTEM_ROLES[0].id);
+    }
+  }, [editingUser]);
+
+  useEffect(() => {
+    if (selectedRole === 'tenant_admin') {
+      setSelectedModules({});
+    } else if (!editingUser) {
+      setSelectedModules({ MODULE_CORE_PATIENT: ['read'] });
+    }
+  }, [selectedRole, editingUser]);
+
+  const toggleModuleAction = (moduleId: string, action: ModuleAction) => {
+    setSelectedModules((prev) => {
+      const next = { ...prev };
+      const current = new Set(next[moduleId] || []);
+
+      if (current.has(action)) {
+        current.delete(action);
+      } else {
+        current.add(action);
+      }
+
+      if (moduleId === 'MODULE_CORE_PATIENT') {
+        current.add('read');
+      }
+
+      if (current.size > 0) {
+        next[moduleId] = Array.from(current);
+      } else {
+        delete next[moduleId];
+      }
+
+      return next;
+    });
   };
 
   const handleDelete = async (id: string, name: string) => {
@@ -117,28 +173,19 @@ export function UsersManagement() {
     const email = formData.get("email") as string;
     const role = formData.get("role") as string;
     const status = formData.get("status") as 'active' | 'inactive';
-    
-    let selectedModules: any[] = [];
 
-    if (role !== 'tenant_admin') {
-      selectedModules = ALL_MODULES.map(mod => {
-        const actions: string[] = [];
-        if (formData.get(`module-${mod.id}-read`) === "on") actions.push("read");
-        if (formData.get(`module-${mod.id}-create`) === "on") actions.push("create");
-        if (formData.get(`module-${mod.id}-update`) === "on") actions.push("update");
-        if (formData.get(`module-${mod.id}-delete`) === "on") actions.push("delete");
-        return { moduleId: mod.id, actions };
-      }).filter(m => m.actions.length > 0 || m.moduleId === "MODULE_CORE_PATIENT");
+    const modulePayload: ModulePermission[] = Object.entries(selectedModules)
+      .filter(([moduleId, actions]) => actions.length > 0 || moduleId === 'MODULE_CORE_PATIENT')
+      .map(([moduleId, actions]) => ({ moduleId, actions }));
 
-      const core = selectedModules.find(m => m.moduleId === "MODULE_CORE_PATIENT");
-      if (core) {
-        if (!core.actions.includes("read")) core.actions.push("read");
-      } else {
-        selectedModules.push({ moduleId: "MODULE_CORE_PATIENT", actions: ["read"] });
-      }
+    if (!modulePayload.some((m) => m.moduleId === 'MODULE_CORE_PATIENT')) {
+      modulePayload.push({ moduleId: 'MODULE_CORE_PATIENT', actions: ['read'] });
     }
 
-    const payload = { fullName, email, role, status, modules: selectedModules };
+    const payload: any = { fullName, email, role, status };
+    if (role !== 'tenant_admin') {
+      payload.modules = modulePayload;
+    }
 
     try {
       if (editingUser) {
@@ -183,12 +230,12 @@ export function UsersManagement() {
           </Button>
 
           <Sheet open={isAddOpen} onOpenChange={(v) => { setIsAddOpen(v); if(!v) setEditingUser(null); }}>
-            <SheetContent className="overflow-y-auto sm:max-w-2xl">
+            <SheetContent className="overflow-y-auto sm:max-w-2xl p-6 sm:p-8">
               <SheetHeader>
                 <SheetTitle>{editingUser ? t('edit_user') : t('add_new_user')}</SheetTitle>
               </SheetHeader>
               <form key={editingUser ? editingUser.id : 'new-user'} onSubmit={handleCreateOrUpdate} className="space-y-6 mt-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                 <div className="space-y-2">
                   <Label>{tc('name')}</Label>
                   <Input name="fullName" defaultValue={editingUser?.fullName} required placeholder="Dr. John Doe" />
@@ -224,33 +271,55 @@ export function UsersManagement() {
                 ) : (
                   <div className="space-y-3">
                     {ALL_MODULES.map((mod) => {
-                      const modPerm = editingUser ? (editingUser.modules as any[])?.find(m => m.moduleId === mod.id) : null;
-                      const hasRead = modPerm ? modPerm.actions.includes("read") : mod.id === "MODULE_CORE_PATIENT";
-                      const hasCreate = modPerm ? modPerm.actions.includes("create") : false;
-                      const hasUpdate = modPerm ? modPerm.actions.includes("update") : false;
-                      const hasDelete = modPerm ? modPerm.actions.includes("delete") : false;
+                      const currentActions = selectedModules[mod.id] ?? (mod.id === 'MODULE_CORE_PATIENT' ? ['read'] : []);
+                      const hasRead = currentActions.includes('read');
+                      const hasCreate = currentActions.includes('create');
+                      const hasUpdate = currentActions.includes('update');
+                      const hasDelete = currentActions.includes('delete');
 
                       return (
-                        <div key={mod.id} className="flex flex-col gap-2 text-sm border p-3 rounded-md hover:bg-slate-50">
-                          <div className="font-semibold text-slate-700 flex justify-between items-center">
+                        <div key={mod.id} className="flex flex-col gap-3 text-sm border border-slate-200 rounded-xl p-4 hover:border-blue-200 transition-colors">
+                          <div className="font-semibold text-slate-700 flex items-center justify-between">
                             <span>{mod.name}</span>
+                            <span className="text-[11px] text-slate-500 uppercase tracking-[0.15em]">Actions</span>
                           </div>
-                          <div className="grid grid-cols-4 gap-2 mt-1">
-                            <label className="flex items-center gap-1.5 cursor-pointer">
-                              <input type="checkbox" name={`module-${mod.id}-read`} defaultChecked={hasRead} disabled={mod.id === "MODULE_CORE_PATIENT"} className="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
-                              <span className="text-xs text-slate-600">Read</span>
+                          <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+                            <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 cursor-pointer text-xs text-slate-600 hover:border-blue-300">
+                              <input
+                                type="checkbox"
+                                checked={hasRead}
+                                disabled={mod.id === 'MODULE_CORE_PATIENT'}
+                                onChange={() => toggleModuleAction(mod.id, 'read')}
+                                className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                              />
+                              Read
                             </label>
-                            <label className="flex items-center gap-1.5 cursor-pointer">
-                              <input type="checkbox" name={`module-${mod.id}-create`} defaultChecked={hasCreate} className="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
-                              <span className="text-xs text-slate-600">Create</span>
+                            <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 cursor-pointer text-xs text-slate-600 hover:border-blue-300">
+                              <input
+                                type="checkbox"
+                                checked={hasCreate}
+                                onChange={() => toggleModuleAction(mod.id, 'create')}
+                                className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                              />
+                              Create
                             </label>
-                            <label className="flex items-center gap-1.5 cursor-pointer">
-                              <input type="checkbox" name={`module-${mod.id}-update`} defaultChecked={hasUpdate} className="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
-                              <span className="text-xs text-slate-600">Update</span>
+                            <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 cursor-pointer text-xs text-slate-600 hover:border-blue-300">
+                              <input
+                                type="checkbox"
+                                checked={hasUpdate}
+                                onChange={() => toggleModuleAction(mod.id, 'update')}
+                                className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                              />
+                              Update
                             </label>
-                            <label className="flex items-center gap-1.5 cursor-pointer">
-                              <input type="checkbox" name={`module-${mod.id}-delete`} defaultChecked={hasDelete} className="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
-                              <span className="text-xs text-slate-600">Delete</span>
+                            <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 cursor-pointer text-xs text-slate-600 hover:border-blue-300">
+                              <input
+                                type="checkbox"
+                                checked={hasDelete}
+                                onChange={() => toggleModuleAction(mod.id, 'delete')}
+                                className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                              />
+                              Delete
                             </label>
                           </div>
                         </div>
@@ -260,10 +329,12 @@ export function UsersManagement() {
                 )}
               </div>
 
-              <div className="flex justify-end gap-3 pt-6 border-t">
-                <Button type="button" variant="outline" onClick={() => setIsAddOpen(false)}>{tc('cancel')}</Button>
-                <Button type="submit" className="bg-blue-600 hover:bg-blue-700">{editingUser ? tc('save_changes') : t('create_user')}</Button>
-              </div>
+              <SheetFooter className="border-t border-slate-100 pt-4">
+                <div className="flex justify-end gap-3 w-full">
+                  <Button type="button" variant="outline" onClick={() => setIsAddOpen(false)}>{tc('cancel')}</Button>
+                  <Button type="submit" className="bg-blue-600 hover:bg-blue-700">{editingUser ? tc('save_changes') : t('create_user')}</Button>
+                </div>
+              </SheetFooter>
             </form>
           </SheetContent>
         </Sheet>

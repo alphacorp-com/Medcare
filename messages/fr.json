@@ -14,6 +14,8 @@
     "logout": "Déconnexion",
     "clinical_modules": "Modules Cliniques",
     "administrative": "Administratif",
+    "patient": "Patients",
+    "inactive": "Inactif",
     "active": "Actif",
     "disabled": "Désactivé",
     "tenant_env": "Environnement Tenant",
