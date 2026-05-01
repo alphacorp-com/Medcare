@@ -271,11 +271,12 @@ export default function SettingsPage() {
                 </TabsContent>
 
                 <TabsContent value="modules" className="m-0 mt-0 focus-visible:outline-none">
-                  <ModuleConfiguration 
-                    appModules={APP_MODULES} 
-                    activeModules={activeModules} 
-                    handleModuleToggle={handleModuleToggle} 
-                    t={t} 
+                  <ModuleConfiguration
+                    appModules={APP_MODULES}
+                    activeModules={activeModules}
+                    t={t}
+                    readOnly
+                    showOnlyActive
                   />
                 </TabsContent>
 

@@ -10,7 +10,6 @@ import {
   CreditCard,
   FileText,
   Settings,
-  BarChart3,
   Shield,
   Database
 } from "lucide-react";
@@ -49,7 +48,7 @@ export default function AdminDashboard() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-6 h-auto gap-1 bg-white border p-1">
             <TabsTrigger value="tenants" className="flex items-center gap-2">
               <Building2 className="h-4 w-4" />
               Tenants
@@ -68,7 +67,7 @@ export default function AdminDashboard() {
             </TabsTrigger>
             <TabsTrigger value="modules" className="flex items-center gap-2">
               <Settings className="h-4 w-4" />
-              Modules
+              Modules Config
             </TabsTrigger>
             <TabsTrigger value="settings" className="flex items-center gap-2">
               <Database className="h-4 w-4" />

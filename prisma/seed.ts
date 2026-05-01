@@ -1,5 +1,13 @@
 import 'dotenv/config';
-import { TenantType, TenantStatus, TenantUserRole, DepartmentType } from '@prisma/client';
+import {
+  TenantType,
+  TenantStatus,
+  TenantUserRole,
+  DepartmentType,
+  PlanTier,
+  BillingCycle,
+  ModuleCategory,
+} from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import prisma from '../lib/prisma';
 
@@ -33,6 +41,221 @@ async function main() {
 
   console.log('Tenant ensured:', tenant.name);
 
+  // Seed plans (monthly and yearly)
+  const plans = [
+    {
+      name: 'MedCare Monthly',
+      tier: PlanTier.core,
+      billingCycle: BillingCycle.monthly,
+      basePrice: 150000,
+      currency: 'XAF',
+      sortOrder: 1,
+      maxUsers: 50,
+      maxBeds: 100,
+      maxStorageGb: 200,
+      features: {
+        support: 'standard',
+        billing: true,
+        analytics: false,
+      },
+    },
+    {
+      name: 'MedCare Yearly',
+      tier: PlanTier.core,
+      billingCycle: BillingCycle.annual,
+      basePrice: 1600000,
+      currency: 'XAF',
+      sortOrder: 2,
+      maxUsers: 50,
+      maxBeds: 100,
+      maxStorageGb: 200,
+      features: {
+        support: 'priority',
+        billing: true,
+        analytics: true,
+      },
+    },
+  ];
+
+  for (const plan of plans) {
+    const existingPlan = await prisma.plan.findFirst({
+      where: { name: plan.name, billingCycle: plan.billingCycle },
+      select: { id: true },
+    });
+
+    if (existingPlan) {
+      await prisma.plan.update({
+        where: { id: existingPlan.id },
+        data: {
+          tier: plan.tier,
+          basePrice: plan.basePrice,
+          currency: plan.currency,
+          sortOrder: plan.sortOrder,
+          maxUsers: plan.maxUsers,
+          maxBeds: plan.maxBeds,
+          maxStorageGb: plan.maxStorageGb,
+          features: plan.features,
+          isActive: true,
+          isPublic: true,
+        },
+      });
+    } else {
+      await prisma.plan.create({
+        data: {
+          ...plan,
+          isActive: true,
+          isPublic: true,
+        },
+      });
+    }
+  }
+  console.log('Plans ensured (monthly/yearly)');
+
+  const moduleDefinitions: Array<{
+    code: string;
+    name: string;
+    category: ModuleCategory;
+    tier: PlanTier;
+    description: string;
+    isPublished: boolean;
+  }> = [
+    {
+      code: 'MODULE_CORE_PATIENT',
+      name: 'Patient Management',
+      category: 'clinical',
+      tier: 'core',
+      description: 'Manage patient records, appointments, and clinical workflows.',
+      isPublished: true,
+    },
+    {
+      code: 'MODULE_ADMISSION',
+      name: 'Admissions',
+      category: 'clinical',
+      tier: 'core',
+      description: 'Track admissions, bed assignments and patient flow.',
+      isPublished: true,
+    },
+    {
+      code: 'MODULE_PHARMACY',
+      name: 'Pharmacy',
+      category: 'clinical',
+      tier: 'core',
+      description: 'Manage medication dispensing, prescriptions and stock.',
+      isPublished: true,
+    },
+    {
+      code: 'MODULE_LAB',
+      name: 'Laboratory',
+      category: 'clinical',
+      tier: 'core',
+      description: 'Manage lab requests, results and test tracking.',
+      isPublished: true,
+    },
+    {
+      code: 'MODULE_SURGERY',
+      name: 'Surgery',
+      category: 'clinical',
+      tier: 'core',
+      description: 'Coordinate surgical scheduling and operative workflows.',
+      isPublished: true,
+    },
+    {
+      code: 'MODULE_RADIOLOGY',
+      name: 'Radiology',
+      category: 'clinical',
+      tier: 'core',
+      description: 'Manage imaging orders, reports and radiology workflows.',
+      isPublished: true,
+    },
+    {
+      code: 'MODULE_BILLING',
+      name: 'Billing',
+      category: 'finance',
+      tier: 'core',
+      description: 'Handle invoicing, payments and billing records.',
+      isPublished: true,
+    },
+    {
+      code: 'MODULE_PLANNING',
+      name: 'Planning',
+      category: 'admin',
+      tier: 'core',
+      description: 'Manage facility planning, staffing and resource allocation.',
+      isPublished: true,
+    },
+  ];
+
+  const seededModules: Record<string, { id: string }> = {};
+  for (const moduleDefinition of moduleDefinitions) {
+    const moduleRecord = await prisma.module.upsert({
+      where: { code: moduleDefinition.code },
+      update: {
+        name: moduleDefinition.name,
+        category: moduleDefinition.category as any,
+        tier: moduleDefinition.tier as any,
+        description: moduleDefinition.description,
+        isPublished: moduleDefinition.isPublished,
+      },
+      create: {
+        ...moduleDefinition,
+      },
+    });
+    seededModules[moduleRecord.code] = { id: moduleRecord.id };
+  }
+  console.log('Modules ensured');
+
+  const monthlyPlan = await prisma.plan.findFirst({
+    where: { name: 'MedCare Monthly', billingCycle: BillingCycle.monthly },
+    select: { id: true },
+  });
+  const annualPlan = await prisma.plan.findFirst({
+    where: { name: 'MedCare Yearly', billingCycle: BillingCycle.annual },
+    select: { id: true },
+  });
+
+  if (!monthlyPlan || !annualPlan) {
+    throw new Error('Expected subscription plans were not seeded before plan module associations');
+  }
+
+  const planAssignments = [
+    { planId: monthlyPlan.id, moduleCode: 'MODULE_CORE_PATIENT' },
+    { planId: monthlyPlan.id, moduleCode: 'MODULE_ADMISSION' },
+    { planId: monthlyPlan.id, moduleCode: 'MODULE_PHARMACY' },
+    { planId: monthlyPlan.id, moduleCode: 'MODULE_LAB' },
+    { planId: monthlyPlan.id, moduleCode: 'MODULE_BILLING' },
+    { planId: annualPlan.id, moduleCode: 'MODULE_CORE_PATIENT' },
+    { planId: annualPlan.id, moduleCode: 'MODULE_ADMISSION' },
+    { planId: annualPlan.id, moduleCode: 'MODULE_PHARMACY' },
+    { planId: annualPlan.id, moduleCode: 'MODULE_LAB' },
+    { planId: annualPlan.id, moduleCode: 'MODULE_SURGERY' },
+    { planId: annualPlan.id, moduleCode: 'MODULE_RADIOLOGY' },
+    { planId: annualPlan.id, moduleCode: 'MODULE_BILLING' },
+    { planId: annualPlan.id, moduleCode: 'MODULE_PLANNING' },
+  ];
+
+  for (const assignment of planAssignments) {
+    const moduleEntry = seededModules[assignment.moduleCode];
+    if (!moduleEntry) continue;
+
+    await prisma.planModule.upsert({
+      where: {
+        planId_moduleId: {
+          planId: assignment.planId,
+          moduleId: moduleEntry.id,
+        },
+      },
+      update: {
+        isIncluded: true,
+      },
+      create: {
+        planId: assignment.planId,
+        moduleId: moduleEntry.id,
+        isIncluded: true,
+      },
+    });
+  }
+  console.log('Plan module associations ensured');
+
   // Seed Admin User
   const adminPassword = 'admin123';
   const adminHashedPassword = await bcrypt.hash(adminPassword, 10);
@@ -55,6 +278,130 @@ async function main() {
   });
 
   console.log('Admin user ensured:', adminUser.email);
+
+  const featureFlags = [
+    {
+      key: 'feature_advanced_reporting',
+      description: 'Enable advanced analytics and reporting dashboards.',
+      defaultValue: false,
+      isGlobal: true,
+      rolloutPct: 0,
+    },
+    {
+      key: 'feature_custom_templates',
+      description: 'Allow custom document templates for invoices and reports.',
+      defaultValue: true,
+      isGlobal: false,
+      rolloutPct: 0,
+    },
+    {
+      key: 'feature_prescription_refill',
+      moduleCode: 'MODULE_PHARMACY',
+      description: 'Allow automated prescription refill requests.',
+      defaultValue: false,
+      isGlobal: false,
+      rolloutPct: 0,
+    },
+    {
+      key: 'feature_image_annotations',
+      moduleCode: 'MODULE_RADIOLOGY',
+      description: 'Allow image annotation tools for radiology studies.',
+      defaultValue: false,
+      isGlobal: false,
+      rolloutPct: 0,
+    },
+  ];
+
+  const seededFlags: Record<string, { id: string }> = {};
+  for (const flag of featureFlags) {
+    const flagRecord = await prisma.featureFlag.upsert({
+      where: { key: flag.key },
+      update: {
+        description: flag.description,
+        defaultValue: flag.defaultValue,
+        isGlobal: flag.isGlobal,
+        rolloutPct: flag.rolloutPct,
+        moduleId: flag.moduleCode ? seededModules[flag.moduleCode]?.id : null,
+      },
+      create: {
+        key: flag.key,
+        description: flag.description,
+        defaultValue: flag.defaultValue,
+        isGlobal: flag.isGlobal,
+        rolloutPct: flag.rolloutPct,
+        moduleId: flag.moduleCode ? seededModules[flag.moduleCode]?.id : null,
+      },
+    });
+    seededFlags[flagRecord.key] = { id: flagRecord.id };
+  }
+  console.log('Feature flags ensured');
+
+  const tenantFlagAssignments = [
+    { flagKey: 'feature_advanced_reporting', value: true },
+    { flagKey: 'feature_custom_templates', value: true },
+    { flagKey: 'feature_image_annotations', value: false },
+  ];
+
+  for (const assignment of tenantFlagAssignments) {
+    const flagEntry = seededFlags[assignment.flagKey];
+    if (!flagEntry) continue;
+
+    await prisma.tenantFeatureFlag.upsert({
+      where: {
+        tenantId_flagId: {
+          tenantId: tenant.id,
+          flagId: flagEntry.id,
+        },
+      },
+      update: {
+        value: assignment.value,
+        setBy: adminUser.id,
+      },
+      create: {
+        tenantId: tenant.id,
+        flagId: flagEntry.id,
+        value: assignment.value,
+        setBy: adminUser.id,
+      },
+    });
+  }
+  console.log('Tenant feature flags ensured');
+
+  const tenantModuleSeeds = [
+    { moduleCode: 'MODULE_CORE_PATIENT', status: 'active' },
+    { moduleCode: 'MODULE_PHARMACY', status: 'active' },
+    { moduleCode: 'MODULE_LAB', status: 'active' },
+    { moduleCode: 'MODULE_BILLING', status: 'active' },
+    { moduleCode: 'MODULE_SURGERY', status: 'trial' },
+    { moduleCode: 'MODULE_RADIOLOGY', status: 'pending' },
+  ];
+
+  for (const assignment of tenantModuleSeeds) {
+    const moduleEntry = seededModules[assignment.moduleCode];
+    if (!moduleEntry) continue;
+
+    await prisma.tenantModule.upsert({
+      where: {
+        tenantId_moduleId: {
+          tenantId: tenant.id,
+          moduleId: moduleEntry.id,
+        },
+      },
+      update: {
+        status: assignment.status as any,
+        activatedAt: assignment.status === 'active' ? new Date() : null,
+        activatedBy: adminUser.id,
+      },
+      create: {
+        tenantId: tenant.id,
+        moduleId: moduleEntry.id,
+        status: assignment.status as any,
+        activatedAt: assignment.status === 'active' ? new Date() : null,
+        activatedBy: adminUser.id,
+      },
+    });
+  }
+  console.log('Default tenant module assignments ensured');
 
   // Seed Default Template Settings
   await prisma.tenantSetting.upsert({

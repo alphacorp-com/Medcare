@@ -127,6 +127,15 @@ enum AuditActorType {
   @@schema("public")
 }
 
+enum LicenseKeyStatus {
+  generated
+  redeemed
+  revoked
+  expired
+
+  @@schema("public")
+}
+
 // Tenant-side enums
 enum Gender {
   M
@@ -345,6 +354,7 @@ model Tenant {
   oneTimeCharges    OneTimeCharge[]
   tenantModules     TenantModule[]
   tenantFeatureFlags TenantFeatureFlag[]
+  licenseKeys       LicenseKey[]
   auditLogs         AuditLog[]
 
   @@index([slug])
@@ -390,6 +400,7 @@ model Plan {
 
   subscriptions Subscription[]
   planModules   PlanModule[]
+  licenseKeys   LicenseKey[]
 
   @@map("plans")
   @@schema("public")
@@ -608,6 +619,32 @@ model AuditLog {
   @@index([createdAt(sort: Desc)])
   @@index([resourceType, resourceId])
   @@map("audit_logs")
+  @@schema("public")
+}
+
+model LicenseKey {
+  id         String           @id @default(uuid()) @db.Uuid
+  tenantId   String           @map("tenant_id") @db.Uuid
+  planId     String           @map("plan_id") @db.Uuid
+  keyHash    String           @unique @map("key_hash") @db.VarChar(128)
+  keyPreview String           @map("key_preview") @db.VarChar(32)
+  period     BillingCycle
+  status     LicenseKeyStatus @default(generated)
+  issuedBy   String?          @map("issued_by") @db.Uuid
+  redeemedBy String?          @map("redeemed_by") @db.Uuid
+  redeemedAt DateTime?        @map("redeemed_at") @db.Timestamptz
+  validFrom  DateTime?        @map("valid_from") @db.Timestamptz
+  validUntil DateTime?        @map("valid_until") @db.Timestamptz
+  revokedAt  DateTime?        @map("revoked_at") @db.Timestamptz
+  createdAt  DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plan   Plan   @relation(fields: [planId], references: [id])
+
+  @@index([tenantId, status])
+  @@index([validUntil])
+  @@map("license_keys")
   @@schema("public")
 }
 

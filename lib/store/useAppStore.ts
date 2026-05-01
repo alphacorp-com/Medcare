@@ -9,6 +9,8 @@ export interface ModulePermission {
 
 interface AppState {
   currentTenantId: string | null;
+  tenantIsActive: boolean;
+  tenantAccessReason: string | null;
   currentUser: {
     id: string;
     fullName: string;
@@ -17,6 +19,7 @@ interface AppState {
   } | null;
   activeModules: ModulePermission[];
   setTenantId: (id: string) => void;
+  setTenantAccess: (isActive: boolean, reason?: string | null) => void;
   setUser: (user: any) => void;
   setActiveModules: (modules: ModulePermission[]) => void;
   hasModule: (moduleCode: string) => boolean;
@@ -25,19 +28,22 @@ interface AppState {
 
 export const useAppStore = create<AppState>((set, get) => ({
   currentTenantId: 'mock-tenant-1',
+  tenantIsActive: true,
+  tenantAccessReason: null,
   currentUser: null,
   activeModules: [],
   setTenantId: (id) => set({ currentTenantId: id }),
+  setTenantAccess: (isActive, reason = null) => set({ tenantIsActive: isActive, tenantAccessReason: reason }),
   setUser: (user) => set({ currentUser: user }),
   setActiveModules: (modules) => set({ activeModules: modules }),
   hasModule: (moduleCode) => {
     const state = get();
-    if (state.currentUser?.role === 'tenant_admin') return true;
+    if (!state.tenantIsActive) return false;
     return state.activeModules.some(m => m.moduleId === moduleCode && m.actions.includes("read"));
   },
   hasPermission: (moduleCode, action) => {
     const state = get();
-    if (state.currentUser?.role === 'tenant_admin') return true;
+    if (!state.tenantIsActive) return false;
     return state.activeModules.some(m => m.moduleId === moduleCode && m.actions.includes(action));
   },
 }));

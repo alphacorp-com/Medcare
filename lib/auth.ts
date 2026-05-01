@@ -3,6 +3,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import prisma from "@/lib/prisma";
 import { ModulePermission } from "./store/useAppStore";
+import { syncTenantStatus } from "./tenant-licensing";
 
 export const authOptions: NextAuthOptions = {
     providers: [
@@ -33,6 +34,10 @@ export const authOptions: NextAuthOptions = {
 
                 if (!isValidPassword) {
                     throw new Error("Invalid password");
+                }
+
+                if ((user as any).tenantId) {
+                    await syncTenantStatus((user as any).tenantId as string);
                 }
 
                 return {
