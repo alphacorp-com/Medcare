@@ -33,6 +33,29 @@ async function main() {
 
   console.log('Tenant ensured:', tenant.name);
 
+  // Seed Admin User
+  const adminPassword = 'admin123';
+  const adminHashedPassword = await bcrypt.hash(adminPassword, 10);
+
+  const adminUser = await prisma.adminUser.upsert({
+    where: { email: 'admin@medcare.com' },
+    update: {
+      fullName: 'MedCare Administrator',
+      role: 'superadmin' as any,
+      passwordHash: adminHashedPassword,
+      isActive: true,
+    },
+    create: {
+      email: 'admin@medcare.com',
+      fullName: 'MedCare Administrator',
+      role: 'superadmin' as any,
+      passwordHash: adminHashedPassword,
+      isActive: true,
+    },
+  });
+
+  console.log('Admin user ensured:', adminUser.email);
+
   // Seed Default Template Settings
   await prisma.tenantSetting.upsert({
     where: {
