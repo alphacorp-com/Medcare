@@ -209,7 +209,7 @@ export function UsersManagement() {
                   <Label>{tc('status')}</Label>
                   <select name="status" defaultValue={editingUser?.status || 'active'} className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500">
                     <option value="active">{tc('active')}</option>
-                    <option value="inactive">{tc('inactive')}</option>
+                    <option value="inactive">{tc('disabled')}</option>
                   </select>
                 </div>
               </div>
