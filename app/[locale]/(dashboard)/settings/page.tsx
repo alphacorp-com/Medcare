@@ -147,6 +147,35 @@ export default function SettingsPage() {
     }
   };
 
+  const handleDownloadBackup = async (filename: string) => {
+    try {
+      const response = await fetch('/api/v1/settings/database', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename })
+      });
+
+      if (response.ok) {
+        // Create a blob from the response and trigger download
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } else {
+        const error = await response.json();
+        alert(`Erreur lors du téléchargement: ${error.error}`);
+      }
+    } catch (error) {
+      console.error("Failed to download backup:", error);
+      alert("Erreur lors du téléchargement de la sauvegarde");
+    }
+  };
+
   const handleCreateBackup = async () => {
     setIsBackingUp(true);
     try {
@@ -300,8 +329,13 @@ export default function SettingsPage() {
                                   {new Date(backup.createdAt).toLocaleString()} • {backup.size}
                                 </p>
                               </div>
-                              <Button variant="ghost" size="sm" className="text-xs text-slate-600 hover:text-slate-800">
-                                Télécharger
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="text-xs text-slate-600 hover:text-slate-800"
+                                onClick={() => handleDownloadBackup(backup.filename)}
+                              >
+                                {t('download_backup')}
                               </Button>
                             </div>
                           ))}

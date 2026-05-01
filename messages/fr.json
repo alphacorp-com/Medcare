@@ -323,6 +323,7 @@
     "backup_database": "Sauvegarder la Base de Données",
     "backup_database_desc": "Créer une sauvegarde complète de toutes les données du tenant actuel.",
     "create_backup": "Créer une Sauvegarde",
+    "download_backup": "Télécharger",
     "audit_history": "Journal d'Audit",
     "audit_history_desc": "Historique chronologique des interactions et modifications système de cet utilisateur.",
     "print_report": "Imprimer le rapport",

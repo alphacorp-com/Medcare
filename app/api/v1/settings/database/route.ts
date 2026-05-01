@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { PrismaClient } from '@prisma/client';
+import prisma from '@/lib/prisma';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import path from 'path';
@@ -26,8 +26,6 @@ export async function POST(request: NextRequest) {
                 { status: 400 }
             );
         }
-
-        const prisma = new PrismaClient();
 
         // Get tenant info
         const tenant = await prisma.tenant.findUnique({
@@ -152,6 +150,72 @@ export async function GET(request: NextRequest) {
         console.error('Error listing backups:', error);
         return NextResponse.json(
             { error: 'Failed to list database backups' },
+            { status: 500 }
+        );
+    }
+}
+
+// Download specific backup file
+export async function PUT(request: NextRequest) {
+    try {
+        const session = await getServerSession(authOptions);
+
+        if (!session || session.user.role !== 'tenant_admin') {
+            return NextResponse.json(
+                { error: 'Unauthorized - Tenant admin access required' },
+                { status: 403 }
+            );
+        }
+
+        const { filename } = await request.json();
+
+        if (!filename) {
+            return NextResponse.json(
+                { error: 'Filename is required' },
+                { status: 400 }
+            );
+        }
+
+        const backupDir = path.join('/home/pliya/Desktop', 'Medcare_Backups');
+        const filePath = path.join(backupDir, filename);
+
+        // Security check: ensure the file is within the backup directory
+        const resolvedPath = path.resolve(filePath);
+        const resolvedBackupDir = path.resolve(backupDir);
+
+        if (!resolvedPath.startsWith(resolvedBackupDir)) {
+            return NextResponse.json(
+                { error: 'Invalid file path' },
+                { status: 400 }
+            );
+        }
+
+        // Check if file exists
+        try {
+            await fs.access(filePath);
+        } catch (error) {
+            return NextResponse.json(
+                { error: 'Backup file not found' },
+                { status: 404 }
+            );
+        }
+
+        // Read file content
+        const fileContent = await fs.readFile(filePath);
+
+        // Return file as download
+        return new NextResponse(fileContent, {
+            headers: {
+                'Content-Type': 'application/octet-stream',
+                'Content-Disposition': `attachment; filename="${filename}"`,
+                'Content-Length': fileContent.length.toString(),
+            },
+        });
+
+    } catch (error) {
+        console.error('Error downloading backup:', error);
+        return NextResponse.json(
+            { error: 'Failed to download backup file' },
             { status: 500 }
         );
     }
