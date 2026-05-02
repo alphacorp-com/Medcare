@@ -2,6 +2,7 @@ import { KpiCards } from "@/components/dashboard/KpiCards";
 import { PatientQueue } from "@/components/dashboard/PatientQueue";
 import { AuditActivity } from "@/components/dashboard/AuditActivity";
 import { StockAlerts } from "@/components/dashboard/StockAlerts";
+import { SubscriptionStatus } from "@/components/dashboard/SubscriptionStatus";
 import { DashboardFooter } from "@/components/dashboard/DashboardFooter";
 
 export default function DashboardPage() {
@@ -18,8 +19,11 @@ export default function DashboardPage() {
           <PatientQueue />
         </div>
 
-        {/* Right: Audit Logs & Stock Alerts */}
+        {/* Right: Subscription Status, Audit Logs & Stock Alerts */}
         <div className="col-span-12 lg:col-span-3 flex flex-col gap-4 h-full">
+          <div className="shrink-0">
+            <SubscriptionStatus />
+          </div>
           <div className="flex-1 min-h-0">
             <AuditActivity />
           </div>
@@ -28,7 +32,7 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
-      
+
       <DashboardFooter />
     </div>
   );
