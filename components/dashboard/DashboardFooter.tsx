@@ -14,7 +14,7 @@ export function DashboardFooter() {
         </div>
       </div>
       <div className="flex items-center gap-4 uppercase font-bold">
-        <span>v4.12.0</span>
+        <span>v2.1.0</span>
       </div>
     </footer>
   );

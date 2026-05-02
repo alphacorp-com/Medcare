@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 
 const navigation = [
-  { name: "dashboard", href: "/", icon: LayoutDashboard, module: null },
+  { name: "dashboard", href: "/", icon: LayoutDashboard, module: null, hideBadge: true },
   { name: "patients", href: "/patients", icon: Users, module: "MODULE_CORE_PATIENT" },
   { name: "stays", href: "/stays", icon: Bed, module: "MODULE_ADMISSION" },
   { name: "pharmacy", href: "/pharmacy", icon: Pill, module: "MODULE_PHARMACY" },
@@ -56,7 +56,7 @@ export function Sidebar() {
                   <item.icon className="h-4 w-4 shrink-0" />
                   <span className="text-sm italic truncate">{t(item.name)}</span>
                 </div>
-                <span className="shrink-0 ml-2 px-1.5 py-0.5 bg-slate-700 text-slate-500 text-[9px] rounded uppercase">{t('disabled')}</span>
+                  <span className="shrink-0 ml-2 px-1.5 py-0.5 bg-slate-700 text-slate-500 text-[9px] rounded uppercase">{t('disabled')}</span>
               </div>
             );
           }
@@ -76,7 +76,9 @@ export function Sidebar() {
                 <item.icon className="h-4 w-4 shrink-0" />
                 <span className="text-sm truncate">{t(item.name)}</span>
               </div>
-              <span className="shrink-0 ml-2 px-1.5 py-0.5 bg-green-500/20 text-green-400 text-[9px] rounded uppercase">{t('active')}</span>
+              {!item.hideBadge && (
+                <span className="shrink-0 ml-2 px-1.5 py-0.5 bg-green-500/20 text-green-400 text-[9px] rounded uppercase">{t('active')}</span>
+              )}
             </Link>
           );
         })}
