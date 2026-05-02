@@ -14,7 +14,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U medcare"]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -23,12 +23,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: medcare-app
+    container_name: medcare-system
     restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
-      DATABASE_URL: postgresql://medcare:medcare_password@postgres:5432/medcarev2_db?schema=tenant_template
+      DATABASE_URL: postgresql://postgres:pliya@postgres:5432/medcarev2_db?schema=tenant_template
       NODE_ENV: production
     depends_on:
       postgres:

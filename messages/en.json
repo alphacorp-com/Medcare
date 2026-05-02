@@ -203,6 +203,7 @@
     "error_load": "Failed to load patients",
     "error_save": "Failed to save",
     "error_save_patient": "Failed to save patient",
+    "save_patient": "Save Patient",
     "placeholder_first_name": "eg. John",
     "placeholder_last_name": "eg. Doe",
     "placeholder_email": "patient@example.com",

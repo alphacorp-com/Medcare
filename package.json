@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "seed": "tsx prisma/seed.ts",
     "clean": "next clean",
-    "docker:build": "docker build -t medcare-app .",
+    "docker:build": "docker build -t medcare-system .",
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
     "docker:logs": "docker-compose logs -f",

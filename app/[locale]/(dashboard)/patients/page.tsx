@@ -1,7 +1,6 @@
 "use client";
 
 import { useAppStore } from "@/lib/store/useAppStore";
-import { useRouter } from "@/i18n/routing";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import { useTranslations } from "next-intl";

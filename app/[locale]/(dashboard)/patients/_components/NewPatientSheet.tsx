@@ -162,7 +162,7 @@ export function NewPatientSheet({
         <SheetFooter className="p-4 border-t border-slate-200 bg-white shrink-0 shadow-[0_-4px_6px_-1px_rgb(0,0,0,0.05)]">
           <Button variant="outline" className="text-xs h-8" onClick={() => onOpenChange(false)} disabled={saving}>{tc('cancel')}</Button>
           <Button className="text-xs h-8 bg-blue-600 hover:bg-blue-700" onClick={onSubmit} disabled={!canSubmit || saving}>
-            {saving ? tc('saving') : t('save_record')}
+            {saving ? tc('saving') : t('save_patient')}
           </Button>
         </SheetFooter>
       </SheetContent>
