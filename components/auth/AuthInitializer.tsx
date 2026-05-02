@@ -6,6 +6,7 @@ import { useAppStore } from "@/lib/store/useAppStore";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { mergeModulePermissions } from "@/lib/utils";
 
 export function AuthInitializer({ children }: { children: React.ReactNode }) {
   const { setUser, setActiveModules, setTenantAccess } = useAppStore();
@@ -27,12 +28,13 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
     const data = await response.json();
     const isActive = Boolean(data?.isActive);
     const reason = typeof data?.reason === "string" ? data.reason : null;
-    const activeModules = Array.isArray(data?.activeModules) ? data.activeModules : [];
+    const tenantModules = Array.isArray(data?.activeModules) ? data.activeModules : [];
 
-    setTenantIsActive(isActive);
-    setTenantReason(reason);
-    setTenantAccess(isActive, reason);
-    setActiveModules(isActive ? activeModules : []);
+    return {
+      isActive,
+      reason,
+      tenantModules,
+    };
   };
 
   useEffect(() => {
@@ -49,11 +51,31 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
 
         if (session.user.role !== "admin") {
           try {
-            await refreshTenantAccess();
+            const { isActive, reason, tenantModules } = await refreshTenantAccess();
+
+            setTenantIsActive(isActive);
+            setTenantReason(reason);
+            setTenantAccess(isActive, reason);
+
+            if (session.user.role === "tenant_admin") {
+              setActiveModules(tenantModules);
+            } else {
+              const userModules = Array.isArray(session.user.modules) ? session.user.modules : [];
+              const mergedModules = isActive ? mergeModulePermissions(tenantModules, userModules) : [];
+              setActiveModules(mergedModules);
+            }
           } catch (error) {
-            setTenantIsActive(false);
-            setTenantReason("Unable to verify tenant subscription and invoice validity.");
-            setTenantAccess(false, "Unable to verify tenant subscription and invoice validity.");
+            if (session.user.role === "tenant_admin") {
+              setTenantIsActive(true);
+              setTenantReason("Unable to verify tenant licensing status. Access is preserved for tenant admin.");
+              setTenantAccess(true, null);
+              setActiveModules(session.user.modules || []);
+            } else {
+              setTenantIsActive(false);
+              setTenantReason("Unable to verify tenant subscription and invoice validity.");
+              setTenantAccess(false, "Unable to verify tenant subscription and invoice validity.");
+            }
+
             console.error("Failed to resolve tenant access:", error);
           } finally {
             setCheckingAccess(false);

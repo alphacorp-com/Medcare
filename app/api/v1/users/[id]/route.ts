@@ -45,7 +45,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (session.user.id !== id && session.user.role !== 'admin') {
+    if (session.user.id !== id && session.user.role !== 'admin' && session.user.role !== 'tenant_admin') {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -69,9 +69,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       data: {
         ...(fullName && { fullName }),
         ...(email && { email }),
-        ...(role && session.user.role === 'admin' && { role }),
-        ...(modules && session.user.role === 'admin' && { modules }),
-        ...(status && session.user.role === 'admin' && { isActive: status === 'active' }),
+        ...(role && (session.user.role === 'admin' || session.user.role === 'tenant_admin') && { role }),
+        ...(modules && (session.user.role === 'admin' || session.user.role === 'tenant_admin') && { modules }),
+        ...(status && (session.user.role === 'admin' || session.user.role === 'tenant_admin') && { isActive: status === 'active' }),
         ...(password && { passwordHash: await bcrypt.hash(password, 10) }),
       },
     });
