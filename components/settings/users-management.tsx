@@ -71,23 +71,23 @@ export function UsersManagement() {
     { id: "hr", name: tr('hr') }
   ];
 
-  const fetchUsers = async () => {
-    try {
-      setIsLoading(true);
-      const res = await fetch("/api/v1/users");
-      if (res.ok) {
-        const data = await res.json();
-        setUsers(data);
-      }
-    } catch (error) {
-      console.error("Failed to fetch users", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchUsers();
+    let cancelled = false;
+    (async () => {
+      try {
+        setIsLoading(true);
+        const res = await fetch("/api/v1/users");
+        if (res.ok && !cancelled) {
+          const data = await res.json();
+          setUsers(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch users", error);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   const filteredUsers = users.filter(u => 
@@ -112,21 +112,6 @@ export function UsersManagement() {
     );
     setIsAddOpen(true);
   };
-
-  useEffect(() => {
-    if (!editingUser) {
-      setSelectedModules({ MODULE_CORE_PATIENT: ['read'] });
-      setSelectedRole(SYSTEM_ROLES[0].id);
-    }
-  }, [editingUser]);
-
-  useEffect(() => {
-    if (selectedRole === 'tenant_admin') {
-      setSelectedModules({});
-    } else if (!editingUser) {
-      setSelectedModules({ MODULE_CORE_PATIENT: ['read'] });
-    }
-  }, [selectedRole, editingUser]);
 
   const toggleModuleAction = (moduleId: string, action: ModuleAction) => {
     setSelectedModules((prev) => {
@@ -225,11 +210,23 @@ export function UsersManagement() {
         </div>
         
         <div>
-          <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white gap-2" onClick={() => { setEditingUser(null); setSelectedRole(SYSTEM_ROLES[0].id); setIsAddOpen(true); }}>
+          <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white gap-2" onClick={() => { 
+            setEditingUser(null); 
+            setSelectedRole(SYSTEM_ROLES[0].id); 
+            setSelectedModules({ MODULE_CORE_PATIENT: ['read'] });
+            setIsAddOpen(true); 
+          }}>
             <PlusCircle className="w-4 h-4" /> {t('add_personnel')}
           </Button>
 
-          <Sheet open={isAddOpen} onOpenChange={(v) => { setIsAddOpen(v); if(!v) setEditingUser(null); }}>
+          <Sheet open={isAddOpen} onOpenChange={(v) => { 
+            setIsAddOpen(v); 
+            if(!v) {
+              setEditingUser(null);
+              setSelectedModules({ MODULE_CORE_PATIENT: ['read'] });
+              setSelectedRole(SYSTEM_ROLES[0].id);
+            }
+          }}>
             <SheetContent className="overflow-y-auto sm:max-w-2xl p-6 sm:p-8">
               <SheetHeader>
                 <SheetTitle>{editingUser ? t('edit_user') : t('add_new_user')}</SheetTitle>
@@ -246,7 +243,15 @@ export function UsersManagement() {
                 </div>
                 <div className="space-y-2">
                   <Label>{tc('role')}</Label>
-                  <select name="role" value={selectedRole} onChange={(e) => setSelectedRole(e.target.value)} required className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500">
+                  <select name="role" value={selectedRole} onChange={(e) => {
+                    const role = e.target.value;
+                    setSelectedRole(role);
+                    if (role === 'tenant_admin') {
+                      setSelectedModules({});
+                    } else if (!editingUser) {
+                      setSelectedModules({ MODULE_CORE_PATIENT: ['read'] });
+                    }
+                  }} required className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500">
                     {SYSTEM_ROLES.map((role) => (
                       <option key={role.id} value={role.id}>{role.name}</option>
                     ))}

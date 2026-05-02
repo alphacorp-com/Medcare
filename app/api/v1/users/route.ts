@@ -1,8 +1,16 @@
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { authOptions } from "@/lib/auth";
+
 export async function GET(req: Request) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const users = await prisma.tenantUser.findMany({
       select: {
         id: true,
@@ -34,6 +42,11 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user || (session.user.role !== 'admin' && session.user.role !== 'tenant_admin')) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const body = await req.json();
     const { email, fullName, role, modules, status } = body;
 
