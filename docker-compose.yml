@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:16-alpine
@@ -10,11 +8,11 @@ services:
       POSTGRES_PASSWORD: pliya
       POSTGRES_DB: medcarev2_db
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U medcare"]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -23,12 +21,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: medcare-app
+    container_name: medcare-system
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "3000:3001"
     environment:
-      DATABASE_URL: postgresql://medcare:medcare_password@postgres:5432/medcarev2_db?schema=tenant_template
+      DATABASE_URL: postgresql://postgres:pliya@postgres:5432/medcarev2_db?schema=tenant_template
       NODE_ENV: production
     depends_on:
       postgres:

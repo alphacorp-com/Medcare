@@ -202,6 +202,7 @@
     "status_deceased": "Décédé",
     "error_load": "Échec du chargement des patients",
     "error_save": "Échec de l'enregistrement",
+    "save_patient": "Enregistrer le Patient",
     "error_save_patient": "Échec de l'enregistrement du patient",
     "placeholder_first_name": "ex. Jean",
     "placeholder_last_name": "ex. Dupont",

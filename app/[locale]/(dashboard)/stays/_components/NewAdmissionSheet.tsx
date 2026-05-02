@@ -1,6 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { useRouter } from "@/i18n/routing";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -40,6 +41,7 @@ export function NewAdmissionSheet({
   const t = useTranslations("admissions");
   const tc = useTranslations("common");
   const tp = useTranslations("patients");
+  const router = useRouter();
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -63,7 +65,10 @@ export function NewAdmissionSheet({
               className="h-8 text-xs bg-white border-slate-200"
               onSelect={(patient: any) => onUpdateForm("patientId", patient.id)}
             />
-            <button className="text-xs text-blue-600 hover:underline mt-1 font-medium">
+            <button 
+              className="text-xs text-blue-600 hover:underline mt-1 font-medium"
+              onClick={() => router.push('/patients')}
+            >
               + {tp("new_patient")}
             </button>
           </div>
