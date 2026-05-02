@@ -68,9 +68,9 @@ export function PatientQueue() {
           </span>
         </h2>
         <div className="flex gap-2">
-          <button className="p-1.5 hover:bg-slate-100 rounded border border-slate-200 text-xs">
+          {/* <button className="p-1.5 hover:bg-slate-100 rounded border border-slate-200 text-xs">
             {tc('search')}
-          </button>
+          </button> */}
           <button
             onClick={() => router.push('/patients')}
             className="p-1.5 bg-blue-600 text-white rounded text-xs px-3 hover:bg-blue-700"
