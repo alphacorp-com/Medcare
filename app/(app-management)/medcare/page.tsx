@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { signOut, useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -24,6 +25,11 @@ import { SettingsManagement } from "@/components/admin/settings-management";
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("tenants");
+  const { data: session } = useSession();
+
+  const handleLogout = async () => {
+    await signOut({ redirect: true, callbackUrl: "/admin-login" });
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -38,9 +44,20 @@ export default function AdminDashboard() {
                 <p className="text-sm text-gray-500">Platform Management</p>
               </div>
             </div>
-            <Button variant="outline" onClick={() => window.location.href = "/"}>
-              Back to App
-            </Button>
+            <div className="flex items-center gap-3">
+              {session?.user && (
+                <span className="text-sm text-gray-600">{session.user.email}</span>
+              )}
+              <Button variant="outline" onClick={() => window.location.href = "/"}>
+                Back to App
+              </Button>
+              <Button 
+                variant="destructive" 
+                onClick={handleLogout}
+              >
+                Logout
+              </Button>
+            </div>
           </div>
         </div>
       </header>

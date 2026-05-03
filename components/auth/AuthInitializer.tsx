@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import { useTranslations } from "next-intl";
 import { useAppStore } from "@/lib/store/useAppStore";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +12,7 @@ import { mergeModulePermissions } from "@/lib/utils";
 export function AuthInitializer({ children }: { children: React.ReactNode }) {
   const { setUser, setActiveModules, setTenantAccess } = useAppStore();
   const { data: session, status } = useSession();
+  const t = useTranslations("licensing");
   const [isHydrated, setIsHydrated] = useState(false);
   const [checkingAccess, setCheckingAccess] = useState(false);
   const [tenantIsActive, setTenantIsActive] = useState(true);
@@ -19,10 +21,10 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
   const [activationLoading, setActivationLoading] = useState(false);
   const [activationError, setActivationError] = useState<string | null>(null);
 
-  const refreshTenantAccess = async () => {
+  const refreshTenantAccess = useCallback(async () => {
     const response = await fetch("/api/v1/licensing/status", { cache: "no-store" });
     if (!response.ok) {
-      throw new Error("Failed to check tenant status.");
+      throw new Error(t("failed_check_tenant_status"));
     }
 
     const data = await response.json();
@@ -35,7 +37,7 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
       reason,
       tenantModules,
     };
-  };
+  }, [t]);
 
   useEffect(() => {
     const initialize = async () => {
@@ -67,13 +69,13 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
           } catch (error) {
             if (session.user.role === "tenant_admin") {
               setTenantIsActive(true);
-              setTenantReason("Unable to verify tenant licensing status. Access is preserved for tenant admin.");
+              setTenantReason(t("tenant_admin_access_preserved"));
               setTenantAccess(true, null);
               setActiveModules(session.user.modules || []);
             } else {
               setTenantIsActive(false);
-              setTenantReason("Unable to verify tenant subscription and invoice validity.");
-              setTenantAccess(false, "Unable to verify tenant subscription and invoice validity.");
+              setTenantReason(t("tenant_access_verification_failed"));
+              setTenantAccess(false, t("tenant_access_verification_failed"));
             }
 
             console.error("Failed to resolve tenant access:", error);
@@ -100,11 +102,11 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
     };
 
     void initialize();
-  }, [session, status, setUser, setActiveModules, setTenantAccess]);
+  }, [session, status, setUser, setActiveModules, setTenantAccess, refreshTenantAccess, t]);
 
   const handleActivateTenant = async () => {
     if (!licenseKey.trim()) {
-      setActivationError("Please enter a license key.");
+      setActivationError(t("please_enter_license_key"));
       return;
     }
 
@@ -120,13 +122,13 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
 
       const payload = await response.json();
       if (!response.ok) {
-        throw new Error(payload?.error || "Failed to activate tenant.");
+        throw new Error(payload?.error || t("activation_failed"));
       }
 
       setLicenseKey("");
       await refreshTenantAccess();
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to activate tenant.";
+      const message = error instanceof Error ? error.message : t("activation_failed");
       setActivationError(message);
     } finally {
       setActivationLoading(false);
@@ -138,7 +140,7 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
       <div className="flex h-screen w-full items-center justify-center bg-slate-50">
         <div className="flex flex-col items-center gap-4">
           <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest animate-pulse">Initializing System...</p>
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest animate-pulse">{t("initializing_system")}</p>
         </div>
       </div>
     );
@@ -149,10 +151,8 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
       <div className="flex h-screen w-full items-center justify-center bg-slate-100 px-4">
         <Card className="w-full max-w-xl">
           <CardHeader>
-            <CardTitle>Tenant Inactive</CardTitle>
-            <CardDescription>
-              A valid paid invoice for a monthly or yearly subscription is required to access modules.
-            </CardDescription>
+            <CardTitle>{t("tenant_inactive_title")}</CardTitle>
+            <CardDescription>{t("tenant_inactive_description")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {tenantReason ? (
@@ -160,11 +160,11 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
             ) : null}
             <div className="space-y-2">
               <label htmlFor="license-key" className="text-sm font-medium text-slate-700">
-                Enter license key
+                {t("enter_license_key_label")}
               </label>
               <Input
                 id="license-key"
-                placeholder="XXXXX-XXXXX-XXXXX-XXXXX"
+                placeholder={t("license_key_placeholder")}
                 value={licenseKey}
                 onChange={(event) => setLicenseKey(event.target.value.toUpperCase())}
                 disabled={activationLoading}
@@ -174,7 +174,7 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
               <p className="text-sm text-red-600">{activationError}</p>
             ) : null}
             <Button onClick={handleActivateTenant} disabled={activationLoading} className="w-full">
-              {activationLoading ? "Activating..." : "Activate Tenant"}
+              {activationLoading ? t("activating_tenant") : t("activate_tenant")}
             </Button>
           </CardContent>
         </Card>

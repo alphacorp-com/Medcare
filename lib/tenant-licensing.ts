@@ -171,7 +171,16 @@ export async function redeemLicenseForTenant(args: {
 
   const license = await prisma.licenseKey.findUnique({
     where: { keyHash: licenseHash },
-    include: { plan: true },
+    select: {
+      id: true,
+      tenantId: true,
+      subscriptionId: true,
+      period: true,
+      status: true,
+      redeemedAt: true,
+      revokedAt: true,
+      redeemedBy: true,
+    },
   });
 
   if (!license) {
@@ -194,55 +203,59 @@ export async function redeemLicenseForTenant(args: {
   const periodEnd = addPeriod(now, period);
 
   const redeemed = await prisma.$transaction(async (tx) => {
-    await tx.licenseKey.update({
-      where: { id: license.id },
-      data: {
-        status: LicenseKeyStatus.redeemed,
-        redeemedAt: now,
-        redeemedBy: redeemedByUserId,
-        validFrom: now,
-        validUntil: periodEnd,
-      },
-    });
+      if (!license.subscriptionId) {
+        throw new Error("License key is not linked to a subscription.");
+      }
 
-    const subscription = await tx.subscription.create({
-      data: {
-        tenantId,
-        planId: license.planId,
-        status: SubscriptionStatus.active,
-        currentPeriodStart: now,
-        currentPeriodEnd: periodEnd,
-      },
-      include: {
-        plan: true,
-      },
-    });
+      const subscription = await tx.subscription.update({
+        where: { id: license.subscriptionId },
+        data: {
+          status: SubscriptionStatus.active,
+          currentPeriodStart: now,
+          currentPeriodEnd: periodEnd,
+        },
+        include: {
+          plan: true,
+        },
+      });
 
-    const invoiceNumber = `LIC-${now.getFullYear()}-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
-    await tx.invoice.create({
-      data: {
-        tenantId,
-        subscriptionId: subscription.id,
-        invoiceNumber,
-        amountHt: subscription.plan.basePrice,
-        taxRate: 0,
-        currency: subscription.currency,
-        status: InvoiceStatus.paid,
-        dueDate: now,
-        paidAt: now,
-        lineItems: [
-          {
-            type: "license_activation",
-            planId: subscription.planId,
-            planName: subscription.plan.name,
-            period,
-            amount: subscription.plan.basePrice.toString(),
-          },
-        ],
-      },
-    });
+      await tx.licenseKey.update({
+        where: { id: license.id },
+        data: {
+          status: LicenseKeyStatus.redeemed,
+          redeemedAt: now,
+          redeemedBy: redeemedByUserId,
+          validFrom: now,
+          validUntil: periodEnd,
+          subscriptionId: license.subscriptionId,
+        },
+      });
 
-    return subscription;
+      const invoiceNumber = `LIC-${now.getFullYear()}-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
+      await tx.invoice.create({
+        data: {
+          tenantId,
+          subscriptionId: subscription.id,
+          invoiceNumber,
+          amountHt: subscription.plan.basePrice,
+          taxRate: 0,
+          currency: subscription.currency,
+          status: InvoiceStatus.paid,
+          dueDate: now,
+          paidAt: now,
+          lineItems: [
+            {
+              type: "license_activation",
+              planId: subscription.planId,
+              planName: subscription.plan.name,
+              period,
+              amount: subscription.plan.basePrice.toString(),
+            },
+          ],
+        },
+      });
+
+      return subscription;
   });
 
   const access = await syncTenantStatus(tenantId);

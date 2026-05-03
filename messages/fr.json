@@ -109,6 +109,20 @@
     "status_deceased": "Décédé",
     "not_applicable": "N/A"
   },
+  "licensing": {
+    "tenant_inactive_title": "Tenant Inactif",
+    "tenant_inactive_description": "Une facture payée valide pour un abonnement mensuel ou annuel est requise pour accéder aux modules.",
+    "enter_license_key_label": "Entrez la clé de licence",
+    "license_key_placeholder": "XXXXX-XXXXX-XXXXX-XXXXX",
+    "activate_tenant": "Activer Tenant",
+    "activating_tenant": "Activation...",
+    "please_enter_license_key": "Veuillez saisir une clé de licence.",
+    "activation_failed": "Échec de l'activation du tenant.",
+    "initializing_system": "Initialisation du système...",
+    "failed_check_tenant_status": "Échec de la vérification du statut du tenant.",
+    "tenant_admin_access_preserved": "Impossible de vérifier l'état de la licence du tenant. L'accès est conservé pour l'administrateur du tenant.",
+    "tenant_access_verification_failed": "Impossible de vérifier l'abonnement et la validité de la facture du tenant."
+  },
   "login": {
     "welcome": "Bienvenue sur votre",
     "workspace": "Espace de Travail",

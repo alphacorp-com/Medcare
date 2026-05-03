@@ -109,6 +109,20 @@
     "status_deceased": "Deceased",
     "not_applicable": "N/A"
   },
+  "licensing": {
+    "tenant_inactive_title": "Tenant Inactive",
+    "tenant_inactive_description": "A valid paid invoice for a monthly or yearly subscription is required to access modules.",
+    "enter_license_key_label": "Enter license key",
+    "license_key_placeholder": "XXXXX-XXXXX-XXXXX-XXXXX",
+    "activate_tenant": "Activate Tenant",
+    "activating_tenant": "Activating...",
+    "please_enter_license_key": "Please enter a license key.",
+    "activation_failed": "Failed to activate tenant.",
+    "initializing_system": "Initializing System...",
+    "failed_check_tenant_status": "Failed to check tenant status.",
+    "tenant_admin_access_preserved": "Unable to verify tenant licensing status. Access is preserved for tenant admin.",
+    "tenant_access_verification_failed": "Unable to verify tenant subscription and invoice validity."
+  },
   "login": {
     "welcome": "Welcome to your",
     "workspace": "Workspace",

@@ -59,9 +59,7 @@ export function SubscriptionsManagement() {
   const [plans, setPlans] = useState<PlanOption[]>([]);
   const [licenses, setLicenses] = useState<LicenseRow[]>([]);
   const [subscriptions, setSubscriptions] = useState<SubscriptionRow[]>([]);
-  const [selectedTenant, setSelectedTenant] = useState("");
-  const [selectedPlan, setSelectedPlan] = useState("");
-  const [period, setPeriod] = useState<"monthly" | "annual">("monthly");
+  const [selectedSubscription, setSelectedSubscription] = useState("");
   const [generatedKey, setGeneratedKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [subscriptionForm, setSubscriptionForm] = useState({
@@ -105,8 +103,8 @@ export function SubscriptionsManagement() {
   }, []);
 
   const handleGenerate = async () => {
-    if (!selectedTenant || !selectedPlan || !period) {
-      setError("Please select a tenant, plan and period.");
+    if (!selectedSubscription) {
+      setError("Please select a subscription.");
       return;
     }
 
@@ -117,11 +115,7 @@ export function SubscriptionsManagement() {
       const response = await fetch("/api/admin/licenses", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          tenantId: selectedTenant,
-          planId: selectedPlan,
-          period,
-        }),
+        body: JSON.stringify({ subscriptionId: selectedSubscription }),
       });
 
       const payload = await response.json();
@@ -266,53 +260,24 @@ export function SubscriptionsManagement() {
         <CardHeader>
           <CardTitle>Generate License Key</CardTitle>
           <CardDescription>
-            Create a key for a tenant and period (monthly or yearly). The tenant becomes active after redeeming the key.
+            Create a key for an existing subscription. The tenant becomes active after redeeming the linked key.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <p className="text-sm font-medium">Tenant</p>
-              <Select value={selectedTenant} onValueChange={(value) => setSelectedTenant(value || "")}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select tenant" />
-                </SelectTrigger>
-                <SelectContent>
-                  {tenants.map((tenant) => (
-                    <SelectItem key={tenant.id} value={tenant.id}>
-                      {tenant.name} ({tenant.slug})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm font-medium">Plan</p>
-              <Select value={selectedPlan} onValueChange={(value) => setSelectedPlan(value || "")}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select plan" />
-                </SelectTrigger>
-                <SelectContent>
-                  {plans.map((plan) => (
-                    <SelectItem key={plan.id} value={plan.id}>
-                      {plan.name} ({plan.billingCycle})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm font-medium">Period</p>
-              <Select value={period} onValueChange={(value) => setPeriod(value as "monthly" | "annual")}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select period" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="monthly">Monthly</SelectItem>
-                  <SelectItem value="annual">Yearly</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Subscription</p>
+            <Select value={selectedSubscription} onValueChange={(value) => setSelectedSubscription(value || "")}> 
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select subscription" />
+              </SelectTrigger>
+              <SelectContent>
+                {subscriptions.map((subscription) => (
+                  <SelectItem key={subscription.id} value={subscription.id}>
+                    {subscription.tenant.name} / {subscription.plan.name} ({subscription.plan.billingCycle}) — {subscription.status}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {error ? <p className="text-sm text-red-600">{error}</p> : null}

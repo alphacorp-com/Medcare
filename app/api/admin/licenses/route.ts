@@ -60,24 +60,33 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const tenantId = String(body.tenantId || "");
-    const planId = String(body.planId || "");
-    const normalizedPeriod = normalizePeriod(String(body.period || ""));
+    const subscriptionId = String(body.subscriptionId || "");
 
-    if (!tenantId || !planId || !normalizedPeriod) {
+    if (!subscriptionId) {
       return NextResponse.json(
-        { error: "tenantId, planId and a valid period are required." },
+        { error: "subscriptionId is required." },
         { status: 400 }
       );
     }
 
-    const [tenant, plan] = await Promise.all([
-      prisma.tenant.findUnique({ where: { id: tenantId }, select: { id: true } }),
-      prisma.plan.findUnique({ where: { id: planId }, select: { id: true } }),
-    ]);
+    const subscription = await prisma.subscription.findUnique({
+      where: { id: subscriptionId },
+      include: {
+        tenant: { select: { id: true } },
+        plan: { select: { id: true, billingCycle: true } },
+      },
+    });
 
-    if (!tenant || !plan) {
-      return NextResponse.json({ error: "Tenant or plan not found." }, { status: 404 });
+    if (!subscription) {
+      return NextResponse.json({ error: "Subscription not found." }, { status: 404 });
+    }
+
+    const normalizedPeriod = normalizePeriod(subscription.plan.billingCycle);
+    if (!normalizedPeriod) {
+      return NextResponse.json(
+        { error: "Subscription plan must use a monthly or annual billing cycle." },
+        { status: 400 }
+      );
     }
 
     const rawKey = createLicenseKey();
@@ -86,8 +95,9 @@ export async function POST(request: NextRequest) {
 
     await prisma.licenseKey.create({
       data: {
-        tenantId,
-        planId,
+        tenantId: subscription.tenant.id,
+        planId: subscription.plan.id,
+        subscriptionId,
         period: normalizedPeriod,
         keyHash,
         keyPreview,
