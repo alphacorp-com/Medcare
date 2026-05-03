@@ -85,6 +85,17 @@ export default function UserActivityPage() {
     document.body.removeChild(link);
   };
 
+  const roleTranslations: Record<string, string> = {
+    "System Administrator": tr('admin'),
+    "Tenant Administrator": tr('tenant_admin'),
+    "Lead Physician": tr('physician'),
+    "Head Nurse": tr('nurse'),
+    "Pharmacist": tr('pharmacist'),
+    "Lab Technician": tr('lab'),
+    "Billing Manager": tr('billing'),
+    "HR Director": tr('hr')
+  };
+
   return (
     <div className="flex flex-col h-full space-y-6 max-w-7xl mx-auto w-full pb-12 pt-4 px-4 sm:px-6">
       
@@ -114,7 +125,7 @@ export default function UserActivityPage() {
         <div className="flex-1">
           <h1 className="text-2xl font-bold text-slate-900">{user.fullName}</h1>
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mt-2 text-sm text-slate-500">
-            <span className="flex items-center gap-1.5"><Building2 className="w-4 h-4 text-slate-400" /> {tr('admin')}</span>
+            <span className="flex items-center gap-1.5"><Building2 className="w-4 h-4 text-slate-400" /> {user.role ? (roleTranslations[user.role] || user.role) : '-'}</span>
             <span className="flex items-center gap-1.5"><Mail className="w-4 h-4 text-slate-400" /> {user.email}</span>
             <span className="flex items-center gap-1.5"><ShieldCheck className="w-4 h-4 text-slate-400" /> {user.modules?.length || 0} {t('authorized')}</span>
           </div>

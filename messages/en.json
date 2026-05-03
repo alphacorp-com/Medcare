@@ -31,6 +31,7 @@
     "export": "Export",
     "search": "Search",
     "view": "View",
+    "session_unknown": "Unknown Session, Please Reconnect",
     "status": "Status",
     "all": "All",
     "date": "Date",
@@ -539,6 +540,7 @@
   },
   "roles": {
     "admin": "System Administrator",
+    "tenant_admin": "Tenant Administrator",
     "physician": "Lead Physician",
     "nurse": "Head Nurse",
     "pharmacist": "Pharmacist",

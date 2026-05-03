@@ -31,6 +31,7 @@
     "export": "Exporter",
     "search": "Rechercher",
     "view": "Voir",
+    "session_unknown": "Session Inconnue, Veuillez vous reconnecter",
     "status": "Statut",
     "all": "Tous",
     "date": "Date",
@@ -559,6 +560,7 @@
   },
   "roles": {
     "admin": "Administrateur Système",
+    "tenant_admin": "Administrateur du centre",
     "physician": "Médecin Chef",
     "nurse": "Infirmier Major",
     "pharmacist": "Pharmacien",

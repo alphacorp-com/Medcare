@@ -37,6 +37,7 @@ export function Header() {
 
   const roleTranslations: Record<string, string> = {
     "System Administrator": tr('admin'),
+    "Tenant Administrator": tr('tenant_admin'),
     "Lead Physician": tr('physician'),
     "Head Nurse": tr('nurse'),
     "Pharmacist": tr('pharmacist'),
@@ -93,7 +94,7 @@ export function Header() {
 
         <div className="flex items-center gap-2 border-r border-slate-200 pr-4">
           <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-bold rounded uppercase">
-            {currentUser?.role ? (roleTranslations[currentUser.role] || currentUser.role) : t('view')}
+            {currentUser?.role ? (roleTranslations[currentUser.role] || currentUser.role) : t('session_unknown')}
           </span>
           <div className="text-right leading-none">
             <div className="text-xs font-semibold uppercase">{currentUser?.fullName}</div>
