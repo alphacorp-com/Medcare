@@ -226,7 +226,7 @@ export async function redeemLicenseForTenant(args: {
           redeemedAt: now,
           redeemedBy: redeemedByUserId,
           validFrom: now,
-          validUntil: periodEnd,
+          validUntil: subscription.currentPeriodEnd,
           subscriptionId: license.subscriptionId,
         },
       });
