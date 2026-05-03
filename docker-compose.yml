@@ -24,7 +24,7 @@ services:
     container_name: medcare-system
     restart: unless-stopped
     ports:
-      - "3000:3001"
+      - "3000:3000"
     environment:
       DATABASE_URL: postgresql://postgres:pliya@postgres:5432/medcarev2_db?schema=tenant_template
       NODE_ENV: production

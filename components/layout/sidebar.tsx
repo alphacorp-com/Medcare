@@ -56,7 +56,7 @@ export function Sidebar() {
                   <item.icon className="h-4 w-4 shrink-0" />
                   <span className="text-sm italic truncate">{t(item.name)}</span>
                 </div>
-                  <span className="shrink-0 ml-2 px-1.5 py-0.5 bg-slate-700 text-slate-500 text-[9px] rounded uppercase">{t('disabled')}</span>
+                <span className="shrink-0 ml-2 px-1.5 py-0.5 bg-slate-700 text-slate-500 text-[9px] rounded uppercase">{t('disabled')}</span>
               </div>
             );
           }
@@ -128,7 +128,14 @@ export function Sidebar() {
         </Link>
       </nav>
       <div className="p-4 bg-slate-950 shrink-0">
-        <div className="text-[10px] text-slate-500">{t('tenant_env')}</div>
+        <div className="text-[10px] text-slate-500">
+          {t('powered_by')}
+          <a href="https://alphacorp.vercel.app" target="_blank" rel="noopener noreferrer">
+            <p className='font-bold text-lg bg-clip-text text-transparent bg-gradient-to-l from-blue-700 to-fuchsia-400 animate-gradient'>
+              Alpha Corp
+            </p>
+          </a>
+        </div>
         {/* <div className="text-xs text-white font-medium truncate">{t('hospital_name')}</div> */}
       </div>
     </aside>

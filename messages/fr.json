@@ -19,6 +19,7 @@
     "active": "Actif",
     "disabled": "Désactivé",
     "tenant_env": "Environnement Tenant",
+    "powered_by": "Propulsé par ",
     "hospital_name": "Hopital Général de Foumbot",
     "hospital_address": "Route de Bandjoun, Foumbot",
     "actions": "Actions",
