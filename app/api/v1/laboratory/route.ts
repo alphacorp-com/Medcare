@@ -2,12 +2,12 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { findExam, generateExamCode } from "@/lib/radiology/catalog";
+import { findPanel, generateExamCode } from "@/lib/laboratory/panels";
 import type { ExamRequestStatus, ExamUrgency } from "@prisma/client";
 
-const PATIENT_SELECT = { id: true, firstName: true, lastName: true, ipp: true, allergies: true } as const;
+const PATIENT_SELECT = { id: true, firstName: true, lastName: true, ipp: true } as const;
 
-// ── GET /api/v1/radiology ───────────────────────────────────────────────────
+// ── GET /api/v1/laboratory ──────────────────────────────────────────────────
 // Query params: status, urgency, critical ("true"), search (patient name/ipp/examLabel)
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
@@ -23,7 +23,7 @@ export async function GET(req: Request) {
 
   const exams = await prisma.examRequest.findMany({
     where: {
-      type: "radiology",
+      type: "biology",
       status: status ?? undefined,
       urgency: urgency ?? undefined,
       results: critical ? { some: { isCritical: true } } : undefined,
@@ -48,8 +48,9 @@ export async function GET(req: Request) {
   return NextResponse.json(exams);
 }
 
-// ── POST /api/v1/radiology ──────────────────────────────────────────────────
-// Body: { patientId, stayId?, examCode, examLabel? (required when examCode is CUSTOM), urgency?, notes? }
+// ── POST /api/v1/laboratory ─────────────────────────────────────────────────
+// Body: { patientId, stayId?, panelCode, examLabel? (required when panelCode is CUSTOM),
+//         urgency?, notes? }
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
@@ -58,22 +59,22 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { patientId, stayId, examCode, examLabel, urgency, notes } = body as {
+    const { patientId, stayId, panelCode, examLabel, urgency, notes } = body as {
       patientId?: string;
       stayId?: string;
-      examCode?: string;
+      panelCode?: string;
       examLabel?: string;
       urgency?: ExamUrgency;
       notes?: string;
     };
 
-    if (!patientId || !examCode) {
-      return NextResponse.json({ error: "patientId and examCode are required" }, { status: 400 });
+    if (!patientId || !panelCode) {
+      return NextResponse.json({ error: "patientId and panelCode are required" }, { status: 400 });
     }
 
-    const catalogEntry = findExam(examCode);
-    if (!catalogEntry && !examLabel?.trim()) {
-      return NextResponse.json({ error: "examLabel is required for a custom exam" }, { status: 400 });
+    const panel = findPanel(panelCode);
+    if (!panel && !examLabel?.trim()) {
+      return NextResponse.json({ error: "examLabel is required for a custom panel" }, { status: 400 });
     }
 
     const exam = await prisma.examRequest.create({
@@ -81,9 +82,9 @@ export async function POST(req: Request) {
         patientId,
         stayId: stayId || null,
         prescriberId: session.user.id,
-        type: "radiology",
-        examCode: catalogEntry?.code ?? generateExamCode(),
-        examLabel: catalogEntry?.label ?? examLabel!.trim(),
+        type: "biology",
+        examCode: panel?.code ?? generateExamCode(),
+        examLabel: panel?.label ?? examLabel!.trim(),
         urgency: urgency ?? "routine",
         notes: notes || null,
       },
@@ -92,7 +93,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json(exam, { status: 201 });
   } catch (error) {
-    console.error("Error creating radiology exam:", error);
+    console.error("Error creating lab exam:", error);
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
 }

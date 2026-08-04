@@ -2,7 +2,12 @@
   "permissions": {
     "allow": [
       "Bash(curl -s -o /dev/null -w \"HTTP:%{http_code}\\\\n\" -m 15 \"https://play.im.dhis2.org/stable-2-40-6/api/dataSets.json?fields=id,name&pageSize=1\")",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('messages/en.json','utf8'\\)\\); console.log\\('en.json OK'\\)\")",
+      "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('messages/fr.json','utf8'\\)\\); console.log\\('fr.json OK'\\)\")",
+      "Bash(npx tsc *)",
+      "Bash(echo \"EXIT_CODE:$?\")",
+      "Bash(npx eslint *)"
     ]
   }
 }
