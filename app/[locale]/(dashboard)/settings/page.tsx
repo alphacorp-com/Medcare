@@ -16,6 +16,7 @@ import { ProfileSettings } from "@/components/settings/profile-settings";
 import { OrganizationSettings } from "@/components/settings/organization-settings";
 import { ModuleConfiguration } from "@/components/settings/module-configuration";
 import { DocumentTemplates } from "@/components/settings/document-templates";
+import { Dhis2IntegrationSettings } from "@/components/settings/dhis2-integration-settings";
 
 export default function SettingsPage() {
   const { currentUser, activeModules, setActiveModules, setUser } = useAppStore();
@@ -567,18 +568,11 @@ export default function SettingsPage() {
                 </TabsContent>
 
                 <TabsContent value="integrations" className="m-0 mt-0 focus-visible:outline-none">
-                  <div className="bg-white rounded border border-slate-200 shadow-sm p-6 space-y-6">
-                    <div>
-                      <h2 className="text-lg font-bold text-slate-900">{t('integrations')}</h2>
-                      <p className="text-xs text-slate-500">Manage HL7 pipelines, DICOM servers, and generic APIs.</p>
-                    </div>
-                    <div className="p-8 text-center border-2 border-dashed border-slate-200 rounded-lg bg-blue-50/30">
-                      <Database className="h-10 w-10 text-blue-300 mx-auto mb-3" />
-                      <h3 className="text-sm font-bold text-blue-800">No active integrations</h3>
-                      <p className="text-xs text-blue-600/70 mt-1 max-w-sm mx-auto">Connect to external laboratory partners, PACs, or government health networks securely via modern REST or legacy HL7v2 connections.</p>
-                      <Button variant="outline" size="sm" className="mt-4 border-blue-200 text-blue-700 hover:bg-blue-50 text-xs">Configure Pipeline</Button>
-                    </div>
+                  <div className="mb-4">
+                    <h2 className="text-lg font-bold text-slate-900">{t('integrations')}</h2>
+                    <p className="text-xs text-slate-500">Manage HL7 pipelines, DICOM servers, and generic APIs.</p>
                   </div>
+                  <Dhis2IntegrationSettings />
                 </TabsContent>
               </>)}
           </div>

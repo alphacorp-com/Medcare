@@ -3,83 +3,86 @@
 import { useAppStore } from "@/lib/store/useAppStore";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { useState, useEffect } from "react";
-import { 
-  Search, Filter, Scissors, Syringe, Clock, CheckCircle2, PlayCircle, ClipboardCheck, Plus, AlertCircle, Printer, Download, Mail
+import { useEffect, useMemo, useState } from "react";
+import {
+  Search, Scissors, Syringe, Clock, CheckCircle2, PlayCircle, ClipboardCheck, Plus,
+  AlertCircle, Printer, Download, Mail, XCircle, CalendarClock,
 } from "lucide-react";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Label } from "@/components/ui/label";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { TableCell, TableRow } from "@/components/ui/table";
+import { isPhaseComplete } from "@/lib/surgery/checklist";
+import { ScheduleSurgerySheet } from "./_components/ScheduleSurgerySheet";
+import { ChecklistSheet } from "./_components/ChecklistSheet";
+import { CompleteSurgerySheet } from "./_components/CompleteSurgerySheet";
+import { CancelPostponeDialog } from "./_components/CancelPostponeDialog";
+import { RescheduleDialog } from "./_components/RescheduleDialog";
+import { Doctor, Surgery, SurgicalStatus } from "./types";
 
-type Surgery = {
-  id: string;
-  patientName: string;
-  ipp: string;
-  surgeon: string;
-  type: string;
-  status: "Scheduled" | "In Progress" | "Completed" | "Cancelled";
-  date: string;
-  checklistCompleted: boolean;
-};
+const STATUS_FILTERS: (SurgicalStatus | "All")[] = ["All", "scheduled", "in_progress", "completed", "cancelled", "postponed"];
 
 export default function SurgeryPage() {
   const t = useTranslations('surgery');
   const tc = useTranslations('common');
-  const tp = useTranslations('patients');
   const hasModule = useAppStore((state) => state.hasModule);
-  const [filter, setFilter] = useState("All");
+
+  const [filter, setFilter] = useState<SurgicalStatus | "All">("All");
   const [search, setSearch] = useState("");
   const [surgeries, setSurgeries] = useState<Surgery[]>([]);
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isScheduleOpen, setIsScheduleOpen] = useState(false);
 
-  const fetchSurgeries = async () => {
+  const [isScheduleOpen, setIsScheduleOpen] = useState(false);
+  const [checklistSurgery, setChecklistSurgery] = useState<Surgery | null>(null);
+  const [completeSurgery, setCompleteSurgery] = useState<Surgery | null>(null);
+  const [cancelPostpone, setCancelPostpone] = useState<{ surgery: Surgery; action: "cancel" | "postpone" } | null>(null);
+  const [rescheduleSurgery, setRescheduleSurgery] = useState<Surgery | null>(null);
+
+  const doctorsById = useMemo(() => new Map(doctors.map((d) => [d.id, d])), [doctors]);
+
+  const fetchSurgeries = async (): Promise<Surgery[]> => {
     try {
       const res = await fetch('/api/v1/surgeries');
       const data = await res.json();
-      setSurgeries(data);
+      const list: Surgery[] = Array.isArray(data) ? data : [];
+      setSurgeries(list);
+      return list;
     } catch (err) {
       console.error("Failed to fetch surgeries", err);
+      return [];
     } finally {
       setIsLoading(false);
     }
   };
 
-  useEffect(() => {
-    if (!hasModule("MODULE_SURGERY")) return;
-    fetchSurgeries();
-  }, [hasModule]);
-
-  const handleScheduleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const body = {
-      patientName: formData.get("patientName"),
-      ipp: formData.get("ipp"),
-      surgeon: formData.get("surgeon"),
-      type: formData.get("type"),
-      date: formData.get("date")
-    };
+  const fetchDoctors = async () => {
     try {
-      await fetch('/api/v1/surgeries', { 
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      });
-      fetchSurgeries();
-      setIsScheduleOpen(false);
+      const res = await fetch('/api/v1/doctors');
+      const json = await res.json();
+      if (json.success) setDoctors(json.data);
     } catch (err) {
-      console.error(err);
+      console.error("Failed to fetch doctors", err);
     }
   };
 
-  const updateStatus = async (id: string, action: 'start' | 'complete' | 'checklist') => {
+  useEffect(() => {
+    if (!hasModule("MODULE_SURGERY")) return;
+    (async () => {
+      await Promise.all([fetchSurgeries(), fetchDoctors()]);
+    })();
+  }, [hasModule]);
+
+  const doctorName = (id: string | null) => (id ? doctorsById.get(id)?.fullName ?? id : "—");
+
+  const handleStart = async (surgery: Surgery) => {
     try {
-      await fetch(`/api/v1/surgeries/${id}/${action}`, { method: 'PATCH' });
+      const res = await fetch(`/api/v1/surgeries/${surgery.id}/start`, { method: 'PATCH' });
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        alert(payload?.error || t('start_error'));
+        return;
+      }
       fetchSurgeries();
     } catch (err) {
       console.error(err);
@@ -90,10 +93,14 @@ export default function SurgeryPage() {
      let csvContent = [
       [`Organization: ${tc('app_name')} HMS`, "123 Health Ave", "+1 234 567 8900", ""],
       [""],
-      ["ID", tc('patient'), tc('ipp'), t('surgeon'), tc('view'), tc('status'), tc('date')]
+      ["ID", tc('patient'), tc('ipp'), t('surgeon'), t('anesthesiologist'), t('room'), t('procedure_type'), tc('status'), tc('date')]
      ];
      surgeries.forEach(s => {
-       csvContent.push([s.id, `"${s.patientName}"`, s.ipp, `"${s.surgeon}"`, `"${s.type}"`, s.status, s.date]);
+       csvContent.push([
+         s.id, `"${s.patient.firstName} ${s.patient.lastName}"`, s.patient.ipp,
+         `"${doctorName(s.surgeonId)}"`, `"${doctorName(s.anesthesiologistId)}"`, s.roomId ?? "",
+         `"${s.procedureLabel}"`, s.status, s.scheduledAt ?? ""
+       ]);
      });
      const blob = new Blob([csvContent.map(e => e.join(",")).join("\n")], { type: 'text/csv;charset=utf-8;' });
      const link = document.createElement("a");
@@ -122,9 +129,19 @@ export default function SurgeryPage() {
 
   const filteredSurgeries = surgeries.filter(s => {
     if (filter !== "All" && s.status !== filter) return false;
-    if (search && !s.patientName.toLowerCase().includes(search.toLowerCase()) && !s.id.toLowerCase().includes(search.toLowerCase())) return false;
+    const patientName = `${s.patient.firstName} ${s.patient.lastName}`.toLowerCase();
+    if (search && !patientName.includes(search.toLowerCase()) && !s.id.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
+
+  const statusBadgeClass = (status: SurgicalStatus) => cn(
+    "inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider",
+    status === "scheduled" ? "bg-slate-100 text-slate-600" :
+    status === "in_progress" ? "bg-blue-100 text-blue-700 blink-pulse" :
+    status === "completed" ? "bg-green-100 text-green-700" :
+    status === "postponed" ? "bg-amber-100 text-amber-700" :
+    "bg-red-100 text-red-700"
+  );
 
   return (
     <div className="flex flex-col h-full space-y-4">
@@ -142,64 +159,28 @@ export default function SurgeryPage() {
            <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white h-8 text-xs" onClick={() => setIsScheduleOpen(true)}>
              <Plus className="mr-2 h-3.5 w-3.5" /> {t('schedule_intervention')}
            </Button>
-
-           <Sheet open={isScheduleOpen} onOpenChange={setIsScheduleOpen}>
-             <SheetContent className="sm:max-w-xl overflow-y-auto">
-               <SheetHeader>
-                 <SheetTitle>{t('schedule_intervention')}</SheetTitle>
-               </SheetHeader>
-               <form onSubmit={handleScheduleSubmit} className="space-y-6 mt-4">
-                 <div className="grid grid-cols-2 gap-4">
-                   <div className="space-y-2">
-                     <Label>{tc('name')}</Label>
-                     <Input name="patientName" required placeholder="John Doe" />
-                   </div>
-                   <div className="space-y-2">
-                     <Label>{tc('ipp')}</Label>
-                     <Input name="ipp" required placeholder="100000123" />
-                   </div>
-                   <div className="space-y-2">
-                     <Label>{t('surgeon')}</Label>
-                     <Input name="surgeon" required placeholder="Dr. XYZ" />
-                   </div>
-                   <div className="space-y-2">
-                     <Label>{t('procedure_type')}</Label>
-                     <Input name="type" required placeholder="Appendectomy" />
-                   </div>
-                   <div className="space-y-2 col-span-2">
-                     <Label>{tc('date')} & {tc('time')}</Label>
-                     <Input name="date" type="datetime-local" required />
-                   </div>
-                 </div>
-                 <div className="flex justify-end gap-3 pt-6 border-t">
-                   <Button type="button" variant="outline" onClick={() => setIsScheduleOpen(false)}>{tc('cancel')}</Button>
-                   <Button type="submit" className="bg-blue-600 text-white hover:bg-blue-700">{tc('all')}</Button>
-                 </div>
-               </form>
-             </SheetContent>
-           </Sheet>
         </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3 shrink-0">
-        <div className="bg-white p-4 rounded border border-slate-200 shadow-sm flex items-end justify-between hover:border-blue-300 transition-colors cursor-pointer" onClick={() => setFilter("Scheduled")}>
+        <div className="bg-white p-4 rounded border border-slate-200 shadow-sm flex items-end justify-between hover:border-blue-300 transition-colors cursor-pointer" onClick={() => setFilter("scheduled")}>
           <div>
             <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">{t('scheduled')}</div>
-            <div className="text-3xl font-bold text-slate-900">{surgeries.filter(e => e.status === 'Scheduled').length}</div>
+            <div className="text-3xl font-bold text-slate-900">{surgeries.filter(e => e.status === 'scheduled').length}</div>
           </div>
           <Clock className="h-8 w-8 text-slate-200" />
         </div>
-        <div className="bg-white p-4 rounded border border-slate-200 shadow-sm flex items-end justify-between hover:border-blue-300 transition-colors cursor-pointer" onClick={() => setFilter("In Progress")}>
+        <div className="bg-white p-4 rounded border border-slate-200 shadow-sm flex items-end justify-between hover:border-blue-300 transition-colors cursor-pointer" onClick={() => setFilter("in_progress")}>
           <div>
             <div className="text-xs font-semibold text-blue-600 uppercase tracking-wider mb-1">{t('in_progress')}</div>
-            <div className="text-3xl font-bold text-blue-600">{surgeries.filter(e => e.status === 'In Progress').length}</div>
+            <div className="text-3xl font-bold text-blue-600">{surgeries.filter(e => e.status === 'in_progress').length}</div>
           </div>
           <Syringe className="h-8 w-8 text-blue-100" />
         </div>
-        <div className="bg-white p-4 rounded border border-slate-200 shadow-sm flex items-end justify-between hover:border-blue-300 transition-colors cursor-pointer" onClick={() => setFilter("Completed")}>
+        <div className="bg-white p-4 rounded border border-slate-200 shadow-sm flex items-end justify-between hover:border-blue-300 transition-colors cursor-pointer" onClick={() => setFilter("completed")}>
           <div>
             <div className="text-xs font-semibold text-green-600 uppercase tracking-wider mb-1">{t('completed')}</div>
-            <div className="text-3xl font-bold text-green-600">{surgeries.filter(e => e.status === 'Completed').length}</div>
+            <div className="text-3xl font-bold text-green-600">{surgeries.filter(e => e.status === 'completed').length}</div>
           </div>
           <CheckCircle2 className="h-8 w-8 text-green-100" />
         </div>
@@ -218,10 +199,18 @@ export default function SurgeryPage() {
               />
             </div>
             <div className="flex bg-slate-200/50 p-1 rounded-md ml-4">
-              <button className={cn("px-4 py-1 rounded text-xs font-semibold transition-colors", filter === "All" ? "bg-white shadow-sm text-slate-800" : "text-slate-500 hover:text-slate-800")} onClick={() => setFilter("All")}>{tc('all')}</button>
+              {STATUS_FILTERS.map((s) => (
+                <button
+                  key={s}
+                  className={cn("px-3 py-1 rounded text-xs font-semibold transition-colors", filter === s ? "bg-white shadow-sm text-slate-800" : "text-slate-500 hover:text-slate-800")}
+                  onClick={() => setFilter(s)}
+                >
+                  {s === "All" ? tc('all') : t(s)}
+                </button>
+              ))}
             </div>
         </div>
-        
+
         <div className="flex-1 overflow-auto">
           {isLoading ? (
              <div className="flex items-center justify-center h-full text-slate-400">{tc('loading')}</div>
@@ -237,78 +226,133 @@ export default function SurgeryPage() {
                   <th className="p-4 font-semibold w-32">{t('intervention_id')}</th>
                   <th className="p-4 font-semibold w-48">{tc('patient')}</th>
                   <th className="p-4 font-semibold">{t('procedure_type')}</th>
-                  <th className="p-4 font-semibold w-48">{t('surgeon')}</th>
+                  <th className="p-4 font-semibold w-40">{t('surgeon')}</th>
+                  <th className="p-4 font-semibold w-24">{t('room')}</th>
                   <th className="p-4 font-semibold w-32">{tc('status')}</th>
-                  <th className="p-4 font-semibold text-right w-64">{tc('actions')}</th>
+                  <th className="p-4 font-semibold text-right w-72">{tc('actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100/80">
-                {filteredSurgeries.map((surg) => (
+                {filteredSurgeries.map((surg) => {
+                  const checklist = surg.whoChecklist ?? {};
+                  const readyToStart = isPhaseComplete("signIn", checklist.signIn) && isPhaseComplete("timeOut", checklist.timeOut);
+                  const readyToComplete = isPhaseComplete("signOut", checklist.signOut);
+
+                  return (
                   <TableRow key={surg.id} className="hover:bg-slate-50/50 transition-colors group">
                     <TableCell className="p-4">
-                      <div className="font-mono text-xs font-medium text-slate-700">{surg.id}</div>
-                      <div className="text-[10px] text-slate-400 mt-1">{format(new Date(surg.date), "MMM d, HH:mm")}</div>
+                      <div className="font-mono text-xs font-medium text-slate-700">{surg.id.slice(0, 8)}</div>
+                      <div className="text-[10px] text-slate-400 mt-1">{surg.scheduledAt ? format(new Date(surg.scheduledAt), "MMM d, HH:mm") : "—"}</div>
                     </TableCell>
                     <TableCell className="p-4">
-                      <div className="text-sm font-semibold text-slate-900">{surg.patientName}</div>
-                      <div className="text-xs text-slate-500 font-mono mt-0.5">IPP: {surg.ipp}</div>
+                      <div className="text-sm font-semibold text-slate-900">{surg.patient.firstName} {surg.patient.lastName}</div>
+                      <div className="text-xs text-slate-500 font-mono mt-0.5">IPP: {surg.patient.ipp}</div>
                     </TableCell>
                     <TableCell className="p-4">
-                      <div className="text-sm text-slate-800">{surg.type}</div>
-                      {!surg.checklistCompleted && surg.status === 'Scheduled' && (
+                      <div className="text-sm text-slate-800">{surg.procedureLabel}</div>
+                      {surg.status === 'scheduled' && !readyToStart && (
                         <span className="inline-flex items-center text-[10px] mt-1 text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-100">
                           <AlertCircle className="w-3 h-3 mr-1" /> {t('checklist_missing')}
                         </span>
                       )}
-                      {surg.checklistCompleted && (
-                        <span className="inline-flex items-center text-[10px] mt-1 text-green-600 bg-green-50 px-1.5 py-0.5 rounded border border-green-100">
-                          <CheckCircle2 className="w-3 h-3 mr-1" /> {t('checklist_complete')}
+                      {surg.status === 'in_progress' && !readyToComplete && (
+                        <span className="inline-flex items-center text-[10px] mt-1 text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-100">
+                          <AlertCircle className="w-3 h-3 mr-1" /> {t('checklist_missing')}
                         </span>
                       )}
                     </TableCell>
                     <TableCell className="p-4 text-sm text-slate-600 font-medium">
-                      {surg.surgeon}
+                      {doctorName(surg.surgeonId)}
+                    </TableCell>
+                    <TableCell className="p-4 text-sm text-slate-600">
+                      {surg.roomId ?? "—"}
                     </TableCell>
                     <TableCell className="p-4">
-                       <span className={cn(
-                        "inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider",
-                        surg.status === "Scheduled" ? "bg-slate-100 text-slate-600" :
-                        surg.status === "In Progress" ? "bg-blue-100 text-blue-700 blink-pulse" :
-                        surg.status === "Completed" ? "bg-green-100 text-green-700" :
-                        "bg-red-100 text-red-700"
-                      )}>
-                        {surg.status}
-                      </span>
+                       <span className={statusBadgeClass(surg.status)}>{t(surg.status)}</span>
                     </TableCell>
                     <TableCell className="p-4 text-right">
-                       <div className="flex justify-end gap-2">
-                         {surg.status === 'Scheduled' && (
+                       <div className="flex justify-end flex-wrap gap-1.5">
+                         {surg.status === 'scheduled' && (
                            <>
-                             {!surg.checklistCompleted ? (
-                                <Button variant="outline" size="sm" className="h-7 text-xs bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100" onClick={() => updateStatus(surg.id, 'checklist')}>
+                             {!readyToStart ? (
+                                <Button variant="outline" size="sm" className="h-7 text-xs bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100" onClick={() => setChecklistSurgery(surg)}>
                                   <ClipboardCheck className="w-3.5 h-3.5 mr-1.5" /> {t('validate_who')}
                                 </Button>
                              ) : (
-                                <Button size="sm" className="h-7 text-xs bg-blue-600 text-white hover:bg-blue-700" onClick={() => updateStatus(surg.id, 'start')}>
+                                <Button size="sm" className="h-7 text-xs bg-blue-600 text-white hover:bg-blue-700" onClick={() => handleStart(surg)}>
                                   <PlayCircle className="w-3.5 h-3.5 mr-1.5" /> {t('start_surgery')}
                                 </Button>
                              )}
+                             <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setCancelPostpone({ surgery: surg, action: 'postpone' })}>
+                               <CalendarClock className="w-3.5 h-3.5 mr-1.5" /> {t('postpone')}
+                             </Button>
+                             <Button variant="outline" size="sm" className="h-7 text-xs text-red-600 border-red-200 hover:bg-red-50" onClick={() => setCancelPostpone({ surgery: surg, action: 'cancel' })}>
+                               <XCircle className="w-3.5 h-3.5 mr-1.5" /> {t('cancel_surgery')}
+                             </Button>
                            </>
                          )}
-                         {surg.status === 'In Progress' && (
-                            <Button size="sm" className="h-7 text-xs bg-green-600 text-white hover:bg-green-700" onClick={() => updateStatus(surg.id, 'complete')}>
-                              <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> {t('complete_sign')}
-                            </Button>
+                         {surg.status === 'in_progress' && (
+                            !readyToComplete ? (
+                              <Button variant="outline" size="sm" className="h-7 text-xs bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100" onClick={() => setChecklistSurgery(surg)}>
+                                <ClipboardCheck className="w-3.5 h-3.5 mr-1.5" /> {t('validate_who')}
+                              </Button>
+                            ) : (
+                              <Button size="sm" className="h-7 text-xs bg-green-600 text-white hover:bg-green-700" onClick={() => setCompleteSurgery(surg)}>
+                                <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> {t('complete_sign')}
+                              </Button>
+                            )
+                         )}
+                         {surg.status === 'postponed' && (
+                           <Button size="sm" className="h-7 text-xs bg-amber-600 text-white hover:bg-amber-700" onClick={() => setRescheduleSurgery(surg)}>
+                             <CalendarClock className="w-3.5 h-3.5 mr-1.5" /> {t('reschedule_surgery')}
+                           </Button>
                          )}
                        </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           )}
         </div>
       </div>
+
+      <ScheduleSurgerySheet
+        open={isScheduleOpen}
+        onOpenChange={setIsScheduleOpen}
+        doctors={doctors}
+        onScheduled={fetchSurgeries}
+      />
+      <ChecklistSheet
+        key={checklistSurgery?.id ?? "checklist"}
+        open={Boolean(checklistSurgery)}
+        onOpenChange={(open) => !open && setChecklistSurgery(null)}
+        surgery={checklistSurgery}
+        onUpdated={async () => {
+          const list = await fetchSurgeries();
+          setChecklistSurgery((prev) => (prev ? list.find((s) => s.id === prev.id) ?? null : null));
+        }}
+      />
+      <CompleteSurgerySheet
+        open={Boolean(completeSurgery)}
+        onOpenChange={(open) => !open && setCompleteSurgery(null)}
+        surgery={completeSurgery}
+        onCompleted={fetchSurgeries}
+      />
+      <CancelPostponeDialog
+        open={Boolean(cancelPostpone)}
+        onOpenChange={(open) => !open && setCancelPostpone(null)}
+        surgery={cancelPostpone?.surgery ?? null}
+        action={cancelPostpone?.action ?? 'cancel'}
+        onDone={fetchSurgeries}
+      />
+      <RescheduleDialog
+        open={Boolean(rescheduleSurgery)}
+        onOpenChange={(open) => !open && setRescheduleSurgery(null)}
+        surgery={rescheduleSurgery}
+        onRescheduled={fetchSurgeries}
+      />
     </div>
   );
 }
