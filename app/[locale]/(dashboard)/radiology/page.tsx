@@ -3,100 +3,65 @@
 import { useAppStore } from "@/lib/store/useAppStore";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { useState, useEffect } from "react";
-import { 
-  Search, ScanLine, AlertTriangle, FileImage, 
-  UploadCloud, FileCheck, CheckCircle2, FlaskConical, Filter, Radio,
-  Plus, Printer, Download, Mail
-} from "lucide-react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Label } from "@/components/ui/label";
+import { useEffect, useMemo, useState } from "react";
+import { Search, AlertTriangle, Plus, ScanLine } from "lucide-react";
+import { PrescribeExamSheet } from "./_components/PrescribeExamSheet";
+import { ExamDetailSheet } from "./_components/ExamDetailSheet";
+import { deriveWorkflowState, RadiologyExam, RadiologyWorkflowState, UserRef } from "./types";
 
-type RadiologyExam = {
-  id: string;
-  patientName: string;
-  ipp: string;
-  exam: string;
-  status: string;
-  date: string;
-  urgency: string;
-  url: string | null;
-};
+const FILTERS: (RadiologyWorkflowState | "All" | "critical")[] = [
+  "All", "pending_schedule", "scheduled", "in_progress", "awaiting_report", "critical",
+];
 
 export default function RadiologyPage() {
   const t = useTranslations('radiology');
   const tc = useTranslations('common');
-  const tp = useTranslations('patients');
   const hasModule = useAppStore((state) => state.hasModule);
-  const [filter, setFilter] = useState("All");
+
+  const [filter, setFilter] = useState<RadiologyWorkflowState | "All" | "critical">("All");
   const [search, setSearch] = useState("");
   const [exams, setExams] = useState<RadiologyExam[]>([]);
+  const [users, setUsers] = useState<UserRef[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isNewReqOpen, setIsNewReqOpen] = useState(false);
+  const [selectedExam, setSelectedExam] = useState<RadiologyExam | null>(null);
+  const [isPrescribeOpen, setIsPrescribeOpen] = useState(false);
 
-  const fetchExams = async () => {
+  const usersById = useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);
+
+  const fetchExams = async (): Promise<RadiologyExam[]> => {
     try {
-       const res = await fetch('/api/v1/radiology');
-       const data = await res.json();
-       setExams(data);
+      const res = await fetch('/api/v1/radiology');
+      const data = await res.json();
+      const list: RadiologyExam[] = Array.isArray(data) ? data : [];
+      setExams(list);
+      return list;
     } catch (err) {
-       console.error("Failed to load radiology data");
+      console.error("Failed to fetch radiology exams", err);
+      return [];
     } finally {
-       setIsLoading(false);
+      setIsLoading(false);
+    }
+  };
+
+  const fetchUsers = async () => {
+    try {
+      const res = await fetch('/api/v1/users');
+      const data = await res.json();
+      if (Array.isArray(data)) setUsers(data);
+    } catch (err) {
+      console.error("Failed to fetch users", err);
     }
   };
 
   useEffect(() => {
-     if (!hasModule("MODULE_RADIOLOGY")) return;
-     fetchExams();
+    if (!hasModule("MODULE_RADIOLOGY")) return;
+    (async () => {
+      await Promise.all([fetchExams(), fetchUsers()]);
+    })();
   }, [hasModule]);
-
-  const handleReqSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const body = {
-      patientName: formData.get("patientName"),
-      ipp: formData.get("ipp"),
-      exam: formData.get("exam"),
-      urgency: formData.get("urgency")
-    };
-    try {
-      await fetch('/api/v1/radiology', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      });
-      fetchExams();
-      setIsNewReqOpen(false);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleExportCSV = () => {
-     let csvContent = [
-      [`Organization: ${tc('app_name')} HMS`, "123 Health Ave", "+1 234 567 8900", ""],
-      [""],
-      ["Req ID", tc('patient'), tc('ipp'), "Exam Type", "Urgency", tc('status'), tc('date')]
-     ];
-     exams.forEach(e => {
-       csvContent.push([e.id, `"${e.patientName}"`, e.ipp, `"${e.exam}"`, e.urgency, e.status, e.date]);
-     });
-     const blob = new Blob([csvContent.map(e => e.join(",")).join("\n")], { type: 'text/csv;charset=utf-8;' });
-     const link = document.createElement("a");
-     link.href = URL.createObjectURL(blob);
-     link.download = `radiology_export_${format(new Date(), 'yyyyMMdd')}.csv`;
-     link.click();
-  };
-
-  const handlePrint = () => {
-      window.print();
-  };
 
   if (!hasModule("MODULE_RADIOLOGY")) {
     return (
@@ -112,11 +77,26 @@ export default function RadiologyPage() {
     );
   }
 
-  const filteredExams = exams.filter(e => {
-    if (filter !== "All" && e.status !== filter) return false;
-    if (search && !e.patientName.toLowerCase().includes(search.toLowerCase()) && !e.id.toLowerCase().includes(search.toLowerCase())) return false;
+  const withState = exams.map((ex) => ({ exam: ex, state: deriveWorkflowState(ex), critical: Boolean(ex.results[0]?.isCritical) }));
+
+  const filtered = withState.filter(({ exam, state, critical }) => {
+    if (filter === "critical" && !critical) return false;
+    if (filter !== "All" && filter !== "critical" && state !== filter) return false;
+    const patientName = `${exam.patient.firstName} ${exam.patient.lastName}`.toLowerCase();
+    if (search && !patientName.includes(search.toLowerCase()) && !exam.examCode.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
+
+  const count = (predicate: (s: RadiologyWorkflowState) => boolean) => withState.filter((w) => predicate(w.state)).length;
+  const criticalCount = withState.filter((w) => w.critical).length;
+
+  const rowActionLabel = (state: RadiologyWorkflowState) => {
+    if (state === "pending_schedule") return t("schedule_exam");
+    if (state === "scheduled") return t("start_exam");
+    if (state === "in_progress") return t("enter_report");
+    if (state === "awaiting_report") return t("validate");
+    return tc("view");
+  };
 
   return (
     <div className="flex flex-col h-full space-y-4">
@@ -126,67 +106,37 @@ export default function RadiologyPage() {
           <p className="text-xs text-slate-500 mt-1">{t('description')}</p>
         </div>
         <div className="flex gap-2">
-           <Button variant="outline" size="sm" className="h-8 text-xs" onClick={handlePrint}><Printer className="h-3.5 w-3.5 mr-2" /> {tc('print')}</Button>
-           <Button variant="outline" size="sm" className="h-8 text-xs" onClick={handleExportCSV}><Download className="h-3.5 w-3.5 mr-2" /> {tc('export')}</Button>
-           <a href={`mailto:?subject=Radiology Schedule&body=Please find the attached radiology logs.%0A%0AOrganization: MedCore HMS%0A123 Health Ave, Medical City`} className="inline-flex items-center justify-center rounded-md text-xs font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-8 px-3">
-             <Mail className="h-3.5 w-3.5 mr-2" /> Email
-           </a>
-           <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white h-8 text-xs" onClick={() => setIsNewReqOpen(true)}>
-             <Plus className="mr-2 h-3.5 w-3.5" /> New Request
+           <Button onClick={() => setIsPrescribeOpen(true)} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white h-8 text-xs">
+             <Plus className="mr-2 h-3.5 w-3.5" /> {t('new_request')}
            </Button>
-
-           <Sheet open={isNewReqOpen} onOpenChange={setIsNewReqOpen}>
-             <SheetContent className="sm:max-w-xl overflow-y-auto">
-               <SheetHeader>
-                 <SheetTitle>New Radiology Request</SheetTitle>
-               </SheetHeader>
-               <form onSubmit={handleReqSubmit} className="space-y-6 mt-4">
-                 <div className="grid grid-cols-2 gap-4">
-                   <div className="space-y-2">
-                     <Label>{tc('name')}</Label>
-                     <Input name="patientName" required placeholder="John Doe" />
-                   </div>
-                   <div className="space-y-2">
-                     <Label>{tc('ipp')}</Label>
-                     <Input name="ipp" required placeholder="100000123" />
-                   </div>
-                   <div className="space-y-2 col-span-2">
-                     <Label>Exam Type</Label>
-                     <Input name="exam" required placeholder="Scanner Thoracique" />
-                   </div>
-                   <div className="space-y-2 col-span-2">
-                     <Label>Urgency</Label>
-                     <select name="urgency" className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500">
-                       <option value="Routine">Routine</option>
-                       <option value="Urgent">Urgent</option>
-                       <option value="STAT">STAT (Immediate)</option>
-                     </select>
-                   </div>
-                 </div>
-                 <div className="flex justify-end gap-3 pt-6 border-t">
-                   <Button type="button" variant="outline" onClick={() => setIsNewReqOpen(false)}>{tc('cancel')}</Button>
-                   <Button type="submit" className="bg-blue-600 text-white hover:bg-blue-700">Submit Request</Button>
-                 </div>
-               </form>
-             </SheetContent>
-           </Sheet>
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3 shrink-0">
-        <div className="bg-white p-4 rounded border border-slate-200 shadow-sm flex items-end justify-between hover:border-blue-300 transition-colors cursor-pointer" onClick={() => setFilter("Result Available")}>
+      <div className="grid gap-4 md:grid-cols-4 shrink-0">
+        <div className="bg-white p-4 rounded border border-slate-200 shadow-sm flex items-end justify-between hover:border-blue-300 transition-colors cursor-pointer" onClick={() => setFilter("pending_schedule")}>
           <div>
-            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">{t('reported')}</div>
-            <div className="text-3xl font-bold text-slate-900">{exams.filter(e => e.status === 'Result Available').length}</div>
+            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">{t('waiting_list')}</div>
+            <div className="text-3xl font-bold text-slate-900">{count((s) => s === 'pending_schedule')}</div>
           </div>
-          <FileImage className="h-8 w-8 text-slate-200" />
         </div>
-        <div className="bg-white p-4 rounded border border-slate-200 shadow-sm flex items-end justify-between hover:border-blue-300 transition-colors cursor-pointer" onClick={() => setFilter("Awaiting Exam")}>
+        <div className="bg-white p-4 rounded border border-slate-200 shadow-sm flex items-end justify-between hover:border-blue-300 transition-colors cursor-pointer" onClick={() => setFilter("scheduled")}>
           <div>
-            <div className="text-xs font-semibold text-orange-600 uppercase tracking-wider mb-1">{t('waiting_list')}</div>
-            <div className="text-3xl font-bold text-orange-600">{exams.filter(e => e.status === 'Awaiting Exam').length}</div>
+            <div className="text-xs font-semibold text-purple-600 uppercase tracking-wider mb-1">{t('appointments')}</div>
+            <div className="text-3xl font-bold text-purple-600">{count((s) => s === 'scheduled')}</div>
           </div>
-          <Radio className="h-8 w-8 text-orange-200" />
+        </div>
+        <div className="bg-white p-4 rounded border border-slate-200 shadow-sm flex items-end justify-between hover:border-blue-300 transition-colors cursor-pointer" onClick={() => setFilter("awaiting_report")}>
+          <div>
+            <div className="text-xs font-semibold text-yellow-600 uppercase tracking-wider mb-1">{t('reported')}</div>
+            <div className="text-3xl font-bold text-yellow-600">{count((s) => s === 'awaiting_report')}</div>
+          </div>
+        </div>
+        <div className="bg-red-50 p-4 rounded border border-red-200 shadow-sm flex items-end justify-between hover:border-red-300 transition-colors cursor-pointer" onClick={() => setFilter("critical")}>
+          <div>
+             <div className="text-xs font-semibold text-red-800 uppercase tracking-wider mb-1">{t('critical_findings')}</div>
+             <div className="text-3xl font-bold text-red-700">{criticalCount}</div>
+          </div>
+          <AlertTriangle className="h-8 w-8 text-red-200" />
         </div>
       </div>
 
@@ -203,71 +153,112 @@ export default function RadiologyPage() {
               />
             </div>
             <div className="flex bg-slate-200/50 p-1 rounded-md ml-4">
-              <button className={cn("px-4 py-1 rounded text-xs font-semibold transition-colors", filter === "All" ? "bg-white shadow-sm text-slate-800" : "text-slate-500 hover:text-slate-800")} onClick={() => setFilter("All")}>{tc('all')}</button>
+              {FILTERS.map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setFilter(f)}
+                  className={cn("px-3 py-1 rounded text-[10px] uppercase font-bold", filter === f ? "bg-white shadow-sm text-slate-700" : "text-slate-500 hover:text-slate-700")}
+                >
+                  {f === "All" ? tc('all') : f === "critical" ? t('critical_findings') : t(f)}
+                </button>
+              ))}
             </div>
         </div>
-        
         <div className="flex-1 overflow-auto">
-          {filteredExams.length === 0 ? (
-             <div className="flex items-center justify-center h-full text-slate-400 text-sm flex-col">
-               <ScanLine className="h-8 w-8 mb-2 opacity-50" />
-               {tc('no_data')}
-             </div>
-          ) : (
-            <table className="w-full text-left">
-              <thead>
-                <tr className="border-b border-slate-200/60 bg-slate-50/50 text-[10px] uppercase tracking-widest text-slate-500 font-semibold">
-                  <th className="p-4 font-semibold w-32">Req ID</th>
-                  <th className="p-4 font-semibold w-48">{tc('patient')}</th>
-                  <th className="p-4 font-semibold">Exam Type</th>
-                  <th className="p-4 font-semibold w-32">{tc('status')}</th>
-                  <th className="p-4 font-semibold text-right w-64">Reporting</th>
+          <table className="w-full text-left">
+            <thead>
+              <tr className="bg-slate-50 text-[10px] text-slate-500 uppercase font-bold border-b border-slate-200 sticky top-0 z-10">
+                <th className="px-4 py-2">{t('exam_id')}</th>
+                <th className="px-4 py-2">{tc('patient')}</th>
+                <th className="px-4 py-2">{t('modality')}</th>
+                <th className="px-4 py-2">{t('priority')}</th>
+                <th className="px-4 py-2">{tc('status')}</th>
+                <th className="px-4 py-2 text-right">{tc('actions')}</th>
+              </tr>
+            </thead>
+            <tbody className="text-xs divide-y divide-slate-100">
+              {isLoading ? (
+                <tr><td colSpan={6} className="text-center py-8 text-slate-400">{tc('loading')}</td></tr>
+              ) : filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="text-center py-8 text-slate-500 text-xs">
+                    <div className="flex items-center justify-center flex-col">
+                      <ScanLine className="h-8 w-8 mb-2 opacity-50" /> {tc('no_data')}
+                    </div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100/80">
-                {filteredExams.map((exam) => (
-                  <TableRow key={exam.id} className="hover:bg-slate-50/50 transition-colors group">
-                    <TableCell className="p-4">
-                      <div className="font-mono text-xs font-medium text-slate-700">{exam.id}</div>
-                      <div className="text-[10px] text-slate-400 mt-1">{format(new Date(exam.date), "MMM d, HH:mm")}</div>
-                    </TableCell>
-                    <TableCell className="p-4">
-                      <div className="text-sm font-semibold text-slate-900">{exam.patientName}</div>
-                      <div className="text-xs text-slate-500 font-mono mt-0.5">IPP: {exam.ipp}</div>
-                    </TableCell>
-                    <TableCell className="p-4">
-                      <div className="text-sm text-slate-800">{exam.exam}</div>
-                      {exam.urgency === 'STAT' && (
-                        <span className="inline-flex items-center text-[10px] mt-1 text-red-600 bg-red-50 px-1.5 py-0.5 rounded border border-red-100 uppercase tracking-widest font-bold">
-                          Urgent
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell className="p-4">
-                       <span className={cn(
-                        "inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider",
-                        exam.status === "Awaiting Exam" ? "bg-orange-100 text-orange-700" :
-                        "bg-green-100 text-green-700"
-                      )}>
-                        {exam.status}
-                      </span>
-                    </TableCell>
-                    <TableCell className="p-4 text-right">
-                       <div className="flex justify-end gap-2">
-                         {exam.status === 'Result Available' && (
-                            <Button size="sm" variant="outline" className="h-7 text-xs border-blue-200 text-blue-700 hover:bg-blue-50">
-                              <FileCheck className="w-3.5 h-3.5 mr-1.5" /> View PACs Report
-                            </Button>
-                         )}
-                       </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </tbody>
-            </table>
-          )}
+              ) : filtered.map(({ exam, state, critical }) => (
+                <tr key={exam.id} className="hover:bg-blue-50/50 cursor-pointer" onClick={() => setSelectedExam(exam)}>
+                  <td className="px-4 py-2 font-mono text-slate-600">
+                    <div>{exam.examCode}</div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">{format(new Date(exam.requestedAt), "MMM dd HH:mm")}</div>
+                  </td>
+                  <td className="px-4 py-2 font-medium text-slate-900">
+                    <div className="flex items-center gap-2">
+                       {exam.patient.firstName} {exam.patient.lastName} <span className="text-[10px] font-mono text-slate-400">({exam.patient.ipp})</span>
+                       {critical && <AlertTriangle className="h-3.5 w-3.5 text-red-500" />}
+                    </div>
+                  </td>
+                  <td className="px-4 py-2 text-slate-900 font-medium">{exam.examLabel}</td>
+                  <td className="px-4 py-2">
+                    <span className={cn(
+                       "px-2 py-0.5 rounded text-[10px] uppercase font-bold",
+                       exam.urgency === 'stat' ? "bg-red-100 text-red-700" :
+                       exam.urgency === 'urgent' ? "bg-yellow-100 text-yellow-700" :
+                       "bg-slate-100 text-slate-600"
+                    )}>
+                      {t(exam.urgency)}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2">
+                    <span className={cn(
+                       "px-2 py-0.5 rounded text-[10px] uppercase font-bold",
+                       state === 'pending_schedule' ? "bg-slate-100 text-slate-700" :
+                       state === 'scheduled' ? "bg-purple-100 text-purple-700" :
+                       state === 'in_progress' ? "bg-blue-100 text-blue-700" :
+                       state === 'awaiting_report' ? "bg-yellow-100 text-yellow-700 border border-yellow-200" :
+                       state === 'completed' ? "bg-green-100 text-green-700" :
+                       "bg-red-100 text-red-700"
+                    )}>
+                      {t(state)}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2 text-right">
+                    <button
+                       className={cn(
+                          "font-semibold px-3 py-1 rounded text-[11px]",
+                          state === 'in_progress' ? "bg-blue-600 text-white hover:bg-blue-700" :
+                          state === 'awaiting_report' ? "bg-yellow-500 text-white hover:bg-yellow-600" :
+                          "text-blue-600 hover:bg-blue-50"
+                       )}
+                       onClick={(e) => { e.stopPropagation(); setSelectedExam(exam); }}
+                    >
+                      {rowActionLabel(state)}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
+
+      <PrescribeExamSheet
+        open={isPrescribeOpen}
+        onOpenChange={setIsPrescribeOpen}
+        onPrescribed={fetchExams}
+      />
+
+      <ExamDetailSheet
+        open={Boolean(selectedExam)}
+        onOpenChange={(open) => !open && setSelectedExam(null)}
+        exam={selectedExam}
+        usersById={usersById}
+        onUpdated={async () => {
+          const list = await fetchExams();
+          setSelectedExam((prev) => (prev ? list.find((e) => e.id === prev.id) ?? null : null));
+        }}
+      />
     </div>
   );
 }
