@@ -172,6 +172,8 @@ enum MedicalRecordType {
   referral
   nursing_note
   anesthesia
+  antenatal_note
+  delivery_report
 
   @@schema("tenant_template")
 }
@@ -317,8 +319,26 @@ enum DepartmentType {
   radiology
   laboratory
   pharmacy
+  maternity
   admin
   other
+
+  @@schema("tenant_template")
+}
+
+enum PregnancyStatus {
+  ongoing
+  delivered
+  miscarried
+  terminated
+
+  @@schema("tenant_template")
+}
+
+enum DeliveryMode {
+  vaginal
+  assisted_vaginal
+  cesarean
 
   @@schema("tenant_template")
 }
@@ -693,6 +713,8 @@ model Patient {
   billingStays       BillingStay[]
   adverseEvents      AdverseEvent[]
   vitalSigns         VitalSigns[]
+  pregnancies        Pregnancy[]
+  newbornRecord      Newborn?
 
   @@unique([tenantId, ipp])
   @@index([tenantId])
@@ -729,6 +751,7 @@ model Stay {
   adverseEvents      AdverseEvent[]
   billingStay        BillingStay?
   vitalSigns         VitalSigns[]
+  delivery           Delivery?
 
   @@unique([tenantId, stayNumber])
   @@index([tenantId])
@@ -761,6 +784,125 @@ model VitalSigns {
   @@index([stayId])
   @@index([tenantId])
   @@map("vital_signs")
+  @@schema("tenant_template")
+}
+
+model Pregnancy {
+  id                  String          @id @default(uuid()) @db.Uuid
+  tenantId            String?         @map("tenant_id") @db.Uuid
+  patientId           String          @map("patient_id") @db.Uuid
+  lastMenstrualPeriod DateTime        @map("last_menstrual_period") @db.Date
+  expectedDueDate     DateTime        @map("expected_due_date") @db.Date
+  gravida             Int
+  para                Int
+  status              PregnancyStatus @default(ongoing)
+  riskFactors         Json            @default("[]") @map("risk_factors")
+  notes               String?
+  createdAt           DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime        @updatedAt @map("updated_at") @db.Timestamptz
+
+  patient         Patient          @relation(fields: [patientId], references: [id])
+  antenatalVisits AntenatalVisit[]
+  delivery        Delivery?
+  examRequests    ExamRequest[]
+
+  @@index([tenantId])
+  @@index([patientId])
+  @@map("pregnancies")
+  @@schema("tenant_template")
+}
+
+model AntenatalVisit {
+  id                     String   @id @default(uuid()) @db.Uuid
+  tenantId               String?  @map("tenant_id") @db.Uuid
+  pregnancyId            String   @map("pregnancy_id") @db.Uuid
+  visitNumber            Int      @map("visit_number")
+  visitDate              DateTime @default(now()) @map("visit_date") @db.Timestamptz
+  gestationalAgeWeeks    Int      @map("gestational_age_weeks")
+  performedById          String   @map("performed_by_id") @db.Uuid
+  bloodPressureSystolic  Int?     @map("blood_pressure_systolic")
+  bloodPressureDiastolic Int?     @map("blood_pressure_diastolic")
+  weight                 Decimal? @db.Decimal(5, 2)
+  fundalHeightCm         Decimal? @map("fundal_height_cm") @db.Decimal(4, 1)
+  fetalHeartRate         Int?     @map("fetal_heart_rate")
+  ironFolateGiven        Boolean  @default(false) @map("iron_folate_given")
+  tetanusVaccineGiven    Boolean  @default(false) @map("tetanus_vaccine_given")
+  malariaPreventionGiven Boolean  @default(false) @map("malaria_prevention_given")
+  notes                  String?
+
+  pregnancy Pregnancy @relation(fields: [pregnancyId], references: [id])
+
+  @@index([tenantId])
+  @@index([pregnancyId, visitDate])
+  @@map("antenatal_visits")
+  @@schema("tenant_template")
+}
+
+model Delivery {
+  id                String        @id @default(uuid()) @db.Uuid
+  tenantId          String?       @map("tenant_id") @db.Uuid
+  pregnancyId       String        @unique @map("pregnancy_id") @db.Uuid
+  stayId            String?       @unique @map("stay_id") @db.Uuid
+  deliveryDate      DateTime?     @map("delivery_date") @db.Timestamptz
+  mode              DeliveryMode?
+  attendedById      String?       @map("attended_by_id") @db.Uuid
+  complications     Json          @default("[]")
+  maternalOutcome   String?       @map("maternal_outcome")
+  placentaDelivered Boolean       @default(false) @map("placenta_delivered")
+  bloodLossMl       Int?          @map("blood_loss_ml")
+  notes             String?
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz
+
+  pregnancy  Pregnancy         @relation(fields: [pregnancyId], references: [id])
+  stay       Stay?             @relation(fields: [stayId], references: [id])
+  partograph PartographEntry[]
+  newborns   Newborn[]
+
+  @@index([tenantId])
+  @@map("deliveries")
+  @@schema("tenant_template")
+}
+
+model PartographEntry {
+  id                     String   @id @default(uuid()) @db.Uuid
+  tenantId               String?  @map("tenant_id") @db.Uuid
+  deliveryId             String   @map("delivery_id") @db.Uuid
+  recordedAt             DateTime @default(now()) @map("recorded_at") @db.Timestamptz
+  cervicalDilationCm     Int?     @map("cervical_dilation_cm")
+  fetalHeartRate         Int?     @map("fetal_heart_rate")
+  contractionsPer10Min   Int?     @map("contractions_per_10min")
+  contractionDurationSec Int?     @map("contraction_duration_sec")
+  maternalPulse          Int?     @map("maternal_pulse")
+  maternalBpSystolic     Int?     @map("maternal_bp_systolic")
+  maternalBpDiastolic    Int?     @map("maternal_bp_diastolic")
+  amnioticFluid          String?  @map("amniotic_fluid")
+  recordedById           String   @map("recorded_by_id") @db.Uuid
+
+  delivery Delivery @relation(fields: [deliveryId], references: [id])
+
+  @@index([deliveryId, recordedAt])
+  @@map("partograph_entries")
+  @@schema("tenant_template")
+}
+
+model Newborn {
+  id                  String   @id @default(uuid()) @db.Uuid
+  tenantId            String?  @map("tenant_id") @db.Uuid
+  deliveryId          String   @map("delivery_id") @db.Uuid
+  patientId           String?  @unique @map("patient_id") @db.Uuid
+  sex                 Gender
+  birthWeightGrams    Int?     @map("birth_weight_grams")
+  apgarScore1Min      Int?     @map("apgar_score_1min")
+  apgarScore5Min      Int?     @map("apgar_score_5min")
+  vitaminKGiven       Boolean  @default(false) @map("vitamin_k_given")
+  resuscitationNeeded Boolean  @default(false) @map("resuscitation_needed")
+  outcome             String   @default("alive")
+  notes               String?
+
+  delivery Delivery @relation(fields: [deliveryId], references: [id])
+  patient  Patient? @relation(fields: [patientId], references: [id])
+
+  @@map("newborns")
   @@schema("tenant_template")
 }
 
@@ -821,6 +963,7 @@ model ExamRequest {
   tenantId     String?           @map("tenant_id") @db.Uuid
   patientId    String            @map("patient_id") @db.Uuid
   stayId       String?           @map("stay_id") @db.Uuid
+  pregnancyId  String?           @map("pregnancy_id") @db.Uuid
   prescriberId String            @map("prescriber_id") @db.Uuid
   type         ExamType
   examCode     String            @map("exam_code") @db.VarChar(60)
@@ -833,13 +976,15 @@ model ExamRequest {
   notes        String?
   createdAt    DateTime          @default(now()) @map("created_at") @db.Timestamptz
 
-  patient Patient      @relation(fields: [patientId], references: [id])
-  stay    Stay?        @relation(fields: [stayId], references: [id])
-  results ExamResult[]
+  patient   Patient      @relation(fields: [patientId], references: [id])
+  stay      Stay?        @relation(fields: [stayId], references: [id])
+  pregnancy Pregnancy?   @relation(fields: [pregnancyId], references: [id])
+  results   ExamResult[]
 
   @@index([tenantId])
   @@index([patientId])
   @@index([status])
+  @@index([pregnancyId])
   @@map("exam_requests")
   @@schema("tenant_template")
 }

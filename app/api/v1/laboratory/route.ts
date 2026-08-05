@@ -69,9 +69,10 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { patientId, stayId, panelCode, examLabel, urgency, notes } = body as {
+    const { patientId, stayId, pregnancyId, panelCode, examLabel, urgency, notes } = body as {
       patientId?: string;
       stayId?: string;
+      pregnancyId?: string;
       panelCode?: string;
       examLabel?: string;
       urgency?: ExamUrgency;
@@ -100,6 +101,7 @@ export async function POST(req: Request) {
         tenantId: session.user.tenantId,
         patientId,
         stayId: stayId || null,
+        pregnancyId: pregnancyId || null,
         prescriberId: session.user.id,
         type: "biology",
         examCode: panel?.code ?? generateExamCode(),

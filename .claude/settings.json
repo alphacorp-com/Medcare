@@ -7,7 +7,8 @@
       "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('messages/fr.json','utf8'\\)\\); console.log\\('fr.json OK'\\)\")",
       "Bash(npx tsc *)",
       "Bash(echo \"EXIT_CODE:$?\")",
-      "Bash(npx eslint *)"
+      "Bash(npx eslint *)",
+      "Bash(git diff *)"
     ]
   }
 }
