@@ -23,6 +23,7 @@ interface PlanOption {
   billingCycle: "monthly" | "annual" | "perpetual";
   basePrice: string;
   currency: string;
+  maxUsers: number | null;
 }
 
 interface LicenseRow {
@@ -45,6 +46,7 @@ interface SubscriptionRow {
   currentPeriodStart: string;
   currentPeriodEnd: string;
   cancelReason: string | null;
+  seatsCount: number;
   tenant: { id: string; name: string; slug: string; status: string };
   plan: { id: string; name: string; billingCycle: string };
 }
@@ -69,6 +71,7 @@ export function SubscriptionsManagement() {
     currentPeriodStart: "",
     currentPeriodEnd: "",
     cancelReason: "",
+    seatsCount: "5",
   });
 
   const fetchLicensingData = async () => {
@@ -142,6 +145,7 @@ export function SubscriptionsManagement() {
       currentPeriodStart: new Date().toISOString().slice(0, 10),
       currentPeriodEnd: new Date().toISOString().slice(0, 10),
       cancelReason: "",
+      seatsCount: "5",
     });
     setSubscriptionSheetOpen(true);
   };
@@ -155,6 +159,7 @@ export function SubscriptionsManagement() {
       currentPeriodStart: subscription.currentPeriodStart.slice(0, 10),
       currentPeriodEnd: subscription.currentPeriodEnd.slice(0, 10),
       cancelReason: subscription.cancelReason || "",
+      seatsCount: String(subscription.seatsCount),
     });
     setSubscriptionSheetOpen(true);
   };
@@ -227,6 +232,7 @@ export function SubscriptionsManagement() {
                 <TableHead>Tenant</TableHead>
                 <TableHead>Plan</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Seats</TableHead>
                 <TableHead>Period Start</TableHead>
                 <TableHead>Period End</TableHead>
                 <TableHead>Actions</TableHead>
@@ -242,6 +248,7 @@ export function SubscriptionsManagement() {
                       {subscription.status}
                     </Badge>
                   </TableCell>
+                  <TableCell>{subscription.seatsCount}</TableCell>
                   <TableCell>{new Date(subscription.currentPeriodStart).toLocaleDateString()}</TableCell>
                   <TableCell>{new Date(subscription.currentPeriodEnd).toLocaleDateString()}</TableCell>
                   <TableCell>
@@ -374,6 +381,21 @@ export function SubscriptionsManagement() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm font-medium">User Seats</p>
+              <Input
+                type="number"
+                min={1}
+                value={subscriptionForm.seatsCount}
+                onChange={(e) => setSubscriptionForm((prev) => ({ ...prev, seatsCount: e.target.value }))}
+              />
+              {(() => {
+                const selectedPlan = plans.find((p) => p.id === subscriptionForm.planId);
+                return selectedPlan?.maxUsers != null ? (
+                  <p className="text-xs text-gray-500">This plan allows up to {selectedPlan.maxUsers} seats.</p>
+                ) : null;
+              })()}
             </div>
             <div className="space-y-2">
               <p className="text-sm font-medium">Status</p>

@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { requireModulePermission } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
 
 // ── GET /api/v1/patients ──────────────────────────────────────────────────────
@@ -9,6 +12,15 @@ import prisma from "@/lib/prisma";
 //   limit   – results per page (default: 50)
 export async function GET(request: Request) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const permCheck = requireModulePermission(session, "MODULE_CORE_PATIENT", "read");
+    if (!permCheck.ok) {
+      return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
+    }
+
     const { searchParams } = new URL(request.url);
     const q = searchParams.get("q")?.trim() ?? "";
     const status = searchParams.get("status") ?? "active";
@@ -18,6 +30,7 @@ export async function GET(request: Request) {
     const isDeceased = status === "deceased";
 
     const where = {
+      tenantId: session.user.tenantId,
       isDeceased,
       ...(q
         ? {
@@ -75,6 +88,15 @@ export async function GET(request: Request) {
 //         allergies?, chronicConditions?, gdprConsent? }
 export async function POST(request: Request) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const permCheck = requireModulePermission(session, "MODULE_CORE_PATIENT", "create");
+    if (!permCheck.ok) {
+      return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
+    }
+
     const body = await request.json();
 
     const {
@@ -103,12 +125,16 @@ export async function POST(request: Request) {
       );
     }
 
-    // Generate IPP: "10" + 7-digit zero-padded count+1
-    const count = await prisma.patient.count();
+    // Generate IPP: "10" + 7-digit zero-padded count+1 (scoped to tenant since
+    // Patient.ipp is unique per-tenant, not globally)
+    const count = await prisma.patient.count({
+      where: { tenantId: session.user.tenantId },
+    });
     const ipp = `10${String(count + 1).padStart(7, "0")}`;
 
     const patient = await prisma.patient.create({
       data: {
+        tenantId: session.user.tenantId,
         ipp,
         firstName,
         lastName,

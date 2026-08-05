@@ -438,9 +438,9 @@ async function main() {
   const departments: Record<string, any> = {};
   for (const dept of departmentsData) {
     departments[dept.code] = await prisma.department.upsert({
-      where: { code: dept.code },
+      where: { tenantId_code: { tenantId: tenant.id, code: dept.code } },
       update: { type: dept.type },
-      create: dept,
+      create: { ...dept, tenantId: tenant.id },
     });
   }
   console.log('Departments ensured');
@@ -614,7 +614,7 @@ async function main() {
   for (const med of medications) {
     try {
       await prisma.medicationInventory.create({
-        data: med,
+        data: { ...med, tenantId: tenant.id },
       });
     } catch (error) {
       // Skip if already exists

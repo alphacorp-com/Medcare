@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { BillingCycle, InvoiceStatus, LicenseKeyStatus, ModuleStatus, SubscriptionStatus, TenantStatus } from "@prisma/client";
+import { BillingCycle, InvoiceStatus, LicenseKeyStatus, ModuleStatus, Prisma, SubscriptionStatus, TenantStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
 
 export type ModulePermission = {
@@ -42,6 +42,34 @@ export function createLicenseKey(): string {
 
 export function hashLicenseKey(rawKey: string): string {
   return crypto.createHash("sha256").update(rawKey.trim().toUpperCase()).digest("hex");
+}
+
+// Generates a random, human-typeable temporary password for platform-created accounts
+// (e.g. a tenant's initial admin user), shown once to the platform operator to relay.
+export function generateTemporaryPassword(): string {
+  return crypto.randomBytes(9).toString("base64url");
+}
+
+// Resolves how many active user seats a tenant is currently entitled to, based on its
+// current trial/active Subscription's `seatsCount`, capped by the Plan's `maxUsers` if the
+// plan defines one. Returns null when the tenant has no trial/active subscription — in that
+// case seat count is not enforced (mirrors how module access has no meaning without a plan).
+export async function getTenantSeatLimit(tenantId: string): Promise<number | null> {
+  const subscription = await prisma.subscription.findFirst({
+    where: { tenantId, status: { in: [SubscriptionStatus.trial, SubscriptionStatus.active] } },
+    orderBy: { currentPeriodEnd: "desc" },
+    include: { plan: { select: { maxUsers: true } } },
+  });
+
+  if (!subscription) {
+    return null;
+  }
+
+  if (subscription.plan.maxUsers != null) {
+    return Math.min(subscription.seatsCount, subscription.plan.maxUsers);
+  }
+
+  return subscription.seatsCount;
 }
 
 export async function resolveTenantAccess(tenantId: string): Promise<TenantAccessState> {
@@ -232,26 +260,38 @@ export async function redeemLicenseForTenant(args: {
       });
 
       const invoiceNumber = `LIC-${now.getFullYear()}-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
+      const basePrice = Number(subscription.plan.basePrice);
+      const pricePerUser = subscription.plan.pricePerUser ? Number(subscription.plan.pricePerUser) : 0;
+      const seatsAmount = pricePerUser * subscription.seatsCount;
+      const amountHt = basePrice + seatsAmount;
+
+      const lineItems = [
+        {
+          description: `${subscription.plan.name} plan (${period === "annual" ? "yearly" : "monthly"})`,
+          quantity: 1,
+          unitAmount: basePrice,
+          amount: basePrice,
+        },
+        {
+          description: `User seats (${subscription.seatsCount} included)`,
+          quantity: subscription.seatsCount,
+          unitAmount: pricePerUser,
+          amount: seatsAmount,
+        },
+      ];
+
       await tx.invoice.create({
         data: {
           tenantId,
           subscriptionId: subscription.id,
           invoiceNumber,
-          amountHt: subscription.plan.basePrice,
+          amountHt: new Prisma.Decimal(amountHt),
           taxRate: 0,
           currency: subscription.currency,
           status: InvoiceStatus.paid,
           dueDate: now,
           paidAt: now,
-          lineItems: [
-            {
-              type: "license_activation",
-              planId: subscription.planId,
-              planName: subscription.plan.name,
-              period,
-              amount: subscription.plan.basePrice.toString(),
-            },
-          ],
+          lineItems: lineItems as any,
         },
       });
 

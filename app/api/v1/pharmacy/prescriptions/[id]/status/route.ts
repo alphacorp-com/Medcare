@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { requireModulePermission } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
 import type { PrescriptionStatus } from "@prisma/client";
 
@@ -7,6 +10,15 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const permCheck = requireModulePermission(session, "MODULE_PHARMACY", "update");
+    if (!permCheck.ok) {
+      return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
+    }
+
     const { id } = await params;
     const body = await request.json();
     const { status } = body;
@@ -19,8 +31,8 @@ export async function PATCH(
     }
 
     // Fetch current prescription with items
-    const currentRx = await prisma.prescription.findUnique({
-      where: { id },
+    const currentRx = await prisma.prescription.findFirst({
+      where: { id, tenantId: session.user.tenantId },
       include: { patient: true }
     });
 
@@ -49,7 +61,7 @@ export async function PATCH(
 
       // Fetch inventory for pricing
       const inventory = await prisma.medicationInventory.findMany({
-        where: { isActive: true },
+        where: { isActive: true, tenantId: session.user.tenantId },
         select: { id: true, name: true, unitPrice: true }
       });
       const inventoryMap = new Map(inventory.map(i => [i.name.toLowerCase(), { id: i.id, unitPrice: i.unitPrice }]));
@@ -115,7 +127,7 @@ export async function PATCH(
       } catch (e) {}
 
       const inventory = await prisma.medicationInventory.findMany({
-        where: { isActive: true },
+        where: { isActive: true, tenantId: session.user.tenantId },
         select: { id: true, name: true, stock: true }
       });
       const inventoryMap = new Map(inventory.map(i => [i.name.toLowerCase(), i]));

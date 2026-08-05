@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { requireModulePermission } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
 
 // ── GET /api/v1/stays/:id ───────────────────────────────────────────────────
@@ -7,10 +10,19 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const permCheck = requireModulePermission(session, "MODULE_CORE_PATIENT", "read");
+    if (!permCheck.ok) {
+      return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
+    }
+
     const { id } = await params;
 
-    const stay = await prisma.stay.findUnique({
-      where: { id },
+    const stay = await prisma.stay.findFirst({
+      where: { id, tenantId: session.user.tenantId },
       include: {
         patient: {
           select: {
@@ -57,6 +69,15 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const permCheck = requireModulePermission(session, "MODULE_CORE_PATIENT", "update");
+    if (!permCheck.ok) {
+      return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
+    }
+
     const { id } = await params;
     const body = await request.json();
 
@@ -68,6 +89,18 @@ export async function PATCH(
       departmentId,
       attendingDoctorId,
     } = body;
+
+    const existingStay = await prisma.stay.findFirst({
+      where: { id, tenantId: session.user.tenantId },
+      select: { id: true },
+    });
+
+    if (!existingStay) {
+      return NextResponse.json(
+        { error: "Stay not found", success: false },
+        { status: 404 }
+      );
+    }
 
     const stay = await prisma.stay.update({
       where: { id },

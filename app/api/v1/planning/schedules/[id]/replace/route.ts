@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { requireTenantAdmin } from "@/lib/permissions";
 
 // PATCH /api/v1/planning/schedules/[id]/replace
 // Body: { replacementUserId }
@@ -10,8 +11,12 @@ import prisma from "@/lib/prisma";
 // Schedule.replacedBy in the codebase.
 export async function PATCH(req: Request, context: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
-  if (!session?.user || session.user.role !== "tenant_admin") {
-    return NextResponse.json({ error: "Unauthorized - Tenant admin access required" }, { status: 403 });
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const permCheck = requireTenantAdmin(session);
+  if (!permCheck.ok) {
+    return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
   }
 
   const { id } = await context.params;
@@ -22,7 +27,9 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
       return NextResponse.json({ error: "replacementUserId is required" }, { status: 400 });
     }
 
-    const original = await prisma.schedule.findUnique({ where: { id } });
+    const original = await prisma.schedule.findFirst({
+      where: { id, tenantId: session.user.tenantId },
+    });
     if (!original) return NextResponse.json({ error: "Shift not found" }, { status: 404 });
 
     if (replacementUserId === original.userId) {
@@ -43,6 +50,7 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
           },
         },
         create: {
+          tenantId: session.user.tenantId,
           userId: replacementUserId,
           departmentId: original.departmentId,
           shiftType: original.shiftType,

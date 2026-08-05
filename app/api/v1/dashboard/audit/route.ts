@@ -10,11 +10,14 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Get recent audit activities (last 24 hours)
+    // Get recent audit activities (last 24 hours), scoped to the caller's own tenant —
+    // AuditLog is a platform-wide table, so this filter is what keeps one tenant's activity
+    // feed from leaking another tenant's logins/edits.
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
     const activities = await prisma.auditLog.findMany({
       where: {
+        tenantId: session.user.tenantId,
         createdAt: {
           gte: yesterday,
         },

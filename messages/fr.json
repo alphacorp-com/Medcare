@@ -10,8 +10,11 @@
     "radiology": "Radiologie",
     "billing": "Facturation & PMSI",
     "planning": "Planning",
+    "messages": "Messagerie",
     "settings": "Paramètres",
     "logout": "Déconnexion",
+    "performed_by": "Effectué par",
+    "self": "Vous",
     "clinical_modules": "Modules Cliniques",
     "administrative": "Administratif",
     "patient": "Patients",
@@ -362,6 +365,7 @@
     "edit_user": "Modifier l'Utilisateur",
     "add_new_user": "Ajouter un Nouvel Utilisateur",
     "create_user": "Créer l'Utilisateur",
+    "save_user_error": "Échec de l'enregistrement de l'utilisateur. Veuillez réessayer.",
     "delete_user": "Supprimer l'Utilisateur",
     "confirm_remove": "Êtes-vous sûr de vouloir supprimer",
     "view_activity": "Voir l'activité",
@@ -915,7 +919,9 @@
     "pharmacist": "Pharmacien",
     "lab": "Technicien Laboratoire",
     "billing": "Responsable Facturation",
-    "hr": "Directeur RH"
+    "hr": "Directeur RH",
+    "radiologist": "Radiologue",
+    "viewer": "Observateur"
   },
   "templates": {
     "title": "Modèles de Documents",
@@ -1005,5 +1011,21 @@
     "best_time": "Meilleur moment",
     "warnings": "AVERTISSEMENTS IMPORTANTS",
     "side_effects": "Effets secondaires courants"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "mark_all_read": "Tout marquer comme lu",
+    "empty": "Aucune notification pour le moment"
+  },
+  "messages": {
+    "title": "Messagerie",
+    "new_conversation": "Nouvelle Conversation",
+    "search_colleagues": "Rechercher des collègues...",
+    "no_colleagues": "Aucun collègue trouvé",
+    "starting": "Démarrage...",
+    "start_conversation": "Démarrer la Conversation",
+    "no_conversations": "Aucune conversation pour le moment",
+    "select_conversation": "Sélectionnez une conversation pour commencer",
+    "type_message": "Écrivez un message..."
   }
 }

@@ -33,7 +33,10 @@ export function TenantsManagement() {
     status: "trial",
     contactEmail: "",
   });
+  const [createAdminUser, setCreateAdminUser] = useState(false);
+  const [adminUserForm, setAdminUserForm] = useState({ fullName: "", email: "" });
   const [error, setError] = useState<string | null>(null);
+  const [generatedPassword, setGeneratedPassword] = useState<{ email: string; password: string } | null>(null);
 
   const fetchTenants = async () => {
     try {
@@ -58,6 +61,7 @@ export function TenantsManagement() {
   const openCreateSheet = () => {
     setEditingTenant(null);
     setError(null);
+    setGeneratedPassword(null);
     setForm({
       name: "",
       slug: "",
@@ -65,6 +69,8 @@ export function TenantsManagement() {
       status: "trial",
       contactEmail: "",
     });
+    setCreateAdminUser(false);
+    setAdminUserForm({ fullName: "", email: "" });
     setSheetOpen(true);
   };
 
@@ -87,24 +93,39 @@ export function TenantsManagement() {
       return;
     }
 
+    if (!editingTenant && createAdminUser && (!adminUserForm.fullName || !adminUserForm.email)) {
+      setError("Admin user name and email are required.");
+      return;
+    }
+
     setSaving(true);
     setError(null);
     try {
       const endpoint = editingTenant ? `/api/admin/tenants/${editingTenant.id}` : "/api/admin/tenants";
       const method = editingTenant ? "PUT" : "POST";
 
+      const body: Record<string, unknown> = { ...form };
+      if (!editingTenant && createAdminUser) {
+        body.adminUser = adminUserForm;
+      }
+
       const response = await fetch(endpoint, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(body),
       });
       const payload = await response.json();
       if (!response.ok) {
         throw new Error(payload?.error || "Failed to save tenant");
       }
 
-      setSheetOpen(false);
       await fetchTenants();
+
+      if (payload.adminTemporaryPassword) {
+        setGeneratedPassword({ email: adminUserForm.email, password: payload.adminTemporaryPassword });
+      } else {
+        setSheetOpen(false);
+      }
     } catch (submitError) {
       const message = submitError instanceof Error ? submitError.message : "Failed to save tenant";
       setError(message);
@@ -183,7 +204,17 @@ export function TenantsManagement() {
         </CardContent>
       </Card>
 
-      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+      <Sheet
+        open={sheetOpen}
+        onOpenChange={(open) => {
+          setSheetOpen(open);
+          if (!open) {
+            setGeneratedPassword(null);
+            setCreateAdminUser(false);
+            setAdminUserForm({ fullName: "", email: "" });
+          }
+        }}
+      >
         <SheetContent side="right" className="w-full sm:max-w-md">
           <SheetHeader>
             <SheetTitle>{editingTenant ? "Update Tenant" : "Create Tenant"}</SheetTitle>
@@ -239,10 +270,58 @@ export function TenantsManagement() {
                 onChange={(e) => setForm((prev) => ({ ...prev, contactEmail: e.target.value }))}
               />
             </div>
-            {error ? <p className="text-sm text-red-600">{error}</p> : null}
-            <Button className="w-full" onClick={handleSubmit} disabled={saving}>
-              {saving ? "Saving..." : editingTenant ? "Update Tenant" : "Create Tenant"}
-            </Button>
+
+            {!editingTenant && generatedPassword ? (
+              <div className="rounded border border-emerald-200 bg-emerald-50 p-3 space-y-2">
+                <p className="text-sm text-emerald-700">
+                  Tenant created. Share these credentials with the tenant admin — this password won&apos;t be shown again.
+                </p>
+                <p className="text-sm"><span className="text-gray-600">Email:</span> <span className="font-mono">{generatedPassword.email}</span></p>
+                <p className="text-sm"><span className="text-gray-600">Password:</span> <span className="font-mono font-semibold">{generatedPassword.password}</span></p>
+                <Button className="w-full" onClick={() => setSheetOpen(false)}>Done</Button>
+              </div>
+            ) : (
+              <>
+                {!editingTenant && (
+                  <div className="space-y-3 border-t pt-4">
+                    <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={createAdminUser}
+                        onChange={(e) => setCreateAdminUser(e.target.checked)}
+                      />
+                      Create an initial admin user for this tenant
+                    </label>
+                    {createAdminUser && (
+                      <div className="space-y-3 pl-1">
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium">Admin full name</p>
+                          <Input
+                            value={adminUserForm.fullName}
+                            onChange={(e) => setAdminUserForm((prev) => ({ ...prev, fullName: e.target.value }))}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium">Admin email</p>
+                          <Input
+                            type="email"
+                            value={adminUserForm.email}
+                            onChange={(e) => setAdminUserForm((prev) => ({ ...prev, email: e.target.value }))}
+                          />
+                        </div>
+                        <p className="text-xs text-gray-500">
+                          A temporary password will be generated and shown once after the tenant is created.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {error ? <p className="text-sm text-red-600">{error}</p> : null}
+                <Button className="w-full" onClick={handleSubmit} disabled={saving}>
+                  {saving ? "Saving..." : editingTenant ? "Update Tenant" : "Create Tenant"}
+                </Button>
+              </>
+            )}
           </div>
         </SheetContent>
       </Sheet>

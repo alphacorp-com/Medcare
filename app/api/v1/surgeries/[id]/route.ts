@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { findSurgeryConflicts } from "@/lib/surgery/conflicts";
+import { requireModulePermission } from "@/lib/permissions";
 
 const PATIENT_SELECT = { id: true, firstName: true, lastName: true, ipp: true } as const;
 
@@ -11,10 +12,14 @@ export async function GET(req: Request, context: { params: Promise<{ id: string 
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const permCheck = requireModulePermission(session, "MODULE_SURGERY", "read");
+  if (!permCheck.ok) {
+    return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
+  }
 
   const { id } = await context.params;
-  const surgery = await prisma.surgicalProcedure.findUnique({
-    where: { id },
+  const surgery = await prisma.surgicalProcedure.findFirst({
+    where: { id, tenantId: session.user.tenantId },
     include: { patient: { select: PATIENT_SELECT } },
   });
 
@@ -32,11 +37,15 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const permCheck = requireModulePermission(session, "MODULE_SURGERY", "update");
+  if (!permCheck.ok) {
+    return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
+  }
 
   const { id } = await context.params;
 
   try {
-    const existing = await prisma.surgicalProcedure.findUnique({ where: { id } });
+    const existing = await prisma.surgicalProcedure.findFirst({ where: { id, tenantId: session.user.tenantId } });
     if (!existing) return NextResponse.json({ error: "Surgery not found" }, { status: 404 });
 
     if (existing.status !== "scheduled" && existing.status !== "postponed") {

@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { requireModulePermission } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
 import type { MedicalRecordType } from "@prisma/client";
 
@@ -26,14 +29,36 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const permCheck = requireModulePermission(session, "MODULE_CORE_PATIENT", "read");
+    if (!permCheck.ok) {
+      return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
+    }
+
     const { id } = await params;
     const { searchParams } = new URL(request.url);
     const type = searchParams.get("type") as MedicalRecordType | null;
     const stayId = searchParams.get("stayId");
 
+    const patient = await prisma.patient.findFirst({
+      where: { id, tenantId: session.user.tenantId },
+      select: { id: true },
+    });
+
+    if (!patient) {
+      return NextResponse.json(
+        { error: "Patient not found", success: false },
+        { status: 404 }
+      );
+    }
+
     const records = await prisma.medicalRecord.findMany({
       where: {
         patientId: id,
+        tenantId: session.user.tenantId,
         ...(type ? { type } : {}),
         ...(stayId ? { stayId } : {}),
       },
@@ -81,6 +106,15 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const permCheck = requireModulePermission(session, "MODULE_CORE_PATIENT", "create");
+    if (!permCheck.ok) {
+      return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
+    }
+
     const { id } = await params;
     const body = await request.json();
 
@@ -121,9 +155,23 @@ export async function POST(
       );
     }
 
+    // ── Verify parent patient belongs to this tenant ────────────────────────
+    const patient = await prisma.patient.findFirst({
+      where: { id, tenantId: session.user.tenantId },
+      select: { id: true },
+    });
+
+    if (!patient) {
+      return NextResponse.json(
+        { error: "Patient not found", success: false },
+        { status: 404 }
+      );
+    }
+
     // ── Create ─────────────────────────────────────────────────────────────
     const record = await prisma.medicalRecord.create({
       data: {
+        tenantId: session.user.tenantId,
         patientId: id,
         authorId: authorId as string,
         type: type as MedicalRecordType,

@@ -1,9 +1,22 @@
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { requireModulePermission } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
 
 export async function GET() {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const permCheck = requireModulePermission(session, "MODULE_PHARMACY", "read");
+    if (!permCheck.ok) {
+      return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
+    }
+
     const prescriptions = await prisma.prescription.findMany({
+      where: { tenantId: session.user.tenantId },
       orderBy: { prescribedAt: 'desc' },
       include: {
         patient: {
@@ -26,7 +39,7 @@ export async function GET() {
 
     // Fetch all inventory for stock lookup
     const inventory = await prisma.medicationInventory.findMany({
-      where: { isActive: true },
+      where: { isActive: true, tenantId: session.user.tenantId },
       select: { id: true, name: true, stock: true, unitPrice: true }
     });
 

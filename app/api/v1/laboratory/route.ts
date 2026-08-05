@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { findPanel, generateExamCode } from "@/lib/laboratory/panels";
+import { requireModulePermission } from "@/lib/permissions";
 import type { ExamRequestStatus, ExamUrgency } from "@prisma/client";
 
 const PATIENT_SELECT = { id: true, firstName: true, lastName: true, ipp: true } as const;
@@ -14,6 +15,10 @@ export async function GET(req: Request) {
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const permCheck = requireModulePermission(session, "MODULE_LAB", "read");
+  if (!permCheck.ok) {
+    return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
+  }
 
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status") as ExamRequestStatus | null;
@@ -23,6 +28,7 @@ export async function GET(req: Request) {
 
   const exams = await prisma.examRequest.findMany({
     where: {
+      tenantId: session.user.tenantId,
       type: "biology",
       status: status ?? undefined,
       urgency: urgency ?? undefined,
@@ -56,6 +62,10 @@ export async function POST(req: Request) {
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const permCheck = requireModulePermission(session, "MODULE_LAB", "create");
+  if (!permCheck.ok) {
+    return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
+  }
 
   try {
     const body = await req.json();
@@ -77,8 +87,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "examLabel is required for a custom panel" }, { status: 400 });
     }
 
+    const patient = await prisma.patient.findFirst({
+      where: { id: patientId, tenantId: session.user.tenantId },
+      select: { id: true },
+    });
+    if (!patient) {
+      return NextResponse.json({ error: "Patient not found" }, { status: 404 });
+    }
+
     const exam = await prisma.examRequest.create({
       data: {
+        tenantId: session.user.tenantId,
         patientId,
         stayId: stayId || null,
         prescriberId: session.user.id,

@@ -10,8 +10,11 @@
     "radiology": "Radiology",
     "billing": "Billing & PMSI",
     "planning": "Planning",
+    "messages": "Messages",
     "settings": "Settings",
     "logout": "Logout",
+    "performed_by": "Performed By",
+    "self": "You",
     "clinical_modules": "Clinical Modules",
     "administrative": "Administrative",
     "patient": "Patients",
@@ -343,6 +346,7 @@
     "edit_user": "Edit User",
     "add_new_user": "Add New User",
     "create_user": "Create User",
+    "save_user_error": "Failed to save user. Please try again.",
     "delete_user": "Delete User",
     "confirm_remove": "Are you sure you want to remove",
     "view_activity": "View Activity",
@@ -895,7 +899,9 @@
     "pharmacist": "Pharmacist",
     "lab": "Lab Technician",
     "billing": "Billing Manager",
-    "hr": "HR Director"
+    "hr": "HR Director",
+    "radiologist": "Radiologist",
+    "viewer": "Viewer"
   },
   "templates": {
     "title": "Document Templates",
@@ -985,5 +991,21 @@
     "best_time": "Best Time",
     "warnings": "IMPORTANT WARNINGS",
     "side_effects": "Common Side Effects"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "mark_all_read": "Mark all as read",
+    "empty": "No notifications yet"
+  },
+  "messages": {
+    "title": "Messages",
+    "new_conversation": "New Conversation",
+    "search_colleagues": "Search colleagues...",
+    "no_colleagues": "No colleagues found",
+    "starting": "Starting...",
+    "start_conversation": "Start Conversation",
+    "no_conversations": "No conversations yet",
+    "select_conversation": "Select a conversation to start messaging",
+    "type_message": "Type a message..."
   }
 }

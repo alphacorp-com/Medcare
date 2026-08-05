@@ -3,6 +3,9 @@ import { getServerSession } from "next-auth/next";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { authOptions } from "@/lib/auth";
+import { requireAdminOrTenantAdmin } from "@/lib/permissions";
+import { recordAuditEvent, extractRequestMeta } from "@/lib/audit";
+import { getTenantSeatLimit } from "@/lib/tenant-licensing";
 
 export async function GET(req: Request) {
   try {
@@ -10,8 +13,13 @@ export async function GET(req: Request) {
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const permCheck = requireAdminOrTenantAdmin(session);
+    if (!permCheck.ok) {
+      return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
+    }
 
     const users = await prisma.tenantUser.findMany({
+      where: { tenantId: session.user.tenantId },
       select: {
         id: true,
         email: true,
@@ -43,8 +51,12 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user || (session.user.role !== 'admin' && session.user.role !== 'tenant_admin')) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const permCheck = requireAdminOrTenantAdmin(session);
+    if (!permCheck.ok) {
+      return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
     }
 
     const body = await req.json();
@@ -62,6 +74,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "User already exists" }, { status: 409 });
     }
 
+    if (session.user.tenantId) {
+      const seatLimit = await getTenantSeatLimit(session.user.tenantId);
+      if (seatLimit != null) {
+        const activeUserCount = await prisma.tenantUser.count({
+          where: { tenantId: session.user.tenantId, isActive: true },
+        });
+        if (activeUserCount >= seatLimit) {
+          return NextResponse.json(
+            {
+              error: `User seat limit reached (${seatLimit}). Contact your administrator to purchase additional seats. / Limite de sièges utilisateurs atteinte (${seatLimit}). Contactez votre administrateur pour acheter des sièges supplémentaires.`,
+            },
+            { status: 403 }
+          );
+        }
+      }
+    }
+
     // Hash a default password for newly created users from the dashboard
     const defaultPassword = "password123";
     const passwordHash = await bcrypt.hash(defaultPassword, 10);
@@ -74,7 +103,21 @@ export async function POST(req: Request) {
         modules: modules || [],
         passwordHash,
         isActive: status === 'active',
+        tenantId: session.user.tenantId,
       },
+    });
+
+    const { ipAddress, userAgent } = extractRequestMeta(req.headers);
+    await recordAuditEvent({
+      tenantId: session.user.tenantId,
+      actorId: session.user.id,
+      actorType: session.user.role === "admin" ? "admin" : "tenant_user",
+      action: "user.create",
+      resourceType: "tenant_user",
+      resourceId: newUser.id,
+      payload: { email: newUser.email, role: newUser.role, modules: newUser.modules },
+      ipAddress,
+      userAgent,
     });
 
     return NextResponse.json({

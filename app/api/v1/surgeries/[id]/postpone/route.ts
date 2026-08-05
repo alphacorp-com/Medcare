@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { requireModulePermission } from "@/lib/permissions";
 
 // PATCH /api/v1/surgeries/[id]/postpone
 // Body: { reason }
@@ -12,6 +13,10 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const permCheck = requireModulePermission(session, "MODULE_SURGERY", "update");
+  if (!permCheck.ok) {
+    return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
+  }
 
   const { id } = await context.params;
 
@@ -21,7 +26,7 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
       return NextResponse.json({ error: "A reason is required to postpone a case" }, { status: 400 });
     }
 
-    const surgery = await prisma.surgicalProcedure.findUnique({ where: { id } });
+    const surgery = await prisma.surgicalProcedure.findFirst({ where: { id, tenantId: session.user.tenantId } });
     if (!surgery) return NextResponse.json({ error: "Surgery not found" }, { status: 404 });
 
     if (surgery.status !== "scheduled") {

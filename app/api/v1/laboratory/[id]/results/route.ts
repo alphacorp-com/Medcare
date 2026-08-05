@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { requireModulePermission } from "@/lib/permissions";
 import { computeIsCritical, ResultParameter } from "@/lib/laboratory/results";
 
 // POST /api/v1/laboratory/[id]/results
@@ -10,6 +11,10 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
   const session = await getServerSession(authOptions);
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const permCheck = requireModulePermission(session, "MODULE_LAB", "update");
+  if (!permCheck.ok) {
+    return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
   }
 
   const { id } = await context.params;
@@ -22,7 +27,7 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
       return NextResponse.json({ error: "At least one parameter is required" }, { status: 400 });
     }
 
-    const exam = await prisma.examRequest.findUnique({ where: { id } });
+    const exam = await prisma.examRequest.findFirst({ where: { id, tenantId: session.user.tenantId } });
     if (!exam) return NextResponse.json({ error: "Exam not found" }, { status: 404 });
 
     if (exam.status !== "in_progress") {
@@ -41,6 +46,7 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
 
     const result = await prisma.examResult.create({
       data: {
+        tenantId: session.user.tenantId,
         requestId: id,
         patientId: exam.patientId,
         performerId: session.user.id,

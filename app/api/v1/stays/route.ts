@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { requireModulePermission } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
 import type { StayStatus } from "@prisma/client";
 
@@ -7,11 +10,21 @@ import type { StayStatus } from "@prisma/client";
 //   status – optional StayStatus filter (pre_admission | in_progress | discharged | transferred | deceased)
 export async function GET(request: Request) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const permCheck = requireModulePermission(session, "MODULE_CORE_PATIENT", "read");
+    if (!permCheck.ok) {
+      return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
+    }
+
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status") as StayStatus | null;
 
     const stays = await prisma.stay.findMany({
       where: {
+        tenantId: session.user.tenantId,
         ...(status ? { status } : {}),
       },
       orderBy: { admissionDate: "desc" },

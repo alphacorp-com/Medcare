@@ -14,7 +14,6 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession();
   const t = useTranslations("licensing");
   const [isHydrated, setIsHydrated] = useState(false);
-  const [checkingAccess, setCheckingAccess] = useState(false);
   const [tenantIsActive, setTenantIsActive] = useState(true);
   const [tenantReason, setTenantReason] = useState<string | null>(null);
   const [licenseKey, setLicenseKey] = useState("");
@@ -42,7 +41,6 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const initialize = async () => {
       if (status === "authenticated" && session?.user) {
-        setCheckingAccess(true);
         setUser({
           id: session.user.id,
           fullName: session.user.name || "",
@@ -79,21 +77,17 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
             }
 
             console.error("Failed to resolve tenant access:", error);
-          } finally {
-            setCheckingAccess(false);
           }
         } else {
           setTenantIsActive(true);
           setTenantReason(null);
           setTenantAccess(true, null);
-          setCheckingAccess(false);
         }
       } else if (status === "unauthenticated") {
         setUser(null);
         setTenantIsActive(true);
         setTenantReason(null);
         setTenantAccess(true, null);
-        setCheckingAccess(false);
       }
 
       if (status !== "loading") {
@@ -135,7 +129,7 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
     }
   };
 
-  if (!isHydrated || checkingAccess) {
+  if (!isHydrated) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-slate-50">
         <div className="flex flex-col items-center gap-4">

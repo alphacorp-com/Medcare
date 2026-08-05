@@ -8,9 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetFooter, SheetTitle } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PlusCircle, Search, Edit2, Activity, Trash2 } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
+import { LastLoginBadge } from "@/components/settings/activity/last-login-badge";
 
 export type ModuleAction = 'read' | 'create' | 'update' | 'delete';
 
@@ -37,6 +37,8 @@ export function UsersManagement() {
   const [search, setSearch] = useState("");
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<SystemUser | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const t = useTranslations('settings');
   const tc = useTranslations('common');
@@ -67,8 +69,10 @@ export function UsersManagement() {
     { id: "nurse", name: tr('nurse') },
     { id: "pharmacist", name: tr('pharmacist') },
     { id: "lab_tech", name: tr('lab') },
+    { id: "radiologist", name: tr('radiologist') },
     { id: "billing", name: tr('billing') },
-    { id: "hr", name: tr('hr') }
+    { id: "hr", name: tr('hr') },
+    { id: "viewer", name: tr('viewer') }
   ];
 
   useEffect(() => {
@@ -103,6 +107,7 @@ export function UsersManagement() {
 
   const handleEdit = (user: SystemUser) => {
     setEditingUser(user);
+    setFormError(null);
     setSelectedRole(user.role);
     setSelectedModules(
       user.modules?.reduce((acc, module) => {
@@ -172,6 +177,8 @@ export function UsersManagement() {
       payload.modules = modulePayload;
     }
 
+    setFormError(null);
+    setIsSaving(true);
     try {
       if (editingUser) {
         const res = await fetch(`/api/v1/users/${editingUser.id}`, {
@@ -179,25 +186,32 @@ export function UsersManagement() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
-        if (res.ok) {
-          const updated = await res.json();
-          setUsers(users.map(u => u.id === updated.id ? updated : u));
+        const data = await res.json();
+        if (!res.ok) {
+          setFormError(data?.error || t('save_user_error'));
+          return;
         }
+        setUsers(users.map(u => u.id === data.id ? data : u));
       } else {
         const res = await fetch('/api/v1/users', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
-        if (res.ok) {
-          const created = await res.json();
-          setUsers([created, ...users]);
+        const data = await res.json();
+        if (!res.ok) {
+          setFormError(data?.error || t('save_user_error'));
+          return;
         }
+        setUsers([data, ...users]);
       }
       setIsAddOpen(false);
       setEditingUser(null);
     } catch (error) {
       console.error("Failed to save user", error);
+      setFormError(t('save_user_error'));
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -210,19 +224,21 @@ export function UsersManagement() {
         </div>
         
         <div>
-          <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white gap-2" onClick={() => { 
-            setEditingUser(null); 
-            setSelectedRole(SYSTEM_ROLES[0].id); 
+          <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white gap-2" onClick={() => {
+            setEditingUser(null);
+            setFormError(null);
+            setSelectedRole(SYSTEM_ROLES[0].id);
             setSelectedModules({ MODULE_CORE_PATIENT: ['read'] });
-            setIsAddOpen(true); 
+            setIsAddOpen(true);
           }}>
             <PlusCircle className="w-4 h-4" /> {t('add_personnel')}
           </Button>
 
-          <Sheet open={isAddOpen} onOpenChange={(v) => { 
-            setIsAddOpen(v); 
+          <Sheet open={isAddOpen} onOpenChange={(v) => {
+            setIsAddOpen(v);
             if(!v) {
               setEditingUser(null);
+              setFormError(null);
               setSelectedModules({ MODULE_CORE_PATIENT: ['read'] });
               setSelectedRole(SYSTEM_ROLES[0].id);
             }
@@ -334,10 +350,16 @@ export function UsersManagement() {
                 )}
               </div>
 
+              {formError ? (
+                <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-md px-3 py-2">{formError}</p>
+              ) : null}
+
               <SheetFooter className="border-t border-slate-100 pt-4">
                 <div className="flex justify-end gap-3 w-full">
                   <Button type="button" variant="outline" onClick={() => setIsAddOpen(false)}>{tc('cancel')}</Button>
-                  <Button type="submit" className="bg-blue-600 hover:bg-blue-700">{editingUser ? tc('save_changes') : t('create_user')}</Button>
+                  <Button type="submit" className="bg-blue-600 hover:bg-blue-700" disabled={isSaving}>
+                    {isSaving ? tc('saving') : editingUser ? tc('save_changes') : t('create_user')}
+                  </Button>
                 </div>
               </SheetFooter>
             </form>
@@ -396,7 +418,7 @@ export function UsersManagement() {
                   }
                 </TableCell>
                 <TableCell className="text-sm text-slate-500">
-                  {user.lastActive ? formatDistanceToNow(new Date(user.lastActive), { addSuffix: true }) : t('never')}
+                  <LastLoginBadge lastActive={user.lastActive} neverLabel={t('never')} />
                 </TableCell>
                 <TableCell className="text-right space-x-2">
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-blue-600" onClick={() => router.push(`/settings/users/${user.id}/activity`)} title={t('view_activity')}>

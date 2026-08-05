@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import prisma from "@/lib/prisma";
 import { ModulePermission } from "./store/useAppStore";
 import { syncTenantStatus } from "./tenant-licensing";
+import { recordAuditEvent, extractAuthRequestMeta, SYSTEM_ACTOR_ID } from "./audit";
 
 export const authOptions: NextAuthOptions = {
     providers: [
@@ -14,16 +15,26 @@ export const authOptions: NextAuthOptions = {
                 email: { label: "Email", type: "email" },
                 password: { label: "Password", type: "password" },
             },
-            async authorize(credentials) {
+            async authorize(credentials, req) {
                 if (!credentials?.email || !credentials?.password) {
                     throw new Error("Missing credentials");
                 }
+
+                const { ipAddress, userAgent } = extractAuthRequestMeta(req?.headers);
 
                 const user = await prisma.tenantUser.findUnique({
                     where: { email: credentials.email },
                 });
 
                 if (!user || !user.isActive) {
+                    await recordAuditEvent({
+                        actorId: SYSTEM_ACTOR_ID,
+                        actorType: "system",
+                        action: "user.login_failed",
+                        payload: { email: credentials.email },
+                        ipAddress,
+                        userAgent,
+                    });
                     throw new Error("User not found or inactive");
                 }
 
@@ -33,12 +44,41 @@ export const authOptions: NextAuthOptions = {
                 );
 
                 if (!isValidPassword) {
+                    await recordAuditEvent({
+                        tenantId: (user as any).tenantId,
+                        actorId: SYSTEM_ACTOR_ID,
+                        actorType: "system",
+                        action: "user.login_failed",
+                        payload: { email: credentials.email },
+                        ipAddress,
+                        userAgent,
+                    });
                     throw new Error("Invalid password");
                 }
 
                 if ((user as any).tenantId) {
                     await syncTenantStatus((user as any).tenantId as string);
                 }
+
+                try {
+                    await prisma.tenantUser.update({
+                        where: { id: user.id },
+                        data: { lastLoginAt: new Date() },
+                    });
+                } catch (error) {
+                    console.error("[auth] failed to update lastLoginAt", error);
+                }
+
+                await recordAuditEvent({
+                    tenantId: (user as any).tenantId,
+                    actorId: user.id,
+                    actorType: "tenant_user",
+                    action: "user.login",
+                    resourceType: "tenant_user",
+                    resourceId: user.id,
+                    ipAddress,
+                    userAgent,
+                });
 
                 return {
                     id: user.id,
@@ -57,16 +97,26 @@ export const authOptions: NextAuthOptions = {
                 email: { label: "Email", type: "email" },
                 password: { label: "Password", type: "password" },
             },
-            async authorize(credentials) {
+            async authorize(credentials, req) {
                 if (!credentials?.email || !credentials?.password) {
                     throw new Error("Missing credentials");
                 }
+
+                const { ipAddress, userAgent } = extractAuthRequestMeta(req?.headers);
 
                 const adminUser = await prisma.adminUser.findUnique({
                     where: { email: credentials.email },
                 });
 
                 if (!adminUser || !adminUser.isActive) {
+                    await recordAuditEvent({
+                        actorId: SYSTEM_ACTOR_ID,
+                        actorType: "system",
+                        action: "admin.login_failed",
+                        payload: { email: credentials.email },
+                        ipAddress,
+                        userAgent,
+                    });
                     throw new Error("Admin user not found or inactive");
                 }
 
@@ -76,8 +126,35 @@ export const authOptions: NextAuthOptions = {
                 );
 
                 if (!isValidPassword) {
+                    await recordAuditEvent({
+                        actorId: SYSTEM_ACTOR_ID,
+                        actorType: "system",
+                        action: "admin.login_failed",
+                        payload: { email: credentials.email },
+                        ipAddress,
+                        userAgent,
+                    });
                     throw new Error("Invalid password");
                 }
+
+                try {
+                    await prisma.adminUser.update({
+                        where: { id: adminUser.id },
+                        data: { lastLoginAt: new Date() },
+                    });
+                } catch (error) {
+                    console.error("[auth] failed to update admin lastLoginAt", error);
+                }
+
+                await recordAuditEvent({
+                    actorId: adminUser.id,
+                    actorType: "admin",
+                    action: "admin.login",
+                    resourceType: "admin_user",
+                    resourceId: adminUser.id,
+                    ipAddress,
+                    userAgent,
+                });
 
                 return {
                     id: adminUser.id,

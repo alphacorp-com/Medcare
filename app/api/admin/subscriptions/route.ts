@@ -30,7 +30,7 @@ export async function GET() {
       prisma.plan.findMany({
         where: { billingCycle: { in: [BillingCycle.monthly, BillingCycle.annual] }, isActive: true },
         orderBy: { name: "asc" },
-        select: { id: true, name: true, billingCycle: true, basePrice: true, currency: true },
+        select: { id: true, name: true, billingCycle: true, basePrice: true, currency: true, maxUsers: true },
       }),
     ]);
 
@@ -49,9 +49,22 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { tenantId, planId, status, currentPeriodStart, currentPeriodEnd } = body;
+    const { tenantId, planId, status, currentPeriodStart, currentPeriodEnd, seatsCount } = body;
     if (!tenantId || !planId || !status || !currentPeriodStart || !currentPeriodEnd) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    const plan = await prisma.plan.findUnique({ where: { id: planId }, select: { maxUsers: true } });
+    if (!plan) {
+      return NextResponse.json({ error: "Plan not found" }, { status: 404 });
+    }
+
+    const resolvedSeats = seatsCount ? Number(seatsCount) : 5;
+    if (plan.maxUsers != null && resolvedSeats > plan.maxUsers) {
+      return NextResponse.json(
+        { error: `This plan allows a maximum of ${plan.maxUsers} user seats` },
+        { status: 400 }
+      );
     }
 
     const created = await prisma.subscription.create({
@@ -61,6 +74,7 @@ export async function POST(request: NextRequest) {
         status: status as SubscriptionStatus,
         currentPeriodStart: new Date(currentPeriodStart),
         currentPeriodEnd: new Date(currentPeriodEnd),
+        seatsCount: resolvedSeats,
         mrr: new Prisma.Decimal(0),
       },
     });

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { CHECKLIST_ITEMS, CHECKLIST_PHASES, ChecklistPhase, WhoChecklist } from "@/lib/surgery/checklist";
+import { requireModulePermission } from "@/lib/permissions";
 
 // PATCH /api/v1/surgeries/[id]/checklist
 // Body: { phase: "signIn" | "timeOut" | "signOut", items: Record<string, boolean> }
@@ -12,6 +13,10 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
   const session = await getServerSession(authOptions);
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const permCheck = requireModulePermission(session, "MODULE_SURGERY", "update");
+  if (!permCheck.ok) {
+    return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
   }
 
   const { id } = await context.params;
@@ -24,7 +29,7 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
       return NextResponse.json({ error: "Invalid checklist phase" }, { status: 400 });
     }
 
-    const existing = await prisma.surgicalProcedure.findUnique({ where: { id } });
+    const existing = await prisma.surgicalProcedure.findFirst({ where: { id, tenantId: session.user.tenantId } });
     if (!existing) return NextResponse.json({ error: "Surgery not found" }, { status: 404 });
 
     const allowedStatus = phase === "signOut" ? "in_progress" : "scheduled";

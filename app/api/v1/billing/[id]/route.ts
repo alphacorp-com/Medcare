@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { requireModulePermission } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
 
 const allowedStatuses = ['open', 'coded', 'validated', 'billed', 'paid', 'contested'];
@@ -8,6 +11,15 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const permCheck = requireModulePermission(session, "MODULE_BILLING", "update");
+    if (!permCheck.ok) {
+      return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
+    }
+
     const { id } = await params;
     const body = await request.json();
     const { status } = body;
@@ -16,6 +28,18 @@ export async function PATCH(
       return NextResponse.json(
         { error: 'Invalid status update', success: false },
         { status: 400 }
+      );
+    }
+
+    const existingBillingStay = await prisma.billingStay.findFirst({
+      where: { id, tenantId: session.user.tenantId },
+      select: { id: true },
+    });
+
+    if (!existingBillingStay) {
+      return NextResponse.json(
+        { error: "Billing record not found", success: false },
+        { status: 404 }
       );
     }
 

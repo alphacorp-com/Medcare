@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { findSurgeryConflicts } from "@/lib/surgery/conflicts";
+import { requireModulePermission } from "@/lib/permissions";
 import type { SurgicalStatus } from "@prisma/client";
 
 const PATIENT_SELECT = { id: true, firstName: true, lastName: true, ipp: true } as const;
@@ -14,6 +15,10 @@ export async function GET(req: Request) {
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const permCheck = requireModulePermission(session, "MODULE_SURGERY", "read");
+  if (!permCheck.ok) {
+    return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
+  }
 
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status") as SurgicalStatus | null;
@@ -23,6 +28,7 @@ export async function GET(req: Request) {
 
   const surgeries = await prisma.surgicalProcedure.findMany({
     where: {
+      tenantId: session.user.tenantId,
       status: status ?? undefined,
       surgeonId: surgeonId ?? undefined,
       scheduledAt:
@@ -44,6 +50,10 @@ export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const permCheck = requireModulePermission(session, "MODULE_SURGERY", "create");
+  if (!permCheck.ok) {
+    return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
   }
 
   try {
@@ -68,6 +78,24 @@ export async function POST(req: Request) {
       );
     }
 
+    const patient = await prisma.patient.findFirst({
+      where: { id: patientId, tenantId: session.user.tenantId },
+      select: { id: true },
+    });
+    if (!patient) {
+      return NextResponse.json({ error: "Patient not found" }, { status: 404 });
+    }
+
+    if (stayId) {
+      const stay = await prisma.stay.findFirst({
+        where: { id: stayId, tenantId: session.user.tenantId },
+        select: { id: true },
+      });
+      if (!stay) {
+        return NextResponse.json({ error: "Stay not found" }, { status: 404 });
+      }
+    }
+
     const scheduledDate = new Date(scheduledAt);
 
     if (!force) {
@@ -83,6 +111,7 @@ export async function POST(req: Request) {
 
     const surgery = await prisma.surgicalProcedure.create({
       data: {
+        tenantId: session.user.tenantId,
         patientId,
         stayId: stayId || null,
         surgeonId,

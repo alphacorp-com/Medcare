@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { requireTenantAdmin } from "@/lib/permissions";
 import type { DepartmentType } from "@prisma/client";
 
 // ── GET /api/v1/departments ─────────────────────────────────────────────────
@@ -9,12 +10,20 @@ import type { DepartmentType } from "@prisma/client";
 // ones (existing dropdown consumers rely on this); pass includeInactive=true
 // to also see deactivated departments (used by the Planning module's management view).
 export async function GET(req: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const { searchParams } = new URL(req.url);
     const includeInactive = searchParams.get("includeInactive") === "true";
 
     const departments = await prisma.department.findMany({
-      where: includeInactive ? undefined : { isActive: true },
+      where: {
+        tenantId: session.user.tenantId,
+        ...(includeInactive ? {} : { isActive: true }),
+      },
       select: {
         id: true,
         code: true,
@@ -47,8 +56,12 @@ export async function GET(req: Request) {
 // Body: { name, code, type?, headId?, phone?, location? }
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
-  if (!session?.user || session.user.role !== "tenant_admin") {
-    return NextResponse.json({ error: "Unauthorized - Tenant admin access required" }, { status: 403 });
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const permCheck = requireTenantAdmin(session);
+  if (!permCheck.ok) {
+    return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
   }
 
   try {
@@ -68,6 +81,7 @@ export async function POST(req: Request) {
 
     const department = await prisma.department.create({
       data: {
+        tenantId: session.user.tenantId,
         name: name.trim(),
         code: code.trim().toUpperCase(),
         type: type || null,

@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { findScheduleConflicts } from "@/lib/planning/conflicts";
 import { shiftTimeRange } from "@/lib/planning/shifts";
+import { requireModulePermission, requireTenantAdmin } from "@/lib/permissions";
 import type { ShiftType } from "@prisma/client";
 
 function toDateOnly(dateStr: string): Date {
@@ -17,6 +18,10 @@ export async function GET(req: Request) {
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const permCheck = requireModulePermission(session, "MODULE_PLANNING", "read");
+  if (!permCheck.ok) {
+    return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
+  }
 
   const { searchParams } = new URL(req.url);
   const departmentId = searchParams.get("departmentId");
@@ -29,6 +34,7 @@ export async function GET(req: Request) {
 
   const schedules = await prisma.schedule.findMany({
     where: {
+      tenantId: session.user.tenantId,
       departmentId,
       date: from || to ? { gte: from ? toDateOnly(from) : undefined, lte: to ? toDateOnly(to) : undefined } : undefined,
     },
@@ -42,8 +48,12 @@ export async function GET(req: Request) {
 // Body: { userId, departmentId, shiftType, date, notes?, force? }
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
-  if (!session?.user || session.user.role !== "tenant_admin") {
-    return NextResponse.json({ error: "Unauthorized - Tenant admin access required" }, { status: 403 });
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const permCheck = requireTenantAdmin(session);
+  if (!permCheck.ok) {
+    return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
   }
 
   try {
@@ -74,6 +84,7 @@ export async function POST(req: Request) {
 
     const schedule = await prisma.schedule.create({
       data: {
+        tenantId: session.user.tenantId,
         userId,
         departmentId,
         shiftType,
