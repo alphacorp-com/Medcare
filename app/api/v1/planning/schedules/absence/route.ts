@@ -27,6 +27,7 @@ export async function POST(req: Request) {
 
     const result = await prisma.schedule.updateMany({
       where: {
+        tenantId: session.user.tenantId,
         userId,
         date: { gte: toDateOnly(from), lte: toDateOnly(to) },
         status: { notIn: ["absent", "replaced"] },

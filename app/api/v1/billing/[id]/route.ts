@@ -31,6 +31,18 @@ export async function PATCH(
       );
     }
 
+    const existingBillingStay = await prisma.billingStay.findFirst({
+      where: { id, tenantId: session.user.tenantId },
+      select: { id: true },
+    });
+
+    if (!existingBillingStay) {
+      return NextResponse.json(
+        { error: "Billing record not found", success: false },
+        { status: 404 }
+      );
+    }
+
     const updated = await prisma.billingStay.update({
       where: { id },
       data: { status },

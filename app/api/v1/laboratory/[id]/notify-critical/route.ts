@@ -20,7 +20,7 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
   const { id } = await context.params;
 
   const latestResult = await prisma.examResult.findFirst({
-    where: { requestId: id },
+    where: { requestId: id, tenantId: session.user.tenantId },
     orderBy: { createdAt: "desc" },
   });
 
@@ -39,8 +39,8 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
     data: { criticalNotifiedAt: new Date() },
   });
 
-  const examRequest = await prisma.examRequest.findUnique({
-    where: { id },
+  const examRequest = await prisma.examRequest.findFirst({
+    where: { id, tenantId: session.user.tenantId },
     select: { examLabel: true, patient: { select: { firstName: true, lastName: true } } },
   });
 

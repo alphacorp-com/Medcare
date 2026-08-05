@@ -30,6 +30,7 @@ export async function GET(request: Request) {
     const isDeceased = status === "deceased";
 
     const where = {
+      tenantId: session.user.tenantId,
       isDeceased,
       ...(q
         ? {
@@ -124,12 +125,16 @@ export async function POST(request: Request) {
       );
     }
 
-    // Generate IPP: "10" + 7-digit zero-padded count+1
-    const count = await prisma.patient.count();
+    // Generate IPP: "10" + 7-digit zero-padded count+1 (scoped to tenant since
+    // Patient.ipp is unique per-tenant, not globally)
+    const count = await prisma.patient.count({
+      where: { tenantId: session.user.tenantId },
+    });
     const ipp = `10${String(count + 1).padStart(7, "0")}`;
 
     const patient = await prisma.patient.create({
       data: {
+        tenantId: session.user.tenantId,
         ipp,
         firstName,
         lastName,

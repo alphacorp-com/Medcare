@@ -16,6 +16,7 @@ export async function GET() {
     }
 
     const prescriptions = await prisma.prescription.findMany({
+      where: { tenantId: session.user.tenantId },
       orderBy: { prescribedAt: 'desc' },
       include: {
         patient: {
@@ -38,7 +39,7 @@ export async function GET() {
 
     // Fetch all inventory for stock lookup
     const inventory = await prisma.medicationInventory.findMany({
-      where: { isActive: true },
+      where: { isActive: true, tenantId: session.user.tenantId },
       select: { id: true, name: true, stock: true, unitPrice: true }
     });
 

@@ -31,8 +31,8 @@ export async function PATCH(
     }
 
     // Fetch current prescription with items
-    const currentRx = await prisma.prescription.findUnique({
-      where: { id },
+    const currentRx = await prisma.prescription.findFirst({
+      where: { id, tenantId: session.user.tenantId },
       include: { patient: true }
     });
 
@@ -61,7 +61,7 @@ export async function PATCH(
 
       // Fetch inventory for pricing
       const inventory = await prisma.medicationInventory.findMany({
-        where: { isActive: true },
+        where: { isActive: true, tenantId: session.user.tenantId },
         select: { id: true, name: true, unitPrice: true }
       });
       const inventoryMap = new Map(inventory.map(i => [i.name.toLowerCase(), { id: i.id, unitPrice: i.unitPrice }]));
@@ -127,7 +127,7 @@ export async function PATCH(
       } catch (e) {}
 
       const inventory = await prisma.medicationInventory.findMany({
-        where: { isActive: true },
+        where: { isActive: true, tenantId: session.user.tenantId },
         select: { id: true, name: true, stock: true }
       });
       const inventoryMap = new Map(inventory.map(i => [i.name.toLowerCase(), i]));

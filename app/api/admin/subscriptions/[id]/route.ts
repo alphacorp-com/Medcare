@@ -13,7 +13,17 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
 
     const { id } = await context.params;
     const body = await request.json();
-    const { planId, status, currentPeriodStart, currentPeriodEnd, cancelReason } = body;
+    const { planId, status, currentPeriodStart, currentPeriodEnd, cancelReason, seatsCount } = body;
+
+    if (seatsCount != null && planId) {
+      const plan = await prisma.plan.findUnique({ where: { id: planId }, select: { maxUsers: true } });
+      if (plan?.maxUsers != null && Number(seatsCount) > plan.maxUsers) {
+        return NextResponse.json(
+          { error: `This plan allows a maximum of ${plan.maxUsers} user seats` },
+          { status: 400 }
+        );
+      }
+    }
 
     const updated = await prisma.subscription.update({
       where: { id },
@@ -24,6 +34,7 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
         currentPeriodEnd: currentPeriodEnd ? new Date(currentPeriodEnd) : undefined,
         cancelledAt: status === "cancelled" ? new Date() : null,
         cancelReason: status === "cancelled" ? cancelReason || null : null,
+        seatsCount: seatsCount != null ? Number(seatsCount) : undefined,
       },
     });
 

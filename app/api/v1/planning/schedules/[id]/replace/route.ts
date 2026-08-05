@@ -22,7 +22,9 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
       return NextResponse.json({ error: "replacementUserId is required" }, { status: 400 });
     }
 
-    const original = await prisma.schedule.findUnique({ where: { id } });
+    const original = await prisma.schedule.findFirst({
+      where: { id, tenantId: session.user.tenantId },
+    });
     if (!original) return NextResponse.json({ error: "Shift not found" }, { status: 404 });
 
     if (replacementUserId === original.userId) {
@@ -43,6 +45,7 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
           },
         },
         create: {
+          tenantId: session.user.tenantId,
           userId: replacementUserId,
           departmentId: original.departmentId,
           shiftType: original.shiftType,

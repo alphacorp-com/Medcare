@@ -29,7 +29,7 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
       return NextResponse.json({ error: "Invalid checklist phase" }, { status: 400 });
     }
 
-    const existing = await prisma.surgicalProcedure.findUnique({ where: { id } });
+    const existing = await prisma.surgicalProcedure.findFirst({ where: { id, tenantId: session.user.tenantId } });
     if (!existing) return NextResponse.json({ error: "Surgery not found" }, { status: 404 });
 
     const allowedStatus = phase === "signOut" ? "in_progress" : "scheduled";

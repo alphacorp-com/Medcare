@@ -22,8 +22,8 @@ export async function GET(
 
     const { id } = await params;
 
-    const patient = await prisma.patient.findUnique({
-      where: { id },
+    const patient = await prisma.patient.findFirst({
+      where: { id, tenantId: session.user.tenantId },
       include: {
         stays: {
           orderBy: { admissionDate: "desc" },
@@ -109,6 +109,18 @@ export async function PATCH(
     if ("gdprConsent" in body) {
       data.gdprConsent = Boolean(body.gdprConsent);
       data.gdprConsentAt = body.gdprConsent ? new Date() : null;
+    }
+
+    const existingPatient = await prisma.patient.findFirst({
+      where: { id, tenantId: session.user.tenantId },
+      select: { id: true },
+    });
+
+    if (!existingPatient) {
+      return NextResponse.json(
+        { error: "Patient not found", success: false },
+        { status: 404 }
+      );
     }
 
     const patient = await prisma.patient.update({

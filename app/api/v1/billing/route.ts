@@ -16,6 +16,7 @@ export async function GET() {
     }
 
     const billingStays = await prisma.billingStay.findMany({
+      where: { tenantId: session.user.tenantId },
       orderBy: { createdAt: 'desc' },
       include: {
         patient: {

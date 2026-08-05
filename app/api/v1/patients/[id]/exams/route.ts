@@ -28,9 +28,22 @@ export async function GET(
     const type = searchParams.get("type") as ExamType | null;
     const status = searchParams.get("status") as ExamRequestStatus | null;
 
+    const patient = await prisma.patient.findFirst({
+      where: { id, tenantId: session.user.tenantId },
+      select: { id: true },
+    });
+
+    if (!patient) {
+      return NextResponse.json(
+        { error: "Patient not found", success: false },
+        { status: 404 }
+      );
+    }
+
     const examRequests = await prisma.examRequest.findMany({
       where: {
         patientId: id,
+        tenantId: session.user.tenantId,
         ...(type ? { type } : {}),
         ...(status ? { status } : {}),
       },

@@ -18,8 +18,8 @@ export async function GET(req: Request, context: { params: Promise<{ id: string 
   }
 
   const { id } = await context.params;
-  const surgery = await prisma.surgicalProcedure.findUnique({
-    where: { id },
+  const surgery = await prisma.surgicalProcedure.findFirst({
+    where: { id, tenantId: session.user.tenantId },
     include: { patient: { select: PATIENT_SELECT } },
   });
 
@@ -45,7 +45,7 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
   const { id } = await context.params;
 
   try {
-    const existing = await prisma.surgicalProcedure.findUnique({ where: { id } });
+    const existing = await prisma.surgicalProcedure.findFirst({ where: { id, tenantId: session.user.tenantId } });
     if (!existing) return NextResponse.json({ error: "Surgery not found" }, { status: 404 });
 
     if (existing.status !== "scheduled" && existing.status !== "postponed") {

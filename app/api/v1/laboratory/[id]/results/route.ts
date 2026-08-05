@@ -27,7 +27,7 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
       return NextResponse.json({ error: "At least one parameter is required" }, { status: 400 });
     }
 
-    const exam = await prisma.examRequest.findUnique({ where: { id } });
+    const exam = await prisma.examRequest.findFirst({ where: { id, tenantId: session.user.tenantId } });
     if (!exam) return NextResponse.json({ error: "Exam not found" }, { status: 404 });
 
     if (exam.status !== "in_progress") {
@@ -46,6 +46,7 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
 
     const result = await prisma.examResult.create({
       data: {
+        tenantId: session.user.tenantId,
         requestId: id,
         patientId: exam.patientId,
         performerId: session.user.id,

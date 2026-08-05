@@ -34,6 +34,7 @@ export async function GET(req: Request) {
 
   const schedules = await prisma.schedule.findMany({
     where: {
+      tenantId: session.user.tenantId,
       departmentId,
       date: from || to ? { gte: from ? toDateOnly(from) : undefined, lte: to ? toDateOnly(to) : undefined } : undefined,
     },
@@ -79,6 +80,7 @@ export async function POST(req: Request) {
 
     const schedule = await prisma.schedule.create({
       data: {
+        tenantId: session.user.tenantId,
         userId,
         departmentId,
         shiftType,

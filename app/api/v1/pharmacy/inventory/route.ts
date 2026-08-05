@@ -16,7 +16,7 @@ export async function GET() {
     }
 
     const inventory = await prisma.medicationInventory.findMany({
-      where: { isActive: true },
+      where: { isActive: true, tenantId: session.user.tenantId },
       orderBy: { name: 'asc' }
     });
 
@@ -57,6 +57,7 @@ export async function POST(request: Request) {
 
     const item = await prisma.medicationInventory.create({
       data: {
+        tenantId: session.user.tenantId,
         name,
         manufacturer: manufacturer || null,
         category: category || null,

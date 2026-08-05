@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import prisma from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
-import { isAdminOrTenantAdmin } from "@/lib/permissions";
 
 // GET /api/v1/users/[id]/activity — audit trail for a single user: actions they took
 // (logins, mutations elsewhere) and actions taken on them (an admin editing their role/modules).
@@ -14,8 +13,25 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    if (session.user.id !== id && !isAdminOrTenantAdmin(session)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+    const isSelf = session.user.id === id;
+    const isPlatformAdmin = session.user.role === "admin";
+
+    if (!isSelf && !isPlatformAdmin) {
+      // A tenant_admin may only view activity for users in their OWN tenant — being
+      // "tenant_admin" alone doesn't imply access to another tenant's users.
+      if (session.user.role !== "tenant_admin") {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      const targetUser = await prisma.tenantUser.findUnique({
+        where: { id },
+        select: { tenantId: true },
+      });
+      // Same response for "not found" and "different tenant" so this endpoint can't be used
+      // to probe whether a given user id exists in another tenant.
+      if (!targetUser || targetUser.tenantId !== session.user.tenantId) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
     }
 
     const entries = await prisma.auditLog.findMany({

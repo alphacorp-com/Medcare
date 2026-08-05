@@ -24,6 +24,7 @@ export async function GET(request: Request) {
 
     const stays = await prisma.stay.findMany({
       where: {
+        tenantId: session.user.tenantId,
         ...(status ? { status } : {}),
       },
       orderBy: { admissionDate: "desc" },

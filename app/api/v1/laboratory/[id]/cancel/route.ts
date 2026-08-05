@@ -24,7 +24,7 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
       return NextResponse.json({ error: "A reason is required to cancel an exam" }, { status: 400 });
     }
 
-    const exam = await prisma.examRequest.findUnique({ where: { id } });
+    const exam = await prisma.examRequest.findFirst({ where: { id, tenantId: session.user.tenantId } });
     if (!exam) return NextResponse.json({ error: "Exam not found" }, { status: 404 });
 
     if (exam.status !== "requested" && exam.status !== "in_progress") {

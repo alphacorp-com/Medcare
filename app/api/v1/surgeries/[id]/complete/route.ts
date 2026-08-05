@@ -33,7 +33,7 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
       return NextResponse.json({ error: "A surgical report is required to complete the case" }, { status: 400 });
     }
 
-    const surgery = await prisma.surgicalProcedure.findUnique({ where: { id } });
+    const surgery = await prisma.surgicalProcedure.findFirst({ where: { id, tenantId: session.user.tenantId } });
     if (!surgery) return NextResponse.json({ error: "Surgery not found" }, { status: 404 });
 
     if (surgery.status !== "in_progress") {
@@ -62,6 +62,7 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
         ? [
             prisma.medicalRecord.create({
               data: {
+                tenantId: session.user.tenantId,
                 patientId: surgery.patientId,
                 stayId: surgery.stayId,
                 authorId: session.user.id,

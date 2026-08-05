@@ -18,8 +18,15 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const user = await prisma.tenantUser.findUnique({
-      where: { id },
+    // Platform admins manage users across all tenants; everyone else (self-view or
+    // tenant_admin) is restricted to their own tenant — a tenant_admin from tenant A must not
+    // be able to fetch tenant B's user by id.
+    const isPlatformAdmin = session.user.role === "admin";
+    const user = await prisma.tenantUser.findFirst({
+      where: {
+        id,
+        ...(isPlatformAdmin ? {} : { tenantId: session.user.tenantId }),
+      },
       select: {
         id: true,
         email: true,
@@ -62,8 +69,12 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const body = await req.json();
     const { fullName, email, role, modules, status, password } = body;
 
-    const existingUser = await prisma.tenantUser.findUnique({
-      where: { id },
+    const isPlatformAdmin = session.user.role === "admin";
+    const existingUser = await prisma.tenantUser.findFirst({
+      where: {
+        id,
+        ...(isPlatformAdmin ? {} : { tenantId: session.user.tenantId }),
+      },
     });
 
     if (!existingUser) {
@@ -135,8 +146,12 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const existingUser = await prisma.tenantUser.findUnique({
-      where: { id },
+    const isPlatformAdmin = session.user.role === "admin";
+    const existingUser = await prisma.tenantUser.findFirst({
+      where: {
+        id,
+        ...(isPlatformAdmin ? {} : { tenantId: session.user.tenantId }),
+      },
     });
 
     if (!existingUser) {

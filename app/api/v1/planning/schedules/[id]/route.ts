@@ -17,6 +17,13 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
   const { id } = await context.params;
 
   try {
+    const existing = await prisma.schedule.findFirst({
+      where: { id, tenantId: session.user.tenantId },
+    });
+    if (!existing) {
+      return NextResponse.json({ error: "Shift not found" }, { status: 404 });
+    }
+
     const body = await req.json();
     const { status, notes } = body as { status?: ScheduleStatus; notes?: string };
 
@@ -52,6 +59,13 @@ export async function DELETE(req: Request, context: { params: Promise<{ id: stri
   const { id } = await context.params;
 
   try {
+    const existing = await prisma.schedule.findFirst({
+      where: { id, tenantId: session.user.tenantId },
+    });
+    if (!existing) {
+      return NextResponse.json({ error: "Shift not found" }, { status: 404 });
+    }
+
     await prisma.schedule.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (error: any) {

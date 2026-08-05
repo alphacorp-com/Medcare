@@ -17,7 +17,7 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
 
   const { id } = await context.params;
 
-  const exam = await prisma.examRequest.findUnique({ where: { id } });
+  const exam = await prisma.examRequest.findFirst({ where: { id, tenantId: session.user.tenantId } });
   if (!exam) return NextResponse.json({ error: "Exam not found" }, { status: 404 });
 
   const pendingResult = await prisma.examResult.findFirst({

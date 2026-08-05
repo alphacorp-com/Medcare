@@ -658,7 +658,8 @@ model LicenseKey {
 
 model Patient {
   id                String    @id @default(uuid()) @db.Uuid
-  ipp               String    @unique @db.VarChar(20)
+  tenantId          String?   @map("tenant_id") @db.Uuid
+  ipp               String    @db.VarChar(20)
   lastName          String    @map("last_name") @db.VarChar(120)
   firstName         String    @map("first_name") @db.VarChar(120)
   maidenName        String?   @map("maiden_name") @db.VarChar(120)
@@ -692,7 +693,8 @@ model Patient {
   billingStays       BillingStay[]
   adverseEvents      AdverseEvent[]
 
-  @@index([ipp])
+  @@unique([tenantId, ipp])
+  @@index([tenantId])
   @@index([birthDate])
   @@map("patients")
   @@schema("tenant_template")
@@ -700,8 +702,9 @@ model Patient {
 
 model Stay {
   id               String     @id @default(uuid()) @db.Uuid
+  tenantId         String?    @map("tenant_id") @db.Uuid
   patientId        String     @map("patient_id") @db.Uuid
-  stayNumber       String     @unique @map("stay_number") @db.VarChar(20)
+  stayNumber       String     @map("stay_number") @db.VarChar(20)
   type             StayType
   status           StayStatus @default(in_progress)
   admissionDate    DateTime   @default(now()) @map("admission_date") @db.Timestamptz
@@ -725,6 +728,8 @@ model Stay {
   adverseEvents      AdverseEvent[]
   billingStay        BillingStay?
 
+  @@unique([tenantId, stayNumber])
+  @@index([tenantId])
   @@index([patientId])
   @@index([status])
   @@index([admissionDate(sort: Desc)])
@@ -734,6 +739,7 @@ model Stay {
 
 model MedicalRecord {
   id            String            @id @default(uuid()) @db.Uuid
+  tenantId      String?           @map("tenant_id") @db.Uuid
   patientId     String            @map("patient_id") @db.Uuid
   stayId        String?           @map("stay_id") @db.Uuid
   authorId      String            @map("author_id") @db.Uuid
@@ -752,12 +758,14 @@ model MedicalRecord {
   patient Patient @relation(fields: [patientId], references: [id])
   stay    Stay?   @relation(fields: [stayId], references: [id])
 
+  @@index([tenantId])
   @@map("medical_records")
   @@schema("tenant_template")
 }
 
 model Prescription {
   id                   String             @id @default(uuid()) @db.Uuid
+  tenantId             String?            @map("tenant_id") @db.Uuid
   patientId            String             @map("patient_id") @db.Uuid
   stayId               String?            @map("stay_id") @db.Uuid
   prescriberId         String             @map("prescriber_id") @db.Uuid
@@ -774,6 +782,7 @@ model Prescription {
   stay             Stay?             @relation(fields: [stayId], references: [id])
   drugDispensings  DrugDispensing[]
 
+  @@index([tenantId])
   @@index([patientId])
   @@index([status])
   @@map("prescriptions")
@@ -782,6 +791,7 @@ model Prescription {
 
 model ExamRequest {
   id           String            @id @default(uuid()) @db.Uuid
+  tenantId     String?           @map("tenant_id") @db.Uuid
   patientId    String            @map("patient_id") @db.Uuid
   stayId       String?           @map("stay_id") @db.Uuid
   prescriberId String            @map("prescriber_id") @db.Uuid
@@ -800,6 +810,7 @@ model ExamRequest {
   stay    Stay?        @relation(fields: [stayId], references: [id])
   results ExamResult[]
 
+  @@index([tenantId])
   @@index([patientId])
   @@index([status])
   @@map("exam_requests")
@@ -808,6 +819,7 @@ model ExamRequest {
 
 model ExamResult {
   id                 String    @id @default(uuid()) @db.Uuid
+  tenantId           String?   @map("tenant_id") @db.Uuid
   requestId          String    @map("request_id") @db.Uuid
   patientId          String    @map("patient_id") @db.Uuid
   performerId        String    @map("performer_id") @db.Uuid
@@ -822,6 +834,7 @@ model ExamResult {
   request ExamRequest @relation(fields: [requestId], references: [id])
   patient Patient     @relation(fields: [patientId], references: [id])
 
+  @@index([tenantId])
   @@index([isCritical])
   @@map("exam_results")
   @@schema("tenant_template")
@@ -829,6 +842,7 @@ model ExamResult {
 
 model SurgicalProcedure {
   id                String         @id @default(uuid()) @db.Uuid
+  tenantId          String?        @map("tenant_id") @db.Uuid
   patientId         String         @map("patient_id") @db.Uuid
   stayId            String?        @map("stay_id") @db.Uuid
   surgeonId         String         @map("surgeon_id") @db.Uuid
@@ -851,12 +865,14 @@ model SurgicalProcedure {
   patient Patient @relation(fields: [patientId], references: [id])
   stay    Stay?   @relation(fields: [stayId], references: [id])
 
+  @@index([tenantId])
   @@map("surgical_procedures")
   @@schema("tenant_template")
 }
 
 model DrugDispensing {
   id             String           @id @default(uuid()) @db.Uuid
+  tenantId       String?          @map("tenant_id") @db.Uuid
   prescriptionId String           @map("prescription_id") @db.Uuid
   patientId      String           @map("patient_id") @db.Uuid
   pharmacistId   String           @map("pharmacist_id") @db.Uuid
@@ -876,12 +892,14 @@ model DrugDispensing {
   prescription Prescription @relation(fields: [prescriptionId], references: [id])
   patient      Patient      @relation(fields: [patientId], references: [id])
 
+  @@index([tenantId])
   @@map("drug_dispensings")
   @@schema("tenant_template")
 }
 
 model MedicationInventory {
   id           String   @id @default(uuid()) @db.Uuid
+  tenantId     String?  @map("tenant_id") @db.Uuid
   name         String   @db.VarChar(255)
   manufacturer String?  @db.VarChar(255)
   category     String?  @db.VarChar(100)
@@ -893,13 +911,15 @@ model MedicationInventory {
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
+  @@index([tenantId])
   @@map("medication_inventory")
   @@schema("tenant_template")
 }
 
 model Department {
   id        String          @id @default(uuid()) @db.Uuid
-  code      String          @unique @db.VarChar(20)
+  tenantId  String?         @map("tenant_id") @db.Uuid
+  code      String          @db.VarChar(20)
   name      String          @db.VarChar(150)
   type      DepartmentType?
   headId    String?         @map("head_id") @db.Uuid
@@ -911,6 +931,8 @@ model Department {
   users     TenantUser[]
   schedules Schedule[]
 
+  @@unique([tenantId, code])
+  @@index([tenantId])
   @@map("departments")
   @@schema("tenant_template")
 }
@@ -945,6 +967,7 @@ model TenantUser {
 
 model Schedule {
   id           String         @id @default(uuid()) @db.Uuid
+  tenantId     String?        @map("tenant_id") @db.Uuid
   userId       String         @map("user_id") @db.Uuid
   departmentId String         @map("department_id") @db.Uuid
   shiftType    ShiftType      @map("shift_type")
@@ -960,6 +983,7 @@ model Schedule {
   department Department @relation(fields: [departmentId], references: [id])
 
   @@unique([userId, date, shiftType])
+  @@index([tenantId])
   @@index([userId, date])
   @@index([departmentId, date])
   @@map("schedules")
@@ -968,6 +992,7 @@ model Schedule {
 
 model BillingStay {
   id                String            @id @default(uuid()) @db.Uuid
+  tenantId          String?           @map("tenant_id") @db.Uuid
   stayId            String            @unique @map("stay_id") @db.Uuid
   patientId         String            @map("patient_id") @db.Uuid
   status            BillingStayStatus @default(open)
@@ -986,12 +1011,14 @@ model BillingStay {
   stay    Stay    @relation(fields: [stayId], references: [id])
   patient Patient @relation(fields: [patientId], references: [id])
 
+  @@index([tenantId])
   @@map("billing_stays")
   @@schema("tenant_template")
 }
 
 model AdverseEvent {
   id              String               @id @default(uuid()) @db.Uuid
+  tenantId        String?              @map("tenant_id") @db.Uuid
   declaredBy      String               @map("declared_by") @db.Uuid
   patientId       String?              @map("patient_id") @db.Uuid
   stayId          String?              @map("stay_id") @db.Uuid
@@ -1009,6 +1036,7 @@ model AdverseEvent {
   patient Patient? @relation(fields: [patientId], references: [id])
   stay    Stay?    @relation(fields: [stayId], references: [id])
 
+  @@index([tenantId])
   @@map("adverse_events")
   @@schema("tenant_template")
 }

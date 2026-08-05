@@ -14,6 +14,7 @@ export async function GET() {
 
     const doctors = await prisma.tenantUser.findMany({
       where: {
+        tenantId: session.user.tenantId,
         isActive: true,
         role: "doctor",
       },

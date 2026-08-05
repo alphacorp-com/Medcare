@@ -21,8 +21,8 @@ export async function GET(
 
     const { id } = await params;
 
-    const stay = await prisma.stay.findUnique({
-      where: { id },
+    const stay = await prisma.stay.findFirst({
+      where: { id, tenantId: session.user.tenantId },
       include: {
         patient: {
           select: {
@@ -89,6 +89,18 @@ export async function PATCH(
       departmentId,
       attendingDoctorId,
     } = body;
+
+    const existingStay = await prisma.stay.findFirst({
+      where: { id, tenantId: session.user.tenantId },
+      select: { id: true },
+    });
+
+    if (!existingStay) {
+      return NextResponse.json(
+        { error: "Stay not found", success: false },
+        { status: 404 }
+      );
+    }
 
     const stay = await prisma.stay.update({
       where: { id },

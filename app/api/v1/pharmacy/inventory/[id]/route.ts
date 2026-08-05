@@ -19,6 +19,17 @@ export async function PATCH(
     }
 
     const { id } = await params;
+
+    const existingItem = await prisma.medicationInventory.findFirst({
+      where: { id, tenantId: session.user.tenantId },
+    });
+    if (!existingItem) {
+      return NextResponse.json(
+        { error: "Inventory item not found", success: false },
+        { status: 404 }
+      );
+    }
+
     const body = await request.json();
 
     // Fields that can be updated

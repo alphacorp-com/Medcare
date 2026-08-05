@@ -9,12 +9,20 @@ import type { DepartmentType } from "@prisma/client";
 // ones (existing dropdown consumers rely on this); pass includeInactive=true
 // to also see deactivated departments (used by the Planning module's management view).
 export async function GET(req: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const { searchParams } = new URL(req.url);
     const includeInactive = searchParams.get("includeInactive") === "true";
 
     const departments = await prisma.department.findMany({
-      where: includeInactive ? undefined : { isActive: true },
+      where: {
+        tenantId: session.user.tenantId,
+        ...(includeInactive ? {} : { isActive: true }),
+      },
       select: {
         id: true,
         code: true,
@@ -68,6 +76,7 @@ export async function POST(req: Request) {
 
     const department = await prisma.department.create({
       data: {
+        tenantId: session.user.tenantId,
         name: name.trim(),
         code: code.trim().toUpperCase(),
         type: type || null,

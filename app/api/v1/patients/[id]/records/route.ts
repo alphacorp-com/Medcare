@@ -43,9 +43,22 @@ export async function GET(
     const type = searchParams.get("type") as MedicalRecordType | null;
     const stayId = searchParams.get("stayId");
 
+    const patient = await prisma.patient.findFirst({
+      where: { id, tenantId: session.user.tenantId },
+      select: { id: true },
+    });
+
+    if (!patient) {
+      return NextResponse.json(
+        { error: "Patient not found", success: false },
+        { status: 404 }
+      );
+    }
+
     const records = await prisma.medicalRecord.findMany({
       where: {
         patientId: id,
+        tenantId: session.user.tenantId,
         ...(type ? { type } : {}),
         ...(stayId ? { stayId } : {}),
       },
@@ -142,9 +155,23 @@ export async function POST(
       );
     }
 
+    // ── Verify parent patient belongs to this tenant ────────────────────────
+    const patient = await prisma.patient.findFirst({
+      where: { id, tenantId: session.user.tenantId },
+      select: { id: true },
+    });
+
+    if (!patient) {
+      return NextResponse.json(
+        { error: "Patient not found", success: false },
+        { status: 404 }
+      );
+    }
+
     // ── Create ─────────────────────────────────────────────────────────────
     const record = await prisma.medicalRecord.create({
       data: {
+        tenantId: session.user.tenantId,
         patientId: id,
         authorId: authorId as string,
         type: type as MedicalRecordType,

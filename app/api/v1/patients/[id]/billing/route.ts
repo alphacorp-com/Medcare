@@ -21,9 +21,22 @@ export async function GET(
 
     const { id } = await params;
 
+    const patient = await prisma.patient.findFirst({
+      where: { id, tenantId: session.user.tenantId },
+      select: { id: true },
+    });
+
+    if (!patient) {
+      return NextResponse.json(
+        { error: "Patient not found", success: false },
+        { status: 404 }
+      );
+    }
+
     const billingStays = await prisma.billingStay.findMany({
       where: {
         patientId: id,
+        tenantId: session.user.tenantId,
       },
       orderBy: { createdAt: "desc" },
       include: {

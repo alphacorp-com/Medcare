@@ -20,8 +20,8 @@ export async function GET(
 
     const { id } = await params;
 
-    const prescription = await prisma.prescription.findUnique({
-      where: { id },
+    const prescription = await prisma.prescription.findFirst({
+      where: { id, tenantId: session.user.tenantId },
       select: { notes: true }
     });
 
@@ -76,8 +76,8 @@ export async function PATCH(
       );
     }
 
-    const prescription = await prisma.prescription.findUnique({
-      where: { id },
+    const prescription = await prisma.prescription.findFirst({
+      where: { id, tenantId: session.user.tenantId },
       select: { notes: true }
     });
 

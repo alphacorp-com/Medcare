@@ -28,6 +28,7 @@ export async function GET(req: Request) {
 
   const exams = await prisma.examRequest.findMany({
     where: {
+      tenantId: session.user.tenantId,
       type: "biology",
       status: status ?? undefined,
       urgency: urgency ?? undefined,
@@ -86,8 +87,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "examLabel is required for a custom panel" }, { status: 400 });
     }
 
+    const patient = await prisma.patient.findFirst({
+      where: { id: patientId, tenantId: session.user.tenantId },
+      select: { id: true },
+    });
+    if (!patient) {
+      return NextResponse.json({ error: "Patient not found" }, { status: 404 });
+    }
+
     const exam = await prisma.examRequest.create({
       data: {
+        tenantId: session.user.tenantId,
         patientId,
         stayId: stayId || null,
         prescriberId: session.user.id,

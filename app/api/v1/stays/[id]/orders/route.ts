@@ -47,9 +47,9 @@ export async function POST(
       examCode = `EX-${timestamp}-${random}`;
     }
 
-    // Fetch the stay to get patientId
-    const stay = await prisma.stay.findUnique({
-      where: { id: stayId },
+    // Fetch the stay to get patientId (scoped to this tenant)
+    const stay = await prisma.stay.findFirst({
+      where: { id: stayId, tenantId: session.user.tenantId },
       select: { id: true, patientId: true },
     });
 
@@ -62,6 +62,7 @@ export async function POST(
 
     const order = await prisma.examRequest.create({
       data: {
+        tenantId: session.user.tenantId,
         patientId: stay.patientId,
         stayId: stay.id,
         prescriberId,
@@ -100,8 +101,20 @@ export async function GET(
 
     const { id: stayId } = await params;
 
+    const stay = await prisma.stay.findFirst({
+      where: { id: stayId, tenantId: session.user.tenantId },
+      select: { id: true },
+    });
+
+    if (!stay) {
+      return NextResponse.json(
+        { error: "Stay not found", success: false },
+        { status: 404 }
+      );
+    }
+
     const orders = await prisma.examRequest.findMany({
-      where: { stayId },
+      where: { stayId, tenantId: session.user.tenantId },
       orderBy: { requestedAt: "desc" },
     });
 

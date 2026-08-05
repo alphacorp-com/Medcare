@@ -15,6 +15,13 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
   const { id } = await context.params;
 
   try {
+    const existing = await prisma.department.findFirst({
+      where: { id, tenantId: session.user.tenantId },
+    });
+    if (!existing) {
+      return NextResponse.json({ error: "Department not found" }, { status: 404 });
+    }
+
     const body = await req.json();
     const { name, code, type, headId, phone, location, isActive } = body as {
       name?: string;

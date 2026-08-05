@@ -26,9 +26,22 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status") as PrescriptionStatus | null;
 
+    const patient = await prisma.patient.findFirst({
+      where: { id, tenantId: session.user.tenantId },
+      select: { id: true },
+    });
+
+    if (!patient) {
+      return NextResponse.json(
+        { error: "Patient not found", success: false },
+        { status: 404 }
+      );
+    }
+
     const prescriptions = await prisma.prescription.findMany({
       where: {
         patientId: id,
+        tenantId: session.user.tenantId,
         ...(status ? { status } : {}),
       },
       orderBy: { prescribedAt: "desc" },

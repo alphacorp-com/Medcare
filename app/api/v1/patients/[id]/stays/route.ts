@@ -39,9 +39,22 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status") as StayStatus | null;
 
+    const patient = await prisma.patient.findFirst({
+      where: { id, tenantId: session.user.tenantId },
+      select: { id: true },
+    });
+
+    if (!patient) {
+      return NextResponse.json(
+        { error: "Patient not found", success: false },
+        { status: 404 }
+      );
+    }
+
     const stays = await prisma.stay.findMany({
       where: {
         patientId: id,
+        tenantId: session.user.tenantId,
         ...(status ? { status } : {}),
       },
       orderBy: { admissionDate: "desc" },
@@ -115,13 +128,30 @@ export async function POST(
         ? (status as StayStatus)
         : "in_progress";
 
-    // ── Generate stay number ───────────────────────────────────────────────
-    const count = await prisma.stay.count();
+    // ── Verify parent patient belongs to this tenant ────────────────────────
+    const patient = await prisma.patient.findFirst({
+      where: { id, tenantId: session.user.tenantId },
+      select: { id: true },
+    });
+
+    if (!patient) {
+      return NextResponse.json(
+        { error: "Patient not found", success: false },
+        { status: 404 }
+      );
+    }
+
+    // ── Generate stay number (scoped to tenant since Stay.stayNumber is
+    // unique per-tenant, not globally) ──────────────────────────────────────
+    const count = await prisma.stay.count({
+      where: { tenantId: session.user.tenantId },
+    });
     const stayNumber = `STAY${String(count + 1).padStart(6, "0")}`;
 
     // ── Create ─────────────────────────────────────────────────────────────
     const stay = await prisma.stay.create({
       data: {
+        tenantId: session.user.tenantId,
         patientId: id,
         stayNumber,
         type: type as StayType,

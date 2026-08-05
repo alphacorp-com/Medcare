@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import { authOptions } from "@/lib/auth";
 import { isAdminOrTenantAdmin } from "@/lib/permissions";
 import { recordAuditEvent, extractRequestMeta } from "@/lib/audit";
+import { getTenantSeatLimit } from "@/lib/tenant-licensing";
 
 export async function GET(req: Request) {
   try {
@@ -17,6 +18,7 @@ export async function GET(req: Request) {
     }
 
     const users = await prisma.tenantUser.findMany({
+      where: { tenantId: session.user.tenantId },
       select: {
         id: true,
         email: true,
@@ -70,6 +72,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "User already exists" }, { status: 409 });
     }
 
+    if (session.user.tenantId) {
+      const seatLimit = await getTenantSeatLimit(session.user.tenantId);
+      if (seatLimit != null) {
+        const activeUserCount = await prisma.tenantUser.count({
+          where: { tenantId: session.user.tenantId, isActive: true },
+        });
+        if (activeUserCount >= seatLimit) {
+          return NextResponse.json(
+            { error: `User seat limit reached (${seatLimit}). Contact your administrator to purchase additional seats.` },
+            { status: 403 }
+          );
+        }
+      }
+    }
+
     // Hash a default password for newly created users from the dashboard
     const defaultPassword = "password123";
     const passwordHash = await bcrypt.hash(defaultPassword, 10);
@@ -82,6 +99,7 @@ export async function POST(req: Request) {
         modules: modules || [],
         passwordHash,
         isActive: status === 'active',
+        tenantId: session.user.tenantId,
       },
     });
 

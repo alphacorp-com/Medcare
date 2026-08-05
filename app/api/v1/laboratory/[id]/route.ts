@@ -17,8 +17,8 @@ export async function GET(req: Request, context: { params: Promise<{ id: string 
   }
 
   const { id } = await context.params;
-  const exam = await prisma.examRequest.findUnique({
-    where: { id },
+  const exam = await prisma.examRequest.findFirst({
+    where: { id, tenantId: session.user.tenantId },
     include: {
       patient: { select: PATIENT_SELECT },
       results: { orderBy: { createdAt: "desc" } },
