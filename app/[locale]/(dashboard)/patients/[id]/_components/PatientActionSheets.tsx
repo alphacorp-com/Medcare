@@ -12,12 +12,13 @@ import {
   SheetFooter,
 } from "@/components/ui/sheet";
 import { format } from "date-fns";
-import { 
-  EditPatientForm, 
-  NewStayForm, 
-  NewMedRecordForm, 
-  Department, 
-  Doctor, 
+import { VitalsFields } from "@/components/shared/vitals-fields";
+import {
+  EditPatientForm,
+  NewStayForm,
+  NewMedRecordForm,
+  Department,
+  Doctor,
   StayRow,
   PatientDetail
 } from "../types";
@@ -248,6 +249,8 @@ export function NewAdmissionSheet({
             />
           </div>
           
+          <VitalsFields value={form.vitals} onChange={(next) => onUpdateForm("vitals", next)} />
+
           <div className="space-y-1">
             <label className="text-[10px] font-bold text-slate-500 uppercase">{t('assigned_department')}</label>
             <select

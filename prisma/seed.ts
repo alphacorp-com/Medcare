@@ -183,6 +183,14 @@ async function main() {
       description: 'Manage facility planning, staffing and resource allocation.',
       isPublished: true,
     },
+    {
+      code: 'MODULE_MATERNITY',
+      name: 'Maternity',
+      category: 'clinical',
+      tier: 'core',
+      description: 'Track pregnancies, antenatal visits, delivery/partograph and newborn records.',
+      isPublished: true,
+    },
   ];
 
   const seededModules: Record<string, { id: string }> = {};
@@ -231,6 +239,7 @@ async function main() {
     { planId: annualPlan.id, moduleCode: 'MODULE_RADIOLOGY' },
     { planId: annualPlan.id, moduleCode: 'MODULE_BILLING' },
     { planId: annualPlan.id, moduleCode: 'MODULE_PLANNING' },
+    { planId: annualPlan.id, moduleCode: 'MODULE_MATERNITY' },
   ];
 
   for (const assignment of planAssignments) {

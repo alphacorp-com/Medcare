@@ -1,14 +1,16 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { User, MapPin, Phone } from "lucide-react";
-import { PatientDetail } from "../types";
+import { format } from "date-fns";
+import { User, MapPin, Phone, HeartPulse } from "lucide-react";
+import { PatientDetail, VitalSignsRow } from "../types";
 
 interface PatientQuickProfileProps {
   patient: PatientDetail;
+  latestVitals: VitalSignsRow | null;
 }
 
-export function PatientQuickProfile({ patient }: PatientQuickProfileProps) {
+export function PatientQuickProfile({ patient, latestVitals }: PatientQuickProfileProps) {
   const t = useTranslations('patients');
   const tc = useTranslations('common');
 
@@ -41,6 +43,41 @@ export function PatientQuickProfile({ patient }: PatientQuickProfileProps) {
             <div className="text-xs text-slate-600">{patient.email ?? ""}</div>
           </div>
         </div>
+      </div>
+
+      <div className="bg-white rounded border border-slate-200 shadow-sm p-4">
+        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4 border-b border-slate-100 pb-2 flex items-center gap-1.5">
+          <HeartPulse className="h-3 w-3" /> {t('latest_vitals')}
+        </div>
+        {latestVitals ? (
+          <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div>
+                <div className="text-[10px] text-slate-500">{t('vitals_bp')}</div>
+                <div className="font-semibold text-slate-900">
+                  {latestVitals.bloodPressureSystolic && latestVitals.bloodPressureDiastolic
+                    ? `${latestVitals.bloodPressureSystolic}/${latestVitals.bloodPressureDiastolic}`
+                    : "—"}
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] text-slate-500">{t('vitals_pulse')}</div>
+                <div className="font-semibold text-slate-900">{latestVitals.pulse ?? "—"}</div>
+              </div>
+              <div>
+                <div className="text-[10px] text-slate-500">{t('vitals_temperature')}</div>
+                <div className="font-semibold text-slate-900">{latestVitals.temperature ? `${latestVitals.temperature}°C` : "—"}</div>
+              </div>
+              <div>
+                <div className="text-[10px] text-slate-500">{t('vitals_spo2')}</div>
+                <div className="font-semibold text-slate-900">{latestVitals.spo2 ? `${latestVitals.spo2}%` : "—"}</div>
+              </div>
+            </div>
+            <div className="text-[10px] text-slate-400">{format(new Date(latestVitals.recordedAt), "PPP p")}</div>
+          </div>
+        ) : (
+          <div className="text-xs text-slate-500 italic">{t('no_vitals_recorded')}</div>
+        )}
       </div>
 
       <div className="bg-white rounded border border-slate-200 shadow-sm p-4">

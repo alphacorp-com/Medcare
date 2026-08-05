@@ -13,6 +13,7 @@ import {
   SheetFooter,
 } from "@/components/ui/sheet";
 import { PatientSearchAutocomplete } from "@/components/shared/patient-search-autocomplete";
+import { VitalsFields } from "@/components/shared/vitals-fields";
 import { Department, Doctor, NewStayForm } from "../types";
 
 interface NewAdmissionSheetProps {
@@ -102,6 +103,9 @@ export function NewAdmissionSheet({
               placeholder="Patient reports chest pain..."
             />
           </div>
+
+          {/* Vital signs */}
+          <VitalsFields value={form.vitals} onChange={(next) => onUpdateForm("vitals", next)} />
 
           {/* Department */}
           <div className="space-y-1">

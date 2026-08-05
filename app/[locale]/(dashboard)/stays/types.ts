@@ -1,3 +1,8 @@
+import type { VitalsForm } from "@/components/shared/vitals-fields";
+
+export type { VitalsForm } from "@/components/shared/vitals-fields";
+export { EMPTY_VITALS } from "@/components/shared/vitals-fields";
+
 export type StayRow = {
   id: string;
   stayNumber: string;
@@ -35,4 +40,5 @@ export type NewStayForm = {
   departmentId: string;
   bedId: string;
   attendingDoctorId: string;
+  vitals: VitalsForm;
 };

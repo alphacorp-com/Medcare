@@ -10,6 +10,16 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const toUuid = (v: unknown): string | null =>
   typeof v === "string" && UUID_RE.test(v) ? v : null;
 
+const toNumber = (v: unknown): number | null => {
+  if (v === undefined || v === null || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+};
+
+const hasAnyVital = (v: Record<string, unknown> | undefined | null): boolean =>
+  Boolean(v) && ["bloodPressureSystolic", "bloodPressureDiastolic", "pulse", "temperature", "weight", "height", "spo2"]
+    .some((key) => toNumber(v![key]) !== null);
+
 const STAY_STATUSES: StayStatus[] = [
   "pre_admission",
   "in_progress",
@@ -112,6 +122,7 @@ export async function POST(
       departmentId,
       bedId,
       attendingDoctorId,
+      vitals,
     } = body;
 
     // ── Validate required fields ───────────────────────────────────────────
@@ -165,6 +176,24 @@ export async function POST(
         departmentId: toUuid(departmentId),
         bedId: toUuid(bedId),
         attendingDoctorId: toUuid(attendingDoctorId),
+        ...(hasAnyVital(vitals)
+          ? {
+              vitalSigns: {
+                create: {
+                  tenantId: session.user.tenantId,
+                  patientId: id,
+                  recordedById: session.user.id,
+                  bloodPressureSystolic: toNumber(vitals.bloodPressureSystolic),
+                  bloodPressureDiastolic: toNumber(vitals.bloodPressureDiastolic),
+                  pulse: toNumber(vitals.pulse),
+                  temperature: toNumber(vitals.temperature),
+                  weight: toNumber(vitals.weight),
+                  height: toNumber(vitals.height),
+                  spo2: toNumber(vitals.spo2),
+                },
+              },
+            }
+          : {}),
       },
     });
 

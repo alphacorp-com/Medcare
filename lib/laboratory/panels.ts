@@ -61,6 +61,16 @@ export const LAB_PANELS: LabPanel[] = [
       { name: "Leukocytes", unit: "", referenceRange: "Negative" },
     ],
   },
+  {
+    code: "HIV",
+    label: "HIV Rapid Test",
+    parameters: [{ name: "HIV", unit: "", referenceRange: "Non-reactive" }],
+  },
+  {
+    code: "SYPH",
+    label: "Syphilis (RPR/TPHA)",
+    parameters: [{ name: "Syphilis", unit: "", referenceRange: "Non-reactive" }],
+  },
 ];
 
 export const CUSTOM_PANEL_CODE = "CUSTOM";

@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { useSession } from "next-auth/react";
 import { PDFPreviewModal } from "@/components/templates/PDFPreviewModal";
+import { EMPTY_VITALS } from "@/components/shared/vitals-fields";
 
 // Internal Components
 import { PatientDetailHeader } from "./_components/PatientDetailHeader";
@@ -24,9 +25,10 @@ import {
   StayRow, 
   PrescriptionRow, 
   ExamRow, 
-  MedicalRecordRow, 
-  BillingRow, 
-  Department, 
+  MedicalRecordRow,
+  BillingRow,
+  VitalSignsRow,
+  Department,
   Doctor,
   EditPatientForm,
   NewStayForm,
@@ -47,6 +49,7 @@ export default function PatientDetailPage() {
   const [exams, setExams] = useState<ExamRow[]>([]);
   const [records, setRecords] = useState<MedicalRecordRow[]>([]);
   const [billing, setBilling] = useState<BillingRow[]>([]);
+  const [vitals, setVitals] = useState<VitalSignsRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -70,7 +73,7 @@ export default function PatientDetailPage() {
   const [editError, setEditError] = useState<string | null>(null);
 
   const [stayForm, setStayForm] = useState<NewStayForm>({
-    type: "emergency", admissionReason: "", departmentId: "", bedId: "", attendingDoctorId: ""
+    type: "emergency", admissionReason: "", departmentId: "", bedId: "", attendingDoctorId: "", vitals: EMPTY_VITALS
   });
   const [savingStay, setSavingStay] = useState(false);
   const [stayError, setStayError] = useState<string | null>(null);
@@ -83,18 +86,19 @@ export default function PatientDetailPage() {
 
   const fetchData = async () => {
     try {
-      const [pRes, sRes, rxRes, exRes, recRes, billRes] = await Promise.all([
+      const [pRes, sRes, rxRes, exRes, recRes, billRes, vitRes] = await Promise.all([
         fetch(`/api/v1/patients/${id}`),
         fetch(`/api/v1/patients/${id}/stays`),
         fetch(`/api/v1/patients/${id}/prescriptions`),
         fetch(`/api/v1/patients/${id}/exams`),
         fetch(`/api/v1/patients/${id}/records`),
         fetch(`/api/v1/patients/${id}/billing`),
+        fetch(`/api/v1/patients/${id}/vitals`),
       ]);
-      const [pJson, sJson, rxJson, exJson, recJson, billJson] = await Promise.all([
-        pRes.json(), sRes.json(), rxRes.json(), exRes.json(), recRes.json(), billRes.json()
+      const [pJson, sJson, rxJson, exJson, recJson, billJson, vitJson] = await Promise.all([
+        pRes.json(), sRes.json(), rxRes.json(), exRes.json(), recRes.json(), billRes.json(), vitRes.json()
       ]);
-      
+
       if (!pRes.ok || !pJson.success) throw new Error(pJson.error ?? "Failed to load patient");
       setPatient(pJson.data);
       if (sJson.success) setStays(sJson.data);
@@ -102,6 +106,7 @@ export default function PatientDetailPage() {
       if (exJson.success) setExams(exJson.data);
       if (recJson.success) setRecords(recJson.data);
       if (billJson.success) setBilling(billJson.data);
+      if (vitJson.success) setVitals(vitJson.data);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load");
     } finally {
@@ -184,9 +189,14 @@ export default function PatientDetailPage() {
       });
       if (res.ok) {
         setIsStayOpen(false);
-        const sRes = await fetch(`/api/v1/patients/${id}/stays`);
-        const sJson = await sRes.json();
+        setStayForm((prev) => ({ ...prev, vitals: EMPTY_VITALS }));
+        const [sRes, vitRes] = await Promise.all([
+          fetch(`/api/v1/patients/${id}/stays`),
+          fetch(`/api/v1/patients/${id}/vitals`),
+        ]);
+        const [sJson, vitJson] = await Promise.all([sRes.json(), vitRes.json()]);
         if (sJson.success) setStays(sJson.data);
+        if (vitJson.success) setVitals(vitJson.data);
       }
     } catch (e) {
       setStayError("Failed to create stay");
@@ -248,15 +258,16 @@ export default function PatientDetailPage() {
 
       <div className="grid grid-cols-12 gap-4 flex-1 overflow-hidden">
         {/* Left Profile */}
-        <PatientQuickProfile patient={patient} />
+        <PatientQuickProfile patient={patient} latestVitals={vitals[0] ?? null} />
 
         {/* Right Tabs */}
-        <PatientTabs 
-          stays={stays} 
-          records={records} 
-          prescriptions={prescriptions} 
-          exams={exams} 
-          billing={billing} 
+        <PatientTabs
+          stays={stays}
+          records={records}
+          prescriptions={prescriptions}
+          exams={exams}
+          billing={billing}
+          vitals={vitals}
           onAddRecord={() => {
           const defaultAuthorId = session?.user?.id || "";
           setRecordForm(prev => ({ ...prev, authorId: defaultAuthorId }));

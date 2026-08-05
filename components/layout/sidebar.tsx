@@ -196,6 +196,37 @@ export function Sidebar() {
           </div>
         )}
 
+        {hasModule('MODULE_MATERNITY') ? (
+          <Link
+            href="/maternity"
+            title={collapsed ? t('maternity') : undefined}
+            className={cn(
+              "flex items-center",
+              collapsed ? "justify-center px-3 py-3" : "justify-between px-4 py-2",
+              pathname.startsWith('/maternity') ? "bg-slate-800 text-white border-blue-500" : "text-slate-400 hover:text-white hover:bg-slate-800 border-transparent",
+              "border-l-4 pl-3"
+            )}
+          >
+            <div className={cn("flex items-center", collapsed ? "justify-center" : "gap-3 truncate")}>
+              <HeartPulse className="h-4 w-4 shrink-0" />
+              {!collapsed && <span className="text-sm truncate">{t('maternity')}</span>}
+            </div>
+            {!collapsed && (
+              <span className="shrink-0 ml-2 px-1.5 py-0.5 bg-green-500/20 text-green-400 text-[9px] rounded uppercase">{t('active')}</span>
+            )}
+          </Link>
+        ) : (
+          <div className={cn("flex items-center text-slate-400 opacity-50 cursor-not-allowed", collapsed ? "justify-center px-3 py-3" : "justify-between px-4 py-2")}>
+            <div className={cn("flex items-center", collapsed ? "justify-center" : "gap-3 truncate pl-3")}>
+              <HeartPulse className="h-4 w-4 shrink-0" />
+              {!collapsed && <span className="text-sm italic truncate">{t('maternity')}</span>}
+            </div>
+            {!collapsed && (
+              <span className="shrink-0 ml-2 px-1.5 py-0.5 bg-slate-700 text-slate-500 text-[9px] rounded uppercase">{t('disabled')}</span>
+            )}
+          </div>
+        )}
+
         <Link
           href="/messages"
           title={collapsed ? t('messages') : undefined}

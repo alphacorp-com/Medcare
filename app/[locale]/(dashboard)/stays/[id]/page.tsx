@@ -14,6 +14,8 @@ import { TransferSheet } from "./_components/TransferSheet";
 import { DischargeSheet } from "./_components/DischargeSheet";
 import { PrescriptionSheet } from "./_components/PrescriptionSheet";
 import { MedicalOrderSheet } from "./_components/MedicalOrderSheet";
+import { VitalsSheet } from "./_components/VitalsSheet";
+import { EMPTY_VITALS, VitalsForm } from "@/components/shared/vitals-fields";
 
 // Types
 import { StayDetail, Doctor, Department, InventoryItem } from "./types";
@@ -40,6 +42,8 @@ export default function AdmissionDetailPage() {
   const [dischargeOpen, setDischargeOpen] = useState(false);
   const [prescriptionOpen, setPrescriptionOpen] = useState(false);
   const [orderOpen, setOrderOpen] = useState(false);
+  const [vitalsOpen, setVitalsOpen] = useState(false);
+  const [vitalsForm, setVitalsForm] = useState<VitalsForm>(EMPTY_VITALS);
   const [rxItems, setRxItems] = useState([{ drug: "", dosage: "", frequency: "", duration: "" }]);
 
   const fetchStay = async () => {
@@ -195,6 +199,27 @@ export default function AdmissionDetailPage() {
     }
   };
 
+  const handleVitals = async () => {
+    if (!stay) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/v1/patients/${stay.patientId}/vitals`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stayId: id, ...vitalsForm }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error ?? t('error_save'));
+      toast.success(t('save_vitals'));
+      setVitalsOpen(false);
+      setVitalsForm(EMPTY_VITALS);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t('error_save'));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const getDoctorName = (doctorId: string) => {
     return doctors.find(d => d.id === doctorId)?.fullName || doctorId;
   };
@@ -218,10 +243,11 @@ export default function AdmissionDetailPage() {
   return (
     <div className="flex flex-col h-full space-y-4">
       {/* Header Section */}
-      <StayHeader 
-        stay={stay} 
-        onTransferOpen={() => setTransferOpen(true)} 
-        onDischargeOpen={() => setDischargeOpen(true)} 
+      <StayHeader
+        stay={stay}
+        onTransferOpen={() => setTransferOpen(true)}
+        onDischargeOpen={() => setDischargeOpen(true)}
+        onVitalsOpen={() => setVitalsOpen(true)}
       />
 
       {/* Main Content Section */}
@@ -269,12 +295,21 @@ export default function AdmissionDetailPage() {
         onSubmit={handlePrescription} 
       />
 
-      <MedicalOrderSheet 
-        open={orderOpen} 
-        onOpenChange={setOrderOpen} 
-        doctors={doctors} 
-        submitting={submitting} 
-        onSubmit={handleOrder} 
+      <MedicalOrderSheet
+        open={orderOpen}
+        onOpenChange={setOrderOpen}
+        doctors={doctors}
+        submitting={submitting}
+        onSubmit={handleOrder}
+      />
+
+      <VitalsSheet
+        open={vitalsOpen}
+        onOpenChange={setVitalsOpen}
+        value={vitalsForm}
+        onChange={setVitalsForm}
+        submitting={submitting}
+        onSubmit={handleVitals}
       />
     </div>
   );
