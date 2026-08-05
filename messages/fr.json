@@ -365,6 +365,7 @@
     "edit_user": "Modifier l'Utilisateur",
     "add_new_user": "Ajouter un Nouvel Utilisateur",
     "create_user": "Créer l'Utilisateur",
+    "save_user_error": "Échec de l'enregistrement de l'utilisateur. Veuillez réessayer.",
     "delete_user": "Supprimer l'Utilisateur",
     "confirm_remove": "Êtes-vous sûr de vouloir supprimer",
     "view_activity": "Voir l'activité",

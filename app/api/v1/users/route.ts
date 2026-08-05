@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth/next";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { authOptions } from "@/lib/auth";
-import { isAdminOrTenantAdmin } from "@/lib/permissions";
+import { requireAdminOrTenantAdmin } from "@/lib/permissions";
 import { recordAuditEvent, extractRequestMeta } from "@/lib/audit";
 import { getTenantSeatLimit } from "@/lib/tenant-licensing";
 
@@ -13,8 +13,9 @@ export async function GET(req: Request) {
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    if (!isAdminOrTenantAdmin(session)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const permCheck = requireAdminOrTenantAdmin(session);
+    if (!permCheck.ok) {
+      return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
     }
 
     const users = await prisma.tenantUser.findMany({
@@ -53,8 +54,9 @@ export async function POST(req: Request) {
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    if (!isAdminOrTenantAdmin(session)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const permCheck = requireAdminOrTenantAdmin(session);
+    if (!permCheck.ok) {
+      return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
     }
 
     const body = await req.json();
@@ -80,7 +82,9 @@ export async function POST(req: Request) {
         });
         if (activeUserCount >= seatLimit) {
           return NextResponse.json(
-            { error: `User seat limit reached (${seatLimit}). Contact your administrator to purchase additional seats.` },
+            {
+              error: `User seat limit reached (${seatLimit}). Contact your administrator to purchase additional seats. / Limite de sièges utilisateurs atteinte (${seatLimit}). Contactez votre administrateur pour acheter des sièges supplémentaires.`,
+            },
             { status: 403 }
           );
         }

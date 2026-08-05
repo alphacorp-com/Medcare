@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth/next";
 import bcrypt from "bcryptjs";
 import prisma from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
-import { isAdminOrTenantAdmin } from "@/lib/permissions";
+import { isAdminOrTenantAdmin, requireSelfOrAdmin, requireAdminOrTenantAdmin } from "@/lib/permissions";
 import { recordAuditEvent, extractRequestMeta } from "@/lib/audit";
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -14,8 +14,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    if (session.user.id !== id && !isAdminOrTenantAdmin(session)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const permCheck = requireSelfOrAdmin(session, id);
+    if (!permCheck.ok) {
+      return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
     }
 
     // Platform admins manage users across all tenants; everyone else (self-view or
@@ -62,8 +63,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (session.user.id !== id && !isAdminOrTenantAdmin(session)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const permCheck = requireSelfOrAdmin(session, id);
+    if (!permCheck.ok) {
+      return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
     }
 
     const body = await req.json();
@@ -142,8 +144,9 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    if (!isAdminOrTenantAdmin(session)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const permCheck = requireAdminOrTenantAdmin(session);
+    if (!permCheck.ok) {
+      return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
     }
 
     const isPlatformAdmin = session.user.role === "admin";

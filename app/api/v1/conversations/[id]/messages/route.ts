@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { resolveTenantAccess } from "@/lib/tenant-licensing";
+import { RESOURCE_ACCESS_DENIED } from "@/lib/permissions";
 
 async function requireParticipant(conversationId: string, userId: string) {
   return prisma.conversationParticipant.findUnique({
@@ -21,7 +22,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const { id } = await params;
   const participant = await requireParticipant(id, session.user.id);
   if (!participant) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return NextResponse.json({ error: RESOURCE_ACCESS_DENIED }, { status: 403 });
   }
 
   const { searchParams } = new URL(req.url);
@@ -59,7 +60,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const { id } = await params;
   const participant = await requireParticipant(id, session.user.id);
   if (!participant) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return NextResponse.json({ error: RESOURCE_ACCESS_DENIED }, { status: 403 });
   }
 
   const body = await req.json();

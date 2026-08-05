@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { requireTenantAdmin } from "@/lib/permissions";
 import type { ScheduleStatus } from "@prisma/client";
 
 const ALLOWED_STATUSES: ScheduleStatus[] = ["planned", "confirmed", "modified", "absent", "replaced"];
@@ -10,8 +11,12 @@ const ALLOWED_STATUSES: ScheduleStatus[] = ["planned", "confirmed", "modified", 
 // Body: { status?, notes? }
 export async function PATCH(req: Request, context: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
-  if (!session?.user || session.user.role !== "tenant_admin") {
-    return NextResponse.json({ error: "Unauthorized - Tenant admin access required" }, { status: 403 });
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const permCheck = requireTenantAdmin(session);
+  if (!permCheck.ok) {
+    return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
   }
 
   const { id } = await context.params;
@@ -52,8 +57,12 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
 // DELETE /api/v1/planning/schedules/[id] — removes a mistakenly-assigned shift
 export async function DELETE(req: Request, context: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
-  if (!session?.user || session.user.role !== "tenant_admin") {
-    return NextResponse.json({ error: "Unauthorized - Tenant admin access required" }, { status: 403 });
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const permCheck = requireTenantAdmin(session);
+  if (!permCheck.ok) {
+    return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
   }
 
   const { id } = await context.params;

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { RESOURCE_ACCESS_DENIED } from "@/lib/permissions";
 
 // POST /api/v1/conversations/[id]/read — mark the current user caught up on this conversation.
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -15,7 +16,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     where: { conversationId_userId: { conversationId: id, userId: session.user.id } },
   });
   if (!participant) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return NextResponse.json({ error: RESOURCE_ACCESS_DENIED }, { status: 403 });
   }
 
   await prisma.conversationParticipant.update({

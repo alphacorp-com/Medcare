@@ -346,6 +346,7 @@
     "edit_user": "Edit User",
     "add_new_user": "Add New User",
     "create_user": "Create User",
+    "save_user_error": "Failed to save user. Please try again.",
     "delete_user": "Delete User",
     "confirm_remove": "Are you sure you want to remove",
     "view_activity": "View Activity",

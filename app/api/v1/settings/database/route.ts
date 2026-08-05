@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import { requireTenantAdmin } from '@/lib/permissions';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import path from 'path';
@@ -13,10 +14,17 @@ export async function POST(request: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
 
-        if (!session || session.user.role !== 'tenant_admin') {
+        if (!session?.user) {
             return NextResponse.json(
-                { error: 'Unauthorized - Tenant admin access required' },
-                { status: 403 }
+                { error: 'Unauthorized' },
+                { status: 401 }
+            );
+        }
+        const permCheck = requireTenantAdmin(session);
+        if (!permCheck.ok) {
+            return NextResponse.json(
+                { error: permCheck.error },
+                { status: permCheck.status }
             );
         }
 
@@ -107,10 +115,17 @@ export async function GET(request: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
 
-        if (!session || session.user.role !== 'tenant_admin') {
+        if (!session?.user) {
             return NextResponse.json(
-                { error: 'Unauthorized - Tenant admin access required' },
-                { status: 403 }
+                { error: 'Unauthorized' },
+                { status: 401 }
+            );
+        }
+        const permCheck = requireTenantAdmin(session);
+        if (!permCheck.ok) {
+            return NextResponse.json(
+                { error: permCheck.error },
+                { status: permCheck.status }
             );
         }
 
@@ -160,10 +175,17 @@ export async function PUT(request: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
 
-        if (!session || session.user.role !== 'tenant_admin') {
+        if (!session?.user) {
             return NextResponse.json(
-                { error: 'Unauthorized - Tenant admin access required' },
-                { status: 403 }
+                { error: 'Unauthorized' },
+                { status: 401 }
+            );
+        }
+        const permCheck = requireTenantAdmin(session);
+        if (!permCheck.ok) {
+            return NextResponse.json(
+                { error: permCheck.error },
+                { status: permCheck.status }
             );
         }
 

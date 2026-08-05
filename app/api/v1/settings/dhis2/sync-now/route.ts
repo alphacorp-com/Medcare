@@ -3,11 +3,16 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { previousMonthPeriod } from "@/lib/dhis2/indicators";
 import { runDhis2Sync } from "@/lib/dhis2/sync";
+import { requireTenantAdmin } from "@/lib/permissions";
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.tenantId || session.user.role !== "tenant_admin") {
-    return NextResponse.json({ error: "Unauthorized - Tenant admin access required" }, { status: 403 });
+  if (!session?.user?.tenantId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const permCheck = requireTenantAdmin(session);
+  if (!permCheck.ok) {
+    return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
   }
 
   const data = await req.json().catch(() => ({}));

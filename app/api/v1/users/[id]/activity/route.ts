@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import prisma from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
+import { RESOURCE_ACCESS_DENIED } from "@/lib/permissions";
 
 // GET /api/v1/users/[id]/activity — audit trail for a single user: actions they took
 // (logins, mutations elsewhere) and actions taken on them (an admin editing their role/modules).
@@ -21,7 +22,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       // A tenant_admin may only view activity for users in their OWN tenant — being
       // "tenant_admin" alone doesn't imply access to another tenant's users.
       if (session.user.role !== "tenant_admin") {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        return NextResponse.json({ error: RESOURCE_ACCESS_DENIED }, { status: 403 });
       }
       const targetUser = await prisma.tenantUser.findUnique({
         where: { id },
@@ -30,7 +31,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       // Same response for "not found" and "different tenant" so this endpoint can't be used
       // to probe whether a given user id exists in another tenant.
       if (!targetUser || targetUser.tenantId !== session.user.tenantId) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        return NextResponse.json({ error: RESOURCE_ACCESS_DENIED }, { status: 403 });
       }
     }
 
