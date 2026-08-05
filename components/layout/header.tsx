@@ -10,6 +10,7 @@ import { useTranslations, useLocale } from "next-intl";
 import { cn } from "@/lib/utils";
 
 import { signOut } from "next-auth/react";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 
 export function Header() {
   const t = useTranslations('common');
@@ -91,6 +92,8 @@ export function Header() {
             <DropdownMenuItem onClick={() => handleLocaleChange('fr')} className={cn("text-xs cursor-pointer", locale === 'fr' && "bg-blue-50 text-blue-700 font-bold")}>Français</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+
+        <NotificationBell />
 
         <div className="flex items-center gap-2 border-r border-slate-200 pr-4">
           <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-bold rounded uppercase">

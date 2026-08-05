@@ -10,6 +10,7 @@
     "radiology": "Radiology",
     "billing": "Billing & PMSI",
     "planning": "Planning",
+    "messages": "Messages",
     "settings": "Settings",
     "logout": "Logout",
     "performed_by": "Performed By",
@@ -989,5 +990,21 @@
     "best_time": "Best Time",
     "warnings": "IMPORTANT WARNINGS",
     "side_effects": "Common Side Effects"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "mark_all_read": "Mark all as read",
+    "empty": "No notifications yet"
+  },
+  "messages": {
+    "title": "Messages",
+    "new_conversation": "New Conversation",
+    "search_colleagues": "Search colleagues...",
+    "no_colleagues": "No colleagues found",
+    "starting": "Starting...",
+    "start_conversation": "Start Conversation",
+    "no_conversations": "No conversations yet",
+    "select_conversation": "Select a conversation to start messaging",
+    "type_message": "Type a message..."
   }
 }

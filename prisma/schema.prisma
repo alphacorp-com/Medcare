@@ -935,6 +935,9 @@ model TenantUser {
 
   department Department? @relation(fields: [departmentId], references: [id])
   schedules  Schedule[]
+  notifications             Notification[]
+  conversationParticipants  ConversationParticipant[]
+  messages                  Message[]
 
   @@map("tenant_users")
   @@schema("tenant_template")
@@ -1007,5 +1010,90 @@ model AdverseEvent {
   stay    Stay?    @relation(fields: [stayId], references: [id])
 
   @@map("adverse_events")
+  @@schema("tenant_template")
+}
+
+// =============================================================================
+// 5. TENANT SCHEMA — Notifications & Conversations
+// =============================================================================
+
+enum NotificationType {
+  module_event
+  message
+  system
+
+  @@schema("tenant_template")
+}
+
+model Notification {
+  id           String           @id @default(uuid()) @db.Uuid
+  tenantId     String?          @map("tenant_id") @db.Uuid
+  recipientId  String           @map("recipient_id") @db.Uuid
+  type         NotificationType @default(module_event)
+  moduleId     String?          @map("module_id") @db.VarChar(60)
+  title        String           @db.VarChar(200)
+  body         String?
+  link         String?          @db.VarChar(300)
+  resourceType String?          @map("resource_type") @db.VarChar(80)
+  resourceId   String?          @map("resource_id") @db.Uuid
+  actorId      String?          @map("actor_id") @db.Uuid
+  isRead       Boolean          @default(false) @map("is_read")
+  readAt       DateTime?        @map("read_at") @db.Timestamptz
+  createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz
+
+  recipient TenantUser @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@index([recipientId, isRead])
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@map("notifications")
+  @@schema("tenant_template")
+}
+
+model Conversation {
+  id            String    @id @default(uuid()) @db.Uuid
+  tenantId      String?   @map("tenant_id") @db.Uuid
+  title         String?   @db.VarChar(150)
+  isGroup       Boolean   @default(false) @map("is_group")
+  createdBy     String    @map("created_by") @db.Uuid
+  lastMessageAt DateTime? @map("last_message_at") @db.Timestamptz
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  participants ConversationParticipant[]
+  messages     Message[]
+
+  @@index([tenantId])
+  @@map("conversations")
+  @@schema("tenant_template")
+}
+
+model ConversationParticipant {
+  id             String    @id @default(uuid()) @db.Uuid
+  conversationId String    @map("conversation_id") @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  lastReadAt     DateTime? @map("last_read_at") @db.Timestamptz
+  joinedAt       DateTime  @default(now()) @map("joined_at") @db.Timestamptz
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         TenantUser   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@map("conversation_participants")
+  @@schema("tenant_template")
+}
+
+model Message {
+  id             String   @id @default(uuid()) @db.Uuid
+  conversationId String   @map("conversation_id") @db.Uuid
+  senderId       String   @map("sender_id") @db.Uuid
+  body           String
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       TenantUser   @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@map("messages")
   @@schema("tenant_template")
 }

@@ -4,6 +4,7 @@ import { getMessages } from 'next-intl/server';
 import { cn } from "@/lib/utils";
 import { AuthInitializer } from '@/components/auth/AuthInitializer';
 import { NextAuthProvider } from '@/components/providers/session-provider';
+import { Toaster } from "sonner";
 import "../globals.css";
 
 const inter = Inter({
@@ -34,6 +35,7 @@ export default async function RootLayout({
             <AuthInitializer>
               {children}
             </AuthInitializer>
+            <Toaster richColors position="top-right" />
           </NextAuthProvider>
         </NextIntlClientProvider>
       </body>
