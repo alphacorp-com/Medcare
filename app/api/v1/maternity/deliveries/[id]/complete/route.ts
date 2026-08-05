@@ -26,12 +26,20 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
       complications?: string[];
       maternalOutcome?: string;
       placentaDelivered?: boolean;
-      bloodLossMl?: number;
+      bloodLossMl?: number | string;
       notes?: string;
     };
 
     if (!mode) {
       return NextResponse.json({ error: "mode is required" }, { status: 400 });
+    }
+
+    const bloodLossMlValue =
+      bloodLossMl === undefined || bloodLossMl === null || bloodLossMl === ""
+        ? null
+        : Number(bloodLossMl);
+    if (bloodLossMlValue !== null && Number.isNaN(bloodLossMlValue)) {
+      return NextResponse.json({ error: "bloodLossMl must be a number" }, { status: 400 });
     }
 
     const delivery = await prisma.delivery.findFirst({
@@ -54,7 +62,7 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
           complications: complications ?? [],
           maternalOutcome: maternalOutcome || "alive",
           placentaDelivered: Boolean(placentaDelivered),
-          bloodLossMl: bloodLossMl ?? null,
+          bloodLossMl: bloodLossMlValue,
           notes: notes || null,
         },
       }),
