@@ -12,6 +12,8 @@
     "planning": "Planning",
     "settings": "Settings",
     "logout": "Logout",
+    "performed_by": "Performed By",
+    "self": "You",
     "clinical_modules": "Clinical Modules",
     "administrative": "Administrative",
     "patient": "Patients",
@@ -895,7 +897,9 @@
     "pharmacist": "Pharmacist",
     "lab": "Lab Technician",
     "billing": "Billing Manager",
-    "hr": "HR Director"
+    "hr": "HR Director",
+    "radiologist": "Radiologist",
+    "viewer": "Viewer"
   },
   "templates": {
     "title": "Document Templates",

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { findExam, generateExamCode } from "@/lib/radiology/catalog";
+import { requireModulePermission } from "@/lib/permissions";
 import type { ExamRequestStatus, ExamUrgency } from "@prisma/client";
 
 const PATIENT_SELECT = { id: true, firstName: true, lastName: true, ipp: true, allergies: true } as const;
@@ -13,6 +14,10 @@ export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const permCheck = requireModulePermission(session, "MODULE_RADIOLOGY", "read");
+  if (!permCheck.ok) {
+    return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
   }
 
   const { searchParams } = new URL(req.url);
@@ -54,6 +59,10 @@ export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const permCheck = requireModulePermission(session, "MODULE_RADIOLOGY", "create");
+  if (!permCheck.ok) {
+    return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
   }
 
   try {

@@ -12,6 +12,8 @@
     "planning": "Planning",
     "settings": "Paramètres",
     "logout": "Déconnexion",
+    "performed_by": "Effectué par",
+    "self": "Vous",
     "clinical_modules": "Modules Cliniques",
     "administrative": "Administratif",
     "patient": "Patients",
@@ -915,7 +917,9 @@
     "pharmacist": "Pharmacien",
     "lab": "Technicien Laboratoire",
     "billing": "Responsable Facturation",
-    "hr": "Directeur RH"
+    "hr": "Directeur RH",
+    "radiologist": "Radiologue",
+    "viewer": "Observateur"
   },
   "templates": {
     "title": "Modèles de Documents",

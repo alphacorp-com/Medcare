@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { findScheduleConflicts } from "@/lib/planning/conflicts";
 import { shiftTimeRange } from "@/lib/planning/shifts";
+import { requireModulePermission } from "@/lib/permissions";
 import type { ShiftType } from "@prisma/client";
 
 function toDateOnly(dateStr: string): Date {
@@ -16,6 +17,10 @@ export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const permCheck = requireModulePermission(session, "MODULE_PLANNING", "read");
+  if (!permCheck.ok) {
+    return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
   }
 
   const { searchParams } = new URL(req.url);

@@ -3,12 +3,17 @@ import { getServerSession } from "next-auth/next";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { authOptions } from "@/lib/auth";
+import { isAdminOrTenantAdmin } from "@/lib/permissions";
+import { recordAuditEvent, extractRequestMeta } from "@/lib/audit";
 
 export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (!isAdminOrTenantAdmin(session)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const users = await prisma.tenantUser.findMany({
@@ -43,7 +48,10 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user || (session.user.role !== 'admin' && session.user.role !== 'tenant_admin')) {
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (!isAdminOrTenantAdmin(session)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -75,6 +83,19 @@ export async function POST(req: Request) {
         passwordHash,
         isActive: status === 'active',
       },
+    });
+
+    const { ipAddress, userAgent } = extractRequestMeta(req.headers);
+    await recordAuditEvent({
+      tenantId: session.user.tenantId,
+      actorId: session.user.id,
+      actorType: session.user.role === "admin" ? "admin" : "tenant_user",
+      action: "user.create",
+      resourceType: "tenant_user",
+      resourceId: newUser.id,
+      payload: { email: newUser.email, role: newUser.role, modules: newUser.modules },
+      ipAddress,
+      userAgent,
     });
 
     return NextResponse.json({

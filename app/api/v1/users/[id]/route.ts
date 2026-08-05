@@ -3,11 +3,21 @@ import { getServerSession } from "next-auth/next";
 import bcrypt from "bcryptjs";
 import prisma from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
+import { isAdminOrTenantAdmin } from "@/lib/permissions";
+import { recordAuditEvent, extractRequestMeta } from "@/lib/audit";
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (session.user.id !== id && !isAdminOrTenantAdmin(session)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const user = await prisma.tenantUser.findUnique({
       where: { id },
       select: {
@@ -45,7 +55,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (session.user.id !== id && session.user.role !== 'admin' && session.user.role !== 'tenant_admin') {
+    if (session.user.id !== id && !isAdminOrTenantAdmin(session)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -64,16 +74,38 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 });
     }
 
+    const canManage = isAdminOrTenantAdmin(session);
+
     const updatedUser = await prisma.tenantUser.update({
       where: { id },
       data: {
         ...(fullName && { fullName }),
         ...(email && { email }),
-        ...(role && (session.user.role === 'admin' || session.user.role === 'tenant_admin') && { role }),
-        ...(modules && (session.user.role === 'admin' || session.user.role === 'tenant_admin') && { modules }),
-        ...(status && (session.user.role === 'admin' || session.user.role === 'tenant_admin') && { isActive: status === 'active' }),
+        ...(role && canManage && { role }),
+        ...(modules && canManage && { modules }),
+        ...(status && canManage && { isActive: status === 'active' }),
         ...(password && { passwordHash: await bcrypt.hash(password, 10) }),
       },
+    });
+
+    const { ipAddress, userAgent } = extractRequestMeta(req.headers);
+    const roleChanged = role && canManage && role !== existingUser.role;
+    const modulesChanged = modules && canManage &&
+      JSON.stringify(modules) !== JSON.stringify(existingUser.modules);
+    await recordAuditEvent({
+      tenantId: session.user.tenantId,
+      actorId: session.user.id,
+      actorType: session.user.role === "admin" ? "admin" : "tenant_user",
+      action: "user.update",
+      resourceType: "tenant_user",
+      resourceId: id,
+      payload: {
+        fields: Object.keys(body),
+        ...(roleChanged ? { roleChanged: { from: existingUser.role, to: role } } : {}),
+        ...(modulesChanged ? { modulesChanged: { from: existingUser.modules, to: modules } } : {}),
+      },
+      ipAddress,
+      userAgent,
     });
 
     return NextResponse.json({
@@ -94,6 +126,14 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (!isAdminOrTenantAdmin(session)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     const existingUser = await prisma.tenantUser.findUnique({
       where: { id },
@@ -105,6 +145,19 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
 
     await prisma.tenantUser.delete({
       where: { id },
+    });
+
+    const { ipAddress, userAgent } = extractRequestMeta(req.headers);
+    await recordAuditEvent({
+      tenantId: session.user.tenantId,
+      actorId: session.user.id,
+      actorType: session.user.role === "admin" ? "admin" : "tenant_user",
+      action: "user.delete",
+      resourceType: "tenant_user",
+      resourceId: id,
+      payload: { deletedEmail: existingUser.email, deletedFullName: existingUser.fullName },
+      ipAddress,
+      userAgent,
     });
 
     return new NextResponse(null, { status: 204 });

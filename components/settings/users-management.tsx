@@ -8,9 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetFooter, SheetTitle } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PlusCircle, Search, Edit2, Activity, Trash2 } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
+import { LastLoginBadge } from "@/components/settings/activity/last-login-badge";
 
 export type ModuleAction = 'read' | 'create' | 'update' | 'delete';
 
@@ -67,8 +67,10 @@ export function UsersManagement() {
     { id: "nurse", name: tr('nurse') },
     { id: "pharmacist", name: tr('pharmacist') },
     { id: "lab_tech", name: tr('lab') },
+    { id: "radiologist", name: tr('radiologist') },
     { id: "billing", name: tr('billing') },
-    { id: "hr", name: tr('hr') }
+    { id: "hr", name: tr('hr') },
+    { id: "viewer", name: tr('viewer') }
   ];
 
   useEffect(() => {
@@ -396,7 +398,7 @@ export function UsersManagement() {
                   }
                 </TableCell>
                 <TableCell className="text-sm text-slate-500">
-                  {user.lastActive ? formatDistanceToNow(new Date(user.lastActive), { addSuffix: true }) : t('never')}
+                  <LastLoginBadge lastActive={user.lastActive} neverLabel={t('never')} />
                 </TableCell>
                 <TableCell className="text-right space-x-2">
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-blue-600" onClick={() => router.push(`/settings/users/${user.id}/activity`)} title={t('view_activity')}>
