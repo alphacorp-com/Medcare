@@ -276,7 +276,16 @@
     "placeholder_nss": "Optionnel",
     "placeholder_contact_name": "Nom du contact",
     "placeholder_phone": "+237 6...",
-    "age_years": "{age} ans"
+    "age_years": "{age} ans",
+    "vitals_tab": "Constantes",
+    "vitals_bp": "Tension Artérielle",
+    "vitals_pulse": "Pouls",
+    "vitals_temperature": "Température",
+    "vitals_weight": "Poids",
+    "vitals_height": "Taille",
+    "vitals_spo2": "SpO2",
+    "no_vitals_recorded": "Aucune constante enregistrée pour le moment.",
+    "latest_vitals": "Dernières Constantes"
   },
   "record": {
     "new_medical_record": "Nouveau Dossier Médical",
@@ -909,7 +918,18 @@
     "doses": "doses",
     "per_day": "par jour",
     "during": "pendant",
-    "days": "jours"
+    "days": "jours",
+    "vitals_title": "Constantes Vitales",
+    "vitals_systolic": "Systolique (mmHg)",
+    "vitals_diastolic": "Diastolique (mmHg)",
+    "vitals_pulse": "Pouls (bpm)",
+    "vitals_temperature": "Température (°C)",
+    "vitals_weight": "Poids (kg)",
+    "vitals_height": "Taille (cm)",
+    "vitals_spo2": "SpO2 (%)",
+    "add_vitals": "Ajouter des Constantes",
+    "add_vitals_desc": "Enregistrer un nouveau relevé de constantes pour ce séjour.",
+    "save_vitals": "Enregistrer les Constantes"
   },
   "roles": {
     "admin": "Administrateur Système",

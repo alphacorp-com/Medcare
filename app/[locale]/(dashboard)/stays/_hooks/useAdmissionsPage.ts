@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { StayRow, Department, Doctor, NewStayForm } from "../types";
+import { StayRow, Department, Doctor, NewStayForm, EMPTY_VITALS } from "../types";
 
 const EMPTY_FORM: NewStayForm = {
   patientId: "",
@@ -8,6 +8,7 @@ const EMPTY_FORM: NewStayForm = {
   departmentId: "",
   bedId: "",
   attendingDoctorId: "",
+  vitals: EMPTY_VITALS,
 };
 
 export function useAdmissionsPage() {
@@ -93,6 +94,7 @@ export function useAdmissionsPage() {
           departmentId: stayForm.departmentId || null,
           bedId: stayForm.bedId || null,
           attendingDoctorId: stayForm.attendingDoctorId || null,
+          vitals: stayForm.vitals,
         }),
       });
       const json = await res.json();

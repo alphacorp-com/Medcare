@@ -692,6 +692,7 @@ model Patient {
   drugDispensings    DrugDispensing[]
   billingStays       BillingStay[]
   adverseEvents      AdverseEvent[]
+  vitalSigns         VitalSigns[]
 
   @@unique([tenantId, ipp])
   @@index([tenantId])
@@ -727,6 +728,7 @@ model Stay {
   surgicalProcedures SurgicalProcedure[]
   adverseEvents      AdverseEvent[]
   billingStay        BillingStay?
+  vitalSigns         VitalSigns[]
 
   @@unique([tenantId, stayNumber])
   @@index([tenantId])
@@ -734,6 +736,31 @@ model Stay {
   @@index([status])
   @@index([admissionDate(sort: Desc)])
   @@map("stays")
+  @@schema("tenant_template")
+}
+
+model VitalSigns {
+  id                     String   @id @default(uuid()) @db.Uuid
+  tenantId               String?  @map("tenant_id") @db.Uuid
+  patientId              String   @map("patient_id") @db.Uuid
+  stayId                 String?  @map("stay_id") @db.Uuid
+  recordedById           String   @map("recorded_by_id") @db.Uuid
+  recordedAt             DateTime @default(now()) @map("recorded_at") @db.Timestamptz
+  bloodPressureSystolic  Int?     @map("blood_pressure_systolic")
+  bloodPressureDiastolic Int?     @map("blood_pressure_diastolic")
+  pulse                  Int?
+  temperature            Decimal? @db.Decimal(4, 1)
+  weight                 Decimal? @db.Decimal(5, 2)
+  height                 Decimal? @db.Decimal(5, 1)
+  spo2                   Int?
+
+  patient Patient @relation(fields: [patientId], references: [id])
+  stay    Stay?   @relation(fields: [stayId], references: [id])
+
+  @@index([patientId, recordedAt(sort: Desc)])
+  @@index([stayId])
+  @@index([tenantId])
+  @@map("vital_signs")
   @@schema("tenant_template")
 }
 

@@ -3,22 +3,24 @@
 import { useTranslations } from "next-intl";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { 
-  Calendar, 
-  FileText, 
-  Pill, 
-  Activity, 
-  Image as ImageIcon, 
-  CreditCard 
+import {
+  Calendar,
+  FileText,
+  Pill,
+  Activity,
+  Image as ImageIcon,
+  CreditCard,
+  HeartPulse
 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { 
-  StayRow, 
-  MedicalRecordRow, 
-  PrescriptionRow, 
-  ExamRow, 
+import {
+  StayRow,
+  MedicalRecordRow,
+  PrescriptionRow,
+  ExamRow,
   BillingRow,
+  VitalSignsRow,
   PrescriptionItem
 } from "../types";
 
@@ -28,6 +30,7 @@ interface PatientTabsProps {
   prescriptions: PrescriptionRow[];
   exams: ExamRow[];
   billing: BillingRow[];
+  vitals: VitalSignsRow[];
   onAddRecord: () => void;
 }
 
@@ -37,6 +40,7 @@ export function PatientTabs({
   prescriptions,
   exams,
   billing,
+  vitals,
   onAddRecord,
 }: PatientTabsProps) {
   const t = useTranslations('patients');
@@ -103,8 +107,14 @@ export function PatientTabs({
             >
               <ImageIcon className="h-3.5 w-3.5 mr-2" /> {tc('radiology')}
             </TabsTrigger>
-            <TabsTrigger 
-              value="billing" 
+            <TabsTrigger
+              value="vitals"
+              className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs"
+            >
+              <HeartPulse className="h-3.5 w-3.5 mr-2" /> {t('vitals_tab')}
+            </TabsTrigger>
+            <TabsTrigger
+              value="billing"
               className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs"
             >
               <CreditCard className="h-3.5 w-3.5 mr-2" /> {tc('billing')}
@@ -322,6 +332,40 @@ export function PatientTabs({
                     <td className="px-4 py-3 font-semibold">{e.examCode}</td>
                     <td className="px-4 py-3 text-slate-900">{e.examLabel}</td>
                     <td className="px-4 py-3 text-right"><button className="text-blue-600 hover:underline">{t('open_viewer')}</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </TabsContent>
+
+          <TabsContent value="vitals" className="m-0 border-none outline-none">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-slate-50/50 text-[10px] text-slate-500 uppercase font-bold border-b border-slate-200">
+                  <th className="px-4 py-2">{tc('date')}</th>
+                  <th className="px-4 py-2">{t('vitals_bp')}</th>
+                  <th className="px-4 py-2">{t('vitals_pulse')}</th>
+                  <th className="px-4 py-2">{t('vitals_temperature')}</th>
+                  <th className="px-4 py-2">{t('vitals_weight')}</th>
+                  <th className="px-4 py-2">{t('vitals_height')}</th>
+                  <th className="px-4 py-2">{t('vitals_spo2')}</th>
+                </tr>
+              </thead>
+              <tbody className="text-xs divide-y divide-slate-100">
+                {vitals.length === 0 && (
+                  <tr><td colSpan={7} className="px-4 py-6 text-center text-slate-500 italic">{t('no_vitals_recorded')}</td></tr>
+                )}
+                {vitals.map((v) => (
+                  <tr key={v.id} className="hover:bg-slate-50">
+                    <td className="px-4 py-3 text-slate-600">{format(new Date(v.recordedAt), "MMM d, yyyy HH:mm")}</td>
+                    <td className="px-4 py-3 font-medium">
+                      {v.bloodPressureSystolic && v.bloodPressureDiastolic ? `${v.bloodPressureSystolic}/${v.bloodPressureDiastolic}` : "—"}
+                    </td>
+                    <td className="px-4 py-3">{v.pulse ?? "—"}</td>
+                    <td className="px-4 py-3">{v.temperature ? `${v.temperature}°C` : "—"}</td>
+                    <td className="px-4 py-3">{v.weight ? `${v.weight} kg` : "—"}</td>
+                    <td className="px-4 py-3">{v.height ? `${v.height} cm` : "—"}</td>
+                    <td className="px-4 py-3">{v.spo2 ? `${v.spo2}%` : "—"}</td>
                   </tr>
                 ))}
               </tbody>

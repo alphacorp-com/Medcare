@@ -276,7 +276,16 @@
     "placeholder_nss": "Optional",
     "placeholder_contact_name": "Contact Name",
     "placeholder_phone": "+237 6...",
-    "age_years": "{age}y"
+    "age_years": "{age}y",
+    "vitals_tab": "Vitals",
+    "vitals_bp": "Blood Pressure",
+    "vitals_pulse": "Pulse",
+    "vitals_temperature": "Temperature",
+    "vitals_weight": "Weight",
+    "vitals_height": "Height",
+    "vitals_spo2": "SpO2",
+    "no_vitals_recorded": "No vital signs recorded yet.",
+    "latest_vitals": "Latest Vitals"
   },
   "record": {
     "new_medical_record": "New Medical Record",
@@ -889,7 +898,18 @@
     "doses": "doses",
     "per_day": "per day",
     "during": "for",
-    "days": "days"
+    "days": "days",
+    "vitals_title": "Vital Signs",
+    "vitals_systolic": "Systolic (mmHg)",
+    "vitals_diastolic": "Diastolic (mmHg)",
+    "vitals_pulse": "Pulse (bpm)",
+    "vitals_temperature": "Temp. (°C)",
+    "vitals_weight": "Weight (kg)",
+    "vitals_height": "Height (cm)",
+    "vitals_spo2": "SpO2 (%)",
+    "add_vitals": "Add Vitals",
+    "add_vitals_desc": "Record a new vital signs reading for this stay.",
+    "save_vitals": "Save Vitals"
   },
   "roles": {
     "admin": "System Administrator",

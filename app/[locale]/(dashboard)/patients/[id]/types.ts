@@ -1,3 +1,5 @@
+import type { VitalsForm } from "@/components/shared/vitals-fields";
+
 export type EmergencyContact = { name?: string; relation?: string; phone?: string };
 
 export type PatientDetail = {
@@ -39,6 +41,21 @@ export type NewStayForm = {
   departmentId: string;
   bedId: string;
   attendingDoctorId: string;
+  vitals: VitalsForm;
+};
+
+export type VitalSignsRow = {
+  id: string;
+  recordedAt: string;
+  recordedById: string;
+  stayId: string | null;
+  bloodPressureSystolic: number | null;
+  bloodPressureDiastolic: number | null;
+  pulse: number | null;
+  temperature: string | null;
+  weight: string | null;
+  height: string | null;
+  spo2: number | null;
 };
 
 export type NewMedRecordForm = {

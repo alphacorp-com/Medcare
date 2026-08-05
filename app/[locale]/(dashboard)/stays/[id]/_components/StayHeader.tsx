@@ -2,9 +2,10 @@
 
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
-import { 
-  ArrowLeft, 
-  ArrowRightLeft, 
+import {
+  ArrowLeft,
+  ArrowRightLeft,
+  Activity,
   LogOut,
   User
 } from "lucide-react";
@@ -17,9 +18,10 @@ interface StayHeaderProps {
   stay: StayDetail;
   onTransferOpen: () => void;
   onDischargeOpen: () => void;
+  onVitalsOpen: () => void;
 }
 
-export function StayHeader({ stay, onTransferOpen, onDischargeOpen }: StayHeaderProps) {
+export function StayHeader({ stay, onTransferOpen, onDischargeOpen, onVitalsOpen }: StayHeaderProps) {
   const t = useTranslations('admissions');
   const tc = useTranslations('common');
 
@@ -57,6 +59,12 @@ export function StayHeader({ stay, onTransferOpen, onDischargeOpen }: StayHeader
         </div>
       </div>
       <div className="flex gap-2">
+         {stay.status !== 'discharged' && (
+           <Button variant="outline" size="sm" className="text-xs h-9 rounded-lg px-4 border-slate-200 hover:bg-slate-50 transition-colors" onClick={onVitalsOpen}>
+             <Activity className="mr-2 h-3.5 w-3.5 text-slate-500" />
+             {t('add_vitals')}
+           </Button>
+         )}
          <Button variant="outline" size="sm" className="text-xs h-9 rounded-lg px-4 border-slate-200 hover:bg-slate-50 transition-colors" onClick={onTransferOpen}>
            <ArrowRightLeft className="mr-2 h-3.5 w-3.5 text-slate-500" />
            {t('transfer_bed')}
