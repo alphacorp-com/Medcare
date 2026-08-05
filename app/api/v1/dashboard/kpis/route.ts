@@ -14,6 +14,7 @@ export async function GET() {
     // Active consultations (stays that are in progress)
     const activeConsultations = await prisma.stay.count({
       where: {
+        tenantId: session.user.tenantId,
         status: StayStatus.in_progress,
       },
     });
@@ -21,6 +22,7 @@ export async function GET() {
     // ER wait time - calculate average wait time for emergency stays
     const emergencyStays = await prisma.stay.findMany({
       where: {
+        tenantId: session.user.tenantId,
         status: StayStatus.in_progress,
         type: "emergency",
       },
@@ -42,6 +44,7 @@ export async function GET() {
     // Lab processing - count pending lab exams
     const pendingLabs = await prisma.examRequest.count({
       where: {
+        tenantId: session.user.tenantId,
         status: "requested",
         type: {
           in: ["biology", "pathology"],
@@ -62,6 +65,7 @@ export async function GET() {
 
     const yesterdayConsultations = await prisma.stay.count({
       where: {
+        tenantId: session.user.tenantId,
         status: StayStatus.in_progress,
         createdAt: {
           gte: yesterday,

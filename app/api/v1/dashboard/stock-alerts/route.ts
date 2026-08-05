@@ -13,6 +13,7 @@ export async function GET() {
     // Get medications with low stock (below threshold)
     const lowStockMedications = await prisma.medicationInventory.findMany({
       where: {
+        tenantId: session.user.tenantId,
         stock: {
           lte: prisma.medicationInventory.fields.threshold,
         },

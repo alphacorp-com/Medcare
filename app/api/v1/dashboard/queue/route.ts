@@ -14,6 +14,7 @@ export async function GET() {
     // Get active stays (in progress) with patient info
     const activeStays = await prisma.stay.findMany({
       where: {
+        tenantId: session.user.tenantId,
         status: StayStatus.in_progress,
       },
       include: {
@@ -38,8 +39,8 @@ export async function GET() {
       activeStays.map(async (stay) => {
         let attendingDoctor = null;
         if (stay.attendingDoctorId) {
-          attendingDoctor = await prisma.tenantUser.findUnique({
-            where: { id: stay.attendingDoctorId },
+          attendingDoctor = await prisma.tenantUser.findFirst({
+            where: { id: stay.attendingDoctorId, tenantId: session.user.tenantId },
             select: {
               id: true,
               fullName: true,
