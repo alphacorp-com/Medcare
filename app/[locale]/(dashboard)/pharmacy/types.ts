@@ -12,7 +12,6 @@ export type PrescriptionRow = {
   invoiceId?: string | null;
   invoiceStatus?: string | null;
   invoiceTotal?: number | null;
-  invoiceItems?: InvoiceLineItem[] | null;
   patientId?: string;
   stayId?: string | null;
 };
@@ -29,14 +28,6 @@ export type PrescriptionItemData = {
   inventoryStock: number;
   unitPrice: number | null;
   inventoryId: string | null;
-};
-
-export type InvoiceLineItem = {
-  drugName: string;
-  inventoryId: string;
-  quantity: number;
-  unitPrice: number;
-  lineTotal: number;
 };
 
 export type InventoryRow = {

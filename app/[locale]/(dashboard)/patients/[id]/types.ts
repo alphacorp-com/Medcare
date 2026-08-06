@@ -131,17 +131,44 @@ export type MedicalRecordRow = {
 export type BillingRow = {
   id: string;
   status: string;
-  totalAmount: string;
+  subtotal: string;
   insuranceAmount: string;
   patientAmount: string;
   paidAmount: string;
-  pmsiCode: string | null;
+  currency: string;
   createdAt: string;
   stay?: {
     stayNumber: string;
     admissionDate: string;
     dischargeDate: string | null;
   } | null;
+  lines: { id: string; description: string; amount: string }[];
+};
+
+export type SurgeryRow = {
+  id: string;
+  procedureLabel: string;
+  procedureCode: string | null;
+  status: string;
+  scheduledAt: string | null;
+  startedAt: string | null;
+  endedAt: string | null;
+};
+
+export type PregnancyRow = {
+  id: string;
+  status: string;
+  lastMenstrualPeriod: string;
+  expectedDueDate: string;
+  gravida: number;
+  para: number;
+  delivery?: {
+    id: string;
+    deliveryDate: string | null;
+    mode: string | null;
+    newborns: { id: string }[];
+  } | null;
+  antenatalVisits: { id: string; visitNumber: number; visitDate: string }[];
 };
 
 export type Department = { id: string; code: string; name: string; type: string | null };

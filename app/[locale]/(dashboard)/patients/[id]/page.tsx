@@ -8,6 +8,7 @@ import { format } from "date-fns";
 import { useSession } from "next-auth/react";
 import { PDFPreviewModal } from "@/components/templates/PDFPreviewModal";
 import { EMPTY_VITALS } from "@/components/shared/vitals-fields";
+import { notifyBillingGenerated } from "@/lib/billing/client";
 
 // Internal Components
 import { PatientDetailHeader } from "./_components/PatientDetailHeader";
@@ -20,14 +21,16 @@ import {
 } from "./_components/PatientActionSheets";
 
 // Types
-import { 
-  PatientDetail, 
-  StayRow, 
-  PrescriptionRow, 
-  ExamRow, 
+import {
+  PatientDetail,
+  StayRow,
+  PrescriptionRow,
+  ExamRow,
   MedicalRecordRow,
   BillingRow,
   VitalSignsRow,
+  SurgeryRow,
+  PregnancyRow,
   Department,
   Doctor,
   EditPatientForm,
@@ -50,6 +53,8 @@ export default function PatientDetailPage() {
   const [records, setRecords] = useState<MedicalRecordRow[]>([]);
   const [billing, setBilling] = useState<BillingRow[]>([]);
   const [vitals, setVitals] = useState<VitalSignsRow[]>([]);
+  const [surgeries, setSurgeries] = useState<SurgeryRow[]>([]);
+  const [pregnancies, setPregnancies] = useState<PregnancyRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -86,7 +91,7 @@ export default function PatientDetailPage() {
 
   const fetchData = async () => {
     try {
-      const [pRes, sRes, rxRes, exRes, recRes, billRes, vitRes] = await Promise.all([
+      const [pRes, sRes, rxRes, exRes, recRes, billRes, vitRes, surgRes, pregRes] = await Promise.all([
         fetch(`/api/v1/patients/${id}`),
         fetch(`/api/v1/patients/${id}/stays`),
         fetch(`/api/v1/patients/${id}/prescriptions`),
@@ -94,9 +99,11 @@ export default function PatientDetailPage() {
         fetch(`/api/v1/patients/${id}/records`),
         fetch(`/api/v1/patients/${id}/billing`),
         fetch(`/api/v1/patients/${id}/vitals`),
+        fetch(`/api/v1/patients/${id}/surgeries`),
+        fetch(`/api/v1/patients/${id}/pregnancies`),
       ]);
-      const [pJson, sJson, rxJson, exJson, recJson, billJson, vitJson] = await Promise.all([
-        pRes.json(), sRes.json(), rxRes.json(), exRes.json(), recRes.json(), billRes.json(), vitRes.json()
+      const [pJson, sJson, rxJson, exJson, recJson, billJson, vitJson, surgJson, pregJson] = await Promise.all([
+        pRes.json(), sRes.json(), rxRes.json(), exRes.json(), recRes.json(), billRes.json(), vitRes.json(), surgRes.json(), pregRes.json()
       ]);
 
       if (!pRes.ok || !pJson.success) throw new Error(pJson.error ?? "Failed to load patient");
@@ -107,6 +114,8 @@ export default function PatientDetailPage() {
       if (recJson.success) setRecords(recJson.data);
       if (billJson.success) setBilling(billJson.data);
       if (vitJson.success) setVitals(vitJson.data);
+      if (surgJson.success) setSurgeries(surgJson.data);
+      if (pregJson.success) setPregnancies(pregJson.data);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load");
     } finally {
@@ -213,6 +222,8 @@ export default function PatientDetailPage() {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(recordForm)
       });
       if (res.ok) {
+        const json = await res.json().catch(() => ({}));
+        notifyBillingGenerated(json?.billing, tc("invoice_generated"));
         setIsRecordOpen(false);
         const recRes = await fetch(`/api/v1/patients/${id}/records`);
         const recJson = await recRes.json();
@@ -268,6 +279,8 @@ export default function PatientDetailPage() {
           exams={exams}
           billing={billing}
           vitals={vitals}
+          surgeries={surgeries}
+          pregnancies={pregnancies}
           onAddRecord={() => {
           const defaultAuthorId = session?.user?.id || "";
           setRecordForm(prev => ({ ...prev, authorId: defaultAuthorId }));

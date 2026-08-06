@@ -33,7 +33,7 @@ export async function GET(
       );
     }
 
-    const billingStays = await prisma.billingStay.findMany({
+    const invoices = await prisma.patientInvoice.findMany({
       where: {
         patientId: id,
         tenantId: session.user.tenantId,
@@ -47,12 +47,14 @@ export async function GET(
             dischargeDate: true,
           },
         },
+        lines: { orderBy: { createdAt: "asc" } },
+        payments: { orderBy: { initiatedAt: "desc" } },
       },
     });
 
     return NextResponse.json({
-      data: billingStays,
-      total: billingStays.length,
+      data: invoices,
+      total: invoices.length,
       success: true,
     });
   } catch (error) {

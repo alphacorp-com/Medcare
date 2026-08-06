@@ -13,6 +13,7 @@ import { ReportEntryDialog } from "./ReportEntryDialog";
 import { RejectReportDialog } from "./RejectReportDialog";
 import { CancelExamDialog } from "./CancelExamDialog";
 import { NotifyCriticalDialog } from "./NotifyCriticalDialog";
+import { notifyBillingGenerated } from "@/lib/billing/client";
 
 export function ExamDetailSheet({
   open,
@@ -49,11 +50,12 @@ export function ExamDetailSheet({
     setError(null);
     try {
       const res = await fetch(`/api/v1/radiology/${exam.id}/${action}`, { method: "PATCH" });
+      const payload = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const payload = await res.json().catch(() => ({}));
         setError(payload?.error || t("action_error"));
         return;
       }
+      if (action === "validate") notifyBillingGenerated(payload?.billing, tc("invoice_generated"));
       onUpdated();
     } catch (err) {
       setError(t("action_error"));

@@ -17,6 +17,7 @@ import {
 
 // Types
 import { PrescriptionRow, InventoryRow, MedForm } from "./types";
+import { notifyBillingGeneratedMany } from "@/lib/billing/client";
 
 export default function PharmacyPage() {
   const hasModule = useAppStore((state) => state.hasModule);
@@ -79,6 +80,8 @@ export default function PharmacyPage() {
         body: JSON.stringify({ status: 'validated' })
       });
       if (res.ok) {
+        const json = await res.json().catch(() => ({}));
+        notifyBillingGeneratedMany(json?.billing, tc("invoice_generated"));
         fetchPrescriptions();
         if (selectedRx?.id === id) {
           setSelectedRx({ ...selectedRx, status: 'Validated' });
@@ -139,22 +142,6 @@ export default function PharmacyPage() {
     }
   };
 
-  const handleMarkPaid = async (id: string) => {
-    try {
-      const res = await fetch(`/api/v1/pharmacy/prescriptions/${id}/invoice`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'paid' })
-      });
-      if (res.ok) {
-        fetchPrescriptions();
-        if (selectedRx?.id === id) {
-          setSelectedRx({ ...selectedRx, invoiceStatus: 'paid' });
-        }
-      }
-    } catch (e) { }
-  };
-
   const handleExportRx = () => {
     // TODO: Export prescriptions to PDF
     console.log('Export prescriptions');
@@ -163,11 +150,6 @@ export default function PharmacyPage() {
   const handleExportInventory = () => {
     // TODO: Export inventory to PDF
     console.log('Export inventory');
-  };
-
-  const handlePreviewInvoice = (rx: PrescriptionRow) => {
-    // TODO: Open PDF preview modal
-    console.log('Preview invoice for', rx);
   };
 
   const handleRestock = async () => {
@@ -239,13 +221,11 @@ export default function PharmacyPage() {
       )}
 
       {/* Sheets / Modals */}
-      <RxDetailSheet 
-        rx={selectedRx} 
-        onClose={() => setSelectedRx(null)} 
-        onValidate={handleValidateRx} 
-        onDispense={handleDispenseRx} 
-        onMarkPaid={handleMarkPaid}
-        onPreviewInvoice={handlePreviewInvoice}
+      <RxDetailSheet
+        rx={selectedRx}
+        onClose={() => setSelectedRx(null)}
+        onValidate={handleValidateRx}
+        onDispense={handleDispenseRx}
       />
 
       <AddMedicationSheet 

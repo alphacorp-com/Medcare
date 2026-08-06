@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { requireModulePermission } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
 import type { MedicalRecordType } from "@prisma/client";
+import { suggestInvoiceLine } from "@/lib/billing/suggestCharge";
 
 // Only accept valid UUIDs for FK fields; treat anything else as null
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -196,7 +197,21 @@ export async function POST(
       },
     });
 
-    return NextResponse.json({ data: record, success: true }, { status: 201 });
+    const billing =
+      record.type === "consultation" && record.isSigned && session.user.tenantId
+        ? await suggestInvoiceLine({
+            tenantId: session.user.tenantId,
+            patientId: id,
+            stayId: record.stayId,
+            sourceType: "consultation",
+            sourceId: record.id,
+            description: "Consultation",
+            feeCode: "CONSULTATION",
+            performedById: session.user.id,
+          })
+        : null;
+
+    return NextResponse.json({ data: record, billing, success: true }, { status: 201 });
   } catch (error) {
     console.error("[POST /api/v1/patients/:id/records]", error);
     return NextResponse.json(

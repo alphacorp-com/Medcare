@@ -150,6 +150,21 @@ export async function resolveTenantAccess(tenantId: string): Promise<TenantAcces
   };
 }
 
+export async function isModuleActiveForTenant(tenantId: string, moduleCode: string): Promise<boolean> {
+  const activeStatuses = [ModuleStatus.active, ModuleStatus.trial];
+
+  const assignment = await prisma.tenantModule.findFirst({
+    where: {
+      tenantId,
+      status: { in: activeStatuses },
+      module: { code: moduleCode },
+    },
+    select: { id: true },
+  });
+
+  return Boolean(assignment);
+}
+
 export async function resolveTenantModules(tenantId: string): Promise<ModulePermission[]> {
   const activeStatuses = [ModuleStatus.active, ModuleStatus.trial];
 
