@@ -20,7 +20,7 @@ export function previousMonthPeriod(now: Date = new Date()): Dhis2Period {
   return `${prev.getUTCFullYear()}${String(prev.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
-export async function computeMonthlyIndicators(period: Dhis2Period): Promise<Dhis2MetricValue[]> {
+export async function computeMonthlyIndicators(tenantId: string, period: Dhis2Period): Promise<Dhis2MetricValue[]> {
   const { start, end } = periodToDateRange(period);
   const admissionDate = { gte: start, lt: end };
 
@@ -36,28 +36,53 @@ export async function computeMonthlyIndicators(period: Dhis2Period): Promise<Dhi
     labExamsCompleted,
     radiologyExamsCompleted,
     drugsDispensedCount,
+    ancFirstVisit,
+    ancFourthVisitPlus,
+    deliveriesTotal,
+    deliveriesCesarean,
+    tetanusDosesGiven,
+    malariaPreventionDosesGiven,
+    hivTestsPregnancyCompleted,
+    newbornsTotal,
   ] = await Promise.all([
-    prisma.stay.count({ where: { admissionDate } }),
-    prisma.stay.count({ where: { admissionDate, type: "emergency" } }),
-    prisma.stay.count({ where: { admissionDate, type: "scheduled" } }),
-    prisma.stay.count({ where: { admissionDate, type: "outpatient" } }),
-    prisma.stay.count({ where: { dischargeDate: { gte: start, lt: end } } }),
+    prisma.stay.count({ where: { tenantId, admissionDate } }),
+    prisma.stay.count({ where: { tenantId, admissionDate, type: "emergency" } }),
+    prisma.stay.count({ where: { tenantId, admissionDate, type: "scheduled" } }),
+    prisma.stay.count({ where: { tenantId, admissionDate, type: "outpatient" } }),
+    prisma.stay.count({ where: { tenantId, dischargeDate: { gte: start, lt: end } } }),
     prisma.stay.count({
-      where: { status: "deceased", dischargeDate: { gte: start, lt: end } },
+      where: { tenantId, status: "deceased", dischargeDate: { gte: start, lt: end } },
     }),
     prisma.patient.count({
-      where: { isDeceased: true, deceasedAt: { gte: start, lt: end }, stays: { none: {} } },
+      where: { tenantId, isDeceased: true, deceasedAt: { gte: start, lt: end }, stays: { none: {} } },
     }),
-    prisma.surgicalProcedure.count({ where: { status: "completed", endedAt: { gte: start, lt: end } } }),
+    prisma.surgicalProcedure.count({ where: { tenantId, status: "completed", endedAt: { gte: start, lt: end } } }),
     prisma.examResult.count({
-      where: { validatedAt: { gte: start, lt: end }, request: { type: "biology" } },
+      where: { validatedAt: { gte: start, lt: end }, request: { tenantId, type: "biology" } },
     }),
     prisma.examResult.count({
-      where: { validatedAt: { gte: start, lt: end }, request: { type: "radiology" } },
+      where: { validatedAt: { gte: start, lt: end }, request: { tenantId, type: "radiology" } },
     }),
     prisma.drugDispensing.count({
-      where: { status: { in: ["dispensed", "administered"] }, dispensedAt: { gte: start, lt: end } },
+      where: { tenantId, status: { in: ["dispensed", "administered"] }, dispensedAt: { gte: start, lt: end } },
     }),
+    prisma.antenatalVisit.count({ where: { tenantId, visitDate: { gte: start, lt: end }, visitNumber: 1 } }),
+    prisma.antenatalVisit.count({ where: { tenantId, visitDate: { gte: start, lt: end }, visitNumber: { gte: 4 } } }),
+    prisma.delivery.count({ where: { tenantId, deliveryDate: { gte: start, lt: end } } }),
+    prisma.delivery.count({ where: { tenantId, deliveryDate: { gte: start, lt: end }, mode: "cesarean" } }),
+    prisma.antenatalVisit.count({
+      where: { tenantId, visitDate: { gte: start, lt: end }, tetanusVaccineGiven: true },
+    }),
+    prisma.antenatalVisit.count({
+      where: { tenantId, visitDate: { gte: start, lt: end }, malariaPreventionGiven: true },
+    }),
+    prisma.examResult.count({
+      where: {
+        validatedAt: { gte: start, lt: end },
+        request: { tenantId, examCode: "HIV", pregnancyId: { not: null } },
+      },
+    }),
+    prisma.newborn.count({ where: { tenantId, delivery: { deliveryDate: { gte: start, lt: end } } } }),
   ]);
 
   return [
@@ -71,5 +96,13 @@ export async function computeMonthlyIndicators(period: Dhis2Period): Promise<Dhi
     { metricKey: "lab_exams_completed", value: labExamsCompleted },
     { metricKey: "radiology_exams_completed", value: radiologyExamsCompleted },
     { metricKey: "drugs_dispensed_count", value: drugsDispensedCount },
+    { metricKey: "anc_first_visit", value: ancFirstVisit },
+    { metricKey: "anc_fourth_visit_plus", value: ancFourthVisitPlus },
+    { metricKey: "deliveries_total", value: deliveriesTotal },
+    { metricKey: "deliveries_cesarean", value: deliveriesCesarean },
+    { metricKey: "tetanus_doses_given", value: tetanusDosesGiven },
+    { metricKey: "malaria_prevention_doses_given", value: malariaPreventionDosesGiven },
+    { metricKey: "hiv_tests_pregnancy_completed", value: hivTestsPregnancyCompleted },
+    { metricKey: "newborns_total", value: newbornsTotal },
   ];
 }

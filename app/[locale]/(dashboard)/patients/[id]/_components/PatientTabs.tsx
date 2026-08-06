@@ -10,10 +10,13 @@ import {
   Activity,
   Image as ImageIcon,
   CreditCard,
-  HeartPulse
+  HeartPulse,
+  Scissors,
+  Baby
 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { Link } from "@/i18n/routing";
 import {
   StayRow,
   MedicalRecordRow,
@@ -21,6 +24,8 @@ import {
   ExamRow,
   BillingRow,
   VitalSignsRow,
+  SurgeryRow,
+  PregnancyRow,
   PrescriptionItem
 } from "../types";
 
@@ -31,6 +36,8 @@ interface PatientTabsProps {
   exams: ExamRow[];
   billing: BillingRow[];
   vitals: VitalSignsRow[];
+  surgeries: SurgeryRow[];
+  pregnancies: PregnancyRow[];
   onAddRecord: () => void;
 }
 
@@ -41,6 +48,8 @@ export function PatientTabs({
   exams,
   billing,
   vitals,
+  surgeries,
+  pregnancies,
   onAddRecord,
 }: PatientTabsProps) {
   const t = useTranslations('patients');
@@ -75,47 +84,59 @@ export function PatientTabs({
   return (
     <div className="col-span-9 flex flex-col bg-white rounded border border-slate-200 shadow-sm overflow-hidden">
       <Tabs defaultValue="admissions" className="w-full flex-1 flex flex-col">
-        <div className="px-2 pt-2 border-b border-slate-200 bg-slate-50 shrink-0">
-          <TabsList className="h-9 bg-transparent p-0 flex justify-start gap-4">
-            <TabsTrigger 
-              value="admissions" 
-              className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs"
+        <div className="px-2 pt-2 border-b border-slate-200 bg-slate-50 shrink-0 overflow-x-auto overflow-y-hidden">
+          <TabsList className="h-9 bg-transparent p-0 flex flex-nowrap justify-start gap-4 w-max min-w-full">
+            <TabsTrigger
+              value="admissions"
+              className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs shrink-0"
             >
               <Calendar className="h-3.5 w-3.5 mr-2" /> {t('admissions_stays')}
             </TabsTrigger>
-            <TabsTrigger 
-              value="records" 
-              className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs"
+            <TabsTrigger
+              value="records"
+              className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs shrink-0"
             >
               <FileText className="h-3.5 w-3.5 mr-2" /> {t('medical_records')}
             </TabsTrigger>
-            <TabsTrigger 
-              value="prescriptions" 
-              className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs"
+            <TabsTrigger
+              value="prescriptions"
+              className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs shrink-0"
             >
               <Pill className="h-3.5 w-3.5 mr-2" /> {trx('queue_tab')}
             </TabsTrigger>
-            <TabsTrigger 
-              value="labs" 
-              className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs"
+            <TabsTrigger
+              value="labs"
+              className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs shrink-0"
             >
               <Activity className="h-3.5 w-3.5 mr-2" /> {tc('laboratory')}
             </TabsTrigger>
-            <TabsTrigger 
-              value="imaging" 
-              className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs"
+            <TabsTrigger
+              value="imaging"
+              className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs shrink-0"
             >
               <ImageIcon className="h-3.5 w-3.5 mr-2" /> {tc('radiology')}
             </TabsTrigger>
             <TabsTrigger
               value="vitals"
-              className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs"
+              className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs shrink-0"
             >
               <HeartPulse className="h-3.5 w-3.5 mr-2" /> {t('vitals_tab')}
             </TabsTrigger>
             <TabsTrigger
+              value="surgery"
+              className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs shrink-0"
+            >
+              <Scissors className="h-3.5 w-3.5 mr-2" /> {tc('surgery')}
+            </TabsTrigger>
+            <TabsTrigger
+              value="maternity"
+              className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs shrink-0"
+            >
+              <Baby className="h-3.5 w-3.5 mr-2" /> {tc('maternity')}
+            </TabsTrigger>
+            <TabsTrigger
               value="billing"
-              className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs"
+              className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs shrink-0"
             >
               <CreditCard className="h-3.5 w-3.5 mr-2" /> {tc('billing')}
             </TabsTrigger>
@@ -372,6 +393,79 @@ export function PatientTabs({
             </table>
           </TabsContent>
 
+          <TabsContent value="surgery" className="m-0 border-none outline-none">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-slate-50/50 text-[10px] text-slate-500 uppercase font-bold border-b border-slate-200">
+                  <th className="px-4 py-2">{tc('date')}</th>
+                  <th className="px-4 py-2">{tc('procedure')}</th>
+                  <th className="px-4 py-2">{tc('status')}</th>
+                </tr>
+              </thead>
+              <tbody className="text-xs divide-y divide-slate-100">
+                {surgeries.length === 0 && (
+                  <tr><td colSpan={3} className="px-4 py-6 text-center text-slate-500 italic">{t('no_surgeries')}</td></tr>
+                )}
+                {surgeries.map((s) => (
+                  <tr key={s.id} className="hover:bg-slate-50">
+                    <td className="px-4 py-3 text-slate-600">
+                      {s.scheduledAt ? format(new Date(s.scheduledAt), "MMM d, yyyy") : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-slate-900 font-medium">
+                      {s.procedureLabel} {s.procedureCode && <span className="font-mono text-[10px] text-slate-400 ml-1">{s.procedureCode}</span>}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={cn("px-2 py-0.5 rounded text-[10px] uppercase font-semibold",
+                        s.status === 'completed' ? "bg-green-100 text-green-700" :
+                        s.status === 'in_progress' ? "bg-orange-100 text-orange-700" :
+                        s.status === 'cancelled' ? "bg-red-100 text-red-700" :
+                        "bg-slate-100 text-slate-700")}>
+                        {s.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </TabsContent>
+
+          <TabsContent value="maternity" className="m-0 border-none outline-none">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-slate-50/50 text-[10px] text-slate-500 uppercase font-bold border-b border-slate-200">
+                  <th className="px-4 py-2">{tc('date')}</th>
+                  <th className="px-4 py-2">{tc('status')}</th>
+                  <th className="px-4 py-2">{tc('gravida_para')}</th>
+                  <th className="px-4 py-2">{tc('cpn_visits')}</th>
+                  <th className="px-4 py-2">{tc('delivery')}</th>
+                </tr>
+              </thead>
+              <tbody className="text-xs divide-y divide-slate-100">
+                {pregnancies.length === 0 && (
+                  <tr><td colSpan={5} className="px-4 py-6 text-center text-slate-500 italic">{t('no_pregnancies')}</td></tr>
+                )}
+                {pregnancies.map((p) => (
+                  <tr key={p.id} className="hover:bg-slate-50">
+                    <td className="px-4 py-3 text-slate-600">{format(new Date(p.lastMenstrualPeriod), "MMM d, yyyy")}</td>
+                    <td className="px-4 py-3">
+                      <span className={cn("px-2 py-0.5 rounded text-[10px] uppercase font-semibold",
+                        p.status === 'delivered' ? "bg-green-100 text-green-700" :
+                        p.status === 'ongoing' ? "bg-blue-100 text-blue-700" :
+                        "bg-slate-100 text-slate-700")}>
+                        {p.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 font-mono text-slate-600">G{p.gravida}P{p.para}</td>
+                    <td className="px-4 py-3">{p.antenatalVisits.length}</td>
+                    <td className="px-4 py-3 text-slate-600">
+                      {p.delivery?.deliveryDate ? format(new Date(p.delivery.deliveryDate), "MMM d, yyyy") : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </TabsContent>
+
           <TabsContent value="billing" className="m-0 border-none outline-none">
             <table className="w-full text-left">
               <thead>
@@ -391,15 +485,16 @@ export function PatientTabs({
                   <tr key={bill.id} className="hover:bg-slate-50">
                     <td className="px-4 py-3 font-mono text-slate-600">{bill.stay?.stayNumber || '—'}</td>
                     <td className="px-4 py-3 text-slate-600">{format(new Date(bill.createdAt), "MMM d, yyyy")}</td>
-                    <td className="px-4 py-3 font-medium">{bill.totalAmount}</td>
-                    <td className="px-4 py-3 text-slate-600">{bill.insuranceAmount}</td>
+                    <td className="px-4 py-3 font-medium">{Number(bill.subtotal).toLocaleString()} {bill.currency}</td>
+                    <td className="px-4 py-3 text-slate-600">{Number(bill.insuranceAmount).toLocaleString()} {bill.currency}</td>
                     <td className="px-4 py-3">
-                      <span className={cn("px-2 py-0.5 rounded text-[10px] uppercase font-semibold",
-                        bill.status === 'paid' ? "bg-green-100 text-green-700" : 
-                        bill.status === 'billed' ? "bg-blue-100 text-blue-700" : 
-                        "bg-yellow-100 text-yellow-700")}>
+                      <Link href={`/billing/${bill.id}`} className={cn("px-2 py-0.5 rounded text-[10px] uppercase font-semibold hover:underline",
+                        bill.status === 'paid' ? "bg-green-100 text-green-700" :
+                        bill.status === 'partially_paid' ? "bg-yellow-100 text-yellow-700" :
+                        bill.status === 'cancelled' ? "bg-slate-100 text-slate-500" :
+                        "bg-blue-100 text-blue-700")}>
                         {bill.status}
-                      </span>
+                      </Link>
                     </td>
                   </tr>
                 ))}

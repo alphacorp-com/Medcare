@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Loader2 } from "lucide-react";
 import { Surgery } from "../types";
+import { notifyBillingGenerated } from "@/lib/billing/client";
 
 const COMPLICATION_OPTIONS = [
   "bleeding",
@@ -52,11 +53,12 @@ export function CompleteSurgerySheet({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ surgicalReport, anesthesiaReport: anesthesiaReport || undefined, complications }),
       });
+      const payload = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const payload = await res.json().catch(() => ({}));
         setError(payload?.error || t("complete_error"));
         return;
       }
+      notifyBillingGenerated(payload?.billing, tc("invoice_generated"));
       setSurgicalReport("");
       setAnesthesiaReport("");
       setComplications([]);

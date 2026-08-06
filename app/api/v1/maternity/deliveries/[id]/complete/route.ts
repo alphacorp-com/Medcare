@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { requireModulePermission } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
 import type { DeliveryMode } from "@prisma/client";
+import { suggestInvoiceLine } from "@/lib/billing/suggestCharge";
 
 // PATCH /api/v1/maternity/deliveries/[id]/complete
 // Body: { mode, complications?, maternalOutcome?, placentaDelivered?, bloodLossMl?, notes? }
@@ -89,7 +90,20 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
         : []),
     ]);
 
-    return NextResponse.json(updatedDelivery);
+    const billing = session.user.tenantId
+      ? await suggestInvoiceLine({
+          tenantId: session.user.tenantId,
+          patientId: delivery.pregnancy.patientId,
+          stayId: delivery.stayId,
+          sourceType: "delivery",
+          sourceId: delivery.id,
+          description: `Accouchement (${mode})`,
+          feeCode: `DELIVERY_${mode}`,
+          performedById: session.user.id,
+        })
+      : null;
+
+    return NextResponse.json({ ...updatedDelivery, billing });
   } catch (error) {
     console.error("Error completing delivery:", error);
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });

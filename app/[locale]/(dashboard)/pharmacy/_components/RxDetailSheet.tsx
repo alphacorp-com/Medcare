@@ -10,16 +10,17 @@ import {
   SheetDescription,
   SheetFooter,
 } from "@/components/ui/sheet";
-import { 
-  AlertTriangle, 
-  Check, 
-  X, 
-  Printer, 
-  PillBottle, 
-  FileWarning 
+import {
+  AlertTriangle,
+  Check,
+  X,
+  Receipt,
+  PillBottle,
+  FileWarning
 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { Link } from "@/i18n/routing";
 import { PrescriptionRow } from "../types";
 
 interface RxDetailSheetProps {
@@ -27,17 +28,13 @@ interface RxDetailSheetProps {
   onClose: () => void;
   onValidate: (id: string) => Promise<void>;
   onDispense: (id: string) => Promise<void>;
-  onMarkPaid: (id: string) => Promise<void>;
-  onPreviewInvoice: (rx: PrescriptionRow) => void;
 }
 
-export function RxDetailSheet({ 
-  rx, 
-  onClose, 
-  onValidate, 
+export function RxDetailSheet({
+  rx,
+  onClose,
+  onValidate,
   onDispense,
-  onMarkPaid,
-  onPreviewInvoice
 }: RxDetailSheetProps) {
   const t = useTranslations('pharmacy');
   const tc = useTranslations('common');
@@ -154,23 +151,14 @@ export function RxDetailSheet({
                 </div>
               </div>
               <div className="flex gap-2 pt-2">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="flex-1 h-8 text-[10px] bg-white border-blue-200 text-blue-700 hover:bg-blue-50"
-                  onClick={() => onPreviewInvoice(rx)}
-                >
-                  <Printer className="mr-2 h-3 w-3" /> {t('view_invoice')}
-                </Button>
-                {rx.invoiceStatus !== 'paid' && (
-                  <Button 
-                    size="sm" 
-                    className="flex-1 h-8 text-[10px] bg-blue-600 hover:bg-blue-700"
-                    onClick={() => onMarkPaid(rx.id)}
+                <Link href={`/billing/${rx.invoiceId}`} className="flex-1">
+                  <Button
+                    size="sm"
+                    className="w-full h-8 text-[10px] bg-blue-600 hover:bg-blue-700"
                   >
-                    <Check className="mr-2 h-3 w-3" /> {t('mark_paid')}
+                    <Receipt className="mr-2 h-3 w-3" /> {t('view_invoice')}
                   </Button>
-                )}
+                </Link>
               </div>
             </div>
           )}
@@ -197,19 +185,22 @@ export function RxDetailSheet({
                 </Button>
               </>
             )}
-            {rx.status === 'Validated' && (
-              <Button 
-                className={cn(
-                  "text-xs h-8 text-white",
-                  rx.invoiceStatus === 'paid' ? "bg-green-600 hover:bg-green-700" : "bg-slate-400 cursor-not-allowed"
-                )} 
-                onClick={() => rx.invoiceStatus === 'paid' && onDispense(rx.id)}
-                disabled={rx.invoiceStatus !== 'paid'}
-              >
-                <PillBottle className="mr-2 h-3.5 w-3.5" /> 
-                {rx.invoiceStatus === 'paid' ? t('dispense') : t('payment_required')}
-              </Button>
-            )}
+            {rx.status === 'Validated' && (() => {
+              const paymentBlocking = Boolean(rx.invoiceId) && rx.invoiceStatus !== 'paid';
+              return (
+                <Button
+                  className={cn(
+                    "text-xs h-8 text-white",
+                    paymentBlocking ? "bg-slate-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700"
+                  )}
+                  onClick={() => !paymentBlocking && onDispense(rx.id)}
+                  disabled={paymentBlocking}
+                >
+                  <PillBottle className="mr-2 h-3.5 w-3.5" />
+                  {paymentBlocking ? t('payment_required') : t('dispense')}
+                </Button>
+              );
+            })()}
             {rx.status === 'Dispensed' && (
               <span className="text-xs font-bold uppercase tracking-wider text-green-700 flex items-center px-4 py-1.5 bg-green-100 rounded">
                 <Check className="mr-2 h-4 w-4" /> {t('fulfilled')}

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { requireModulePermission } from "@/lib/permissions";
+import { suggestInvoiceLine } from "@/lib/billing/suggestCharge";
 
 // PATCH /api/v1/laboratory/[id]/validate
 // Requires an unvalidated result; publishes it and completes the exam request.
@@ -40,5 +41,18 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
     }),
   ]);
 
-  return NextResponse.json(updatedExam);
+  const billing = session.user.tenantId
+    ? await suggestInvoiceLine({
+        tenantId: session.user.tenantId,
+        patientId: exam.patientId,
+        stayId: exam.stayId,
+        sourceType: "exam",
+        sourceId: exam.id,
+        description: exam.examLabel,
+        feeCode: exam.examCode,
+        performedById: session.user.id,
+      })
+    : null;
+
+  return NextResponse.json({ ...updatedExam, billing });
 }

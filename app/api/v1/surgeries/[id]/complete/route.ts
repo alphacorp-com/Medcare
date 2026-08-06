@@ -4,6 +4,17 @@ import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { isPhaseComplete, WhoChecklist } from "@/lib/surgery/checklist";
 import { requireModulePermission } from "@/lib/permissions";
+import { suggestInvoiceLine } from "@/lib/billing/suggestCharge";
+
+function slugifyProcedure(label: string): string {
+  return label
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 60);
+}
 
 // PATCH /api/v1/surgeries/[id]/complete
 // Body: { surgicalReport, anesthesiaReport?, complications? }
@@ -78,7 +89,20 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
         : []),
     ]);
 
-    return NextResponse.json(updated);
+    const billing = session.user.tenantId
+      ? await suggestInvoiceLine({
+          tenantId: session.user.tenantId,
+          patientId: surgery.patientId,
+          stayId: surgery.stayId,
+          sourceType: "surgery",
+          sourceId: surgery.id,
+          description: surgery.procedureLabel,
+          feeCode: surgery.procedureCode ?? slugifyProcedure(surgery.procedureLabel),
+          performedById: session.user.id,
+        })
+      : null;
+
+    return NextResponse.json({ ...updated, billing });
   } catch (error) {
     console.error("Error completing surgery:", error);
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });

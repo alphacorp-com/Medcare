@@ -94,6 +94,49 @@ export async function submitDataValueSet(
   }
 }
 
+export interface Dhis2EntityRef {
+  id: string;
+  name: string;
+}
+
+async function searchEntities(
+  credentials: Dhis2Credentials,
+  entity: "organisationUnits" | "dataSets" | "dataElements",
+  query: string,
+  extraFilters: string[] = []
+): Promise<Dhis2EntityRef[]> {
+  const url = new URL(`${normalizeBaseUrl(credentials.baseUrl)}/api/${entity}.json`);
+  url.searchParams.set("fields", "id,name");
+  url.searchParams.set("paging", "true");
+  url.searchParams.set("pageSize", "20");
+  if (query.trim()) url.searchParams.set("filter", `name:ilike:${query.trim()}`);
+  for (const filter of extraFilters) url.searchParams.append("filter", filter);
+
+  const res = await fetch(url.toString(), { headers: { Authorization: authHeader(credentials) } });
+  if (!res.ok) {
+    throw new Error(`DHIS2 ${entity} lookup failed (HTTP ${res.status})`);
+  }
+  const body = await res.json();
+  return (body?.[entity] ?? []) as Dhis2EntityRef[];
+}
+
+export function searchOrgUnits(credentials: Dhis2Credentials, query: string): Promise<Dhis2EntityRef[]> {
+  return searchEntities(credentials, "organisationUnits", query);
+}
+
+export function searchDataSets(credentials: Dhis2Credentials, query: string): Promise<Dhis2EntityRef[]> {
+  return searchEntities(credentials, "dataSets", query);
+}
+
+export function searchDataElements(
+  credentials: Dhis2Credentials,
+  query: string,
+  dataSetId?: string
+): Promise<Dhis2EntityRef[]> {
+  const extraFilters = dataSetId ? [`dataSetElements.dataSet.id:eq:${dataSetId}`] : [];
+  return searchEntities(credentials, "dataElements", query, extraFilters);
+}
+
 export function toDataValues(
   values: Dhis2MetricValue[],
   mappings: { metricKey: string; dataElementId: string; categoryOptionComboId?: string }[]

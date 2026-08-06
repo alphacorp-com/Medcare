@@ -4,8 +4,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  schemas  = ["public", "tenant_template"]
+  provider   = "postgresql"
+  schemas    = ["public", "tenant_template"]
   extensions = [uuidOssp(map: "uuid-ossp")]
 }
 
@@ -255,13 +255,44 @@ enum ScheduleStatus {
   @@schema("tenant_template")
 }
 
-enum BillingStayStatus {
-  open
-  coded
-  validated
-  billed
+enum BillingSourceType {
+  consultation
+  exam
+  surgery
+  pharmacy_dispensation
+  antenatal_visit
+  delivery
+  other
+
+  @@schema("tenant_template")
+}
+
+enum BillingInvoiceStatus {
+  draft
+  pending_payment
+  partially_paid
   paid
-  contested
+  cancelled
+
+  @@schema("tenant_template")
+}
+
+enum PaymentMethod {
+  cash
+  card
+  insurance
+  mobile_money_orange
+  mobile_money_mtn
+  bank_transfer
+
+  @@schema("tenant_template")
+}
+
+enum PaymentStatus {
+  pending
+  successful
+  failed
+  cancelled
 
   @@schema("tenant_template")
 }
@@ -348,34 +379,34 @@ enum DeliveryMode {
 // =============================================================================
 
 model Tenant {
-  id           String               @id @default(uuid()) @db.Uuid
-  slug         String               @unique @db.VarChar(60)
-  name         String               @db.VarChar(255)
+  id           String       @id @default(uuid()) @db.Uuid
+  slug         String       @unique @db.VarChar(60)
+  name         String       @db.VarChar(255)
   type         TenantType
-  countryCode  String               @default("CM") @map("country_code") @db.Char(2)
-  timezone     String               @default("Africa/Douala") @db.VarChar(50)
-  locale       String               @default("fr") @db.VarChar(10)
-  dbSchema     String               @unique @map("db_schema") @db.VarChar(80)
-  status       TenantStatus         @default(trial)
-  contactEmail String?              @map("contact_email") @db.VarChar(255)
-  contactPhone String?              @map("contact_phone") @db.VarChar(30)
+  countryCode  String       @default("CM") @map("country_code") @db.Char(2)
+  timezone     String       @default("Africa/Douala") @db.VarChar(50)
+  locale       String       @default("fr") @db.VarChar(10)
+  dbSchema     String       @unique @map("db_schema") @db.VarChar(80)
+  status       TenantStatus @default(trial)
+  contactEmail String?      @map("contact_email") @db.VarChar(255)
+  contactPhone String?      @map("contact_phone") @db.VarChar(30)
   address      String?
-  logoUrl      String?              @map("logo_url")
-  metadata     Json                 @default("{}")
-  createdAt    DateTime             @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt    DateTime             @updatedAt @map("updated_at") @db.Timestamptz
-  suspendedAt  DateTime?            @map("suspended_at") @db.Timestamptz
-  churnedAt    DateTime?            @map("churned_at") @db.Timestamptz
+  logoUrl      String?      @map("logo_url")
+  metadata     Json         @default("{}")
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+  suspendedAt  DateTime?    @map("suspended_at") @db.Timestamptz
+  churnedAt    DateTime?    @map("churned_at") @db.Timestamptz
 
   // Relations
-  settings          TenantSetting[]
-  subscriptions     Subscription[]
-  invoices          Invoice[]
-  oneTimeCharges    OneTimeCharge[]
-  tenantModules     TenantModule[]
+  settings           TenantSetting[]
+  subscriptions      Subscription[]
+  invoices           Invoice[]
+  oneTimeCharges     OneTimeCharge[]
+  tenantModules      TenantModule[]
   tenantFeatureFlags TenantFeatureFlag[]
-  licenseKeys       LicenseKey[]
-  auditLogs         AuditLog[]
+  licenseKeys        LicenseKey[]
+  auditLogs          AuditLog[]
 
   @@index([slug])
   @@index([status])
@@ -400,23 +431,23 @@ model TenantSetting {
 }
 
 model Plan {
-  id            String       @id @default(uuid()) @db.Uuid
-  name          String       @db.VarChar(100)
-  tier          PlanTier
-  billingCycle  BillingCycle @map("billing_cycle")
-  basePrice     Decimal      @default(0) @map("base_price") @db.Decimal(12, 2)
-  pricePerBed   Decimal?     @map("price_per_bed") @db.Decimal(8, 2)
-  pricePerUser  Decimal?     @map("price_per_user") @db.Decimal(8, 2)
-  maxUsers      Int?         @map("max_users")
-  maxBeds       Int?         @map("max_beds")
-  maxStorageGb  Int?         @map("max_storage_gb")
-  currency      String       @default("XAF") @db.Char(3)
-  features      Json         @default("{}")
-  isActive      Boolean      @default(true) @map("is_active")
-  isPublic      Boolean      @default(true) @map("is_public")
-  sortOrder     Int          @default(0) @map("sort_order") @db.SmallInt
-  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt     DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+  id           String       @id @default(uuid()) @db.Uuid
+  name         String       @db.VarChar(100)
+  tier         PlanTier
+  billingCycle BillingCycle @map("billing_cycle")
+  basePrice    Decimal      @default(0) @map("base_price") @db.Decimal(12, 2)
+  pricePerBed  Decimal?     @map("price_per_bed") @db.Decimal(8, 2)
+  pricePerUser Decimal?     @map("price_per_user") @db.Decimal(8, 2)
+  maxUsers     Int?         @map("max_users")
+  maxBeds      Int?         @map("max_beds")
+  maxStorageGb Int?         @map("max_storage_gb")
+  currency     String       @default("XAF") @db.Char(3)
+  features     Json         @default("{}")
+  isActive     Boolean      @default(true) @map("is_active")
+  isPublic     Boolean      @default(true) @map("is_public")
+  sortOrder    Int          @default(0) @map("sort_order") @db.SmallInt
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime     @updatedAt @map("updated_at") @db.Timestamptz
 
   subscriptions Subscription[]
   planModules   PlanModule[]
@@ -446,9 +477,9 @@ model Subscription {
   createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz
   updatedAt          DateTime           @updatedAt @map("updated_at") @db.Timestamptz
 
-  tenant   Tenant    @relation(fields: [tenantId], references: [id])
-  plan     Plan      @relation(fields: [planId], references: [id])
-  invoices Invoice[]
+  tenant      Tenant       @relation(fields: [tenantId], references: [id])
+  plan        Plan         @relation(fields: [planId], references: [id])
+  invoices    Invoice[]
   licenseKeys LicenseKey[]
 
   @@index([tenantId])
@@ -459,19 +490,19 @@ model Subscription {
 }
 
 model Invoice {
-  id               String        @id @default(uuid()) @db.Uuid
-  subscriptionId   String        @map("subscription_id") @db.Uuid
-  tenantId         String        @map("tenant_id") @db.Uuid
-  invoiceNumber    String        @unique @map("invoice_number") @db.VarChar(40)
-  amountHt         Decimal       @map("amount_ht") @db.Decimal(12, 2)
-  taxRate          Decimal       @default(0) @map("tax_rate") @db.Decimal(5, 2)
-  currency         String        @default("XAF") @db.Char(3)
-  status           InvoiceStatus @default(draft)
-  dueDate          DateTime      @map("due_date") @db.Date
-  paidAt           DateTime?     @map("paid_at") @db.Timestamptz
-  invoicePdfUrl    String?       @map("invoice_pdf_url")
-  lineItems        Json          @default("[]") @map("line_items")
-  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  id             String        @id @default(uuid()) @db.Uuid
+  subscriptionId String        @map("subscription_id") @db.Uuid
+  tenantId       String        @map("tenant_id") @db.Uuid
+  invoiceNumber  String        @unique @map("invoice_number") @db.VarChar(40)
+  amountHt       Decimal       @map("amount_ht") @db.Decimal(12, 2)
+  taxRate        Decimal       @default(0) @map("tax_rate") @db.Decimal(5, 2)
+  currency       String        @default("XAF") @db.Char(3)
+  status         InvoiceStatus @default(draft)
+  dueDate        DateTime      @map("due_date") @db.Date
+  paidAt         DateTime?     @map("paid_at") @db.Timestamptz
+  invoicePdfUrl  String?       @map("invoice_pdf_url")
+  lineItems      Json          @default("[]") @map("line_items")
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz
 
   subscription   Subscription    @relation(fields: [subscriptionId], references: [id])
   tenant         Tenant          @relation(fields: [tenantId], references: [id])
@@ -503,22 +534,22 @@ model OneTimeCharge {
 }
 
 model Module {
-  id            String         @id @default(uuid()) @db.Uuid
-  code          String         @unique @db.VarChar(60)
-  name          String         @db.VarChar(150)
-  tier          PlanTier
-  category      ModuleCategory
-  version       String         @default("1.0.0") @db.VarChar(20)
-  description   String?
-  changelog     Json           @default("[]")
-  priceMonthly  Decimal?       @map("price_monthly") @db.Decimal(10, 2)
-  priceAnnual   Decimal?       @map("price_annual") @db.Decimal(10, 2)
-  dependencies  Json           @default("[]")
-  configSchema  Json           @default("{}") @map("config_schema")
-  isPublished   Boolean        @default(false) @map("is_published")
-  isBeta        Boolean        @default(false) @map("is_beta")
-  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt     DateTime       @updatedAt @map("updated_at") @db.Timestamptz
+  id           String         @id @default(uuid()) @db.Uuid
+  code         String         @unique @db.VarChar(60)
+  name         String         @db.VarChar(150)
+  tier         PlanTier
+  category     ModuleCategory
+  version      String         @default("1.0.0") @db.VarChar(20)
+  description  String?
+  changelog    Json           @default("[]")
+  priceMonthly Decimal?       @map("price_monthly") @db.Decimal(10, 2)
+  priceAnnual  Decimal?       @map("price_annual") @db.Decimal(10, 2)
+  dependencies Json           @default("[]")
+  configSchema Json           @default("{}") @map("config_schema")
+  isPublished  Boolean        @default(false) @map("is_published")
+  isBeta       Boolean        @default(false) @map("is_beta")
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime       @updatedAt @map("updated_at") @db.Timestamptz
 
   planModules   PlanModule[]
   tenantModules TenantModule[]
@@ -577,7 +608,7 @@ model FeatureFlag {
   rolloutPct   Int      @default(0) @map("rollout_pct") @db.SmallInt
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  module            Module?             @relation(fields: [moduleId], references: [id], onDelete: SetNull)
+  module             Module?             @relation(fields: [moduleId], references: [id], onDelete: SetNull)
   tenantFeatureFlags TenantFeatureFlag[]
 
   @@index([key])
@@ -661,8 +692,8 @@ model LicenseKey {
   createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz
   updatedAt      DateTime         @updatedAt @map("updated_at") @db.Timestamptz
 
-  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  plan         Plan         @relation(fields: [planId], references: [id])
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plan         Plan          @relation(fields: [planId], references: [id])
   subscription Subscription? @relation(fields: [subscriptionId], references: [id])
 
   @@index([tenantId, status])
@@ -710,7 +741,7 @@ model Patient {
   examResults        ExamResult[]
   surgicalProcedures SurgicalProcedure[]
   drugDispensings    DrugDispensing[]
-  billingStays       BillingStay[]
+  invoices           PatientInvoice[]
   adverseEvents      AdverseEvent[]
   vitalSigns         VitalSigns[]
   pregnancies        Pregnancy[]
@@ -724,23 +755,23 @@ model Patient {
 }
 
 model Stay {
-  id               String     @id @default(uuid()) @db.Uuid
-  tenantId         String?    @map("tenant_id") @db.Uuid
-  patientId        String     @map("patient_id") @db.Uuid
-  stayNumber       String     @map("stay_number") @db.VarChar(20)
-  type             StayType
-  status           StayStatus @default(in_progress)
-  admissionDate    DateTime   @default(now()) @map("admission_date") @db.Timestamptz
-  dischargeDate    DateTime?  @map("discharge_date") @db.Timestamptz
-  departmentId     String?    @map("department_id") @db.Uuid
-  bedId            String?    @map("bed_id") @db.Uuid
-  attendingDoctorId String?   @map("attending_doctor_id") @db.Uuid
-  admissionReason  String?    @map("admission_reason")
-  dischargeSummary String?    @map("discharge_summary")
-  pmsiCode         String?    @map("pmsi_code") @db.VarChar(20)
-  pmsiValidated    Boolean    @default(false) @map("pmsi_validated")
-  createdAt        DateTime   @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt        DateTime   @updatedAt @map("updated_at") @db.Timestamptz
+  id                String     @id @default(uuid()) @db.Uuid
+  tenantId          String?    @map("tenant_id") @db.Uuid
+  patientId         String     @map("patient_id") @db.Uuid
+  stayNumber        String     @map("stay_number") @db.VarChar(20)
+  type              StayType
+  status            StayStatus @default(in_progress)
+  admissionDate     DateTime   @default(now()) @map("admission_date") @db.Timestamptz
+  dischargeDate     DateTime?  @map("discharge_date") @db.Timestamptz
+  departmentId      String?    @map("department_id") @db.Uuid
+  bedId             String?    @map("bed_id") @db.Uuid
+  attendingDoctorId String?    @map("attending_doctor_id") @db.Uuid
+  admissionReason   String?    @map("admission_reason")
+  dischargeSummary  String?    @map("discharge_summary")
+  pmsiCode          String?    @map("pmsi_code") @db.VarChar(20)
+  pmsiValidated     Boolean    @default(false) @map("pmsi_validated")
+  createdAt         DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime   @updatedAt @map("updated_at") @db.Timestamptz
 
   patient Patient @relation(fields: [patientId], references: [id])
 
@@ -749,7 +780,7 @@ model Stay {
   examRequests       ExamRequest[]
   surgicalProcedures SurgicalProcedure[]
   adverseEvents      AdverseEvent[]
-  billingStay        BillingStay?
+  invoices           PatientInvoice[]
   vitalSigns         VitalSigns[]
   delivery           Delivery?
 
@@ -886,17 +917,17 @@ model PartographEntry {
 }
 
 model Newborn {
-  id                  String   @id @default(uuid()) @db.Uuid
-  tenantId            String?  @map("tenant_id") @db.Uuid
-  deliveryId          String   @map("delivery_id") @db.Uuid
-  patientId           String?  @unique @map("patient_id") @db.Uuid
+  id                  String  @id @default(uuid()) @db.Uuid
+  tenantId            String? @map("tenant_id") @db.Uuid
+  deliveryId          String  @map("delivery_id") @db.Uuid
+  patientId           String? @unique @map("patient_id") @db.Uuid
   sex                 Gender
-  birthWeightGrams    Int?     @map("birth_weight_grams")
-  apgarScore1Min      Int?     @map("apgar_score_1min")
-  apgarScore5Min      Int?     @map("apgar_score_5min")
-  vitaminKGiven       Boolean  @default(false) @map("vitamin_k_given")
-  resuscitationNeeded Boolean  @default(false) @map("resuscitation_needed")
-  outcome             String   @default("alive")
+  birthWeightGrams    Int?    @map("birth_weight_grams")
+  apgarScore1Min      Int?    @map("apgar_score_1min")
+  apgarScore5Min      Int?    @map("apgar_score_5min")
+  vitaminKGiven       Boolean @default(false) @map("vitamin_k_given")
+  resuscitationNeeded Boolean @default(false) @map("resuscitation_needed")
+  outcome             String  @default("alive")
   notes               String?
 
   delivery Delivery @relation(fields: [deliveryId], references: [id])
@@ -933,23 +964,23 @@ model MedicalRecord {
 }
 
 model Prescription {
-  id                   String             @id @default(uuid()) @db.Uuid
-  tenantId             String?            @map("tenant_id") @db.Uuid
-  patientId            String             @map("patient_id") @db.Uuid
-  stayId               String?            @map("stay_id") @db.Uuid
-  prescriberId         String             @map("prescriber_id") @db.Uuid
-  status               PrescriptionStatus @default(pending)
-  prescribedAt         DateTime           @default(now()) @map("prescribed_at") @db.Timestamptz
-  validatedBy          String?            @map("validated_by") @db.Uuid
-  validatedAt          DateTime?          @map("validated_at") @db.Timestamptz
-  items                Json               @default("[]")
+  id                    String             @id @default(uuid()) @db.Uuid
+  tenantId              String?            @map("tenant_id") @db.Uuid
+  patientId             String             @map("patient_id") @db.Uuid
+  stayId                String?            @map("stay_id") @db.Uuid
+  prescriberId          String             @map("prescriber_id") @db.Uuid
+  status                PrescriptionStatus @default(pending)
+  prescribedAt          DateTime           @default(now()) @map("prescribed_at") @db.Timestamptz
+  validatedBy           String?            @map("validated_by") @db.Uuid
+  validatedAt           DateTime?          @map("validated_at") @db.Timestamptz
+  items                 Json               @default("[]")
   contraindicationCheck Json               @default("{}") @map("contraindication_check")
-  notes                String?
-  createdAt            DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  notes                 String?
+  createdAt             DateTime           @default(now()) @map("created_at") @db.Timestamptz
 
-  patient          Patient           @relation(fields: [patientId], references: [id])
-  stay             Stay?             @relation(fields: [stayId], references: [id])
-  drugDispensings  DrugDispensing[]
+  patient         Patient          @relation(fields: [patientId], references: [id])
+  stay            Stay?            @relation(fields: [stayId], references: [id])
+  drugDispensings DrugDispensing[]
 
   @@index([tenantId])
   @@index([patientId])
@@ -1013,26 +1044,26 @@ model ExamResult {
 }
 
 model SurgicalProcedure {
-  id                String         @id @default(uuid()) @db.Uuid
-  tenantId          String?        @map("tenant_id") @db.Uuid
-  patientId         String         @map("patient_id") @db.Uuid
-  stayId            String?        @map("stay_id") @db.Uuid
-  surgeonId         String         @map("surgeon_id") @db.Uuid
-  anesthesiologistId String?       @map("anesthesiologist_id") @db.Uuid
-  roomId            String?        @map("room_id") @db.Uuid
-  procedureCode     String?        @map("procedure_code") @db.VarChar(30)
-  procedureLabel    String         @map("procedure_label") @db.VarChar(255)
-  scheduledAt       DateTime?      @map("scheduled_at") @db.Timestamptz
-  startedAt         DateTime?      @map("started_at") @db.Timestamptz
-  endedAt           DateTime?      @map("ended_at") @db.Timestamptz
-  status            SurgicalStatus @default(scheduled)
-  asaScore          Int?           @map("asa_score") @db.SmallInt
-  whoChecklist      Json           @default("{}") @map("who_checklist")
-  surgicalReport    String?        @map("surgical_report")
-  anesthesiaReport  String?        @map("anesthesia_report")
-  complications     Json           @default("[]")
-  createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt         DateTime       @updatedAt @map("updated_at") @db.Timestamptz
+  id                 String         @id @default(uuid()) @db.Uuid
+  tenantId           String?        @map("tenant_id") @db.Uuid
+  patientId          String         @map("patient_id") @db.Uuid
+  stayId             String?        @map("stay_id") @db.Uuid
+  surgeonId          String         @map("surgeon_id") @db.Uuid
+  anesthesiologistId String?        @map("anesthesiologist_id") @db.Uuid
+  roomId             String?        @map("room_id") @db.Uuid
+  procedureCode      String?        @map("procedure_code") @db.VarChar(30)
+  procedureLabel     String         @map("procedure_label") @db.VarChar(255)
+  scheduledAt        DateTime?      @map("scheduled_at") @db.Timestamptz
+  startedAt          DateTime?      @map("started_at") @db.Timestamptz
+  endedAt            DateTime?      @map("ended_at") @db.Timestamptz
+  status             SurgicalStatus @default(scheduled)
+  asaScore           Int?           @map("asa_score") @db.SmallInt
+  whoChecklist       Json           @default("{}") @map("who_checklist")
+  surgicalReport     String?        @map("surgical_report")
+  anesthesiaReport   String?        @map("anesthesia_report")
+  complications      Json           @default("[]")
+  createdAt          DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime       @updatedAt @map("updated_at") @db.Timestamptz
 
   patient Patient @relation(fields: [patientId], references: [id])
   stay    Stay?   @relation(fields: [stayId], references: [id])
@@ -1127,11 +1158,11 @@ model TenantUser {
   createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz
   updatedAt    DateTime       @updatedAt @map("updated_at") @db.Timestamptz
 
-  department Department? @relation(fields: [departmentId], references: [id])
-  schedules  Schedule[]
-  notifications             Notification[]
-  conversationParticipants  ConversationParticipant[]
-  messages                  Message[]
+  department               Department?               @relation(fields: [departmentId], references: [id])
+  schedules                Schedule[]
+  notifications            Notification[]
+  conversationParticipants ConversationParticipant[]
+  messages                 Message[]
 
   @@map("tenant_users")
   @@schema("tenant_template")
@@ -1162,29 +1193,96 @@ model Schedule {
   @@schema("tenant_template")
 }
 
-model BillingStay {
-  id                String            @id @default(uuid()) @db.Uuid
-  tenantId          String?           @map("tenant_id") @db.Uuid
-  stayId            String            @unique @map("stay_id") @db.Uuid
-  patientId         String            @map("patient_id") @db.Uuid
-  status            BillingStayStatus @default(open)
-  pmsiCode          String?           @map("pmsi_code") @db.VarChar(20)
-  pmsiValidatedBy   String?           @map("pmsi_validated_by") @db.Uuid
-  pmsiValidatedAt   DateTime?         @map("pmsi_validated_at") @db.Timestamptz
-  totalAmount       Decimal           @default(0) @map("total_amount") @db.Decimal(14, 2)
-  insuranceAmount   Decimal           @default(0) @map("insurance_amount") @db.Decimal(14, 2)
-  patientAmount     Decimal           @default(0) @map("patient_amount") @db.Decimal(14, 2)
-  paidAmount        Decimal           @default(0) @map("paid_amount") @db.Decimal(14, 2)
-  lineItems         Json              @default("[]") @map("line_items")
-  sesamReference    String?           @map("sesam_reference") @db.VarChar(80)
-  createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt         DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+model FeeSchedule {
+  id         String            @id @default(uuid()) @db.Uuid
+  tenantId   String?           @map("tenant_id") @db.Uuid
+  sourceType BillingSourceType @map("source_type")
+  code       String            @db.VarChar(60)
+  label      String            @db.VarChar(255)
+  unitPrice  Decimal           @map("unit_price") @db.Decimal(12, 2)
+  isActive   Boolean           @default(true) @map("is_active")
+  createdAt  DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime          @updatedAt @map("updated_at") @db.Timestamptz
 
-  stay    Stay    @relation(fields: [stayId], references: [id])
-  patient Patient @relation(fields: [patientId], references: [id])
+  @@unique([tenantId, sourceType, code])
+  @@index([tenantId])
+  @@map("fee_schedules")
+  @@schema("tenant_template")
+}
+
+model PatientInvoice {
+  id              String               @id @default(uuid()) @db.Uuid
+  tenantId        String?              @map("tenant_id") @db.Uuid
+  patientId       String               @map("patient_id") @db.Uuid
+  stayId          String?              @map("stay_id") @db.Uuid
+  status          BillingInvoiceStatus @default(draft)
+  subtotal        Decimal              @default(0) @db.Decimal(14, 2)
+  insuranceAmount Decimal              @default(0) @map("insurance_amount") @db.Decimal(14, 2)
+  patientAmount   Decimal              @default(0) @map("patient_amount") @db.Decimal(14, 2)
+  paidAmount      Decimal              @default(0) @map("paid_amount") @db.Decimal(14, 2)
+  currency        String               @default("XAF") @db.VarChar(6)
+  issuedById      String?              @map("issued_by_id") @db.Uuid
+  notes           String?
+  createdAt       DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime             @updatedAt @map("updated_at") @db.Timestamptz
+
+  patient  Patient              @relation(fields: [patientId], references: [id])
+  stay     Stay?                @relation(fields: [stayId], references: [id])
+  lines    PatientInvoiceLine[]
+  payments Payment[]
 
   @@index([tenantId])
-  @@map("billing_stays")
+  @@index([patientId])
+  @@index([stayId])
+  @@index([status])
+  @@map("patient_invoices")
+  @@schema("tenant_template")
+}
+
+model PatientInvoiceLine {
+  id          String            @id @default(uuid()) @db.Uuid
+  tenantId    String?           @map("tenant_id") @db.Uuid
+  invoiceId   String            @map("invoice_id") @db.Uuid
+  sourceType  BillingSourceType @map("source_type")
+  sourceId    String?           @map("source_id") @db.VarChar(160)
+  description String            @db.VarChar(255)
+  quantity    Decimal           @default(1) @db.Decimal(8, 2)
+  unitPrice   Decimal           @map("unit_price") @db.Decimal(12, 2)
+  amount      Decimal           @db.Decimal(14, 2)
+  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz
+
+  invoice PatientInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceType, sourceId])
+  @@index([invoiceId])
+  @@map("patient_invoice_lines")
+  @@schema("tenant_template")
+}
+
+model Payment {
+  id                String        @id @default(uuid()) @db.Uuid
+  tenantId          String?       @map("tenant_id") @db.Uuid
+  invoiceId         String        @map("invoice_id") @db.Uuid
+  amount            Decimal       @db.Decimal(14, 2)
+  method            PaymentMethod
+  status            PaymentStatus @default(pending)
+  currency          String        @default("XAF") @db.VarChar(6)
+  phoneNumber       String?       @map("phone_number") @db.VarChar(20)
+  providerReference String?       @map("provider_reference") @db.VarChar(120)
+  rawResponse       Json?         @map("raw_response")
+  failureReason     String?       @map("failure_reason")
+  initiatedById     String        @map("initiated_by_id") @db.Uuid
+  initiatedAt       DateTime      @default(now()) @map("initiated_at") @db.Timestamptz
+  completedAt       DateTime?     @map("completed_at") @db.Timestamptz
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+
+  invoice PatientInvoice @relation(fields: [invoiceId], references: [id])
+
+  @@index([tenantId])
+  @@index([invoiceId])
+  @@index([providerReference])
+  @@map("payments")
   @@schema("tenant_template")
 }
 

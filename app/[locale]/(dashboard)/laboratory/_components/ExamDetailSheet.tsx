@@ -11,6 +11,7 @@ import { deriveWorkflowState, LabExam, UserRef } from "../types";
 import { ResultEntryDialog } from "./ResultEntryDialog";
 import { RejectExamDialog } from "./RejectExamDialog";
 import { CancelExamDialog } from "./CancelExamDialog";
+import { notifyBillingGenerated } from "@/lib/billing/client";
 
 export function ExamDetailSheet({
   open,
@@ -46,11 +47,12 @@ export function ExamDetailSheet({
     setError(null);
     try {
       const res = await fetch(`/api/v1/laboratory/${exam.id}/${endpoint}`, { method: "PATCH" });
+      const payload = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const payload = await res.json().catch(() => ({}));
         setError(payload?.error || t("action_error"));
         return;
       }
+      if (action === "validate") notifyBillingGenerated(payload?.billing, tc("invoice_generated"));
       onUpdated();
     } catch (err) {
       setError(t("action_error"));
@@ -201,32 +203,32 @@ export function ExamDetailSheet({
             )}
           </div>
 
-          <SheetFooter className="p-4 border-t border-slate-200 bg-slate-100 shrink-0 justify-between items-center flex-row">
-            <div className="flex gap-2">
-              <Button variant="ghost" size="sm" className="text-xs text-slate-600 hover:text-slate-900" onClick={() => window.print()}>
+          <SheetFooter className="flex flex-col gap-3 border-t border-slate-200 bg-slate-100 p-4 shrink-0 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+              <Button variant="ghost" size="sm" className="text-xs text-slate-600 hover:text-slate-900 w-full sm:w-auto justify-center" onClick={() => window.print()}>
                 <Printer className="mr-2 h-4 w-4" /> {t("print_detail")}
               </Button>
               {(state === "pending_sample" || state === "in_analysis" || state === "awaiting_validation") && (
-                <Button variant="ghost" size="sm" className="text-xs text-red-600 hover:text-red-800" onClick={() => setIsCancelOpen(true)}>
+                <Button variant="ghost" size="sm" className="text-xs text-red-600 hover:text-red-800 w-full sm:w-auto justify-center" onClick={() => setIsCancelOpen(true)}>
                   <X className="mr-2 h-4 w-4" /> {t("cancel_exam")}
                 </Button>
               )}
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2 w-full sm:w-auto sm:justify-end">
               {state === "awaiting_validation" && (
                 <>
-                  <Button variant="outline" className="text-xs h-8 border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800" onClick={() => setIsRejectOpen(true)}>
+                  <Button variant="outline" className="text-xs h-8 border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800 w-full sm:w-auto justify-center" onClick={() => setIsRejectOpen(true)}>
                     <X className="mr-2 h-3.5 w-3.5" /> {t("reject_results")}
                   </Button>
-                  <Button className="text-xs h-8 bg-green-600 hover:bg-green-700 text-white" disabled={busyAction === "validate"} onClick={() => runAction("validate")}>
+                  <Button className="text-xs h-8 bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto justify-center" disabled={busyAction === "validate"} onClick={() => runAction("validate")}>
                     {busyAction === "validate" ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : <FileSignature className="mr-2 h-3.5 w-3.5" />}
                     {t("validate_publish")}
                   </Button>
                 </>
               )}
               {state === "completed" && (
-                <span className="text-xs font-bold uppercase tracking-wider text-green-700 flex items-center px-4 py-1.5 bg-green-100 rounded border border-green-200">
+                <span className="text-xs font-bold uppercase tracking-wider text-green-700 flex items-center justify-center px-4 py-1.5 bg-green-100 rounded border border-green-200 w-full sm:w-auto">
                   <Check className="mr-2 h-4 w-4" /> {t("clinically_validated")}
                 </span>
               )}

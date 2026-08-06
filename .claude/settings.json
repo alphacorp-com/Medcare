@@ -8,7 +8,11 @@
       "Bash(npx tsc *)",
       "Bash(echo \"EXIT_CODE:$?\")",
       "Bash(npx eslint *)",
-      "Bash(git diff *)"
+      "Bash(git diff *)",
+      "Bash(mkdir -p \"app/api/v1/billing/[id]/lines/[lineId]\")"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\pfots\\OneDrive\\Desktop\\work\\Medcare_V2\\app\\api\\v1\\billing\\[id]\\lines"
     ]
   }
 }

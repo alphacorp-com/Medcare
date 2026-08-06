@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Loader2 } from "lucide-react";
 import { DeliveryMode } from "../../types";
+import { notifyBillingGenerated } from "@/lib/billing/client";
 
 const MODES: DeliveryMode[] = ["vaginal", "assisted_vaginal", "cesarean"];
 const COMPLICATION_OPTIONS = ["postpartum_hemorrhage", "perineal_tear", "eclampsia", "obstructed_labour", "none"];
@@ -55,11 +56,12 @@ export function CompleteDeliveryDialog({
           notes: notes || undefined,
         }),
       });
+      const payload = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const payload = await res.json().catch(() => ({}));
         setError(payload?.error || t("complete_delivery_error"));
         return;
       }
+      notifyBillingGenerated(payload?.billing, tc("invoice_generated"));
       onSaved();
       onOpenChange(false);
     } catch (err) {

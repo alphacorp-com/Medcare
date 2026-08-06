@@ -17,6 +17,7 @@ import { OrganizationSettings } from "@/components/settings/organization-setting
 import { ModuleConfiguration } from "@/components/settings/module-configuration";
 import { DocumentTemplates } from "@/components/settings/document-templates";
 import { Dhis2IntegrationSettings } from "@/components/settings/dhis2-integration-settings";
+import { MobileMoneySettings } from "@/components/settings/mobile-money-settings";
 
 export default function SettingsPage() {
   const { currentUser, activeModules, setActiveModules, setUser } = useAppStore();
@@ -575,6 +576,11 @@ export default function SettingsPage() {
                     <p className="text-xs text-slate-500">Manage HL7 pipelines, DICOM servers, and generic APIs.</p>
                   </div>
                   <Dhis2IntegrationSettings />
+                  <div className="mt-8 mb-4">
+                    <h2 className="text-lg font-bold text-slate-900">{t('payments.title')}</h2>
+                    <p className="text-xs text-slate-500">{t('payments.description')}</p>
+                  </div>
+                  <MobileMoneySettings />
                 </TabsContent>
               </>)}
           </div>

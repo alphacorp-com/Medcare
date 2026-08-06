@@ -5,8 +5,9 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CheckCircle2, XCircle, Send } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Send, RotateCw } from "lucide-react";
 import { DHIS2_METRIC_KEYS, Dhis2Mapping } from "@/lib/dhis2/types";
+import { Dhis2EntityPicker } from "./dhis2-entity-picker";
 
 interface Dhis2FormState {
   baseUrl: string;
@@ -16,6 +17,16 @@ interface Dhis2FormState {
   dataSetId: string;
   mappings: Dhis2Mapping[];
   enabled: boolean;
+}
+
+interface Dhis2HistoryEntry {
+  id: string;
+  createdAt: string;
+  period: string;
+  status: "success" | "skipped" | "failed";
+  dataValueCount?: number;
+  unmappedMetrics?: string[];
+  error?: string;
 }
 
 const EMPTY_FORM: Dhis2FormState = {
@@ -41,9 +52,12 @@ export function Dhis2IntegrationSettings() {
   const [isSaving, setIsSaving] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [retryingPeriod, setRetryingPeriod] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [syncResult, setSyncResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [history, setHistory] = useState<Dhis2HistoryEntry[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -73,6 +87,27 @@ export function Dhis2IntegrationSettings() {
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  const fetchHistory = async () => {
+    setIsLoadingHistory(true);
+    try {
+      const res = await fetch("/api/v1/settings/dhis2/history");
+      if (res.ok) {
+        const data = await res.json();
+        setHistory(data.history ?? []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch DHIS2 sync history", error);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+
+  useEffect(() => {
+    (async () => {
+      await fetchHistory();
+    })();
   }, []);
 
   const updateMapping = (metricKey: string, field: "dataElementId" | "categoryOptionComboId", value: string) => {
@@ -136,14 +171,15 @@ export function Dhis2IntegrationSettings() {
     }
   };
 
-  const handleSyncNow = async () => {
-    setIsSyncing(true);
+  const handleSyncNow = async (period?: string) => {
+    if (period) setRetryingPeriod(period);
+    else setIsSyncing(true);
     setSyncResult(null);
     try {
       const res = await fetch("/api/v1/settings/dhis2/sync-now", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify(period ? { period } : {}),
       });
       const summary = await res.json();
       if (summary.status === "success") {
@@ -157,12 +193,17 @@ export function Dhis2IntegrationSettings() {
       } else {
         setSyncResult({ ok: false, message: summary.error || t("dhis2.sync_failed") });
       }
+      await fetchHistory();
     } catch (error) {
       setSyncResult({ ok: false, message: t("dhis2.sync_failed") });
     } finally {
       setIsSyncing(false);
+      setRetryingPeriod(null);
     }
   };
+
+  const historyStatusLabel = (status: Dhis2HistoryEntry["status"]) =>
+    status === "success" ? t("dhis2.history_status_success") : status === "skipped" ? t("dhis2.history_status_skipped") : t("dhis2.history_status_failed");
 
   if (isLoading) {
     return (
@@ -225,20 +266,20 @@ export function Dhis2IntegrationSettings() {
             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 block">
               {t("dhis2.org_unit_id")}
             </label>
-            <Input
-              value={form.orgUnitId}
-              onChange={(e) => setForm({ ...form, orgUnitId: e.target.value })}
-              className="text-sm h-10 font-mono bg-white"
+            <Dhis2EntityPicker
+              type="orgUnits"
+              currentId={form.orgUnitId}
+              onSelect={(entity) => setForm({ ...form, orgUnitId: entity?.id ?? "" })}
             />
           </div>
           <div>
             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 block">
               {t("dhis2.data_set_id")}
             </label>
-            <Input
-              value={form.dataSetId}
-              onChange={(e) => setForm({ ...form, dataSetId: e.target.value })}
-              className="text-sm h-10 font-mono bg-white"
+            <Dhis2EntityPicker
+              type="dataSets"
+              currentId={form.dataSetId}
+              onSelect={(entity) => setForm({ ...form, dataSetId: entity?.id ?? "" })}
             />
           </div>
         </div>
@@ -290,11 +331,12 @@ export function Dhis2IntegrationSettings() {
                   </label>
                   <p className="text-[11px] text-slate-400 font-mono">{metricKey}</p>
                 </div>
-                <Input
-                  value={mapping.dataElementId}
-                  onChange={(e) => updateMapping(metricKey, "dataElementId", e.target.value)}
+                <Dhis2EntityPicker
+                  type="dataElements"
+                  dataSetId={form.dataSetId}
+                  currentId={mapping.dataElementId}
+                  onSelect={(entity) => updateMapping(metricKey, "dataElementId", entity?.id ?? "")}
                   placeholder={t("dhis2.data_element_uid")}
-                  className="text-xs h-9 font-mono bg-white"
                 />
                 <Input
                   value={mapping.categoryOptionComboId ?? ""}
@@ -314,7 +356,7 @@ export function Dhis2IntegrationSettings() {
             <h3 className="text-sm font-bold text-slate-900">{t("dhis2.sync_title")}</h3>
             <p className="text-xs text-slate-500">{t("dhis2.sync_desc")}</p>
           </div>
-          <Button onClick={handleSyncNow} disabled={isSyncing || !hasPassword} className="text-xs h-8">
+          <Button onClick={() => handleSyncNow()} disabled={isSyncing || !hasPassword} className="text-xs h-8">
             {isSyncing ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <Send className="h-3 w-3 mr-2" />}
             {t("dhis2.sync_now")}
           </Button>
@@ -325,6 +367,77 @@ export function Dhis2IntegrationSettings() {
             {syncResult.ok ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
             {syncResult.message}
           </div>
+        )}
+      </div>
+
+      <div className="bg-white rounded border border-slate-200 shadow-sm overflow-hidden">
+        <div className="p-6 pb-4">
+          <h3 className="text-sm font-bold text-slate-900">{t("dhis2.history_title")}</h3>
+          <p className="text-xs text-slate-500">{t("dhis2.history_desc")}</p>
+        </div>
+        {isLoadingHistory ? (
+          <div className="p-10 flex items-center justify-center">
+            <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
+          </div>
+        ) : (
+          <table className="w-full text-left">
+            <thead>
+              <tr className="bg-slate-50 text-[10px] text-slate-500 uppercase font-bold border-b border-slate-200">
+                <th className="px-6 py-2">{t("dhis2.history_period")}</th>
+                <th className="px-6 py-2">{t("dhis2.history_status")}</th>
+                <th className="px-6 py-2 text-right">{t("dhis2.history_values")}</th>
+                <th className="px-6 py-2">{t("dhis2.history_detail")}</th>
+                <th className="px-6 py-2 text-right">{t("dhis2.history_action")}</th>
+              </tr>
+            </thead>
+            <tbody className="text-xs divide-y divide-slate-100">
+              {history.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-6 py-8 text-center text-slate-400 italic">{t("dhis2.no_history")}</td>
+                </tr>
+              )}
+              {history.map((entry) => (
+                <tr key={entry.id}>
+                  <td className="px-6 py-3 font-mono text-slate-700">{entry.period}</td>
+                  <td className="px-6 py-3">
+                    <span
+                      className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold ${
+                        entry.status === "success"
+                          ? "bg-green-100 text-green-700"
+                          : entry.status === "skipped"
+                          ? "bg-slate-100 text-slate-500"
+                          : "bg-red-100 text-red-700"
+                      }`}
+                    >
+                      {historyStatusLabel(entry.status)}
+                    </span>
+                  </td>
+                  <td className="px-6 py-3 text-right font-mono">{entry.dataValueCount ?? "—"}</td>
+                  <td className="px-6 py-3 text-slate-500 max-w-xs truncate" title={entry.error || entry.unmappedMetrics?.join(", ")}>
+                    {entry.error || (entry.unmappedMetrics?.length ? `${t("dhis2.unmapped")}: ${entry.unmappedMetrics.join(", ")}` : "—")}
+                  </td>
+                  <td className="px-6 py-3 text-right">
+                    {(entry.status === "failed" || entry.status === "skipped") && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-[10px]"
+                        disabled={retryingPeriod === entry.period}
+                        onClick={() => handleSyncNow(entry.period)}
+                      >
+                        {retryingPeriod === entry.period ? (
+                          <Loader2 className="h-3 w-3 animate-spin mr-1.5" />
+                        ) : (
+                          <RotateCw className="h-3 w-3 mr-1.5" />
+                        )}
+                        {t("dhis2.retry")}
+                      </Button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
     </div>

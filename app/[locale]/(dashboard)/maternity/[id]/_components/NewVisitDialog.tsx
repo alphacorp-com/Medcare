@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Loader2 } from "lucide-react";
+import { notifyBillingGenerated } from "@/lib/billing/client";
 
 export function NewVisitDialog({
   open,
@@ -61,11 +62,12 @@ export function NewVisitDialog({
           notes: notes || undefined,
         }),
       });
+      const payload = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const payload = await res.json().catch(() => ({}));
         setError(payload?.error || t("visit_save_error"));
         return;
       }
+      notifyBillingGenerated(payload?.billing, tc("invoice_generated"));
       onSaved();
       onOpenChange(false);
     } catch (err) {

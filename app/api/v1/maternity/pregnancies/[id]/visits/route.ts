@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { requireModulePermission } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
+import { suggestInvoiceLine } from "@/lib/billing/suggestCharge";
 
 const toNumber = (v: unknown): number | null => {
   if (v === undefined || v === null || v === "") return null;
@@ -57,7 +58,20 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
       },
     });
 
-    return NextResponse.json(visit, { status: 201 });
+    const billing = session.user.tenantId
+      ? await suggestInvoiceLine({
+          tenantId: session.user.tenantId,
+          patientId: pregnancy.patientId,
+          stayId: null,
+          sourceType: "antenatal_visit",
+          sourceId: visit.id,
+          description: `Consultation prénatale (CPN ${visit.visitNumber})`,
+          feeCode: "CPN_VISIT",
+          performedById: session.user.id,
+        })
+      : null;
+
+    return NextResponse.json({ ...visit, billing }, { status: 201 });
   } catch (error) {
     console.error("Error creating antenatal visit:", error);
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
