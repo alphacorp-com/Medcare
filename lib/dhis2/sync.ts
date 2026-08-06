@@ -65,7 +65,7 @@ export async function runDhis2Sync(
   }
 
   try {
-    const values = await computeMonthlyIndicators(period);
+    const values = await computeMonthlyIndicators(tenantId, period);
     const { dataValues, unmapped } = toDataValues(values, config.mappings);
 
     if (dataValues.length === 0) {

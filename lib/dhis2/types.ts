@@ -9,6 +9,14 @@ export const DHIS2_METRIC_KEYS = [
   "lab_exams_completed",
   "radiology_exams_completed",
   "drugs_dispensed_count",
+  "anc_first_visit",
+  "anc_fourth_visit_plus",
+  "deliveries_total",
+  "deliveries_cesarean",
+  "tetanus_doses_given",
+  "malaria_prevention_doses_given",
+  "hiv_tests_pregnancy_completed",
+  "newborns_total",
 ] as const;
 
 export type Dhis2MetricKey = (typeof DHIS2_METRIC_KEYS)[number];

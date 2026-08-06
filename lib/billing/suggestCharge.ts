@@ -60,6 +60,10 @@ export async function findOrCreateOpenInvoice(
   });
 }
 
+// Recomputes subtotal/patientAmount from the current line items and re-derives status
+// from paidAmount vs. the new patientAmount — not just carried over from the previous
+// status — so that e.g. adding a line (or raising a price) to an already-"paid" invoice
+// correctly drops it back to "partially_paid" once there's an outstanding balance again.
 export async function recalculateInvoiceTotals(invoiceId: string) {
   const invoice = await prisma.patientInvoice.findUniqueOrThrow({ where: { id: invoiceId } });
   const totals = await prisma.patientInvoiceLine.aggregate({
@@ -67,14 +71,21 @@ export async function recalculateInvoiceTotals(invoiceId: string) {
     _sum: { amount: true },
   });
   const subtotal = Number(totals._sum.amount ?? 0);
+  const patientAmount = subtotal - Number(invoice.insuranceAmount);
+  const paidAmount = Number(invoice.paidAmount);
+
+  const status =
+    invoice.status === "cancelled"
+      ? "cancelled"
+      : paidAmount <= 0
+      ? "pending_payment"
+      : paidAmount >= patientAmount && patientAmount > 0
+      ? "paid"
+      : "partially_paid";
 
   return prisma.patientInvoice.update({
     where: { id: invoiceId },
-    data: {
-      subtotal,
-      patientAmount: subtotal - Number(invoice.insuranceAmount),
-      status: invoice.status === "draft" ? "pending_payment" : invoice.status,
-    },
+    data: { subtotal, patientAmount, status },
   });
 }
 

@@ -84,59 +84,59 @@ export function PatientTabs({
   return (
     <div className="col-span-9 flex flex-col bg-white rounded border border-slate-200 shadow-sm overflow-hidden">
       <Tabs defaultValue="admissions" className="w-full flex-1 flex flex-col">
-        <div className="px-2 pt-2 border-b border-slate-200 bg-slate-50 shrink-0">
-          <TabsList className="h-9 bg-transparent p-0 flex justify-start gap-4">
-            <TabsTrigger 
-              value="admissions" 
-              className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs"
+        <div className="px-2 pt-2 border-b border-slate-200 bg-slate-50 shrink-0 overflow-x-auto overflow-y-hidden">
+          <TabsList className="h-9 bg-transparent p-0 flex flex-nowrap justify-start gap-4 w-max min-w-full">
+            <TabsTrigger
+              value="admissions"
+              className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs shrink-0"
             >
               <Calendar className="h-3.5 w-3.5 mr-2" /> {t('admissions_stays')}
             </TabsTrigger>
-            <TabsTrigger 
-              value="records" 
-              className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs"
+            <TabsTrigger
+              value="records"
+              className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs shrink-0"
             >
               <FileText className="h-3.5 w-3.5 mr-2" /> {t('medical_records')}
             </TabsTrigger>
-            <TabsTrigger 
-              value="prescriptions" 
-              className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs"
+            <TabsTrigger
+              value="prescriptions"
+              className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs shrink-0"
             >
               <Pill className="h-3.5 w-3.5 mr-2" /> {trx('queue_tab')}
             </TabsTrigger>
-            <TabsTrigger 
-              value="labs" 
-              className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs"
+            <TabsTrigger
+              value="labs"
+              className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs shrink-0"
             >
               <Activity className="h-3.5 w-3.5 mr-2" /> {tc('laboratory')}
             </TabsTrigger>
-            <TabsTrigger 
-              value="imaging" 
-              className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs"
+            <TabsTrigger
+              value="imaging"
+              className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs shrink-0"
             >
               <ImageIcon className="h-3.5 w-3.5 mr-2" /> {tc('radiology')}
             </TabsTrigger>
             <TabsTrigger
               value="vitals"
-              className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs"
+              className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs shrink-0"
             >
               <HeartPulse className="h-3.5 w-3.5 mr-2" /> {t('vitals_tab')}
             </TabsTrigger>
             <TabsTrigger
               value="surgery"
-              className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs"
+              className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs shrink-0"
             >
               <Scissors className="h-3.5 w-3.5 mr-2" /> {tc('surgery')}
             </TabsTrigger>
             <TabsTrigger
               value="maternity"
-              className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs"
+              className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs shrink-0"
             >
               <Baby className="h-3.5 w-3.5 mr-2" /> {tc('maternity')}
             </TabsTrigger>
             <TabsTrigger
               value="billing"
-              className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs"
+              className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs shrink-0"
             >
               <CreditCard className="h-3.5 w-3.5 mr-2" /> {tc('billing')}
             </TabsTrigger>
