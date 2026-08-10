@@ -33,6 +33,8 @@ export type EditPatientForm = {
   emergencyName: string;
   emergencyRelation: string;
   emergencyPhone: string;
+  allergies: string[];
+  chronicConditions: string[];
 };
 
 export type NewStayForm = {
@@ -41,6 +43,7 @@ export type NewStayForm = {
   departmentId: string;
   bedId: string;
   attendingDoctorId: string;
+  triageAcuity: string;
   vitals: VitalsForm;
 };
 

@@ -11,6 +11,7 @@ import {
   SheetDescription,
   SheetFooter,
 } from "@/components/ui/sheet";
+import { TagInput } from "@/components/shared/tag-input";
 import { NewPatientForm } from "../types";
 
 interface NewPatientSheetProps {
@@ -104,6 +105,19 @@ export function NewPatientSheet({
                   <option value="AB+">AB+</option><option value="AB-">AB-</option>
                 </select>
               </div>
+            </div>
+          </div>
+
+          {/* Medical Alerts */}
+          <div className="space-y-3">
+            <h4 className="text-[11px] font-bold text-slate-900 uppercase border-b border-slate-200 pb-1">{t('medical_alerts')}</h4>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-500 uppercase">{t('allergies')}</label>
+              <TagInput value={form.allergies} onChange={(next) => onUpdateForm("allergies", next)} placeholder={t('add_allergy_placeholder')} />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-500 uppercase">{t('chronic_conditions')}</label>
+              <TagInput value={form.chronicConditions} onChange={(next) => onUpdateForm("chronicConditions", next)} placeholder={t('add_condition_placeholder')} />
             </div>
           </div>
 

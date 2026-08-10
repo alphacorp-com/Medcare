@@ -63,6 +63,8 @@ export async function GET() {
           }),
           waiting: Math.floor((Date.now() - stay.admissionDate.getTime()) / (1000 * 60)), // minutes
           status: 'active',
+          type: stay.type,
+          triageAcuity: stay.triageAcuity,
         };
       })
     );

@@ -762,6 +762,7 @@ model Patient {
   @@unique([tenantId, ipp])
   @@index([tenantId])
   @@index([birthDate])
+  @@index([tenantId, lastName, firstName, birthDate])
   @@map("patients")
   @@schema("tenant_template")
 }

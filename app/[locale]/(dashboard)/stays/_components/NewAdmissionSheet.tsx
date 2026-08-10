@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/sheet";
 import { PatientSearchAutocomplete } from "@/components/shared/patient-search-autocomplete";
 import { VitalsFields } from "@/components/shared/vitals-fields";
+import { TRIAGE_ACUITIES } from "@/components/shared/triage-badge";
 import { Department, Doctor, Bed, NewStayForm } from "../types";
 
 interface NewAdmissionSheetProps {
@@ -91,6 +92,41 @@ export function NewAdmissionSheet({
               <option value="outpatient">{t("type_outpatient")}</option>
             </select>
           </div>
+
+          {/* Triage acuity — required for emergency admissions only */}
+          {form.type === "emergency" && (
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-500 uppercase">
+                {t("triage_priority")}
+              </label>
+              <div className="space-y-1.5">
+                {TRIAGE_ACUITIES.map((level) => (
+                  <label
+                    key={level}
+                    className={`flex items-center gap-2 border rounded p-2 cursor-pointer bg-white shadow-sm ${
+                      form.triageAcuity === level ? "border-blue-400 ring-1 ring-blue-300" : "border-slate-200 hover:bg-slate-50"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="triageAcuity"
+                      className="hidden"
+                      checked={form.triageAcuity === level}
+                      onChange={() => onUpdateForm("triageAcuity", level)}
+                    />
+                    <span className={`text-[11px] font-bold uppercase ${
+                      level === "resuscitation" ? "text-red-600" :
+                      level === "emergent" ? "text-orange-600" :
+                      level === "urgent" ? "text-yellow-600" :
+                      level === "less_urgent" ? "text-blue-600" : "text-slate-500"
+                    }`}>
+                      {t(level)}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Chief complaint */}
           <div className="space-y-1">
@@ -178,7 +214,7 @@ export function NewAdmissionSheet({
           <Button
             className="text-xs h-8 bg-blue-600 hover:bg-blue-700"
             onClick={onSubmit}
-            disabled={saving || !form.patientId}
+            disabled={saving || !form.patientId || (form.type === "emergency" && !form.triageAcuity)}
           >
             {saving ? "Creating..." : t("create")}
           </Button>

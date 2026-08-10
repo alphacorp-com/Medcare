@@ -11,6 +11,7 @@ import { StayHeader } from "./_components/StayHeader";
 import { AdmissionInfo } from "./_components/AdmissionInfo";
 import { StayTabs } from "./_components/StayTabs";
 import { TransferSheet } from "./_components/TransferSheet";
+import { RetriageSheet } from "./_components/RetriageSheet";
 import { DischargeSheet } from "./_components/DischargeSheet";
 import { PrescriptionSheet } from "./_components/PrescriptionSheet";
 import { MedicalOrderSheet } from "./_components/MedicalOrderSheet";
@@ -19,6 +20,7 @@ import { EMPTY_VITALS, VitalsForm } from "@/components/shared/vitals-fields";
 
 // Types
 import { StayDetail, Doctor, Department, InventoryItem, Bed } from "./types";
+import type { TriageAcuity } from "@/components/shared/triage-badge";
 
 export default function AdmissionDetailPage() {
   const t = useTranslations('admissions');
@@ -40,6 +42,7 @@ export default function AdmissionDetailPage() {
 
   // Sheet states
   const [transferOpen, setTransferOpen] = useState(false);
+  const [retriageOpen, setRetriageOpen] = useState(false);
   const [dischargeOpen, setDischargeOpen] = useState(false);
   const [prescriptionOpen, setPrescriptionOpen] = useState(false);
   const [orderOpen, setOrderOpen] = useState(false);
@@ -108,6 +111,26 @@ export default function AdmissionDetailPage() {
       if (!res.ok || !json.success) throw new Error(json.error ?? t('error_save'));
       toast.success(tc('save_changes'));
       setTransferOpen(false);
+      fetchStay();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t('error_save'));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleRetriage = async (acuity: TriageAcuity) => {
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/v1/stays/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ triageAcuity: acuity }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error ?? t('error_save'));
+      toast.success(tc('save_changes'));
+      setRetriageOpen(false);
       fetchStay();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t('error_save'));
@@ -252,6 +275,7 @@ export default function AdmissionDetailPage() {
         onTransferOpen={() => setTransferOpen(true)}
         onDischargeOpen={() => setDischargeOpen(true)}
         onVitalsOpen={() => setVitalsOpen(true)}
+        onRetriageOpen={() => setRetriageOpen(true)}
       />
 
       {/* Main Content Section */}
@@ -281,10 +305,18 @@ export default function AdmissionDetailPage() {
         doctors={doctors}
         beds={beds}
         submitting={submitting}
-        onSubmit={handleTransfer} 
+        onSubmit={handleTransfer}
       />
 
-      <DischargeSheet 
+      <RetriageSheet
+        open={retriageOpen}
+        onOpenChange={setRetriageOpen}
+        stay={stay}
+        submitting={submitting}
+        onSubmit={handleRetriage}
+      />
+
+      <DischargeSheet
         open={dischargeOpen} 
         onOpenChange={setDischargeOpen} 
         submitting={submitting} 

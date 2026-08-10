@@ -8,6 +8,7 @@ const EMPTY_FORM: NewStayForm = {
   departmentId: "",
   bedId: "",
   attendingDoctorId: "",
+  triageAcuity: "",
   vitals: EMPTY_VITALS,
 };
 
@@ -19,6 +20,7 @@ export function useAdmissionsPage() {
   const [beds, setBeds] = useState<Bed[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [view, setView] = useState<"all" | "triage">("all");
 
   // Form
   const [stayForm, setStayForm] = useState<NewStayForm>(EMPTY_FORM);
@@ -27,11 +29,14 @@ export function useAdmissionsPage() {
 
   // ── Fetchers ──────────────────────────────────────────────────────────────
 
-  const fetchStays = useCallback(async () => {
+  const fetchStays = useCallback(async (currentView: "all" | "triage") => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/v1/stays");
+      const url = currentView === "triage"
+        ? "/api/v1/stays?type=emergency&status=in_progress&sort=acuity"
+        : "/api/v1/stays";
+      const res = await fetch(url);
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.error ?? "Failed to load stays");
       setStays(json.data as StayRow[]);
@@ -44,11 +49,15 @@ export function useAdmissionsPage() {
   }, []);
 
   useEffect(() => {
+    (async () => {
+      await fetchStays(view);
+    })();
+  }, [fetchStays, view]);
+
+  useEffect(() => {
     let cancelled = false;
 
     const load = async () => {
-      await fetchStays();
-
       const [deptRes, docRes, bedsRes] = await Promise.all([
         fetch("/api/v1/departments"),
         fetch("/api/v1/doctors"),
@@ -64,7 +73,7 @@ export function useAdmissionsPage() {
 
     void load();
     return () => { cancelled = true; };
-  }, [fetchStays]);
+  }, []);
 
   // ── Form helpers ──────────────────────────────────────────────────────────
 
@@ -101,13 +110,14 @@ export function useAdmissionsPage() {
           departmentId: stayForm.departmentId || null,
           bedId: stayForm.bedId || null,
           attendingDoctorId: stayForm.attendingDoctorId || null,
+          triageAcuity: stayForm.triageAcuity || undefined,
           vitals: stayForm.vitals,
         }),
       });
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.error ?? "Failed to create stay");
 
-      await fetchStays();
+      await fetchStays(view);
       return true;
     } catch (e) {
       setStayError(e instanceof Error ? e.message : "Failed to create stay");
@@ -115,11 +125,12 @@ export function useAdmissionsPage() {
     } finally {
       setSavingStay(false);
     }
-  }, [savingStay, stayForm, fetchStays]);
+  }, [savingStay, stayForm, fetchStays, view]);
 
   return {
     // Data
     stays, departments, doctors, beds, loading, error,
+    view, setView,
     // Form
     stayForm, updateStayForm, resetForm,
     savingStay, stayError,

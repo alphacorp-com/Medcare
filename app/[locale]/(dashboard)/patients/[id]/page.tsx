@@ -74,13 +74,14 @@ export default function PatientDetailPage() {
   // Form States
   const [editForm, setEditForm] = useState<EditPatientForm>({
     firstName: "", lastName: "", birthDate: "", gender: "M", nss: "", bloodGroup: "",
-    phone: "", email: "", address: "", emergencyName: "", emergencyRelation: "", emergencyPhone: ""
+    phone: "", email: "", address: "", emergencyName: "", emergencyRelation: "", emergencyPhone: "",
+    allergies: [], chronicConditions: []
   });
   const [savingEdit, setSavingEdit] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
   const [stayForm, setStayForm] = useState<NewStayForm>({
-    type: "emergency", admissionReason: "", departmentId: "", bedId: "", attendingDoctorId: "", vitals: EMPTY_VITALS
+    type: "emergency", admissionReason: "", departmentId: "", bedId: "", attendingDoctorId: "", triageAcuity: "", vitals: EMPTY_VITALS
   });
   const [savingStay, setSavingStay] = useState(false);
   const [stayError, setStayError] = useState<string | null>(null);
@@ -264,7 +265,8 @@ export default function PatientDetailPage() {
             firstName: patient.firstName, lastName: patient.lastName, birthDate: patient.birthDate, gender: patient.gender,
             nss: patient.nss || "", bloodGroup: patient.bloodGroup || "", phone: patient.phone || "", email: patient.email || "",
             address: patient.address || "", emergencyName: patient.emergencyContact?.name || "",
-            emergencyRelation: patient.emergencyContact?.relation || "", emergencyPhone: patient.emergencyContact?.phone || ""
+            emergencyRelation: patient.emergencyContact?.relation || "", emergencyPhone: patient.emergencyContact?.phone || "",
+            allergies: patient.allergies || [], chronicConditions: patient.chronicConditions || []
           });
           setIsEditOpen(true);
         }} 

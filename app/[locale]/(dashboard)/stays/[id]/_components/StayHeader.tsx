@@ -7,11 +7,13 @@ import {
   ArrowRightLeft,
   Activity,
   LogOut,
+  Siren,
   User
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link } from "@/i18n/routing";
 import { format } from "date-fns";
+import { TriageBadge } from "@/components/shared/triage-badge";
 import { StayDetail } from "../types";
 
 interface StayHeaderProps {
@@ -19,9 +21,10 @@ interface StayHeaderProps {
   onTransferOpen: () => void;
   onDischargeOpen: () => void;
   onVitalsOpen: () => void;
+  onRetriageOpen: () => void;
 }
 
-export function StayHeader({ stay, onTransferOpen, onDischargeOpen, onVitalsOpen }: StayHeaderProps) {
+export function StayHeader({ stay, onTransferOpen, onDischargeOpen, onVitalsOpen, onRetriageOpen }: StayHeaderProps) {
   const t = useTranslations('admissions');
   const tc = useTranslations('common');
 
@@ -50,6 +53,9 @@ export function StayHeader({ stay, onTransferOpen, onDischargeOpen, onVitalsOpen
             )}>
               {stay.type}
             </span>
+            {stay.type === 'emergency' && stay.triageAcuity && (
+              <TriageBadge acuity={stay.triageAcuity} className="rounded-full ring-1 ring-black/5" />
+            )}
           </div>
           <div className="text-xs text-slate-500 mt-1 flex items-center gap-3">
             <span className="font-semibold text-slate-700 flex items-center gap-1.5"><User className="h-3 w-3" /> {stay.patient.firstName} {stay.patient.lastName}</span>
@@ -63,6 +69,12 @@ export function StayHeader({ stay, onTransferOpen, onDischargeOpen, onVitalsOpen
            <Button variant="outline" size="sm" className="text-xs h-9 rounded-lg px-4 border-slate-200 hover:bg-slate-50 transition-colors" onClick={onVitalsOpen}>
              <Activity className="mr-2 h-3.5 w-3.5 text-slate-500" />
              {t('add_vitals')}
+           </Button>
+         )}
+         {stay.type === 'emergency' && stay.status === 'in_progress' && (
+           <Button variant="outline" size="sm" className="text-xs h-9 rounded-lg px-4 border-slate-200 hover:bg-slate-50 transition-colors" onClick={onRetriageOpen}>
+             <Siren className="mr-2 h-3.5 w-3.5 text-slate-500" />
+             {t('retriage')}
            </Button>
          )}
          <Button variant="outline" size="sm" className="text-xs h-9 rounded-lg px-4 border-slate-200 hover:bg-slate-50 transition-colors" onClick={onTransferOpen}>

@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { requireModulePermission } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
-import type { StayStatus, StayType } from "@prisma/client";
+import type { StayStatus, StayType, TriageAcuity } from "@prisma/client";
 
 // Only accept valid UUIDs for FK fields; treat anything else as null
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -26,6 +26,14 @@ const STAY_STATUSES: StayStatus[] = [
   "discharged",
   "transferred",
   "deceased",
+];
+
+const TRIAGE_ACUITIES: TriageAcuity[] = [
+  "resuscitation",
+  "emergent",
+  "urgent",
+  "less_urgent",
+  "non_urgent",
 ];
 
 // ── GET /api/v1/patients/:id/stays ────────────────────────────────────────────
@@ -122,6 +130,7 @@ export async function POST(
       departmentId,
       bedId,
       attendingDoctorId,
+      triageAcuity,
       vitals,
     } = body;
 
@@ -132,6 +141,18 @@ export async function POST(
         { status: 400 }
       );
     }
+
+    // Emergency admissions must be triaged; the field is otherwise not
+    // applicable and left null (see NewAdmissionSheet — the picker is only
+    // shown for type === "emergency").
+    if (type === "emergency" && !TRIAGE_ACUITIES.includes(triageAcuity as TriageAcuity)) {
+      return NextResponse.json(
+        { error: "triageAcuity is required for emergency admissions", success: false },
+        { status: 400 }
+      );
+    }
+    const resolvedTriageAcuity: TriageAcuity | null =
+      type === "emergency" ? (triageAcuity as TriageAcuity) : null;
 
     // Validate status enum if provided
     const resolvedStatus: StayStatus =
@@ -201,6 +222,7 @@ export async function POST(
           departmentId: resolvedDepartmentId,
           bedId: resolvedBedId,
           attendingDoctorId: toUuid(attendingDoctorId),
+          triageAcuity: resolvedTriageAcuity,
           ...(hasAnyVital(vitals)
             ? {
                 vitalSigns: {

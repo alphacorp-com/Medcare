@@ -9,7 +9,9 @@
       "Bash(echo \"EXIT_CODE:$?\")",
       "Bash(npx eslint *)",
       "Bash(git diff *)",
-      "Bash(mkdir -p \"app/api/v1/billing/[id]/lines/[lineId]\")"
+      "Bash(mkdir -p \"app/api/v1/billing/[id]/lines/[lineId]\")",
+      "Bash(grep -B3 -A3 \"fetchData\\(\\);$\")",
+      "Bash(grep -B3 -A3 \"fetchStay\\(\\);$\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\pfots\\OneDrive\\Desktop\\work\\Medcare_V2\\app\\api\\v1\\billing\\[id]\\lines"

@@ -13,6 +13,7 @@ export type StayRow = {
   dischargeSummary: string | null;
   pmsiCode: string | null;
   pmsiValidated: boolean;
+  triageAcuity: "resuscitation" | "emergent" | "urgent" | "less_urgent" | "non_urgent" | null;
   patient: {
     firstName: string;
     lastName: string;
@@ -48,5 +49,6 @@ export type NewStayForm = {
   departmentId: string;
   bedId: string;
   attendingDoctorId: string;
+  triageAcuity: string;
   vitals: VitalsForm;
 };

@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/sheet";
 import { format } from "date-fns";
 import { VitalsFields } from "@/components/shared/vitals-fields";
+import { TRIAGE_ACUITIES } from "@/components/shared/triage-badge";
+import { TagInput } from "@/components/shared/tag-input";
 import {
   EditPatientForm,
   NewStayForm,
@@ -110,6 +112,18 @@ export function EditPatientSheet({
                   <option value="AB+">AB+</option><option value="AB-">AB-</option>
                 </select>
               </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <h4 className="text-[11px] font-bold text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-2 mb-4">{t('medical_alerts')}</h4>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-500 uppercase">{t('allergies')}</label>
+              <TagInput value={form.allergies} onChange={(next) => onUpdateForm("allergies", next)} placeholder={t('add_allergy_placeholder')} />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-500 uppercase">{t('chronic_conditions')}</label>
+              <TagInput value={form.chronicConditions} onChange={(next) => onUpdateForm("chronicConditions", next)} placeholder={t('add_condition_placeholder')} />
             </div>
           </div>
 
@@ -242,6 +256,38 @@ export function NewAdmissionSheet({
             </select>
           </div>
 
+          {form.type === "emergency" && (
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-500 uppercase">{tad('triage_priority')}</label>
+              <div className="space-y-1.5">
+                {TRIAGE_ACUITIES.map((level) => (
+                  <label
+                    key={level}
+                    className={`flex items-center gap-2 border rounded p-2 cursor-pointer bg-white shadow-sm ${
+                      form.triageAcuity === level ? "border-blue-400 ring-1 ring-blue-300" : "border-slate-200 hover:bg-slate-50"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="triageAcuity"
+                      className="hidden"
+                      checked={form.triageAcuity === level}
+                      onChange={() => onUpdateForm("triageAcuity", level)}
+                    />
+                    <span className={`text-[11px] font-bold uppercase ${
+                      level === "resuscitation" ? "text-red-600" :
+                      level === "emergent" ? "text-orange-600" :
+                      level === "urgent" ? "text-yellow-600" :
+                      level === "less_urgent" ? "text-blue-600" : "text-slate-500"
+                    }`}>
+                      {tad(level)}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="space-y-1">
             <label className="text-[10px] font-bold text-slate-500 uppercase">{t('chief_complaint')}</label>
             <textarea 
@@ -305,7 +351,7 @@ export function NewAdmissionSheet({
         </div>
         <SheetFooter className="p-4 border-t border-slate-200 bg-white shrink-0 shadow-[0_-4px_6px_-1px_rgb(0,0,0,0.05)]">
           <Button variant="outline" className="text-xs h-8" onClick={() => onOpenChange(false)} disabled={saving}>{tc('cancel')}</Button>
-          <Button className="text-xs h-8 bg-blue-600 hover:bg-blue-700" onClick={onSubmit} disabled={saving}>
+          <Button className="text-xs h-8 bg-blue-600 hover:bg-blue-700" onClick={onSubmit} disabled={saving || (form.type === "emergency" && !form.triageAcuity)}>
             {saving ? tc('saving') : tc('save')}
           </Button>
         </SheetFooter>

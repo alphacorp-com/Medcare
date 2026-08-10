@@ -11,6 +11,7 @@ export type StayDetail = {
   departmentId: string | null;
   bedId: string | null;
   attendingDoctorId: string | null;
+  triageAcuity: "resuscitation" | "emergent" | "urgent" | "less_urgent" | "non_urgent" | null;
   pmsiCode: string | null;
   pmsiValidated: boolean;
   patient: {

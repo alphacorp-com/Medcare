@@ -25,6 +25,8 @@ export type NewPatientForm = {
   emergencyName: string;
   emergencyRelation: string;
   emergencyPhone: string;
+  allergies: string[];
+  chronicConditions: string[];
 };
 
 export const EMPTY_FORM: NewPatientForm = {
@@ -40,6 +42,17 @@ export const EMPTY_FORM: NewPatientForm = {
   emergencyName: "",
   emergencyRelation: "",
   emergencyPhone: "",
+  allergies: [],
+  chronicConditions: [],
+};
+
+export type DuplicateMatch = {
+  id: string;
+  ipp: string;
+  firstName: string;
+  lastName: string;
+  birthDate: string;
+  nss: string | null;
 };
 
 export function ageFromBirthDate(iso: string): number {

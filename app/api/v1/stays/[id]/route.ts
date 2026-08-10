@@ -3,13 +3,21 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { requireModulePermission } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
-import type { StayStatus } from "@prisma/client";
+import type { StayStatus, TriageAcuity } from "@prisma/client";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const toUuid = (v: unknown): string | null =>
   typeof v === "string" && UUID_RE.test(v) ? v : null;
 
 const TERMINAL_STATUSES: StayStatus[] = ["discharged", "transferred", "deceased"];
+
+const TRIAGE_ACUITIES: TriageAcuity[] = [
+  "resuscitation",
+  "emergent",
+  "urgent",
+  "less_urgent",
+  "non_urgent",
+];
 
 // ── GET /api/v1/stays/:id ───────────────────────────────────────────────────
 export async function GET(
@@ -95,7 +103,12 @@ export async function PATCH(
       bedId,
       departmentId,
       attendingDoctorId,
+      triageAcuity,
     } = body;
+
+    if (triageAcuity !== undefined && triageAcuity !== null && !TRIAGE_ACUITIES.includes(triageAcuity as TriageAcuity)) {
+      return NextResponse.json({ error: "Invalid triageAcuity", success: false }, { status: 400 });
+    }
 
     const existingStay = await prisma.stay.findFirst({
       where: { id, tenantId: session.user.tenantId },
@@ -148,6 +161,7 @@ export async function PATCH(
           ...((bedProvided || isEnding) && { bedId: newBedId }),
           ...(departmentId !== undefined && { departmentId: resolvedDepartmentId }),
           ...(attendingDoctorId !== undefined && { attendingDoctorId }),
+          ...(triageAcuity !== undefined && { triageAcuity }),
         },
         include: {
           patient: {

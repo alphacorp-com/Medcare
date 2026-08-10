@@ -20,6 +20,7 @@ export default function AdmissionsPage() {
 
   const {
     stays, departments, doctors, beds, loading, error,
+    view, setView,
     stayForm, updateStayForm, resetForm,
     savingStay, stayError,
     handleSaveStay,
@@ -60,6 +61,8 @@ export default function AdmissionsPage() {
       <StaysHeader
         onFilterToggle={() => setShowFilters((v) => !v)}
         onNewAdmission={openSheet}
+        view={view}
+        onViewChange={setView}
       />
 
       <div className="flex-1 flex flex-col bg-white rounded border border-slate-200 shadow-sm overflow-hidden">
@@ -68,7 +71,7 @@ export default function AdmissionsPage() {
           onFilterClose={() => setShowFilters(false)}
         />
 
-        <StaysTable stays={stays} loading={loading} error={error} />
+        <StaysTable stays={stays} loading={loading} error={error} view={view} />
 
         <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-between items-center text-[11px] text-slate-500 shrink-0">
           <span>{stays.length} {t("stays_total")}</span>

@@ -156,7 +156,13 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ data: patient, success: true }, { status: 201 });
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.code === "P2002") {
+      return NextResponse.json(
+        { error: "A patient with this NSS already exists", success: false },
+        { status: 409 }
+      );
+    }
     console.error("[POST /api/v1/patients]", error);
     return NextResponse.json(
       { error: "Failed to create patient", success: false },

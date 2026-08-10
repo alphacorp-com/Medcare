@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/routing";
+import { TriageBadge, type TriageAcuity } from "@/components/shared/triage-badge";
 
 interface QueueItem {
   id: string;
@@ -12,6 +13,8 @@ interface QueueItem {
   timeIn: string;
   waiting: number;
   status: string;
+  type: string;
+  triageAcuity: TriageAcuity | null;
 }
 
 export function PatientQueue() {
@@ -115,7 +118,13 @@ export function PatientQueue() {
                   <td className={`px-4 py-3 ${item.waiting > 60 ? 'text-red-600 font-medium' : ''}`}>
                     {formatWaitingTime(item.waiting)}
                   </td>
-                  <td className="px-4 py-3 text-slate-600">{tc('active')}</td>
+                  <td className="px-4 py-3">
+                    {item.type === "emergency" && item.triageAcuity ? (
+                      <TriageBadge acuity={item.triageAcuity} />
+                    ) : (
+                      <span className="text-slate-600">{tc('active')}</span>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
