@@ -635,6 +635,51 @@ async function main() {
 
   await seedReferenceData(prisma, tenant.id);
 
+  // ── Beds (physical bed inventory, per bedded department) ──────────────────
+  const roomTypeItems = await prisma.referenceCatalogItem.findMany({
+    where: { tenantId: tenant.id, catalogType: 'room_type' },
+    select: { id: true, code: true },
+  });
+  const roomTypeIdByCode = Object.fromEntries(roomTypeItems.map((r) => [r.code, r.id]));
+
+  const bedsData: { code: string; label: string; deptCode: string; roomTypeCode: string }[] = [
+    ...Array.from({ length: 6 }, (_, i) => ({
+      code: `EMER-${String(i + 1).padStart(2, '0')}`,
+      label: `Urgences - Lit ${i + 1}`,
+      deptCode: 'EMER',
+      roomTypeCode: 'EMERGENCY',
+    })),
+    ...Array.from({ length: 4 }, (_, i) => ({
+      code: `SURG-${String(i + 1).padStart(2, '0')}`,
+      label: `Chirurgie - Lit ${i + 1}`,
+      deptCode: 'SURG',
+      roomTypeCode: 'SURGICAL',
+    })),
+    ...Array.from({ length: 8 }, (_, i) => ({
+      code: `MED-${String(i + 1).padStart(2, '0')}`,
+      label: `Médecine Générale - Lit ${i + 1}`,
+      deptCode: 'MED',
+      roomTypeCode: 'GENERAL',
+    })),
+  ];
+
+  for (const bed of bedsData) {
+    const departmentId = departments[bed.deptCode]?.id;
+    if (!departmentId) continue;
+    await prisma.bed.upsert({
+      where: { tenantId_code: { tenantId: tenant.id, code: bed.code } },
+      update: {},
+      create: {
+        tenantId: tenant.id,
+        code: bed.code,
+        label: bed.label,
+        departmentId,
+        roomTypeId: roomTypeIdByCode[bed.roomTypeCode] ?? null,
+      },
+    });
+  }
+  console.log(`Beds seeded (${bedsData.length} beds across Emergency/Surgery/General Medicine)`);
+
   console.log('Database seeded successfully!');
 }
 

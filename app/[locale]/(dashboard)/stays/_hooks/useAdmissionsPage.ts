@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { StayRow, Department, Doctor, NewStayForm, EMPTY_VITALS } from "../types";
+import { StayRow, Department, Doctor, Bed, NewStayForm, EMPTY_VITALS } from "../types";
 
 const EMPTY_FORM: NewStayForm = {
   patientId: "",
@@ -16,6 +16,7 @@ export function useAdmissionsPage() {
   const [stays, setStays] = useState<StayRow[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [beds, setBeds] = useState<Bed[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,15 +49,17 @@ export function useAdmissionsPage() {
     const load = async () => {
       await fetchStays();
 
-      const [deptRes, docRes] = await Promise.all([
+      const [deptRes, docRes, bedsRes] = await Promise.all([
         fetch("/api/v1/departments"),
         fetch("/api/v1/doctors"),
+        fetch("/api/v1/settings/beds?status=available"),
       ]);
-      const [deptJson, docJson] = await Promise.all([deptRes.json(), docRes.json()]);
+      const [deptJson, docJson, bedsJson] = await Promise.all([deptRes.json(), docRes.json(), bedsRes.json()]);
 
       if (cancelled) return;
       if (deptJson.success) setDepartments(deptJson.data as Department[]);
       if (docJson.success) setDoctors(docJson.data as Doctor[]);
+      if (Array.isArray(bedsJson)) setBeds(bedsJson as Bed[]);
     };
 
     void load();
@@ -67,7 +70,11 @@ export function useAdmissionsPage() {
 
   const updateStayForm = useCallback(
     <K extends keyof NewStayForm>(key: K, value: NewStayForm[K]) =>
-      setStayForm((prev) => ({ ...prev, [key]: value })),
+      setStayForm((prev) =>
+        key === "departmentId" && value !== prev.departmentId
+          ? { ...prev, departmentId: value as string, bedId: "" }
+          : { ...prev, [key]: value }
+      ),
     []
   );
 
@@ -112,7 +119,7 @@ export function useAdmissionsPage() {
 
   return {
     // Data
-    stays, departments, doctors, loading, error,
+    stays, departments, doctors, beds, loading, error,
     // Form
     stayForm, updateStayForm, resetForm,
     savingStay, stayError,

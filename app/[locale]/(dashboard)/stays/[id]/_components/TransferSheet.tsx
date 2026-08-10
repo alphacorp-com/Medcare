@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,18 +10,17 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
 } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ArrowRightLeft, Loader2 } from "lucide-react";
-import { Department, Doctor, StayDetail } from "../types";
+import { Department, Doctor, Bed, StayDetail } from "../types";
 
 interface TransferSheetProps {
   open: boolean;
@@ -28,6 +28,7 @@ interface TransferSheetProps {
   stay: StayDetail;
   departments: Department[];
   doctors: Doctor[];
+  beds: Bed[];
   submitting: boolean;
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => Promise<void>;
 }
@@ -38,11 +39,14 @@ export function TransferSheet({
   stay,
   departments,
   doctors,
+  beds,
   submitting,
   onSubmit,
 }: TransferSheetProps) {
   const t = useTranslations('admissions');
   const tc = useTranslations('common');
+  const [deptId, setDeptId] = useState(stay.departmentId || "");
+  const [bedId, setBedId] = useState(stay.bedId || "");
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -60,7 +64,7 @@ export function TransferSheet({
             <form id="transfer-form" onSubmit={onSubmit} className="space-y-6">
               <div className="space-y-2.5">
                 <Label className="text-xs font-bold uppercase text-slate-400 tracking-wider ml-1">{t('new_dept_id')}</Label>
-                <Select name="departmentId" defaultValue={stay.departmentId || ""}>
+                <Select name="departmentId" value={deptId} onValueChange={(v) => { setDeptId(v ?? ""); setBedId(""); }}>
                   <SelectTrigger className="h-11 rounded-xl border-slate-200 focus:ring-slate-900 transition-all">
                     <SelectValue placeholder={t('new_dept_placeholder')} />
                   </SelectTrigger>
@@ -74,7 +78,18 @@ export function TransferSheet({
 
               <div className="space-y-2.5">
                 <Label className="text-xs font-bold uppercase text-slate-400 tracking-wider ml-1">{t('new_bed_id')}</Label>
-                <Input id="bedId" name="bedId" defaultValue={stay.bedId || ""} placeholder={t('new_bed_placeholder')} className="h-11 rounded-xl border-slate-200 focus:ring-slate-900 transition-all" />
+                <Select name="bedId" value={bedId} onValueChange={(v) => setBedId(v ?? "")} disabled={!deptId}>
+                  <SelectTrigger className="h-11 rounded-xl border-slate-200 focus:ring-slate-900 transition-all">
+                    <SelectValue placeholder={t('new_bed_placeholder')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {beds
+                      .filter((b) => b.departmentId === deptId && (b.status === "available" || b.id === stay.bedId))
+                      .map((b) => (
+                        <SelectItem key={b.id} value={b.id}>{b.label}</SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2.5">

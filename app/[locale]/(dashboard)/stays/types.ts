@@ -33,6 +33,14 @@ export type Doctor = {
   specialty: string | null;
 };
 
+export type Bed = {
+  id: string;
+  code: string;
+  label: string;
+  departmentId: string;
+  status: "available" | "occupied" | "maintenance" | "reserved";
+};
+
 export type NewStayForm = {
   patientId: string;
   type: "emergency" | "scheduled" | "day_care" | "outpatient";

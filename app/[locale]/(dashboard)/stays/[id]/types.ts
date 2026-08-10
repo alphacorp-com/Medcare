@@ -41,3 +41,11 @@ export type InventoryItem = {
   id: string;
   name: string;
 };
+
+export type Bed = {
+  id: string;
+  code: string;
+  label: string;
+  departmentId: string;
+  status: "available" | "occupied" | "maintenance" | "reserved";
+};

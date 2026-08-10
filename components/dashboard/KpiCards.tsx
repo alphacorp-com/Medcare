@@ -8,6 +8,13 @@ interface KpiData {
   consultationChange: number;
   avgWaitTime: number;
   pendingLabs: number;
+  bedOccupancy: {
+    total: number;
+    occupied: number;
+    available: number;
+    maintenance: number;
+    reserved: number;
+  };
   systemStatus: {
     apiGateway: string;
     dbClusters: number;
@@ -93,6 +100,18 @@ export function KpiCards() {
           <span className="text-3xl font-bold text-slate-900">{data.pendingLabs}</span>
           <span className="text-xs text-blue-600 font-medium mb-1">
             {data.pendingLabs > 10 ? `${Math.floor(data.pendingLabs / 10) * 10}+` : data.pendingLabs} {t('pending')}
+          </span>
+        </div>
+      </div>
+
+      <div className="bg-white p-4 rounded border border-slate-200 shadow-sm">
+        <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">{t('bed_occupancy')}</div>
+        <div className="flex items-end justify-between">
+          <span className="text-3xl font-bold text-slate-900">
+            {data.bedOccupancy.occupied}<span className="text-sm text-slate-400">/{data.bedOccupancy.total}</span>
+          </span>
+          <span className={`text-xs font-medium mb-1 ${data.bedOccupancy.total > 0 && data.bedOccupancy.occupied / data.bedOccupancy.total > 0.9 ? 'text-red-600' : 'text-blue-600'}`}>
+            {data.bedOccupancy.total > 0 ? Math.round((data.bedOccupancy.occupied / data.bedOccupancy.total) * 100) : 0}% {t('occupied')}
           </span>
         </div>
       </div>

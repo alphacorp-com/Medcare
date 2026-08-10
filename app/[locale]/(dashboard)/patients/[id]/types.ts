@@ -173,6 +173,7 @@ export type PregnancyRow = {
 
 export type Department = { id: string; code: string; name: string; type: string | null };
 export type Doctor = { id: string; fullName: string; specialty: string | null };
+export type Bed = { id: string; code: string; label: string; departmentId: string; status: "available" | "occupied" | "maintenance" | "reserved" };
 
 export function ageFromBirthDate(iso: string): number {
   const b = new Date(iso);

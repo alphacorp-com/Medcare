@@ -7,15 +7,16 @@ import {
   Building2
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
-import { Department, StayDetail } from "../types";
+import { Department, Bed, StayDetail } from "../types";
 
 interface AdmissionInfoProps {
   stay: StayDetail;
   departments: Department[];
+  beds: Bed[];
   doctorName: string;
 }
 
-export function AdmissionInfo({ stay, departments, doctorName }: AdmissionInfoProps) {
+export function AdmissionInfo({ stay, departments, beds, doctorName }: AdmissionInfoProps) {
   const t = useTranslations('admissions');
 
   return (
@@ -30,7 +31,7 @@ export function AdmissionInfo({ stay, departments, doctorName }: AdmissionInfoPr
             <div className="text-[10px] text-slate-500 mb-1 flex items-center gap-1.5 font-medium uppercase tracking-tight"><MapPin className="h-3 w-3 text-slate-400" /> {t('location')}</div>
             <div className="text-xs font-bold text-slate-900 border border-slate-100 bg-slate-50/50 rounded-lg px-3 py-2 mt-1.5 flex items-center gap-2">
               <span className="text-slate-700">{stay.departmentId ? departments.find(d => d.id === stay.departmentId)?.name || stay.departmentId : t('unassigned')}</span>
-              {stay.bedId && <><span className="text-slate-300">/</span> <span className="text-blue-600">{stay.bedId}</span></>}
+              {stay.bedId && <><span className="text-slate-300">/</span> <span className="text-blue-600">{beds.find(b => b.id === stay.bedId)?.label ?? stay.bedId}</span></>}
             </div>
           </div>
           <Separator className="bg-slate-100" />

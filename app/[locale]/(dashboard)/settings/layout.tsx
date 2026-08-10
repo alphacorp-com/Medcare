@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { useAppStore } from "@/lib/store/useAppStore";
 import { cn } from "@/lib/utils";
 import {
-  Settings, BedDouble, CalendarDays, DoorOpen, ShieldCheck,
+  Settings, BedDouble, BedSingle, CalendarDays, DoorOpen, ShieldCheck,
   FolderTree, Stethoscope, FlaskConical, BookOpen,
   Beaker, Warehouse, Truck, ScanLine, PersonStanding,
 } from "lucide-react";
@@ -27,6 +27,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
         { href: "/settings/appointment-types", label: t("appointmentTypes"), icon: CalendarDays },
         { href: "/settings/room-types", label: t("roomTypes"), icon: DoorOpen },
         { href: "/settings/insurance-types", label: t("insuranceTypes"), icon: ShieldCheck },
+        { href: "/settings/beds", label: t("beds"), icon: BedSingle },
       ],
     },
     {

@@ -18,7 +18,7 @@ import { VitalsSheet } from "./_components/VitalsSheet";
 import { EMPTY_VITALS, VitalsForm } from "@/components/shared/vitals-fields";
 
 // Types
-import { StayDetail, Doctor, Department, InventoryItem } from "./types";
+import { StayDetail, Doctor, Department, InventoryItem, Bed } from "./types";
 
 export default function AdmissionDetailPage() {
   const t = useTranslations('admissions');
@@ -36,6 +36,7 @@ export default function AdmissionDetailPage() {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [beds, setBeds] = useState<Bed[]>([]);
 
   // Sheet states
   const [transferOpen, setTransferOpen] = useState(false);
@@ -61,19 +62,22 @@ export default function AdmissionDetailPage() {
 
   const fetchData = async () => {
     try {
-      const [docsRes, deptsRes, invRes] = await Promise.all([
+      const [docsRes, deptsRes, invRes, bedsRes] = await Promise.all([
         fetch('/api/v1/doctors'),
         fetch('/api/v1/departments'),
-        fetch('/api/v1/pharmacy/inventory')
+        fetch('/api/v1/pharmacy/inventory'),
+        fetch('/api/v1/settings/beds'),
       ]);
-      const [docsJson, deptsJson, invJson] = await Promise.all([
+      const [docsJson, deptsJson, invJson, bedsJson] = await Promise.all([
         docsRes.json(),
         deptsRes.json(),
-        invRes.json()
+        invRes.json(),
+        bedsRes.json(),
       ]);
       if (docsJson.success) setDoctors(docsJson.data);
       if (deptsJson.success) setDepartments(deptsJson.data);
       if (invJson.success) setInventory(invJson.data);
+      if (Array.isArray(bedsJson)) setBeds(bedsJson);
     } catch (e) {
       console.error("Failed to fetch reference data", e);
     }
@@ -252,12 +256,13 @@ export default function AdmissionDetailPage() {
 
       {/* Main Content Section */}
       <div className="grid grid-cols-12 gap-4 flex-1 overflow-hidden pb-4">
-        <AdmissionInfo 
-          stay={stay} 
-          departments={departments} 
-          doctorName={stay.attendingDoctorId ? getDoctorName(stay.attendingDoctorId) : t('unassigned')} 
+        <AdmissionInfo
+          stay={stay}
+          departments={departments}
+          beds={beds}
+          doctorName={stay.attendingDoctorId ? getDoctorName(stay.attendingDoctorId) : t('unassigned')}
         />
-        
+
         <StayTabs 
           stay={stay} 
           onPrescriptionOpen={() => setPrescriptionOpen(true)} 
@@ -267,13 +272,15 @@ export default function AdmissionDetailPage() {
       </div>
 
       {/* Sheets / Modals */}
-      <TransferSheet 
-        open={transferOpen} 
-        onOpenChange={setTransferOpen} 
-        stay={stay} 
-        departments={departments} 
-        doctors={doctors} 
-        submitting={submitting} 
+      <TransferSheet
+        key={`${stay.departmentId}-${stay.bedId}`}
+        open={transferOpen}
+        onOpenChange={setTransferOpen}
+        stay={stay}
+        departments={departments}
+        doctors={doctors}
+        beds={beds}
+        submitting={submitting}
         onSubmit={handleTransfer} 
       />
 

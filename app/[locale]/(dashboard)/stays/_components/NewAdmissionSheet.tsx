@@ -3,7 +3,6 @@
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/routing";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Sheet,
   SheetContent,
@@ -14,7 +13,7 @@ import {
 } from "@/components/ui/sheet";
 import { PatientSearchAutocomplete } from "@/components/shared/patient-search-autocomplete";
 import { VitalsFields } from "@/components/shared/vitals-fields";
-import { Department, Doctor, NewStayForm } from "../types";
+import { Department, Doctor, Bed, NewStayForm } from "../types";
 
 interface NewAdmissionSheetProps {
   open: boolean;
@@ -23,6 +22,7 @@ interface NewAdmissionSheetProps {
   onUpdateForm: <K extends keyof NewStayForm>(key: K, value: NewStayForm[K]) => void;
   departments: Department[];
   doctors: Doctor[];
+  beds: Bed[];
   saving: boolean;
   error: string | null;
   onSubmit: () => Promise<void>;
@@ -35,6 +35,7 @@ export function NewAdmissionSheet({
   onUpdateForm,
   departments,
   doctors,
+  beds,
   saving,
   error,
   onSubmit,
@@ -145,17 +146,24 @@ export function NewAdmissionSheet({
             </select>
           </div>
 
-          {/* Bed ID */}
+          {/* Bed */}
           <div className="space-y-1">
             <label className="text-[10px] font-bold text-slate-500 uppercase">
-              {t("bed")} <span className="text-slate-400 normal-case font-normal">(UUID)</span>
+              {t("bed")}
             </label>
-            <Input
+            <select
               value={form.bedId}
               onChange={(e) => onUpdateForm("bedId", e.target.value)}
-              placeholder="Leave blank if not assigned"
-              className="h-8 text-xs bg-white border-slate-200 focus:border-blue-400 font-mono"
-            />
+              disabled={!form.departmentId}
+              className="flex h-8 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-xs shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:bg-slate-50 disabled:text-slate-400"
+            >
+              <option value="">{form.departmentId ? t("unassigned") : t("select_department_first")}</option>
+              {beds
+                .filter((b) => b.departmentId === form.departmentId)
+                .map((b) => (
+                  <option key={b.id} value={b.id}>{b.label}</option>
+                ))}
+            </select>
           </div>
         </div>
 

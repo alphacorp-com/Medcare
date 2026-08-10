@@ -33,6 +33,7 @@ import {
   PregnancyRow,
   Department,
   Doctor,
+  Bed,
   EditPatientForm,
   NewStayForm,
   NewMedRecordForm
@@ -61,6 +62,7 @@ export default function PatientDetailPage() {
   // Reference Data
   const [departments, setDepartments] = useState<Department[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [beds, setBeds] = useState<Bed[]>([]);
 
   // UI State
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -129,9 +131,11 @@ export default function PatientDetailPage() {
     Promise.all([
       fetch("/api/v1/departments").then((r) => r.json()),
       fetch("/api/v1/doctors").then((r) => r.json()),
-    ]).then(([deptJson, docJson]) => {
+      fetch("/api/v1/settings/beds?status=available").then((r) => r.json()),
+    ]).then(([deptJson, docJson, bedsJson]) => {
       if (deptJson.success) setDepartments(deptJson.data);
       if (docJson.success) setDoctors(docJson.data);
+      if (Array.isArray(bedsJson)) setBeds(bedsJson);
     });
   }, [id]);
 
@@ -299,8 +303,8 @@ export default function PatientDetailPage() {
       <NewAdmissionSheet 
         open={isStayOpen} onOpenChange={setIsStayOpen} 
         patient={patient} form={stayForm} onUpdateForm={(k, v) => setStayForm(p => ({ ...p, [k]: v }))} 
-        departments={departments} doctors={doctors} 
-        saving={savingStay} error={stayError} onSubmit={handleSaveStay} 
+        departments={departments} doctors={doctors} beds={beds}
+        saving={savingStay} error={stayError} onSubmit={handleSaveStay}
       />
 
       <NewMedicalRecordSheet 

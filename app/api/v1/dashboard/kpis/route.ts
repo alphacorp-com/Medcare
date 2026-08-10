@@ -52,6 +52,20 @@ export async function GET() {
       },
     });
 
+    // Bed occupancy - grouped counts across all active beds
+    const bedGroups = await prisma.bed.groupBy({
+      by: ["status"],
+      where: { tenantId: session.user.tenantId, isActive: true },
+      _count: true,
+    });
+    const bedOccupancy = {
+      total: bedGroups.reduce((sum, g) => sum + g._count, 0),
+      occupied: bedGroups.find((g) => g.status === "occupied")?._count ?? 0,
+      available: bedGroups.find((g) => g.status === "available")?._count ?? 0,
+      maintenance: bedGroups.find((g) => g.status === "maintenance")?._count ?? 0,
+      reserved: bedGroups.find((g) => g.status === "reserved")?._count ?? 0,
+    };
+
     // System monitor data - mock for now, could be real system metrics
     const systemStatus = {
       apiGateway: "stable",
@@ -83,6 +97,7 @@ export async function GET() {
       consultationChange,
       avgWaitTime,
       pendingLabs,
+      bedOccupancy,
       systemStatus,
       success: true,
     });

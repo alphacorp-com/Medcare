@@ -152,6 +152,28 @@ export async function POST(
       );
     }
 
+    // ── Resolve + validate the bed, if one was chosen ───────────────────────
+    let resolvedBedId = toUuid(bedId);
+    let resolvedDepartmentId = toUuid(departmentId);
+    if (resolvedBedId) {
+      const bed = await prisma.bed.findFirst({
+        where: { id: resolvedBedId, tenantId: session.user.tenantId },
+      });
+      if (!bed) {
+        return NextResponse.json({ error: "Bed not found", success: false }, { status: 404 });
+      }
+      if (resolvedDepartmentId && resolvedDepartmentId !== bed.departmentId) {
+        return NextResponse.json(
+          { error: "Bed does not belong to the selected department", success: false },
+          { status: 409 }
+        );
+      }
+      if (bed.status !== "available") {
+        return NextResponse.json({ error: "Bed is not available", success: false }, { status: 409 });
+      }
+      resolvedDepartmentId = resolvedDepartmentId ?? bed.departmentId;
+    }
+
     // ── Generate stay number (scoped to tenant since Stay.stayNumber is
     // unique per-tenant, not globally) ──────────────────────────────────────
     const count = await prisma.stay.count({
@@ -159,46 +181,65 @@ export async function POST(
     });
     const stayNumber = `STAY${String(count + 1).padStart(6, "0")}`;
 
-    // ── Create ─────────────────────────────────────────────────────────────
-    const stay = await prisma.stay.create({
-      data: {
-        tenantId: session.user.tenantId,
-        patientId: id,
-        stayNumber,
-        type: type as StayType,
-        status: resolvedStatus,
-        admissionDate: admissionDate ? new Date(admissionDate) : new Date(),
-        admissionReason: admissionReason || null,
-        dischargeDate: dischargeDate ? new Date(dischargeDate) : null,
-        dischargeSummary: dischargeSummary || null,
-        pmsiCode: pmsiCode || null,
-        pmsiValidated: typeof pmsiValidated === "boolean" ? pmsiValidated : false,
-        departmentId: toUuid(departmentId),
-        bedId: toUuid(bedId),
-        attendingDoctorId: toUuid(attendingDoctorId),
-        ...(hasAnyVital(vitals)
-          ? {
-              vitalSigns: {
-                create: {
-                  tenantId: session.user.tenantId,
-                  patientId: id,
-                  recordedById: session.user.id,
-                  bloodPressureSystolic: toNumber(vitals.bloodPressureSystolic),
-                  bloodPressureDiastolic: toNumber(vitals.bloodPressureDiastolic),
-                  pulse: toNumber(vitals.pulse),
-                  temperature: toNumber(vitals.temperature),
-                  weight: toNumber(vitals.weight),
-                  height: toNumber(vitals.height),
-                  spo2: toNumber(vitals.spo2),
+    // ── Create (and, if a bed was chosen, occupy it atomically — the guarded
+    // updateMany only succeeds if the bed is still available, closing the race
+    // where two admissions target the same bed at once) ────────────────────
+    const stay = await prisma.$transaction(async (tx) => {
+      const created = await tx.stay.create({
+        data: {
+          tenantId: session.user.tenantId,
+          patientId: id,
+          stayNumber,
+          type: type as StayType,
+          status: resolvedStatus,
+          admissionDate: admissionDate ? new Date(admissionDate) : new Date(),
+          admissionReason: admissionReason || null,
+          dischargeDate: dischargeDate ? new Date(dischargeDate) : null,
+          dischargeSummary: dischargeSummary || null,
+          pmsiCode: pmsiCode || null,
+          pmsiValidated: typeof pmsiValidated === "boolean" ? pmsiValidated : false,
+          departmentId: resolvedDepartmentId,
+          bedId: resolvedBedId,
+          attendingDoctorId: toUuid(attendingDoctorId),
+          ...(hasAnyVital(vitals)
+            ? {
+                vitalSigns: {
+                  create: {
+                    tenantId: session.user.tenantId,
+                    patientId: id,
+                    recordedById: session.user.id,
+                    bloodPressureSystolic: toNumber(vitals.bloodPressureSystolic),
+                    bloodPressureDiastolic: toNumber(vitals.bloodPressureDiastolic),
+                    pulse: toNumber(vitals.pulse),
+                    temperature: toNumber(vitals.temperature),
+                    weight: toNumber(vitals.weight),
+                    height: toNumber(vitals.height),
+                    spo2: toNumber(vitals.spo2),
+                  },
                 },
-              },
-            }
-          : {}),
-      },
+              }
+            : {}),
+        },
+      });
+
+      if (resolvedBedId) {
+        const occupied = await tx.bed.updateMany({
+          where: { id: resolvedBedId, tenantId: session.user.tenantId, status: "available" },
+          data: { status: "occupied", currentStayId: created.id },
+        });
+        if (occupied.count !== 1) {
+          throw new Error("BED_CONFLICT");
+        }
+      }
+
+      return created;
     });
 
     return NextResponse.json({ data: stay, success: true }, { status: 201 });
   } catch (error) {
+    if (error instanceof Error && error.message === "BED_CONFLICT") {
+      return NextResponse.json({ error: "Bed was just taken by another admission", success: false }, { status: 409 });
+    }
     console.error("[POST /api/v1/patients/:id/stays]", error);
     return NextResponse.json(
       { error: "Failed to create stay", success: false },

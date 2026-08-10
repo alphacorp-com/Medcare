@@ -164,6 +164,18 @@ enum StayStatus {
   @@schema("tenant_template")
 }
 
+// Declaration order is significant: it drives the ascending sort used by the
+// triage queue (`ORDER BY triage_acuity ASC`), most critical first.
+enum TriageAcuity {
+  resuscitation
+  emergent
+  urgent
+  less_urgent
+  non_urgent
+
+  @@schema("tenant_template")
+}
+
 enum MedicalRecordType {
   consultation
   observation
@@ -755,24 +767,25 @@ model Patient {
 }
 
 model Stay {
-  id                String     @id @default(uuid()) @db.Uuid
-  tenantId          String?    @map("tenant_id") @db.Uuid
-  patientId         String     @map("patient_id") @db.Uuid
-  stayNumber        String     @map("stay_number") @db.VarChar(20)
+  id                String        @id @default(uuid()) @db.Uuid
+  tenantId          String?       @map("tenant_id") @db.Uuid
+  patientId         String        @map("patient_id") @db.Uuid
+  stayNumber        String        @map("stay_number") @db.VarChar(20)
   type              StayType
-  status            StayStatus @default(in_progress)
-  admissionDate     DateTime   @default(now()) @map("admission_date") @db.Timestamptz
-  dischargeDate     DateTime?  @map("discharge_date") @db.Timestamptz
-  departmentId      String?    @map("department_id") @db.Uuid
-  bedId             String?    @map("bed_id") @db.Uuid
-  attendingDoctorId String?    @map("attending_doctor_id") @db.Uuid
-  admissionReason   String?    @map("admission_reason")
-  dischargeSummary  String?    @map("discharge_summary")
-  pmsiCode          String?    @map("pmsi_code") @db.VarChar(20)
-  pmsiValidated     Boolean    @default(false) @map("pmsi_validated")
-  admissionTypeId   String?    @map("admission_type_id") @db.Uuid
-  createdAt         DateTime   @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt         DateTime   @updatedAt @map("updated_at") @db.Timestamptz
+  status            StayStatus    @default(in_progress)
+  admissionDate     DateTime      @default(now()) @map("admission_date") @db.Timestamptz
+  dischargeDate     DateTime?     @map("discharge_date") @db.Timestamptz
+  departmentId      String?       @map("department_id") @db.Uuid
+  bedId             String?       @map("bed_id") @db.Uuid
+  attendingDoctorId String?       @map("attending_doctor_id") @db.Uuid
+  admissionReason   String?       @map("admission_reason")
+  dischargeSummary  String?       @map("discharge_summary")
+  pmsiCode          String?       @map("pmsi_code") @db.VarChar(20)
+  pmsiValidated     Boolean       @default(false) @map("pmsi_validated")
+  admissionTypeId   String?       @map("admission_type_id") @db.Uuid
+  triageAcuity      TriageAcuity? @map("triage_acuity")
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz
 
   patient Patient @relation(fields: [patientId], references: [id])
 
@@ -1590,5 +1603,39 @@ model Supplier {
   @@unique([tenantId, code])
   @@index([tenantId])
   @@map("suppliers")
+  @@schema("tenant_template")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// 7. TENANT SCHEMA — Bed / Room Capacity
+// ─────────────────────────────────────────────────────────────────────────
+
+enum BedStatus {
+  available
+  occupied
+  maintenance
+  reserved
+
+  @@schema("tenant_template")
+}
+
+model Bed {
+  id            String    @id @default(uuid()) @db.Uuid
+  tenantId      String?   @map("tenant_id") @db.Uuid
+  code          String    @db.VarChar(20)
+  label         String    @db.VarChar(150)
+  departmentId  String    @map("department_id") @db.Uuid
+  roomTypeId    String?   @map("room_type_id") @db.Uuid
+  status        BedStatus @default(available)
+  currentStayId String?   @map("current_stay_id") @db.Uuid
+  isActive      Boolean   @default(true) @map("is_active")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([tenantId, departmentId])
+  @@index([tenantId, status])
+  @@map("beds")
   @@schema("tenant_template")
 }
