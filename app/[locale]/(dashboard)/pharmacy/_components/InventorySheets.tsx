@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +12,27 @@ import {
   SheetDescription,
   SheetFooter,
 } from "@/components/ui/sheet";
-import { InventoryRow, MedForm } from "../types";
+import { InventoryRow, MedForm, StorageLocationOption, SupplierOption } from "../types";
+
+function useStorageAndSuppliers() {
+  const [locations, setLocations] = useState<StorageLocationOption[]>([]);
+  const [suppliers, setSuppliers] = useState<SupplierOption[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [locRes, supRes] = await Promise.all([
+          fetch("/api/v1/settings/storage-locations"),
+          fetch("/api/v1/settings/suppliers"),
+        ]);
+        if (locRes.ok) setLocations(await locRes.json());
+        if (supRes.ok) setSuppliers(await supRes.json());
+      } catch (e) { }
+    })();
+  }, []);
+
+  return { locations, suppliers };
+}
 
 interface AddMedicationSheetProps {
   open: boolean;
@@ -32,6 +53,7 @@ export function AddMedicationSheet({
 }: AddMedicationSheetProps) {
   const t = useTranslations('pharmacy');
   const tc = useTranslations('common');
+  const { locations, suppliers } = useStorageAndSuppliers();
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -107,6 +129,34 @@ export function AddMedicationSheet({
               />
             </div>
           </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-500 uppercase">{t('storage_location')}</label>
+              <select
+                value={form.storageLocationId ?? ''}
+                onChange={(e) => onUpdateForm({ ...form, storageLocationId: e.target.value || null })}
+                className="flex h-8 w-full rounded-md border border-slate-200 bg-white px-2 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400"
+              >
+                <option value="">—</option>
+                {locations.map((loc) => (
+                  <option key={loc.id} value={loc.id}>{loc.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-500 uppercase">{t('supplier')}</label>
+              <select
+                value={form.supplierId ?? ''}
+                onChange={(e) => onUpdateForm({ ...form, supplierId: e.target.value || null })}
+                className="flex h-8 w-full rounded-md border border-slate-200 bg-white px-2 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400"
+              >
+                <option value="">—</option>
+                {suppliers.map((sup) => (
+                  <option key={sup.id} value={sup.id}>{sup.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
         </div>
         <SheetFooter className="p-4 border-t border-slate-200 bg-white shrink-0">
           <Button variant="outline" className="text-xs h-8" onClick={() => onOpenChange(false)} disabled={saving}>{tc('cancel')}</Button>
@@ -138,6 +188,7 @@ export function EditMedicationSheet({
 }: EditMedicationSheetProps) {
   const t = useTranslations('pharmacy');
   const tc = useTranslations('common');
+  const { locations, suppliers } = useStorageAndSuppliers();
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -212,6 +263,34 @@ export function EditMedicationSheet({
                     onChange={(e) => onUpdateForm({ ...form, unitPrice: parseFloat(e.target.value) || null })}
                     className="h-8 text-xs bg-white border-slate-200 font-mono"
                   />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase">{t('storage_location')}</label>
+                  <select
+                    value={form.storageLocationId ?? ''}
+                    onChange={(e) => onUpdateForm({ ...form, storageLocationId: e.target.value || null })}
+                    className="flex h-8 w-full rounded-md border border-slate-200 bg-white px-2 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400"
+                  >
+                    <option value="">—</option>
+                    {locations.map((loc) => (
+                      <option key={loc.id} value={loc.id}>{loc.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase">{t('supplier')}</label>
+                  <select
+                    value={form.supplierId ?? ''}
+                    onChange={(e) => onUpdateForm({ ...form, supplierId: e.target.value || null })}
+                    className="flex h-8 w-full rounded-md border border-slate-200 bg-white px-2 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400"
+                  >
+                    <option value="">—</option>
+                    {suppliers.map((sup) => (
+                      <option key={sup.id} value={sup.id}>{sup.name}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
             </>

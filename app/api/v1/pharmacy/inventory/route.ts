@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { name, manufacturer, category, stock, threshold, unit, unitPrice } = body;
+    const { name, manufacturer, category, stock, threshold, unit, unitPrice, storageLocationId, supplierId } = body;
 
     if (!name) {
       return NextResponse.json(
@@ -65,6 +65,8 @@ export async function POST(request: Request) {
         threshold: threshold ? parseInt(threshold) : 0,
         unit: unit || null,
         unitPrice: unitPrice ? parseFloat(unitPrice) : null,
+        storageLocationId: storageLocationId || null,
+        supplierId: supplierId || null,
       }
     });
 

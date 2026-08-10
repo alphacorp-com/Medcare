@@ -1,13 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ClipboardList, Loader2, Plus, Trash2 } from "lucide-react";
-import { findPanel, ResultFlag } from "@/lib/laboratory/panels";
-import { ResultParameter } from "@/lib/laboratory/results";
+import { fetchExamCatalog } from "@/lib/exam-catalog/client";
+import { ResultFlag, ResultParameter } from "@/lib/laboratory/results";
 import { LabExam } from "../types";
 
 const FLAGS: ResultFlag[] = ["normal", "high", "low", "critical"];
@@ -28,16 +28,24 @@ export function ResultEntryDialog({
   const t = useTranslations("lab");
   const tc = useTranslations("common");
 
-  const templateRows = useMemo<ResultParameter[]>(() => {
-    if (!exam) return [blankParameter()];
-    const panel = findPanel(exam.examCode);
-    if (!panel) return [blankParameter()];
-    return panel.parameters.map((p) => ({ name: p.name, value: "", unit: p.unit, referenceRange: p.referenceRange, flag: "normal" }));
-  }, [exam]);
-
-  const [rows, setRows] = useState<ResultParameter[]>(templateRows);
+  const [rows, setRows] = useState<ResultParameter[]>([blankParameter()]);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Remounted with key={exam.id} by the parent (ExamDetailSheet) each time a different
+  // exam is opened, so it's safe to fetch-and-populate once on mount rather than
+  // re-deriving from a prop on every render.
+  useEffect(() => {
+    (async () => {
+      if (!exam) return;
+      const panels = await fetchExamCatalog("laboratory");
+      const panel = panels.find((p) => p.code === exam.examCode);
+      if (panel && panel.parameters.length > 0) {
+        setRows(panel.parameters.map((p) => ({ name: p.name, value: "", unit: p.unit, referenceRange: p.referenceRange, flag: "normal" })));
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (!exam) return null;
 

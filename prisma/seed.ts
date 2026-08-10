@@ -10,6 +10,7 @@ import {
 } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import prisma from '../lib/prisma';
+import { seedReferenceData } from './seed-reference-data';
 
 async function main() {
   console.log('Seeding database...');
@@ -631,6 +632,8 @@ async function main() {
     }
   }
   console.log('Medication inventory seeded with 50 items');
+
+  await seedReferenceData(prisma, tenant.id);
 
   console.log('Database seeded successfully!');
 }

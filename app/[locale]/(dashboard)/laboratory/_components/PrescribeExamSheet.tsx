@@ -1,19 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import { Loader2 } from "lucide-react";
 import { PatientSearchAutocomplete } from "@/components/shared/patient-search-autocomplete";
-import { LAB_PANELS, CUSTOM_PANEL_CODE } from "@/lib/laboratory/panels";
+import { fetchExamCatalog, CUSTOM_EXAM_CODE, ExamCatalogItem } from "@/lib/exam-catalog/client";
 import { ActiveStay, ExamUrgency, NewExamForm } from "../types";
 
 const EMPTY_FORM: NewExamForm = {
   patientId: "",
   stayId: "",
-  panelCode: LAB_PANELS[0].code,
+  panelCode: CUSTOM_EXAM_CODE,
   examLabel: "",
   urgency: "routine",
   notes: "",
@@ -31,16 +31,27 @@ export function PrescribeExamSheet({
   const t = useTranslations("lab");
   const tc = useTranslations("common");
 
+  const [panels, setPanels] = useState<ExamCatalogItem[]>([]);
   const [form, setForm] = useState<NewExamForm>(EMPTY_FORM);
   const [activeStays, setActiveStays] = useState<ActiveStay[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    (async () => {
+      const items = await fetchExamCatalog("laboratory");
+      setPanels(items);
+      if (items.length > 0) {
+        setForm((prev) => (prev.panelCode === CUSTOM_EXAM_CODE ? { ...prev, panelCode: items[0].code } : prev));
+      }
+    })();
+  }, []);
+
   const update = <K extends keyof NewExamForm>(key: K, value: NewExamForm[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
   const reset = () => {
-    setForm(EMPTY_FORM);
+    setForm({ ...EMPTY_FORM, panelCode: panels[0]?.code ?? CUSTOM_EXAM_CODE });
     setActiveStays([]);
     setError(null);
   };
@@ -65,7 +76,7 @@ export function PrescribeExamSheet({
       setError(t("patient_required"));
       return;
     }
-    if (form.panelCode === CUSTOM_PANEL_CODE && !form.examLabel.trim()) {
+    if (form.panelCode === CUSTOM_EXAM_CODE && !form.examLabel.trim()) {
       setError(t("exam_label_required"));
       return;
     }
@@ -80,7 +91,7 @@ export function PrescribeExamSheet({
           patientId: form.patientId,
           stayId: form.stayId || undefined,
           panelCode: form.panelCode,
-          examLabel: form.panelCode === CUSTOM_PANEL_CODE ? form.examLabel : undefined,
+          examLabel: form.panelCode === CUSTOM_EXAM_CODE ? form.examLabel : undefined,
           urgency: form.urgency,
           notes: form.notes || undefined,
         }),
@@ -148,14 +159,14 @@ export function PrescribeExamSheet({
                 onChange={(e) => update("panelCode", e.target.value)}
                 className="flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400"
               >
-                {LAB_PANELS.map((p) => (
+                {panels.map((p) => (
                   <option key={p.code} value={p.code}>{p.label}</option>
                 ))}
-                <option value={CUSTOM_PANEL_CODE}>{t("custom_panel")}</option>
+                <option value={CUSTOM_EXAM_CODE}>{t("custom_panel")}</option>
               </select>
             </div>
 
-            {form.panelCode === CUSTOM_PANEL_CODE && (
+            {form.panelCode === CUSTOM_EXAM_CODE && (
               <div>
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">
                   {t("custom_panel_label")}

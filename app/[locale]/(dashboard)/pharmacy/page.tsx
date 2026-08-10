@@ -38,7 +38,7 @@ export default function PharmacyPage() {
 
   // Medication Sheets State
   const [isAddMedOpen, setIsAddMedOpen] = useState(false);
-  const [medForm, setMedForm] = useState<MedForm>({ name: '', manufacturer: '', category: '', stock: 0, threshold: 0, unit: '', unitPrice: null });
+  const [medForm, setMedForm] = useState<MedForm>({ name: '', manufacturer: '', category: '', stock: 0, threshold: 0, unit: '', unitPrice: null, storageLocationId: null, supplierId: null });
   const [savingMed, setSavingMed] = useState(false);
 
   const [editMedOpen, setEditMedOpen] = useState(false);
@@ -116,7 +116,7 @@ export default function PharmacyPage() {
       });
       if (res.ok) {
         setIsAddMedOpen(false);
-        setMedForm({ name: '', manufacturer: '', category: '', stock: 0, threshold: 0, unit: '', unitPrice: null });
+        setMedForm({ name: '', manufacturer: '', category: '', stock: 0, threshold: 0, unit: '', unitPrice: null, storageLocationId: null, supplierId: null });
         fetchInventory();
       }
     } finally {

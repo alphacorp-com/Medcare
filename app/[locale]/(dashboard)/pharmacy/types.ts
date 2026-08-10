@@ -40,6 +40,8 @@ export type InventoryRow = {
   unit: string;
   unitPrice: number | null;
   isActive: boolean;
+  storageLocationId: string | null;
+  supplierId: string | null;
 };
 
 export type MedForm = {
@@ -50,4 +52,9 @@ export type MedForm = {
   threshold: number;
   unit: string;
   unitPrice: number | null;
+  storageLocationId: string | null;
+  supplierId: string | null;
 };
+
+export type StorageLocationOption = { id: string; code: string; name: string };
+export type SupplierOption = { id: string; code: string; name: string };

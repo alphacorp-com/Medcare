@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { findExam, generateExamCode } from "@/lib/radiology/catalog";
 import { requireModulePermission } from "@/lib/permissions";
 import type { ExamRequestStatus, ExamUrgency } from "@prisma/client";
 
@@ -81,7 +80,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "patientId and examCode are required" }, { status: 400 });
     }
 
-    const catalogEntry = findExam(examCode);
+    const catalogEntry = await prisma.examCatalogEntry.findFirst({
+      where: { tenantId: session.user.tenantId, code: examCode, examType: { domain: "radiology" } },
+    });
     if (!catalogEntry && !examLabel?.trim()) {
       return NextResponse.json({ error: "examLabel is required for a custom exam" }, { status: 400 });
     }
@@ -101,8 +102,8 @@ export async function POST(req: Request) {
         stayId: stayId || null,
         prescriberId: session.user.id,
         type: "radiology",
-        examCode: catalogEntry?.code ?? generateExamCode(),
-        examLabel: catalogEntry?.label ?? examLabel!.trim(),
+        examCode: catalogEntry?.code ?? `RAD-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000).toString().padStart(3, "0")}`,
+        examLabel: catalogEntry?.nameFr ?? examLabel!.trim(),
         urgency: urgency ?? "routine",
         notes: notes || null,
       },

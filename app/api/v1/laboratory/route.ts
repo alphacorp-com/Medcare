@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { findPanel, generateExamCode } from "@/lib/laboratory/panels";
 import { requireModulePermission } from "@/lib/permissions";
 import type { ExamRequestStatus, ExamUrgency } from "@prisma/client";
 
@@ -83,7 +82,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "patientId and panelCode are required" }, { status: 400 });
     }
 
-    const panel = findPanel(panelCode);
+    const panel = await prisma.examCatalogEntry.findFirst({
+      where: { tenantId: session.user.tenantId, code: panelCode, examType: { domain: "laboratory" } },
+    });
     if (!panel && !examLabel?.trim()) {
       return NextResponse.json({ error: "examLabel is required for a custom panel" }, { status: 400 });
     }
@@ -104,8 +105,8 @@ export async function POST(req: Request) {
         pregnancyId: pregnancyId || null,
         prescriberId: session.user.id,
         type: "biology",
-        examCode: panel?.code ?? generateExamCode(),
-        examLabel: panel?.label ?? examLabel!.trim(),
+        examCode: panel?.code ?? `EX-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000).toString().padStart(3, "0")}`,
+        examLabel: panel?.nameFr ?? examLabel!.trim(),
         urgency: urgency ?? "routine",
         notes: notes || null,
       },

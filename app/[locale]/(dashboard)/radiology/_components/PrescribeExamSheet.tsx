@@ -1,20 +1,20 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { PatientSearchAutocomplete } from "@/components/shared/patient-search-autocomplete";
-import { RADIOLOGY_CATALOG, CUSTOM_EXAM_CODE, findExam } from "@/lib/radiology/catalog";
+import { fetchExamCatalog, CUSTOM_EXAM_CODE, ExamCatalogItem } from "@/lib/exam-catalog/client";
 import { findContrastAllergyMatches } from "@/lib/radiology/contrast";
 import { ActiveStay, ExamUrgency, NewExamForm } from "../types";
 
 const EMPTY_FORM: NewExamForm = {
   patientId: "",
   stayId: "",
-  examCode: RADIOLOGY_CATALOG[0].code,
+  examCode: CUSTOM_EXAM_CODE,
   examLabel: "",
   urgency: "routine",
   notes: "",
@@ -32,23 +32,34 @@ export function PrescribeExamSheet({
   const t = useTranslations("radiology");
   const tc = useTranslations("common");
 
+  const [exams, setExams] = useState<ExamCatalogItem[]>([]);
   const [form, setForm] = useState<NewExamForm>(EMPTY_FORM);
   const [activeStays, setActiveStays] = useState<ActiveStay[]>([]);
   const [patientAllergies, setPatientAllergies] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    (async () => {
+      const items = await fetchExamCatalog("radiology");
+      setExams(items);
+      if (items.length > 0) {
+        setForm((prev) => (prev.examCode === CUSTOM_EXAM_CODE ? { ...prev, examCode: items[0].code } : prev));
+      }
+    })();
+  }, []);
+
   const update = <K extends keyof NewExamForm>(key: K, value: NewExamForm[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
   const reset = () => {
-    setForm(EMPTY_FORM);
+    setForm({ ...EMPTY_FORM, examCode: exams[0]?.code ?? CUSTOM_EXAM_CODE });
     setActiveStays([]);
     setPatientAllergies([]);
     setError(null);
   };
 
-  const selectedExam = findExam(form.examCode);
+  const selectedExam = exams.find((e) => e.code === form.examCode);
   const contrastMatches = useMemo(
     () => (selectedExam?.requiresContrast ? findContrastAllergyMatches(patientAllergies) : []),
     [selectedExam, patientAllergies]
@@ -164,7 +175,7 @@ export function PrescribeExamSheet({
                 onChange={(e) => update("examCode", e.target.value)}
                 className="flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400"
               >
-                {RADIOLOGY_CATALOG.map((exam) => (
+                {exams.map((exam) => (
                   <option key={exam.code} value={exam.code}>{exam.label}</option>
                 ))}
                 <option value={CUSTOM_EXAM_CODE}>{t("custom_exam")}</option>

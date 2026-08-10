@@ -1,4 +1,4 @@
-import { ResultFlag } from "./panels";
+export type ResultFlag = "normal" | "high" | "low" | "critical";
 
 export interface ResultParameter {
   name: string;
