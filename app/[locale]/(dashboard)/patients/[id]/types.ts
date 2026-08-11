@@ -178,6 +178,80 @@ export type Department = { id: string; code: string; name: string; type: string 
 export type Doctor = { id: string; fullName: string; specialty: string | null };
 export type Bed = { id: string; code: string; label: string; departmentId: string; status: "available" | "occupied" | "maintenance" | "reserved" };
 
+export type VaccineAntigen = { id: string; code: string; nameFr: string; nameEn: string | null; group: string | null };
+
+export type ImmunizationRow = {
+  id: string;
+  antigenCode: string;
+  antigenName: string;
+  doseNumber: number;
+  administeredAt: string;
+  lotNumber: string | null;
+  isOutOfSchedule: boolean;
+  notes: string | null;
+};
+
+export type NewImmunizationForm = {
+  antigenCode: string;
+  doseNumber: string;
+  administeredAt: string;
+  lotNumber: string;
+  notes: string;
+};
+
+export type MalariaCaseRow = {
+  id: string;
+  testType: "rdt" | "microscopy" | "clinical_only";
+  result: "pending" | "positive" | "negative";
+  severity: "simple" | "severe" | null;
+  isPregnantAtDiagnosis: boolean;
+  diagnosedAt: string;
+  treatedWithAct: boolean;
+  treatmentDrugName: string | null;
+};
+
+export type NewMalariaCaseForm = {
+  testType: "rdt" | "microscopy" | "clinical_only";
+  result: "pending" | "positive" | "negative";
+  severity: "" | "simple" | "severe";
+  isPregnantAtDiagnosis: boolean;
+  treatedWithAct: boolean;
+  treatmentDrugName: string;
+  notes: string;
+};
+
+export type TbFollowUpRow = {
+  id: string;
+  followUpDate: string;
+  controlPoint: "m2" | "m3" | "m5" | "m6" | "other";
+  sputumResult: "not_done" | "negative" | "positive";
+  outcomeRecorded: string | null;
+};
+
+export type TbCaseRow = {
+  id: string;
+  notificationDate: string;
+  caseType: string;
+  classification: "pulmonary_bacteriologically_confirmed" | "pulmonary_clinically_diagnosed" | "extrapulmonary";
+  hivStatus: "positive" | "negative" | "unknown";
+  outcome: string;
+  followUps: TbFollowUpRow[];
+};
+
+export type NewTbCaseForm = {
+  caseType: string;
+  classification: "pulmonary_bacteriologically_confirmed" | "pulmonary_clinically_diagnosed" | "extrapulmonary";
+  hivStatus: "positive" | "negative" | "unknown";
+  treatmentRegimen: string;
+  notes: string;
+};
+
+export type NewTbFollowUpForm = {
+  controlPoint: "m2" | "m3" | "m5" | "m6" | "other";
+  sputumResult: "not_done" | "negative" | "positive";
+  outcomeRecorded: string;
+};
+
 export function ageFromBirthDate(iso: string): number {
   const b = new Date(iso);
   const now = new Date();

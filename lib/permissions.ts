@@ -29,6 +29,7 @@ const MODULE_LABELS: Record<string, { en: string; fr: string }> = {
   MODULE_BILLING: { en: "Billing", fr: "Facturation" },
   MODULE_PLANNING: { en: "Planning", fr: "Planning" },
   MODULE_MATERNITY: { en: "Maternity", fr: "Maternité" },
+  MODULE_DISEASE_PROGRAMS: { en: "Disease Programs", fr: "Programmes de santé" },
 };
 
 const ACTION_PHRASES: Record<ModuleAction, { en: string; fr: string }> = {

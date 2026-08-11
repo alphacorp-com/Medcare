@@ -758,6 +758,9 @@ model Patient {
   vitalSigns         VitalSigns[]
   pregnancies        Pregnancy[]
   newbornRecord      Newborn?
+  immunizations      Immunization[]
+  malariaCases       MalariaCase[]
+  tbCases            TbCase[]
 
   @@unique([tenantId, ipp])
   @@index([tenantId])
@@ -1051,6 +1054,9 @@ model ExamResult {
 
   request ExamRequest @relation(fields: [requestId], references: [id])
   patient Patient     @relation(fields: [patientId], references: [id])
+
+  malariaCases MalariaCase[]
+  tbCases      TbCase[]
 
   @@index([tenantId])
   @@index([isCritical])
@@ -1425,6 +1431,7 @@ enum ReferenceCatalogType {
   pharmaceutical_unit
   imaging_type
   anatomical_zone
+  vaccine_antigen
 
   @@schema("tenant_template")
 }
@@ -1638,5 +1645,193 @@ model Bed {
   @@index([tenantId, departmentId])
   @@index([tenantId, status])
   @@map("beds")
+  @@schema("tenant_template")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// 8. TENANT SCHEMA — Disease Programs (EPV / Paludisme / Tuberculose)
+// ─────────────────────────────────────────────────────────────────────────
+
+// Append-only, like DrugDispensing — antigenCode/antigenName are denormalized
+// from the reference-catalog row (catalogType=vaccine_antigen) at write time
+// so historical doses stay stable if the catalog entry is later renamed.
+model Immunization {
+  id                        String    @id @default(uuid()) @db.Uuid
+  tenantId                  String?   @map("tenant_id") @db.Uuid
+  patientId                 String    @map("patient_id") @db.Uuid
+  antigenCode               String    @map("antigen_code") @db.VarChar(40)
+  antigenName               String    @map("antigen_name") @db.VarChar(150)
+  doseNumber                Int       @default(1) @map("dose_number")
+  administeredAt            DateTime  @default(now()) @map("administered_at") @db.Timestamptz
+  administeredById          String    @map("administered_by_id") @db.Uuid
+  ageInDaysAtAdministration Int       @map("age_in_days_at_administration")
+  lotNumber                 String?   @map("lot_number") @db.VarChar(60)
+  expiryDate                DateTime? @map("expiry_date") @db.Date
+  isOutOfSchedule           Boolean   @default(false) @map("is_out_of_schedule")
+  notes                     String?
+
+  patient Patient @relation(fields: [patientId], references: [id])
+
+  @@index([tenantId])
+  @@index([patientId, administeredAt(sort: Desc)])
+  @@index([antigenCode])
+  @@map("immunizations")
+  @@schema("tenant_template")
+}
+
+enum MalariaTestType {
+  rdt
+  microscopy
+  clinical_only
+
+  @@schema("tenant_template")
+}
+
+enum MalariaResult {
+  pending
+  positive
+  negative
+
+  @@schema("tenant_template")
+}
+
+enum MalariaSeverity {
+  simple
+  severe
+
+  @@schema("tenant_template")
+}
+
+model MalariaCase {
+  id                    String           @id @default(uuid()) @db.Uuid
+  tenantId              String?          @map("tenant_id") @db.Uuid
+  patientId             String           @map("patient_id") @db.Uuid
+  examResultId          String?          @map("exam_result_id") @db.Uuid
+  testType              MalariaTestType  @map("test_type")
+  result                MalariaResult    @default(pending)
+  severity              MalariaSeverity?
+  isPregnantAtDiagnosis Boolean          @default(false) @map("is_pregnant_at_diagnosis")
+  ageInDaysAtDiagnosis  Int              @map("age_in_days_at_diagnosis")
+  diagnosedAt           DateTime         @default(now()) @map("diagnosed_at") @db.Timestamptz
+  diagnosedById         String           @map("diagnosed_by_id") @db.Uuid
+  treatedWithAct        Boolean          @default(false) @map("treated_with_act")
+  treatmentDrugName     String?          @map("treatment_drug_name") @db.VarChar(150)
+  treatedAt             DateTime?        @map("treated_at") @db.Timestamptz
+  notes                 String?
+
+  patient    Patient     @relation(fields: [patientId], references: [id])
+  examResult ExamResult? @relation(fields: [examResultId], references: [id])
+
+  @@index([tenantId])
+  @@index([patientId, diagnosedAt(sort: Desc)])
+  @@map("malaria_cases")
+  @@schema("tenant_template")
+}
+
+enum TbCaseType {
+  new_case
+  relapse
+  treatment_after_failure
+  treatment_after_loss_to_follow_up
+  transfer_in
+  other
+
+  @@schema("tenant_template")
+}
+
+enum TbClassification {
+  pulmonary_bacteriologically_confirmed
+  pulmonary_clinically_diagnosed
+  extrapulmonary
+
+  @@schema("tenant_template")
+}
+
+enum TbHivStatus {
+  positive
+  negative
+  unknown
+
+  @@schema("tenant_template")
+}
+
+enum TbTreatmentOutcome {
+  on_treatment
+  cured
+  treatment_completed
+  treatment_failed
+  died
+  lost_to_follow_up
+  not_evaluated
+  transferred_out
+
+  @@schema("tenant_template")
+}
+
+enum TbSputumResult {
+  not_done
+  negative
+  positive
+
+  @@schema("tenant_template")
+}
+
+enum TbControlPoint {
+  m2
+  m3
+  m5
+  m6
+  other
+
+  @@schema("tenant_template")
+}
+
+model TbCase {
+  id                     String             @id @default(uuid()) @db.Uuid
+  tenantId               String?            @map("tenant_id") @db.Uuid
+  patientId              String             @map("patient_id") @db.Uuid
+  notificationDate       DateTime           @default(now()) @map("notification_date") @db.Timestamptz
+  caseType               TbCaseType         @map("case_type")
+  classification         TbClassification
+  hivStatus              TbHivStatus        @default(unknown) @map("hiv_status")
+  weightKgAtDiagnosis    Decimal?           @map("weight_kg_at_diagnosis") @db.Decimal(5, 2)
+  confirmingExamResultId String?            @map("confirming_exam_result_id") @db.Uuid
+  treatmentRegimen       String?            @map("treatment_regimen") @db.VarChar(100)
+  treatmentStartDate     DateTime?          @map("treatment_start_date") @db.Timestamptz
+  outcome                TbTreatmentOutcome @default(on_treatment)
+  outcomeDate            DateTime?          @map("outcome_date") @db.Timestamptz
+  registeredById         String             @map("registered_by_id") @db.Uuid
+  notes                  String?
+  createdAt              DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt              DateTime           @updatedAt @map("updated_at") @db.Timestamptz
+
+  patient              Patient      @relation(fields: [patientId], references: [id])
+  confirmingExamResult ExamResult?  @relation(fields: [confirmingExamResultId], references: [id])
+  followUps            TbFollowUp[]
+
+  @@index([tenantId])
+  @@index([patientId, notificationDate(sort: Desc)])
+  @@map("tb_cases")
+  @@schema("tenant_template")
+}
+
+model TbFollowUp {
+  id              String              @id @default(uuid()) @db.Uuid
+  tenantId        String?             @map("tenant_id") @db.Uuid
+  tbCaseId        String              @map("tb_case_id") @db.Uuid
+  followUpDate    DateTime            @default(now()) @map("follow_up_date") @db.Timestamptz
+  controlPoint    TbControlPoint      @map("control_point")
+  sputumResult    TbSputumResult      @default(not_done) @map("sputum_result")
+  weightKg        Decimal?            @map("weight_kg") @db.Decimal(5, 2)
+  outcomeRecorded TbTreatmentOutcome? @map("outcome_recorded")
+  recordedById    String              @map("recorded_by_id") @db.Uuid
+  notes           String?
+  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz
+
+  tbCase TbCase @relation(fields: [tbCaseId], references: [id])
+
+  @@index([tenantId])
+  @@index([tbCaseId, followUpDate])
+  @@map("tb_follow_ups")
   @@schema("tenant_template")
 }

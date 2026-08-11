@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import {
   Settings, BedDouble, BedSingle, CalendarDays, DoorOpen, ShieldCheck,
   FolderTree, Stethoscope, FlaskConical, BookOpen,
-  Beaker, Warehouse, Truck, ScanLine, PersonStanding,
+  Beaker, Warehouse, Truck, ScanLine, PersonStanding, Syringe, FileText,
 } from "lucide-react";
 
 type NavItem = { href: string; label: string; icon: React.ComponentType<{ className?: string }> };
@@ -52,6 +52,18 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
       items: [
         { href: "/settings/imaging-types", label: t("imagingTypes"), icon: ScanLine },
         { href: "/settings/anatomical-zones", label: t("anatomicalZones"), icon: PersonStanding },
+      ],
+    },
+    {
+      label: t("groupDiseasePrograms"),
+      items: [
+        { href: "/settings/vaccine-antigens", label: t("vaccineAntigens"), icon: Syringe },
+      ],
+    },
+    {
+      label: t("groupReports"),
+      items: [
+        { href: "/settings/reports", label: t("rma3Report"), icon: FileText },
       ],
     },
   ];

@@ -51,6 +51,7 @@ export function UsersManagement() {
   const tbill = useTranslations('billing');
   const tplan = useTranslations('planning');
   const tmat = useTranslations('maternity');
+  const tdp = useTranslations('diseasePrograms');
   const tr = useTranslations('roles');
 
   const ALL_MODULES = [
@@ -62,7 +63,8 @@ export function UsersManagement() {
     { id: "MODULE_RADIOLOGY", name: trad('title') },
     { id: "MODULE_BILLING", name: tbill('title') },
     { id: "MODULE_PLANNING", name: tplan('title') },
-    { id: "MODULE_MATERNITY", name: tmat('title') }
+    { id: "MODULE_MATERNITY", name: tmat('title') },
+    { id: "MODULE_DISEASE_PROGRAMS", name: tdp('module_title') }
   ];
 
   const SYSTEM_ROLES = [

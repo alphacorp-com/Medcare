@@ -111,6 +111,37 @@ const PHARMACEUTICAL_UNITS: GenericCatalogSeed[] = [
   { catalogType: 'pharmaceutical_unit', code: 'ENEMA', nameFr: 'lavement', nameEn: 'enema', group: 'Rectales / Vaginales' },
 ];
 
+// Antigens/doses tracked by the EPV (Programme Élargi de Vaccination) registry —
+// mirrors the RMA3 III.2/III.3 line items. TPIn (malaria prevention) and MILDA
+// (bed nets) are deliberately excluded: they're distinct program indicators,
+// not vaccine doses (see prisma/schema.prisma Section 8 scope notes).
+const VACCINE_ANTIGENS: GenericCatalogSeed[] = [
+  { catalogType: 'vaccine_antigen', code: 'BCG', nameFr: 'BCG', nameEn: 'BCG', group: 'BCG', order: 1 },
+  { catalogType: 'vaccine_antigen', code: 'HEPB0', nameFr: 'Hépatite B (naissance)', nameEn: 'Hepatitis B (birth dose)', group: 'HepB0', order: 2 },
+  { catalogType: 'vaccine_antigen', code: 'OPV0', nameFr: 'VPO0', nameEn: 'OPV0', group: 'OPV', order: 3 },
+  { catalogType: 'vaccine_antigen', code: 'OPV1', nameFr: 'VPO1', nameEn: 'OPV1', group: 'OPV', order: 4 },
+  { catalogType: 'vaccine_antigen', code: 'OPV2', nameFr: 'VPO2', nameEn: 'OPV2', group: 'OPV', order: 5 },
+  { catalogType: 'vaccine_antigen', code: 'OPV3', nameFr: 'VPO3', nameEn: 'OPV3', group: 'OPV', order: 6 },
+  { catalogType: 'vaccine_antigen', code: 'IPV1', nameFr: 'VPI 1', nameEn: 'IPV1', group: 'VPI', order: 7 },
+  { catalogType: 'vaccine_antigen', code: 'IPV2', nameFr: 'VPI 2', nameEn: 'IPV2', group: 'VPI', order: 8 },
+  { catalogType: 'vaccine_antigen', code: 'PENTA1', nameFr: 'Penta 1 (DTC+HepB+Hib)', nameEn: 'Penta 1', group: 'PENTA', order: 9 },
+  { catalogType: 'vaccine_antigen', code: 'PENTA2', nameFr: 'Penta 2 (DTC+HepB+Hib)', nameEn: 'Penta 2', group: 'PENTA', order: 10 },
+  { catalogType: 'vaccine_antigen', code: 'PENTA3', nameFr: 'Penta 3 (DTC+HepB+Hib)', nameEn: 'Penta 3', group: 'PENTA', order: 11 },
+  { catalogType: 'vaccine_antigen', code: 'PCV1', nameFr: 'Pneumocoque (PCV-13) 1', nameEn: 'PCV13 dose 1', group: 'PCV', order: 12 },
+  { catalogType: 'vaccine_antigen', code: 'PCV2', nameFr: 'Pneumocoque (PCV-13) 2', nameEn: 'PCV13 dose 2', group: 'PCV', order: 13 },
+  { catalogType: 'vaccine_antigen', code: 'PCV3', nameFr: 'Pneumocoque (PCV-13) 3', nameEn: 'PCV13 dose 3', group: 'PCV', order: 14 },
+  { catalogType: 'vaccine_antigen', code: 'ROTA1', nameFr: 'Rotavirus 1', nameEn: 'Rotavirus 1', group: 'ROTA', order: 15 },
+  { catalogType: 'vaccine_antigen', code: 'ROTA2', nameFr: 'Rotavirus 2', nameEn: 'Rotavirus 2', group: 'ROTA', order: 16 },
+  { catalogType: 'vaccine_antigen', code: 'ROTA3', nameFr: 'Rotavirus 3', nameEn: 'Rotavirus 3', group: 'ROTA', order: 17 },
+  { catalogType: 'vaccine_antigen', code: 'RR1', nameFr: 'Rougeole-Rubéole 1ère dose', nameEn: 'Measles-Rubella dose 1', group: 'RR', order: 18 },
+  { catalogType: 'vaccine_antigen', code: 'RR2', nameFr: 'Rougeole-Rubéole 2ème dose', nameEn: 'Measles-Rubella dose 2', group: 'RR', order: 19 },
+  { catalogType: 'vaccine_antigen', code: 'VAA', nameFr: 'Fièvre jaune', nameEn: 'Yellow fever', group: 'VAA', order: 20 },
+  { catalogType: 'vaccine_antigen', code: 'MENA', nameFr: 'Méningite A (MenA)', nameEn: 'Meningitis A', group: 'MENA', order: 21 },
+  { catalogType: 'vaccine_antigen', code: 'HPV1', nameFr: 'VPH 1ère dose', nameEn: 'HPV dose 1', group: 'HPV', order: 22 },
+  { catalogType: 'vaccine_antigen', code: 'HPV2', nameFr: 'VPH 2ème dose', nameEn: 'HPV dose 2', group: 'HPV', order: 23 },
+  { catalogType: 'vaccine_antigen', code: 'VITA', nameFr: 'Vitamine A', nameEn: 'Vitamin A', group: 'VITA', order: 24 },
+];
+
 async function seedGenericCatalogs(prisma: PrismaClient, tenantId: string) {
   const all = [
     ...ADMISSION_TYPES,
@@ -120,6 +151,7 @@ async function seedGenericCatalogs(prisma: PrismaClient, tenantId: string) {
     ...IMAGING_TYPES,
     ...ANATOMICAL_ZONES,
     ...PHARMACEUTICAL_UNITS,
+    ...VACCINE_ANTIGENS,
   ];
   for (const item of all) {
     await prisma.referenceCatalogItem.upsert({
@@ -145,7 +177,7 @@ async function seedGenericCatalogs(prisma: PrismaClient, tenantId: string) {
       },
     });
   }
-  console.log(`Reference catalogs seeded (${all.length} items across 7 catalog types)`);
+  console.log(`Reference catalogs seeded (${all.length} items across 8 catalog types)`);
 }
 
 const MEDICAL_ACT_CATEGORIES = [
@@ -228,6 +260,8 @@ const LAB_EXAM_TYPES = [
   { code: 'CARDIOLOGY_BIO', nameFr: 'Marqueurs cardiaques', nameEn: 'Cardiac markers', order: 3 },
   { code: 'UROLOGY_BIO', nameFr: "Analyses d'urine", nameEn: 'Urinalysis', order: 4 },
   { code: 'SEROLOGY', nameFr: 'Sérologie', nameEn: 'Serology', order: 5 },
+  { code: 'PARASITOLOGY', nameFr: 'Parasitologie', nameEn: 'Parasitology', order: 6 },
+  { code: 'BACTERIOLOGY', nameFr: 'Bactériologie', nameEn: 'Bacteriology', order: 7 },
 ];
 
 const LAB_EXAMS: { code: string; typeCode: string; nameFr: string; nameEn: string; parameters: { name: string; unit: string; referenceRange: string }[] }[] = [
@@ -280,6 +314,22 @@ const LAB_EXAMS: { code: string; typeCode: string; nameFr: string; nameEn: strin
   {
     code: 'SYPH', typeCode: 'SEROLOGY', nameFr: 'Syphilis (RPR/TPHA)', nameEn: 'Syphilis (RPR/TPHA)',
     parameters: [{ name: 'Syphilis', unit: '', referenceRange: 'Non-reactive' }],
+  },
+  {
+    code: 'MALARIA-TDR', typeCode: 'PARASITOLOGY', nameFr: 'Paludisme (TDR)', nameEn: 'Malaria (RDT)',
+    parameters: [{ name: 'Paludisme (TDR)', unit: '', referenceRange: 'Négatif' }],
+  },
+  {
+    code: 'MALARIA-GE', typeCode: 'PARASITOLOGY', nameFr: 'Paludisme (Goutte Épaisse)', nameEn: 'Malaria (thick blood smear)',
+    parameters: [{ name: 'Goutte Épaisse', unit: 'parasites/µL', referenceRange: 'Négatif' }],
+  },
+  {
+    code: 'TB-GENEXPERT', typeCode: 'BACTERIOLOGY', nameFr: 'Tuberculose (GeneXpert MTB/RIF)', nameEn: 'TB (GeneXpert MTB/RIF)',
+    parameters: [{ name: 'MTB détecté', unit: '', referenceRange: 'Non détecté' }, { name: 'Résistance Rifampicine', unit: '', referenceRange: 'Non détectée' }],
+  },
+  {
+    code: 'TB-MICROSCOPY', typeCode: 'BACTERIOLOGY', nameFr: 'Tuberculose (Microscopie BAAR)', nameEn: 'TB (Ziehl-Neelsen microscopy)',
+    parameters: [{ name: 'BAAR', unit: '', referenceRange: 'Négatif' }],
   },
 ];
 

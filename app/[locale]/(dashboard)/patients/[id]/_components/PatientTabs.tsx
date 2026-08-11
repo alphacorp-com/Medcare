@@ -12,7 +12,8 @@ import {
   CreditCard,
   HeartPulse,
   Scissors,
-  Baby
+  Baby,
+  ShieldPlus
 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -26,7 +27,10 @@ import {
   VitalSignsRow,
   SurgeryRow,
   PregnancyRow,
-  PrescriptionItem
+  PrescriptionItem,
+  ImmunizationRow,
+  MalariaCaseRow,
+  TbCaseRow
 } from "../types";
 
 interface PatientTabsProps {
@@ -38,7 +42,14 @@ interface PatientTabsProps {
   vitals: VitalSignsRow[];
   surgeries: SurgeryRow[];
   pregnancies: PregnancyRow[];
+  immunizations: ImmunizationRow[];
+  malariaCases: MalariaCaseRow[];
+  tbCases: TbCaseRow[];
   onAddRecord: () => void;
+  onAddImmunization: () => void;
+  onAddMalariaCase: () => void;
+  onAddTbCase: () => void;
+  onAddTbFollowUp: (tbCaseId: string) => void;
 }
 
 export function PatientTabs({
@@ -50,12 +61,20 @@ export function PatientTabs({
   vitals,
   surgeries,
   pregnancies,
+  immunizations,
+  malariaCases,
+  tbCases,
   onAddRecord,
+  onAddImmunization,
+  onAddMalariaCase,
+  onAddTbCase,
+  onAddTbFollowUp,
 }: PatientTabsProps) {
   const t = useTranslations('patients');
   const tc = useTranslations('common');
   const trx = useTranslations('pharmacy');
   const trad = useTranslations('radiology');
+  const tdp = useTranslations('diseasePrograms');
 
   const stayTypeLabel = (st: string) => {
     if (st === "emergency") return tc("status_emergency");
@@ -133,6 +152,12 @@ export function PatientTabs({
               className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs shrink-0"
             >
               <Baby className="h-3.5 w-3.5 mr-2" /> {tc('maternity')}
+            </TabsTrigger>
+            <TabsTrigger
+              value="programs"
+              className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs shrink-0"
+            >
+              <ShieldPlus className="h-3.5 w-3.5 mr-2" /> {tdp('tab')}
             </TabsTrigger>
             <TabsTrigger
               value="billing"
@@ -464,6 +489,131 @@ export function PatientTabs({
                 ))}
               </tbody>
             </table>
+          </TabsContent>
+
+          <TabsContent value="programs" className="m-0 border-none outline-none p-4 space-y-6">
+            {/* Vaccinations */}
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <h4 className="text-[11px] font-bold text-slate-900 uppercase tracking-wider">{tdp('vaccination.tab')}</h4>
+                <Button size="sm" className="h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white" onClick={onAddImmunization}>
+                  + {tdp('vaccination.new_dose')}
+                </Button>
+              </div>
+              <table className="w-full text-left border border-slate-200 rounded overflow-hidden">
+                <thead>
+                  <tr className="bg-slate-50/50 text-[10px] text-slate-500 uppercase font-bold border-b border-slate-200">
+                    <th className="px-3 py-2">{tc('date')}</th>
+                    <th className="px-3 py-2">{tdp('vaccination.antigen')}</th>
+                    <th className="px-3 py-2">{tdp('vaccination.dose_number')}</th>
+                    <th className="px-3 py-2">{tdp('vaccination.lot_number')}</th>
+                  </tr>
+                </thead>
+                <tbody className="text-xs divide-y divide-slate-100">
+                  {immunizations.length === 0 && (
+                    <tr><td colSpan={4} className="px-3 py-4 text-center text-slate-500 italic">{tdp('vaccination.no_items')}</td></tr>
+                  )}
+                  {immunizations.map((im) => (
+                    <tr key={im.id} className="hover:bg-slate-50">
+                      <td className="px-3 py-2 text-slate-600">{format(new Date(im.administeredAt), "MMM d, yyyy")}</td>
+                      <td className="px-3 py-2 font-medium text-slate-900">{im.antigenName}{im.isOutOfSchedule && <span className="ml-1 text-[9px] text-orange-600 uppercase font-bold">{tdp('vaccination.out_of_schedule')}</span>}</td>
+                      <td className="px-3 py-2">{im.doseNumber}</td>
+                      <td className="px-3 py-2 font-mono text-slate-500">{im.lotNumber ?? '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Paludisme */}
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <h4 className="text-[11px] font-bold text-slate-900 uppercase tracking-wider">{tdp('malaria.tab')}</h4>
+                <Button size="sm" className="h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white" onClick={onAddMalariaCase}>
+                  + {tdp('malaria.new_case')}
+                </Button>
+              </div>
+              <table className="w-full text-left border border-slate-200 rounded overflow-hidden">
+                <thead>
+                  <tr className="bg-slate-50/50 text-[10px] text-slate-500 uppercase font-bold border-b border-slate-200">
+                    <th className="px-3 py-2">{tc('date')}</th>
+                    <th className="px-3 py-2">{tdp('malaria.test_type')}</th>
+                    <th className="px-3 py-2">{tdp('malaria.result')}</th>
+                    <th className="px-3 py-2">{tdp('malaria.treated_with_act')}</th>
+                  </tr>
+                </thead>
+                <tbody className="text-xs divide-y divide-slate-100">
+                  {malariaCases.length === 0 && (
+                    <tr><td colSpan={4} className="px-3 py-4 text-center text-slate-500 italic">{tdp('malaria.no_items')}</td></tr>
+                  )}
+                  {malariaCases.map((mc) => (
+                    <tr key={mc.id} className="hover:bg-slate-50">
+                      <td className="px-3 py-2 text-slate-600">{format(new Date(mc.diagnosedAt), "MMM d, yyyy")}</td>
+                      <td className="px-3 py-2">{tdp(`malaria.test_${mc.testType}`)}</td>
+                      <td className="px-3 py-2">
+                        <span className={cn("px-2 py-0.5 rounded text-[10px] uppercase font-semibold",
+                          mc.result === 'positive' ? "bg-red-100 text-red-700" :
+                          mc.result === 'negative' ? "bg-green-100 text-green-700" :
+                          "bg-slate-100 text-slate-600")}>
+                          {tdp(`malaria.result_${mc.result}`)}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2">{mc.treatedWithAct ? (mc.treatmentDrugName || tc('yes')) : tc('no')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Tuberculose */}
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <h4 className="text-[11px] font-bold text-slate-900 uppercase tracking-wider">{tdp('tuberculosis.tab')}</h4>
+                <Button size="sm" className="h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white" onClick={onAddTbCase}>
+                  + {tdp('tuberculosis.new_case')}
+                </Button>
+              </div>
+              <table className="w-full text-left border border-slate-200 rounded overflow-hidden">
+                <thead>
+                  <tr className="bg-slate-50/50 text-[10px] text-slate-500 uppercase font-bold border-b border-slate-200">
+                    <th className="px-3 py-2">{tc('date')}</th>
+                    <th className="px-3 py-2">{tdp('tuberculosis.classification')}</th>
+                    <th className="px-3 py-2">{tdp('tuberculosis.outcome_label')}</th>
+                    <th className="px-3 py-2">{tdp('tuberculosis.follow_ups')}</th>
+                    <th className="px-3 py-2 text-right">{tc('actions')}</th>
+                  </tr>
+                </thead>
+                <tbody className="text-xs divide-y divide-slate-100">
+                  {tbCases.length === 0 && (
+                    <tr><td colSpan={5} className="px-3 py-4 text-center text-slate-500 italic">{tdp('tuberculosis.no_items')}</td></tr>
+                  )}
+                  {tbCases.map((tb) => (
+                    <tr key={tb.id} className="hover:bg-slate-50">
+                      <td className="px-3 py-2 text-slate-600">{format(new Date(tb.notificationDate), "MMM d, yyyy")}</td>
+                      <td className="px-3 py-2">
+                        {tb.classification === 'pulmonary_bacteriologically_confirmed' ? tdp('tuberculosis.tpb_plus') :
+                          tb.classification === 'pulmonary_clinically_diagnosed' ? tdp('tuberculosis.tpb_minus') : tdp('tuberculosis.tep')}
+                      </td>
+                      <td className="px-3 py-2">
+                        <span className={cn("px-2 py-0.5 rounded text-[10px] uppercase font-semibold",
+                          tb.outcome === 'cured' || tb.outcome === 'treatment_completed' ? "bg-green-100 text-green-700" :
+                          tb.outcome === 'on_treatment' ? "bg-blue-100 text-blue-700" :
+                          tb.outcome === 'died' || tb.outcome === 'treatment_failed' ? "bg-red-100 text-red-700" :
+                          "bg-slate-100 text-slate-600")}>
+                          {tdp(`tuberculosis.outcome.${tb.outcome}`)}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2">{tb.followUps.length}</td>
+                      <td className="px-3 py-2 text-right">
+                        <button className="text-blue-600 hover:underline" onClick={() => onAddTbFollowUp(tb.id)}>
+                          + {tdp('tuberculosis.add_follow_up')}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </TabsContent>
 
           <TabsContent value="billing" className="m-0 border-none outline-none">

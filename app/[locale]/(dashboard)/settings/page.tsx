@@ -74,6 +74,7 @@ export default function SettingsPage() {
   const tbill = useTranslations('billing');
   const tplan = useTranslations('planning');
   const tmat = useTranslations('maternity');
+  const tdp = useTranslations('diseasePrograms');
   const ttpl = useTranslations('templates');
 
   const isSysAdmin = currentUser?.role === "tenant_admin";
@@ -147,7 +148,8 @@ export default function SettingsPage() {
     { id: "MODULE_RADIOLOGY", name: trad('title'), desc: trad('description') },
     { id: "MODULE_BILLING", name: tbill('title'), desc: tbill('description') },
     { id: "MODULE_PLANNING", name: tplan('title'), desc: tplan('description') },
-    { id: "MODULE_MATERNITY", name: tmat('title'), desc: tmat('description') }
+    { id: "MODULE_MATERNITY", name: tmat('title'), desc: tmat('description') },
+    { id: "MODULE_DISEASE_PROGRAMS", name: tdp('module_title'), desc: tdp('module_desc') }
   ];
 
   const handleModuleToggle = (moduleId: string, isRequired?: boolean) => {

@@ -14,11 +14,17 @@ import { notifyBillingGenerated } from "@/lib/billing/client";
 import { PatientDetailHeader } from "./_components/PatientDetailHeader";
 import { PatientQuickProfile } from "./_components/PatientQuickProfile";
 import { PatientTabs } from "./_components/PatientTabs";
-import { 
-  EditPatientSheet, 
-  NewAdmissionSheet, 
-  NewMedicalRecordSheet 
+import {
+  EditPatientSheet,
+  NewAdmissionSheet,
+  NewMedicalRecordSheet
 } from "./_components/PatientActionSheets";
+import {
+  NewImmunizationSheet,
+  NewMalariaCaseSheet,
+  NewTbCaseSheet,
+  NewTbFollowUpSheet,
+} from "./_components/DiseaseProgramSheets";
 
 // Types
 import {
@@ -34,9 +40,17 @@ import {
   Department,
   Doctor,
   Bed,
+  VaccineAntigen,
+  ImmunizationRow,
+  MalariaCaseRow,
+  TbCaseRow,
   EditPatientForm,
   NewStayForm,
-  NewMedRecordForm
+  NewMedRecordForm,
+  NewImmunizationForm,
+  NewMalariaCaseForm,
+  NewTbCaseForm,
+  NewTbFollowUpForm
 } from "./types";
 
 export default function PatientDetailPage() {
@@ -56,6 +70,9 @@ export default function PatientDetailPage() {
   const [vitals, setVitals] = useState<VitalSignsRow[]>([]);
   const [surgeries, setSurgeries] = useState<SurgeryRow[]>([]);
   const [pregnancies, setPregnancies] = useState<PregnancyRow[]>([]);
+  const [immunizations, setImmunizations] = useState<ImmunizationRow[]>([]);
+  const [malariaCases, setMalariaCases] = useState<MalariaCaseRow[]>([]);
+  const [tbCases, setTbCases] = useState<TbCaseRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -63,11 +80,17 @@ export default function PatientDetailPage() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [beds, setBeds] = useState<Bed[]>([]);
+  const [antigens, setAntigens] = useState<VaccineAntigen[]>([]);
 
   // UI State
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isStayOpen, setIsStayOpen] = useState(false);
   const [isRecordOpen, setIsRecordOpen] = useState(false);
+  const [isImmunizationOpen, setIsImmunizationOpen] = useState(false);
+  const [isMalariaCaseOpen, setIsMalariaCaseOpen] = useState(false);
+  const [isTbCaseOpen, setIsTbCaseOpen] = useState(false);
+  const [isTbFollowUpOpen, setIsTbFollowUpOpen] = useState(false);
+  const [activeTbCaseId, setActiveTbCaseId] = useState<string | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [pdfData, setPdfData] = useState<any>(null);
 
@@ -92,9 +115,35 @@ export default function PatientDetailPage() {
   const [savingRecord, setSavingRecord] = useState(false);
   const [recordError, setRecordError] = useState<string | null>(null);
 
+  const [immunizationForm, setImmunizationForm] = useState<NewImmunizationForm>({
+    antigenCode: "", doseNumber: "1", administeredAt: new Date().toISOString().slice(0, 10), lotNumber: "", notes: ""
+  });
+  const [savingImmunization, setSavingImmunization] = useState(false);
+  const [immunizationError, setImmunizationError] = useState<string | null>(null);
+
+  const [malariaCaseForm, setMalariaCaseForm] = useState<NewMalariaCaseForm>({
+    testType: "rdt", result: "pending", severity: "", isPregnantAtDiagnosis: false,
+    treatedWithAct: false, treatmentDrugName: "", notes: ""
+  });
+  const [savingMalariaCase, setSavingMalariaCase] = useState(false);
+  const [malariaCaseError, setMalariaCaseError] = useState<string | null>(null);
+
+  const [tbCaseForm, setTbCaseForm] = useState<NewTbCaseForm>({
+    caseType: "new_case", classification: "pulmonary_bacteriologically_confirmed", hivStatus: "unknown",
+    treatmentRegimen: "", notes: ""
+  });
+  const [savingTbCase, setSavingTbCase] = useState(false);
+  const [tbCaseError, setTbCaseError] = useState<string | null>(null);
+
+  const [tbFollowUpForm, setTbFollowUpForm] = useState<NewTbFollowUpForm>({
+    controlPoint: "m2", sputumResult: "not_done", outcomeRecorded: ""
+  });
+  const [savingTbFollowUp, setSavingTbFollowUp] = useState(false);
+  const [tbFollowUpError, setTbFollowUpError] = useState<string | null>(null);
+
   const fetchData = async () => {
     try {
-      const [pRes, sRes, rxRes, exRes, recRes, billRes, vitRes, surgRes, pregRes] = await Promise.all([
+      const [pRes, sRes, rxRes, exRes, recRes, billRes, vitRes, surgRes, pregRes, immRes, malRes, tbRes] = await Promise.all([
         fetch(`/api/v1/patients/${id}`),
         fetch(`/api/v1/patients/${id}/stays`),
         fetch(`/api/v1/patients/${id}/prescriptions`),
@@ -104,9 +153,12 @@ export default function PatientDetailPage() {
         fetch(`/api/v1/patients/${id}/vitals`),
         fetch(`/api/v1/patients/${id}/surgeries`),
         fetch(`/api/v1/patients/${id}/pregnancies`),
+        fetch(`/api/v1/patients/${id}/immunizations`),
+        fetch(`/api/v1/patients/${id}/malaria-cases`),
+        fetch(`/api/v1/patients/${id}/tb-cases`),
       ]);
-      const [pJson, sJson, rxJson, exJson, recJson, billJson, vitJson, surgJson, pregJson] = await Promise.all([
-        pRes.json(), sRes.json(), rxRes.json(), exRes.json(), recRes.json(), billRes.json(), vitRes.json(), surgRes.json(), pregRes.json()
+      const [pJson, sJson, rxJson, exJson, recJson, billJson, vitJson, surgJson, pregJson, immJson, malJson, tbJson] = await Promise.all([
+        pRes.json(), sRes.json(), rxRes.json(), exRes.json(), recRes.json(), billRes.json(), vitRes.json(), surgRes.json(), pregRes.json(), immRes.json(), malRes.json(), tbRes.json()
       ]);
 
       if (!pRes.ok || !pJson.success) throw new Error(pJson.error ?? "Failed to load patient");
@@ -119,6 +171,9 @@ export default function PatientDetailPage() {
       if (vitJson.success) setVitals(vitJson.data);
       if (surgJson.success) setSurgeries(surgJson.data);
       if (pregJson.success) setPregnancies(pregJson.data);
+      if (immJson.success) setImmunizations(immJson.data);
+      if (malJson.success) setMalariaCases(malJson.data);
+      if (tbJson.success) setTbCases(tbJson.data);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load");
     } finally {
@@ -133,10 +188,12 @@ export default function PatientDetailPage() {
       fetch("/api/v1/departments").then((r) => r.json()),
       fetch("/api/v1/doctors").then((r) => r.json()),
       fetch("/api/v1/settings/beds?status=available").then((r) => r.json()),
-    ]).then(([deptJson, docJson, bedsJson]) => {
+      fetch("/api/v1/settings/reference-data/vaccine_antigen").then((r) => r.json()),
+    ]).then(([deptJson, docJson, bedsJson, antigensJson]) => {
       if (deptJson.success) setDepartments(deptJson.data);
       if (docJson.success) setDoctors(docJson.data);
       if (Array.isArray(bedsJson)) setBeds(bedsJson);
+      if (Array.isArray(antigensJson)) setAntigens(antigensJson);
     });
   }, [id]);
 
@@ -241,6 +298,95 @@ export default function PatientDetailPage() {
     }
   };
 
+  const handleSaveImmunization = async () => {
+    setSavingImmunization(true);
+    setImmunizationError(null);
+    try {
+      const res = await fetch(`/api/v1/patients/${id}/immunizations`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...immunizationForm, doseNumber: Number(immunizationForm.doseNumber) || 1 }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error ?? "Failed to record immunization");
+      setIsImmunizationOpen(false);
+      setImmunizationForm({ antigenCode: "", doseNumber: "1", administeredAt: new Date().toISOString().slice(0, 10), lotNumber: "", notes: "" });
+      const immRes = await fetch(`/api/v1/patients/${id}/immunizations`);
+      const immJson = await immRes.json();
+      if (immJson.success) setImmunizations(immJson.data);
+    } catch (e) {
+      setImmunizationError(e instanceof Error ? e.message : "Failed to record immunization");
+    } finally {
+      setSavingImmunization(false);
+    }
+  };
+
+  const handleSaveMalariaCase = async () => {
+    setSavingMalariaCase(true);
+    setMalariaCaseError(null);
+    try {
+      const res = await fetch(`/api/v1/patients/${id}/malaria-cases`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...malariaCaseForm, severity: malariaCaseForm.severity || undefined }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error ?? "Failed to record malaria case");
+      setIsMalariaCaseOpen(false);
+      setMalariaCaseForm({ testType: "rdt", result: "pending", severity: "", isPregnantAtDiagnosis: false, treatedWithAct: false, treatmentDrugName: "", notes: "" });
+      const malRes = await fetch(`/api/v1/patients/${id}/malaria-cases`);
+      const malJson = await malRes.json();
+      if (malJson.success) setMalariaCases(malJson.data);
+    } catch (e) {
+      setMalariaCaseError(e instanceof Error ? e.message : "Failed to record malaria case");
+    } finally {
+      setSavingMalariaCase(false);
+    }
+  };
+
+  const handleSaveTbCase = async () => {
+    setSavingTbCase(true);
+    setTbCaseError(null);
+    try {
+      const res = await fetch(`/api/v1/patients/${id}/tb-cases`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(tbCaseForm),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error ?? "Failed to register TB case");
+      setIsTbCaseOpen(false);
+      setTbCaseForm({ caseType: "new_case", classification: "pulmonary_bacteriologically_confirmed", hivStatus: "unknown", treatmentRegimen: "", notes: "" });
+      const tbRes = await fetch(`/api/v1/patients/${id}/tb-cases`);
+      const tbJson = await tbRes.json();
+      if (tbJson.success) setTbCases(tbJson.data);
+    } catch (e) {
+      setTbCaseError(e instanceof Error ? e.message : "Failed to register TB case");
+    } finally {
+      setSavingTbCase(false);
+    }
+  };
+
+  const handleSaveTbFollowUp = async () => {
+    if (!activeTbCaseId) return;
+    setSavingTbFollowUp(true);
+    setTbFollowUpError(null);
+    try {
+      const res = await fetch(`/api/v1/tb-cases/${activeTbCaseId}/follow-ups`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...tbFollowUpForm, outcomeRecorded: tbFollowUpForm.outcomeRecorded || undefined }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error ?? "Failed to record follow-up");
+      setIsTbFollowUpOpen(false);
+      setActiveTbCaseId(null);
+      setTbFollowUpForm({ controlPoint: "m2", sputumResult: "not_done", outcomeRecorded: "" });
+      const tbRes = await fetch(`/api/v1/patients/${id}/tb-cases`);
+      const tbJson = await tbRes.json();
+      if (tbJson.success) setTbCases(tbJson.data);
+    } catch (e) {
+      setTbFollowUpError(e instanceof Error ? e.message : "Failed to record follow-up");
+    } finally {
+      setSavingTbFollowUp(false);
+    }
+  };
+
   // ── Guard ──────────────────────────────────────────────────────────────────
 
   if (loading) return <div className="flex h-full items-center justify-center text-xs text-slate-500">Loading…</div>;
@@ -287,32 +433,63 @@ export default function PatientDetailPage() {
           vitals={vitals}
           surgeries={surgeries}
           pregnancies={pregnancies}
+          immunizations={immunizations}
+          malariaCases={malariaCases}
+          tbCases={tbCases}
           onAddRecord={() => {
           const defaultAuthorId = session?.user?.id || "";
           setRecordForm(prev => ({ ...prev, authorId: defaultAuthorId }));
           setIsRecordOpen(true);
         }}
+          onAddImmunization={() => setIsImmunizationOpen(true)}
+          onAddMalariaCase={() => setIsMalariaCaseOpen(true)}
+          onAddTbCase={() => setIsTbCaseOpen(true)}
+          onAddTbFollowUp={(tbCaseId) => { setActiveTbCaseId(tbCaseId); setIsTbFollowUpOpen(true); }}
         />
       </div>
 
       {/* Action Sheets */}
-      <EditPatientSheet 
-        open={isEditOpen} onOpenChange={setIsEditOpen} 
-        form={editForm} onUpdateForm={(k, v) => setEditForm(p => ({ ...p, [k]: v }))} 
-        saving={savingEdit} error={editError} onSubmit={handleSaveEdit} 
+      <EditPatientSheet
+        open={isEditOpen} onOpenChange={setIsEditOpen}
+        form={editForm} onUpdateForm={(k, v) => setEditForm(p => ({ ...p, [k]: v }))}
+        saving={savingEdit} error={editError} onSubmit={handleSaveEdit}
       />
-      
-      <NewAdmissionSheet 
-        open={isStayOpen} onOpenChange={setIsStayOpen} 
-        patient={patient} form={stayForm} onUpdateForm={(k, v) => setStayForm(p => ({ ...p, [k]: v }))} 
+
+      <NewAdmissionSheet
+        open={isStayOpen} onOpenChange={setIsStayOpen}
+        patient={patient} form={stayForm} onUpdateForm={(k, v) => setStayForm(p => ({ ...p, [k]: v }))}
         departments={departments} doctors={doctors} beds={beds}
         saving={savingStay} error={stayError} onSubmit={handleSaveStay}
       />
 
-      <NewMedicalRecordSheet 
-        open={isRecordOpen} onOpenChange={setIsRecordOpen} 
-        form={recordForm} onUpdateForm={(k, v) => setRecordForm(p => ({ ...p, [k]: v }))} 
-        stays={stays} doctors={doctors} saving={savingRecord} error={recordError} onSubmit={handleSaveRecord} 
+      <NewMedicalRecordSheet
+        open={isRecordOpen} onOpenChange={setIsRecordOpen}
+        form={recordForm} onUpdateForm={(k, v) => setRecordForm(p => ({ ...p, [k]: v }))}
+        stays={stays} doctors={doctors} saving={savingRecord} error={recordError} onSubmit={handleSaveRecord}
+      />
+
+      <NewImmunizationSheet
+        open={isImmunizationOpen} onOpenChange={setIsImmunizationOpen}
+        form={immunizationForm} onUpdateForm={(k, v) => setImmunizationForm(p => ({ ...p, [k]: v }))}
+        antigens={antigens} saving={savingImmunization} error={immunizationError} onSubmit={handleSaveImmunization}
+      />
+
+      <NewMalariaCaseSheet
+        open={isMalariaCaseOpen} onOpenChange={setIsMalariaCaseOpen}
+        form={malariaCaseForm} onUpdateForm={(k, v) => setMalariaCaseForm(p => ({ ...p, [k]: v }))}
+        saving={savingMalariaCase} error={malariaCaseError} onSubmit={handleSaveMalariaCase}
+      />
+
+      <NewTbCaseSheet
+        open={isTbCaseOpen} onOpenChange={setIsTbCaseOpen}
+        form={tbCaseForm} onUpdateForm={(k, v) => setTbCaseForm(p => ({ ...p, [k]: v }))}
+        saving={savingTbCase} error={tbCaseError} onSubmit={handleSaveTbCase}
+      />
+
+      <NewTbFollowUpSheet
+        open={isTbFollowUpOpen} onOpenChange={setIsTbFollowUpOpen}
+        form={tbFollowUpForm} onUpdateForm={(k, v) => setTbFollowUpForm(p => ({ ...p, [k]: v }))}
+        saving={savingTbFollowUp} error={tbFollowUpError} onSubmit={handleSaveTbFollowUp}
       />
 
       <PDFPreviewModal

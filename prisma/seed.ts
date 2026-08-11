@@ -192,6 +192,14 @@ async function main() {
       description: 'Track pregnancies, antenatal visits, delivery/partograph and newborn records.',
       isPublished: true,
     },
+    {
+      code: 'MODULE_DISEASE_PROGRAMS',
+      name: 'Disease Programs',
+      category: 'clinical',
+      tier: 'core',
+      description: 'Track immunizations, malaria cases and TB registration/follow-up for national program reporting.',
+      isPublished: true,
+    },
   ];
 
   const seededModules: Record<string, { id: string }> = {};
@@ -241,6 +249,7 @@ async function main() {
     { planId: annualPlan.id, moduleCode: 'MODULE_BILLING' },
     { planId: annualPlan.id, moduleCode: 'MODULE_PLANNING' },
     { planId: annualPlan.id, moduleCode: 'MODULE_MATERNITY' },
+    { planId: annualPlan.id, moduleCode: 'MODULE_DISEASE_PROGRAMS' },
   ];
 
   for (const assignment of planAssignments) {
@@ -619,6 +628,14 @@ async function main() {
     { name: 'Oseltamivir 75mg Capsules', manufacturer: 'Generic', category: 'Antiviral', stock: 150, threshold: 20, unit: 'capsules', unitPrice: 1.00 },
     { name: 'Ranitidine 150mg Tablets', manufacturer: 'Generic', category: 'Gastrointestinal', stock: 600, threshold: 80, unit: 'tablets', unitPrice: 0.06 },
     { name: 'Famotidine 20mg Tablets', manufacturer: 'Generic', category: 'Gastrointestinal', stock: 500, threshold: 65, unit: 'tablets', unitPrice: 0.10 },
+    // Antimalarials
+    { name: 'Artesunate-Amodiaquine (ASAQ) 100/270mg Tablets', manufacturer: 'Generic', category: 'Antimalarial', stock: 500, threshold: 80, unit: 'tablets', unitPrice: 0.30 },
+    { name: 'Artemether-Lumefantrine (Coartem) 20/120mg Tablets', manufacturer: 'Generic', category: 'Antimalarial', stock: 600, threshold: 100, unit: 'tablets', unitPrice: 0.35 },
+    { name: 'Artesunate Injectable 60mg', manufacturer: 'Generic', category: 'Antimalarial', stock: 200, threshold: 40, unit: 'ampoules', unitPrice: 1.50 },
+    { name: 'Quinine 300mg Tablets', manufacturer: 'Generic', category: 'Antimalarial', stock: 300, threshold: 50, unit: 'tablets', unitPrice: 0.15 },
+    // Anti-tuberculosis
+    { name: 'Rifampicine+INH+Pyrazinamide+Ethambutol (RHZE) Tablets', manufacturer: 'Generic', category: 'Anti-tuberculosis', stock: 250, threshold: 40, unit: 'tablets', unitPrice: 0.40 },
+    { name: 'Rifampicine+Isoniazide (RH) Tablets', manufacturer: 'Generic', category: 'Anti-tuberculosis', stock: 250, threshold: 40, unit: 'tablets', unitPrice: 0.35 },
   ];
 
   for (const med of medications) {
@@ -631,7 +648,7 @@ async function main() {
       console.log(`Medication ${med.name} already exists, skipping`);
     }
   }
-  console.log('Medication inventory seeded with 50 items');
+  console.log(`Medication inventory seeded with ${medications.length} items`);
 
   await seedReferenceData(prisma, tenant.id);
 

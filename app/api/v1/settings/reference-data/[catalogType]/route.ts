@@ -11,15 +11,14 @@ function parseCatalogType(value: string): ReferenceCatalogType | null {
   return (VALID_TYPES as string[]).includes(value) ? (value as ReferenceCatalogType) : null;
 }
 
-// GET /api/v1/settings/reference-data/[catalogType] — list all items of one catalog type
+// GET /api/v1/settings/reference-data/[catalogType] — list all items of one catalog type.
+// Readable by any authenticated tenant member (not just tenant_admin) — several
+// catalogs (e.g. vaccine_antigen) are consumed by clinical staff in day-to-day
+// forms, not just the settings management pages. Writes stay admin-only (see POST).
 export async function GET(request: Request, { params }: { params: Promise<{ catalogType: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.tenantId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  const permCheck = requireTenantAdmin(session);
-  if (!permCheck.ok) {
-    return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
   }
 
   const { catalogType: raw } = await params;
