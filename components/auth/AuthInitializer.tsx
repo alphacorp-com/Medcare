@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useTranslations } from "next-intl";
-import { useAppStore } from "@/lib/store/useAppStore";
+import { useAppStore, ModulePermission } from "@/lib/store/useAppStore";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -38,6 +38,26 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
     };
   }, [t]);
 
+  // Applies a freshly-fetched tenant-access result to component state — shared by the
+  // initial-session effect and handleActivateTenant, so a successful activation actually
+  // dismisses the gate screen instead of only being reflected on the next page load.
+  const applyTenantAccess = useCallback(
+    (isActive: boolean, reason: string | null, tenantModules: ModulePermission[]) => {
+      setTenantIsActive(isActive);
+      setTenantReason(reason);
+      setTenantAccess(isActive, reason);
+
+      if (session?.user?.role === "tenant_admin") {
+        setActiveModules(tenantModules);
+      } else {
+        const userModules = Array.isArray(session?.user?.modules) ? session.user.modules : [];
+        const mergedModules = isActive ? mergeModulePermissions(tenantModules, userModules) : [];
+        setActiveModules(mergedModules);
+      }
+    },
+    [session, setActiveModules, setTenantAccess]
+  );
+
   useEffect(() => {
     const initialize = async () => {
       if (status === "authenticated" && session?.user) {
@@ -52,18 +72,7 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
         if (session.user.role !== "admin") {
           try {
             const { isActive, reason, tenantModules } = await refreshTenantAccess();
-
-            setTenantIsActive(isActive);
-            setTenantReason(reason);
-            setTenantAccess(isActive, reason);
-
-            if (session.user.role === "tenant_admin") {
-              setActiveModules(tenantModules);
-            } else {
-              const userModules = Array.isArray(session.user.modules) ? session.user.modules : [];
-              const mergedModules = isActive ? mergeModulePermissions(tenantModules, userModules) : [];
-              setActiveModules(mergedModules);
-            }
+            applyTenantAccess(isActive, reason, tenantModules);
           } catch (error) {
             if (session.user.role === "tenant_admin") {
               setTenantIsActive(true);
@@ -96,7 +105,7 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
     };
 
     void initialize();
-  }, [session, status, setUser, setActiveModules, setTenantAccess, refreshTenantAccess, t]);
+  }, [session, status, setUser, setActiveModules, setTenantAccess, refreshTenantAccess, applyTenantAccess, t]);
 
   const handleActivateTenant = async () => {
     if (!licenseKey.trim()) {
@@ -120,7 +129,8 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
       }
 
       setLicenseKey("");
-      await refreshTenantAccess();
+      const { isActive, reason, tenantModules } = await refreshTenantAccess();
+      applyTenantAccess(isActive, reason, tenantModules);
     } catch (error) {
       const message = error instanceof Error ? error.message : t("activation_failed");
       setActivationError(message);
