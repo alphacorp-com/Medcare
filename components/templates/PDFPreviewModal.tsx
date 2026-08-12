@@ -14,19 +14,20 @@ import { PDFViewer } from "@react-pdf/renderer";
 import { InvoiceTemplate } from './InvoiceTemplate';
 import { PrescriptionTemplate } from './PrescriptionTemplate';
 import { LabResultTemplate } from './LabResultTemplate';
-import { PatientListTemplate } from './PatientListTemplate';
+import { PatientListTemplate, type PatientListData } from './PatientListTemplate';
 import { StockReportTemplate } from './StockReportTemplate';
-import { PatientFileTemplate } from './PatientFileTemplate';
+import { PatientFileTemplate, type PatientFileData } from './PatientFileTemplate';
 import { MedicationGuideTemplate } from './MedicationGuideTemplate';
 import { useTranslations } from 'next-intl';
+import type { PdfFacility, PdfInvoiceData, PdfSettings } from './types';
 
 interface PDFPreviewModalProps {
   isOpen: boolean;
   onClose: () => void;
   templateId: string;
-  facility: any;
-  settings: any;
-  data?: any;
+  facility: PdfFacility;
+  settings: PdfSettings;
+  data?: unknown;
 }
 
 export function PDFPreviewModal({ isOpen, onClose, templateId, facility, settings, data }: PDFPreviewModalProps) {
@@ -111,7 +112,7 @@ export function PDFPreviewModal({ isOpen, onClose, templateId, facility, setting
       case 'invoices':
         return (
           <InvoiceTemplate
-            invoice={data?.invoice ?? {
+            invoice={(data as { invoice?: PdfInvoiceData } | undefined)?.invoice ?? {
               number: 'INV-2024-001',
               date: new Date().toLocaleDateString(),
               patientName: 'John Doe',
@@ -176,7 +177,7 @@ export function PDFPreviewModal({ isOpen, onClose, templateId, facility, setting
       case 'patient_lists':
         return (
           <PatientListTemplate
-            data={data || {
+            data={(data as PatientListData | undefined) || {
               title: labels.patient_list,
               department: 'General Medicine - Wing B',
               date: new Date().toLocaleDateString(),
@@ -241,7 +242,7 @@ export function PDFPreviewModal({ isOpen, onClose, templateId, facility, setting
       case 'patient_files':
         return (
           <PatientFileTemplate
-            data={data || {
+            data={(data as PatientFileData | undefined) || {
               patient: {
                 ipp: '12345678',
                 fullName: 'Samantha Richards',

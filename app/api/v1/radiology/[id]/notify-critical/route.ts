@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { requireModulePermission } from "@/lib/permissions";
 import { RadiologyReportData } from "@/lib/radiology/report";
 import { notifyModule } from "@/lib/notifications/notify";
@@ -52,7 +53,7 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
 
     const updated = await prisma.examResult.update({
       where: { id: latestResult.id },
-      data: { criticalNotifiedAt: now, resultData: resultData as any },
+      data: { criticalNotifiedAt: now, resultData: resultData as unknown as Prisma.InputJsonValue },
     });
 
     const examRequest = await prisma.examRequest.findFirst({

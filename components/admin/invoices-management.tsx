@@ -10,6 +10,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Download, Search, Loader2, Eye } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
+interface InvoiceLineItem {
+  description: string;
+  quantity: number;
+  amount: number;
+}
+
 interface Invoice {
   id: string;
   invoiceNumber: string;
@@ -24,7 +30,7 @@ interface Invoice {
   dueDate: string;
   paidAt?: string;
   createdAt: string;
-  lineItems: any[];
+  lineItems: InvoiceLineItem[];
 }
 
 export function InvoicesManagement() {
@@ -303,8 +309,8 @@ export function InvoicesManagement() {
               <div>
                 <p className="text-sm font-semibold mb-2">Line Items</p>
                 <div className="border rounded-lg divide-y">
-                  {(selectedInvoice.lineItems as any[]).map(
-                    (item: any, idx: number) => (
+                  {selectedInvoice.lineItems.map(
+                    (item, idx) => (
                       <div key={idx} className="p-3 flex justify-between">
                         <div>
                           <p className="font-medium">{item.description}</p>

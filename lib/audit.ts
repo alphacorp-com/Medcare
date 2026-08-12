@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 
 // Fixed placeholder actor for audit rows with no authenticated actor (e.g. failed logins).
 // AuditLog.actorId is non-nullable, so unauthenticated events need a stand-in id.
@@ -30,7 +31,7 @@ export async function recordAuditEvent(event: AuditEventInput): Promise<void> {
         action: event.action,
         resourceType: event.resourceType,
         resourceId: event.resourceId,
-        payload: event.payload as any,
+        payload: event.payload as unknown as Prisma.InputJsonValue | undefined,
         ipAddress: event.ipAddress ?? undefined,
         userAgent: event.userAgent ?? undefined,
       },

@@ -26,8 +26,6 @@ export async function GET() {
     });
 
     // For now, skip expiring medications as the schema doesn't have expiry dates
-    const expiringMedications: any[] = [];
-
     const alerts = [
       ...lowStockMedications.map((item) => ({
         id: `low-stock-${item.id}`,

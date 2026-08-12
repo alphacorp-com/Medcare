@@ -306,7 +306,7 @@ export async function redeemLicenseForTenant(args: {
           status: InvoiceStatus.paid,
           dueDate: now,
           paidAt: now,
-          lineItems: lineItems as any,
+          lineItems: lineItems as unknown as Prisma.InputJsonValue,
         },
       });
 

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { requireModulePermission } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 
 export async function PATCH(
   request: Request,
@@ -35,7 +36,7 @@ export async function PATCH(
     // Fields that can be updated
     const { name, manufacturer, category, stock, threshold, unit, unitPrice, storageLocationId, supplierId } = body;
 
-    const dataToUpdate: any = {};
+    const dataToUpdate: Prisma.MedicationInventoryUpdateInput = {};
     if (name !== undefined) dataToUpdate.name = name;
     if (manufacturer !== undefined) dataToUpdate.manufacturer = manufacturer;
     if (category !== undefined) dataToUpdate.category = category;

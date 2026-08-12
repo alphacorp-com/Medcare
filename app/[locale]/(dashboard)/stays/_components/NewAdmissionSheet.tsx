@@ -66,7 +66,7 @@ export function NewAdmissionSheet({
             <label className="text-[10px] font-bold text-slate-500 uppercase">{t("patient")}</label>
             <PatientSearchAutocomplete
               className="h-8 text-xs bg-white border-slate-200"
-              onSelect={(patient: any) => onUpdateForm("patientId", patient.id)}
+              onSelect={(patient) => patient && onUpdateForm("patientId", patient.id)}
             />
             <button 
               className="text-xs text-blue-600 hover:underline mt-1 font-medium"

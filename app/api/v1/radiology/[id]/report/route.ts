@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { requireModulePermission } from "@/lib/permissions";
 import { RadiologyReportData } from "@/lib/radiology/report";
 
@@ -61,7 +62,7 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
         requestId: id,
         patientId: exam.patientId,
         performerId: session.user.id,
-        resultData: resultData as any,
+        resultData: resultData as unknown as Prisma.InputJsonValue,
         isCritical: Boolean(isCritical),
         reportUrl: reportUrl?.trim() || null,
       },

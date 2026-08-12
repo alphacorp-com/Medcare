@@ -1,5 +1,6 @@
 import React from 'react';
 import { Page, Text, View, Document, StyleSheet, Image } from '@react-pdf/renderer';
+import type { PdfInvoiceData, PdfLabels } from './types';
 
 const styles = StyleSheet.create({
   page: {
@@ -84,7 +85,7 @@ const styles = StyleSheet.create({
 });
 
 interface InvoiceTemplateProps {
-  invoice: any;
+  invoice: PdfInvoiceData;
   facility: {
     name: string;
     address: string;
@@ -99,7 +100,7 @@ interface InvoiceTemplateProps {
     digitalSignature: boolean;
     watermark: boolean;
   };
-  labels: any;
+  labels: PdfLabels;
 }
 
 export const InvoiceTemplate = ({ invoice, facility, settings, labels }: InvoiceTemplateProps) => (
@@ -148,7 +149,7 @@ export const InvoiceTemplate = ({ invoice, facility, settings, labels }: Invoice
           <View style={{ flex: 1, textAlign: 'right' }}><Text>{labels.qty}</Text></View>
           <View style={{ flex: 1, textAlign: 'right' }}><Text>{labels.amount}</Text></View>
         </View>
-        {invoice.items.map((item: any, i: number) => (
+        {invoice.items.map((item, i) => (
           <View key={i} style={styles.tableRow}>
             <View style={{ flex: 3 }}><Text>{item.description}</Text></View>
             <View style={{ flex: 1, textAlign: 'right' }}><Text>{item.quantity}</Text></View>

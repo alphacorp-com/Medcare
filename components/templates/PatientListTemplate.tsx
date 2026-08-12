@@ -1,5 +1,6 @@
 import React from 'react';
 import { Page, Text, View, Document, StyleSheet, Image } from '@react-pdf/renderer';
+import type { PdfFacility, PdfLabels, PdfSettings } from './types';
 
 const styles = StyleSheet.create({
   page: {
@@ -72,23 +73,25 @@ const styles = StyleSheet.create({
   }
 });
 
+export interface PatientListData {
+  title: string;
+  department: string;
+  date: string;
+  patients: Array<{
+    ipp: string;
+    name: string;
+    gender: string;
+    age: string;
+    bed?: string;
+    status: string;
+  }>;
+}
+
 interface PatientListTemplateProps {
-  data: {
-    title: string;
-    department: string;
-    date: string;
-    patients: Array<{
-      ipp: string;
-      name: string;
-      gender: string;
-      age: string;
-      bed?: string;
-      status: string;
-    }>;
-  };
-  facility: any;
-  settings: any;
-  labels: any;
+  data: PatientListData;
+  facility: PdfFacility;
+  settings: PdfSettings;
+  labels: PdfLabels;
 }
 
 export const PatientListTemplate = ({ data, facility, settings, labels }: PatientListTemplateProps) => (

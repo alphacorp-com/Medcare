@@ -18,6 +18,7 @@ import { ModuleConfiguration } from "@/components/settings/module-configuration"
 import { DocumentTemplates } from "@/components/settings/document-templates";
 import { Dhis2IntegrationSettings } from "@/components/settings/dhis2-integration-settings";
 import { MobileMoneySettings } from "@/components/settings/mobile-money-settings";
+import type { TenantAccessState } from "@/lib/tenant-licensing";
 
 export default function SettingsPage() {
   const { currentUser, activeModules, setActiveModules, setUser } = useAppStore();
@@ -54,14 +55,14 @@ export default function SettingsPage() {
 
   // Database Backup State
   const [isBackingUp, setIsBackingUp] = useState(false);
-  const [backupHistory, setBackupHistory] = useState<any[]>([]);
+  const [backupHistory, setBackupHistory] = useState<{ filename: string; size: string; createdAt: string }[]>([]);
 
   // License Management State
   const [licenseKey, setLicenseKey] = useState("");
   const [isRedeeming, setIsRedeeming] = useState(false);
   const [licenseError, setLicenseError] = useState<string | null>(null);
   const [licenseSuccess, setLicenseSuccess] = useState<string | null>(null);
-  const [currentSubscription, setCurrentSubscription] = useState<any>(null);
+  const [currentSubscription, setCurrentSubscription] = useState<TenantAccessState | null>(null);
 
   const t = useTranslations('settings');
   const tc = useTranslations('common');

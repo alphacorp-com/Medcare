@@ -176,7 +176,8 @@ export function UsersManagement() {
       modulePayload.push({ moduleId: 'MODULE_CORE_PATIENT', actions: ['read'] });
     }
 
-    const payload: any = { fullName, email, role, status };
+    const payload: { fullName: string; email: string; role: string; status: 'active' | 'inactive'; modules?: ModulePermission[] } =
+      { fullName, email, role, status };
     if (role !== 'tenant_admin') {
       payload.modules = modulePayload;
     }

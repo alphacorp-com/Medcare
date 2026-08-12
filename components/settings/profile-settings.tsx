@@ -1,4 +1,5 @@
 import { Input } from "@/components/ui/input";
+import type { CurrentUser } from "@/lib/store/useAppStore";
 
 interface ProfileSettingsProps {
   profileData: {
@@ -15,7 +16,7 @@ interface ProfileSettingsProps {
     password: string;
     confirmPassword: string;
   }) => void;
-  currentUser: any;
+  currentUser: CurrentUser;
   t: (key: string) => string;
   tc: (key: string) => string;
   error?: string | null;

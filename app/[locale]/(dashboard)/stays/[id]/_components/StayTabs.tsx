@@ -120,12 +120,12 @@ export function StayTabs({ stay, onPrescriptionOpen, onOrderOpen, getDoctorName 
                       </td>
                     </tr>
                   ) : (
-                    stay.prescriptions.map((rx: any) => (
+                    stay.prescriptions.map((rx) => (
                       <tr key={rx.id} className="hover:bg-slate-50/50 transition-colors group">
                         <td className="px-6 py-5 font-mono text-[10px] text-slate-400 group-hover:text-slate-600">{format(new Date(rx.prescribedAt), "MMM d, yyyy HH:mm")}</td>
                         <td className="px-6 py-5">
                           <div className="flex flex-col gap-2">
-                            {rx.items?.map((item: any, idx: number) => (
+                            {rx.items?.map((item, idx) => (
                               <div key={idx} className="flex items-center gap-2">
                                 <div className="h-1.5 w-1.5 rounded-full bg-blue-400" />
                                 <span className="font-bold text-slate-900">{item.drug}</span>
@@ -182,7 +182,7 @@ export function StayTabs({ stay, onPrescriptionOpen, onOrderOpen, getDoctorName 
                       </td>
                     </tr>
                   ) : (
-                    stay.examRequests?.map((order: any) => (
+                    stay.examRequests?.map((order) => (
                       <tr key={order.id} className="hover:bg-slate-50/50 transition-colors group">
                         <td className="px-6 py-5 font-mono text-[10px] text-slate-400 group-hover:text-slate-600">{format(new Date(order.requestedAt), "MMM d, yyyy HH:mm")}</td>
                         <td className="px-6 py-5">

@@ -7,6 +7,8 @@ import {
   PlanTier,
   BillingCycle,
   ModuleCategory,
+  ModuleStatus,
+  Department,
 } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import prisma from '../lib/prisma';
@@ -208,8 +210,8 @@ async function main() {
       where: { code: moduleDefinition.code },
       update: {
         name: moduleDefinition.name,
-        category: moduleDefinition.category as any,
-        tier: moduleDefinition.tier as any,
+        category: moduleDefinition.category,
+        tier: moduleDefinition.tier,
         description: moduleDefinition.description,
         isPublished: moduleDefinition.isPublished,
       },
@@ -283,14 +285,14 @@ async function main() {
     where: { email: 'admin@medcare.com' },
     update: {
       fullName: 'MedCare Administrator',
-      role: 'superadmin' as any,
+      role: 'superadmin',
       passwordHash: adminHashedPassword,
       isActive: true,
     },
     create: {
       email: 'admin@medcare.com',
       fullName: 'MedCare Administrator',
-      role: 'superadmin' as any,
+      role: 'superadmin',
       passwordHash: adminHashedPassword,
       isActive: true,
     },
@@ -386,7 +388,7 @@ async function main() {
   }
   console.log('Tenant feature flags ensured');
 
-  const tenantModuleSeeds = [
+  const tenantModuleSeeds: Array<{ moduleCode: string; status: ModuleStatus }> = [
     { moduleCode: 'MODULE_CORE_PATIENT', status: 'active' },
     { moduleCode: 'MODULE_PHARMACY', status: 'active' },
     { moduleCode: 'MODULE_LAB', status: 'active' },
@@ -407,14 +409,14 @@ async function main() {
         },
       },
       update: {
-        status: assignment.status as any,
+        status: assignment.status,
         activatedAt: assignment.status === 'active' ? new Date() : null,
         activatedBy: adminUser.id,
       },
       create: {
         tenantId: tenant.id,
         moduleId: moduleEntry.id,
-        status: assignment.status as any,
+        status: assignment.status,
         activatedAt: assignment.status === 'active' ? new Date() : null,
         activatedBy: adminUser.id,
       },
@@ -454,7 +456,7 @@ async function main() {
     { code: 'PHAR', name: 'Pharmacy', type: DepartmentType.pharmacy },
   ];
 
-  const departments: Record<string, any> = {};
+  const departments: Record<string, Department> = {};
   for (const dept of departmentsData) {
     departments[dept.code] = await prisma.department.upsert({
       where: { tenantId_code: { tenantId: tenant.id, code: dept.code } },

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { requireModulePermission } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { getMobileMoneyConfig, resolveMtnConfig } from "@/lib/payments/config";
 import { checkMtnPaymentStatus } from "@/lib/payments/mobile-money/mtn";
 import { applySuccessfulPayment } from "@/lib/billing/applyPayment";
@@ -46,7 +47,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       where: { id: payment.id },
       data: {
         status: result.status,
-        rawResponse: result.raw as any,
+        rawResponse: result.raw as unknown as Prisma.InputJsonValue,
         completedAt: new Date(),
         failureReason: result.status === "failed" ? "MTN MoMo reported a failed transaction" : null,
       },

@@ -44,7 +44,7 @@ export async function GET(
       status: invoice.status,
       patientName: "Organization", // Using tenant name as organization
       patientIpp: invoice.tenantId.slice(0, 8),
-      items: (invoice.lineItems as any[]).map((item: any) => ({
+      items: (invoice.lineItems as unknown as { description?: string; quantity?: number; amount?: number }[]).map((item) => ({
         description: item.description || "Service",
         quantity: item.quantity || 1,
         amount: item.amount || 0,

@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { requireTenantAdmin } from "@/lib/permissions";
-import type { ScheduleStatus } from "@prisma/client";
+import { Prisma, type ScheduleStatus } from "@prisma/client";
 
 const ALLOWED_STATUSES: ScheduleStatus[] = ["planned", "confirmed", "modified", "absent", "replaced"];
 
@@ -45,8 +45,8 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
     });
 
     return NextResponse.json(schedule);
-  } catch (error: any) {
-    if (error?.code === "P2025") {
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
       return NextResponse.json({ error: "Shift not found" }, { status: 404 });
     }
     console.error("Error updating schedule:", error);
@@ -77,8 +77,8 @@ export async function DELETE(req: Request, context: { params: Promise<{ id: stri
 
     await prisma.schedule.delete({ where: { id } });
     return NextResponse.json({ success: true });
-  } catch (error: any) {
-    if (error?.code === "P2025") {
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
       return NextResponse.json({ error: "Shift not found" }, { status: 404 });
     }
     console.error("Error deleting schedule:", error);

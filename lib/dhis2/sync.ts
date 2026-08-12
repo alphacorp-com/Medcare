@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { submitDataValueSet, toDataValues } from "./client";
 import { decryptSecret } from "./crypto";
 import { computeMonthlyIndicators, Dhis2Period, previousMonthPeriod } from "./indicators";
@@ -34,8 +35,8 @@ export async function saveDhis2Config(
 ): Promise<void> {
   await prisma.tenantSetting.upsert({
     where: { tenantId_key: { tenantId, key: DHIS2_SETTING_KEY } },
-    create: { tenantId, key: DHIS2_SETTING_KEY, value: config as any, updatedBy },
-    update: { value: config as any, updatedBy },
+    create: { tenantId, key: DHIS2_SETTING_KEY, value: config as unknown as Prisma.InputJsonValue, updatedBy },
+    update: { value: config as unknown as Prisma.InputJsonValue, updatedBy },
   });
 }
 
@@ -47,7 +48,7 @@ async function logSyncAttempt(summary: Dhis2SyncSummary, triggeredBy: "cron" | s
       actorType: triggeredBy === "cron" ? "system" : "tenant_user",
       action: "dhis2.sync",
       resourceType: "dhis2_sync",
-      payload: summary as any,
+      payload: summary as unknown as Prisma.InputJsonValue,
     },
   });
 }

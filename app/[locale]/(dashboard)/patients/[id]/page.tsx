@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { useSession } from "next-auth/react";
 import { PDFPreviewModal } from "@/components/templates/PDFPreviewModal";
+import type { PatientFileData } from "@/components/templates/PatientFileTemplate";
 import { EMPTY_VITALS } from "@/components/shared/vitals-fields";
 import { notifyBillingGenerated } from "@/lib/billing/client";
 
@@ -92,7 +93,7 @@ export default function PatientDetailPage() {
   const [isTbFollowUpOpen, setIsTbFollowUpOpen] = useState(false);
   const [activeTbCaseId, setActiveTbCaseId] = useState<string | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [pdfData, setPdfData] = useState<any>(null);
+  const [pdfData, setPdfData] = useState<PatientFileData | null>(null);
 
   // Form States
   const [editForm, setEditForm] = useState<EditPatientForm>({
@@ -495,7 +496,8 @@ export default function PatientDetailPage() {
       <PDFPreviewModal
         isOpen={isPreviewOpen} onClose={() => setIsPreviewOpen(false)}
         templateId="patient_files" data={pdfData}
-        facility={{ name: tc('hospital_name') }} settings={{ watermark: true }}
+        facility={{ name: tc('hospital_name'), address: '', phone: '', email: '' }}
+        settings={{ showLogo: false, includeQR: false, digitalSignature: false, watermark: true }}
       />
     </div>
   );

@@ -71,7 +71,7 @@ export async function GET() {
           resource: activity.resourceType || 'Unknown',
           details: activity.payload ? JSON.stringify(activity.payload) : 'No details',
           ipAddress: activity.ipAddress || 'Unknown',
-          severity: (activity.payload as any)?.severity || 'low',
+          severity: (activity.payload as unknown as { severity?: string } | null)?.severity || 'low',
         };
       })
     );

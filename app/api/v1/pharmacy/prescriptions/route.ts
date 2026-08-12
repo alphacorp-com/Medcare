@@ -4,6 +4,13 @@ import { authOptions } from "@/lib/auth";
 import { requireModulePermission } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
 
+interface PharmacyPrescriptionItem {
+  drug?: string;
+  name?: string;
+  quantity?: number | string;
+  unit?: string;
+}
+
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
@@ -70,19 +77,19 @@ export async function GET() {
     // We format the prescriptions to match the UI expectations
     const formattedData = prescriptions.map((rx) => {
       // items is a Json field, so we parse it safely
-      let itemsList: any[] = [];
+      let itemsList: PharmacyPrescriptionItem[] = [];
       try {
         if (typeof rx.items === 'string') {
           itemsList = JSON.parse(rx.items);
         } else if (Array.isArray(rx.items)) {
-          itemsList = rx.items;
+          itemsList = rx.items as unknown as PharmacyPrescriptionItem[];
         }
       } catch (e) {
         // ignore
       }
 
       // Enrich items with stock status and pricing
-      const enrichedItems = itemsList.map((item: any) => {
+      const enrichedItems = itemsList.map((item) => {
         const drugName = item.drug || item.name || '';
         const invItem = inventoryMap.get(drugName.toLowerCase());
         let stockStatus: 'in_stock' | 'out_of_stock' | 'not_in_inventory' = 'not_in_inventory';
@@ -108,7 +115,7 @@ export async function GET() {
 
       // Calculate total cost
       const totalCost = enrichedItems.reduce((sum, item) => {
-        const qty = parseFloat(item.quantity) || 0;
+        const qty = parseFloat(String(item.quantity)) || 0;
         const price = item.unitPrice || 0;
         return sum + (qty * price);
       }, 0);

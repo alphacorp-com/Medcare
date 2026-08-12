@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { CHECKLIST_ITEMS, CHECKLIST_PHASES, ChecklistPhase, WhoChecklist } from "@/lib/surgery/checklist";
 import { requireModulePermission } from "@/lib/permissions";
 
@@ -56,7 +57,7 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
 
     const surgery = await prisma.surgicalProcedure.update({
       where: { id },
-      data: { whoChecklist: updatedChecklist as any },
+      data: { whoChecklist: updatedChecklist as unknown as Prisma.InputJsonValue },
     });
 
     return NextResponse.json(surgery);

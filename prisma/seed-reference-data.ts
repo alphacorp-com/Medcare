@@ -1,4 +1,4 @@
-import { PrismaClient, ReferenceCatalogType, ExamCatalogDomain } from '@prisma/client';
+import { PrismaClient, Prisma, ReferenceCatalogType, ExamCatalogDomain } from '@prisma/client';
 
 // Seeds every new tenant-configurable reference-data catalog introduced alongside the
 // Settings "reference data" pages: the 7 generic ReferenceCatalogItem lists, Medical Act
@@ -372,8 +372,8 @@ async function seedExamCatalog(prisma: PrismaClient, tenantId: string) {
   for (const exam of LAB_EXAMS) {
     await prisma.examCatalogEntry.upsert({
       where: { tenantId_code: { tenantId, code: exam.code } },
-      update: { examTypeId: labTypeIds[exam.typeCode], nameFr: exam.nameFr, nameEn: exam.nameEn, parameters: exam.parameters as any },
-      create: { tenantId, examTypeId: labTypeIds[exam.typeCode], code: exam.code, nameFr: exam.nameFr, nameEn: exam.nameEn, parameters: exam.parameters as any },
+      update: { examTypeId: labTypeIds[exam.typeCode], nameFr: exam.nameFr, nameEn: exam.nameEn, parameters: exam.parameters as unknown as Prisma.InputJsonValue },
+      create: { tenantId, examTypeId: labTypeIds[exam.typeCode], code: exam.code, nameFr: exam.nameFr, nameEn: exam.nameEn, parameters: exam.parameters as unknown as Prisma.InputJsonValue },
     });
   }
 

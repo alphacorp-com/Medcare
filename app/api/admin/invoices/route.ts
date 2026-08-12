@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { Prisma, InvoiceStatus } from "@prisma/client";
 
 export async function GET(request: NextRequest) {
   try {
@@ -21,14 +22,13 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * limit;
 
     // Build filter conditions
-    const where: any = {};
-    if (status) where.status = status;
+    const where: Prisma.InvoiceWhereInput = {};
+    if (status) where.status = status as InvoiceStatus;
     if (tenantId) where.tenantId = tenantId;
     if (search) {
       where.OR = [
         { invoiceNumber: { contains: search, mode: "insensitive" } },
         { tenant: { name: { contains: search, mode: "insensitive" } } },
-        { subscription: { tenantId: { contains: search, mode: "insensitive" } } },
       ];
     }
 

@@ -77,7 +77,7 @@ export function Dhis2EntityPicker({
         }
         setResults(json.results ?? []);
       } catch (err) {
-        if ((err as any)?.name !== "AbortError") setResults([]);
+        if (!(err instanceof DOMException && err.name === "AbortError")) setResults([]);
       } finally {
         setIsLoading(false);
       }

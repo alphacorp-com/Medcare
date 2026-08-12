@@ -5,7 +5,7 @@ import prisma from "@/lib/prisma";
 import { findScheduleConflicts } from "@/lib/planning/conflicts";
 import { shiftTimeRange } from "@/lib/planning/shifts";
 import { requireModulePermission, requireTenantAdmin } from "@/lib/permissions";
-import type { ShiftType } from "@prisma/client";
+import { Prisma, type ShiftType } from "@prisma/client";
 
 function toDateOnly(dateStr: string): Date {
   return new Date(`${dateStr}T00:00:00.000Z`);
@@ -97,8 +97,8 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json(schedule, { status: 201 });
-  } catch (error: any) {
-    if (error?.code === "P2002") {
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return NextResponse.json(
         { error: "This staff member already has that shift type on this date" },
         { status: 409 }

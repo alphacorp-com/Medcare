@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { requireTenantAdmin } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
-import type { BedStatus } from "@prisma/client";
+import { Prisma, type BedStatus } from "@prisma/client";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -57,8 +57,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     const updated = await prisma.bed.update({ where: { id }, data });
     return NextResponse.json(updated);
-  } catch (error: any) {
-    if (error?.code === "P2002") {
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return NextResponse.json({ error: "A bed with this code already exists" }, { status: 409 });
     }
     console.error("[PATCH /api/v1/settings/beds/[id]]", error);

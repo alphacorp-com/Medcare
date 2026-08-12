@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, CheckCircle2, XCircle, Send, RotateCw } from "lucide-react";
-import { DHIS2_METRIC_KEYS, Dhis2Mapping } from "@/lib/dhis2/types";
+import { DHIS2_METRIC_KEYS, Dhis2Mapping, Dhis2MetricKey } from "@/lib/dhis2/types";
 import { Dhis2EntityPicker } from "./dhis2-entity-picker";
 
 interface Dhis2FormState {
@@ -39,8 +39,8 @@ const EMPTY_FORM: Dhis2FormState = {
   enabled: false,
 };
 
-function mappingFor(mappings: Dhis2Mapping[], metricKey: string): Dhis2Mapping {
-  return mappings.find((m) => m.metricKey === metricKey) ?? { metricKey: metricKey as any, dataElementId: "" };
+function mappingFor(mappings: Dhis2Mapping[], metricKey: Dhis2MetricKey): Dhis2Mapping {
+  return mappings.find((m) => m.metricKey === metricKey) ?? { metricKey, dataElementId: "" };
 }
 
 export function Dhis2IntegrationSettings() {
@@ -110,7 +110,7 @@ export function Dhis2IntegrationSettings() {
     })();
   }, []);
 
-  const updateMapping = (metricKey: string, field: "dataElementId" | "categoryOptionComboId", value: string) => {
+  const updateMapping = (metricKey: Dhis2MetricKey, field: "dataElementId" | "categoryOptionComboId", value: string) => {
     setForm((prev) => {
       const others = prev.mappings.filter((m) => m.metricKey !== metricKey);
       const current = mappingFor(prev.mappings, metricKey);

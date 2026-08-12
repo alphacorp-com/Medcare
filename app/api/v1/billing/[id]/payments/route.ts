@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { requireModulePermission } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
-import type { PaymentMethod } from "@prisma/client";
+import { Prisma, type PaymentMethod } from "@prisma/client";
 import { getMobileMoneyConfig, resolveOrangeConfig, resolveMtnConfig } from "@/lib/payments/config";
 import { initiateOrangePayment } from "@/lib/payments/mobile-money/orange";
 import { initiateMtnPayment } from "@/lib/payments/mobile-money/mtn";
@@ -116,14 +116,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       if (!result.success) {
         await prisma.payment.update({
           where: { id: payment.id },
-          data: { status: "failed", failureReason: result.error, rawResponse: result.raw as any },
+          data: { status: "failed", failureReason: result.error, rawResponse: result.raw as unknown as Prisma.InputJsonValue },
         });
         return NextResponse.json({ error: result.error }, { status: 502 });
       }
 
       const updated = await prisma.payment.update({
         where: { id: payment.id },
-        data: { providerReference: result.providerReference, rawResponse: result.raw as any },
+        data: { providerReference: result.providerReference, rawResponse: result.raw as unknown as Prisma.InputJsonValue },
       });
       return NextResponse.json({ ...updated, redirectUrl: result.redirectUrl }, { status: 201 });
     }
@@ -146,14 +146,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (!result.success) {
       await prisma.payment.update({
         where: { id: payment.id },
-        data: { status: "failed", failureReason: result.error, rawResponse: result.raw as any },
+        data: { status: "failed", failureReason: result.error, rawResponse: result.raw as unknown as Prisma.InputJsonValue },
       });
       return NextResponse.json({ error: result.error }, { status: 502 });
     }
 
     const updated = await prisma.payment.update({
       where: { id: payment.id },
-      data: { providerReference: result.providerReference, rawResponse: result.raw as any },
+      data: { providerReference: result.providerReference, rawResponse: result.raw as unknown as Prisma.InputJsonValue },
     });
     return NextResponse.json(updated, { status: 201 });
   } catch (error) {

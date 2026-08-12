@@ -1,5 +1,6 @@
 import React from 'react';
 import { Page, Text, View, Document, StyleSheet, Image } from '@react-pdf/renderer';
+import type { PdfFacility, PdfLabels, PdfSettings } from './types';
 
 const styles = StyleSheet.create({
   page: {
@@ -105,9 +106,9 @@ interface PrescriptionTemplateProps {
       instructions: string;
     }>;
   };
-  facility: any;
-  settings: any;
-  labels: any;
+  facility: PdfFacility;
+  settings: PdfSettings;
+  labels: PdfLabels;
 }
 
 export const PrescriptionTemplate = ({ data, facility, settings, labels }: PrescriptionTemplateProps) => (

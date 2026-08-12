@@ -1,3 +1,36 @@
+export type StayPrescriptionItem = {
+  drug: string;
+  dosage: string;
+  frequency: string;
+  duration: string;
+};
+
+export type StayPrescription = {
+  id: string;
+  prescribedAt: string;
+  prescriberId: string;
+  status: string;
+  items?: StayPrescriptionItem[];
+};
+
+export type StayExamRequest = {
+  id: string;
+  requestedAt: string;
+  type: string;
+  examLabel: string;
+  examCode: string;
+  urgency: string;
+};
+
+export type StayMedicalRecord = {
+  id: string;
+  type: string;
+  title: string | null;
+  content: string;
+  createdAt: string;
+  authorId: string;
+};
+
 export type StayDetail = {
   id: string;
   patientId: string;
@@ -21,9 +54,9 @@ export type StayDetail = {
     ipp: string;
     birthDate: string;
   };
-  medicalRecords: any[];
-  prescriptions: any[];
-  examRequests: any[];
+  medicalRecords: StayMedicalRecord[];
+  prescriptions: StayPrescription[];
+  examRequests: StayExamRequest[];
 };
 
 export type Doctor = {

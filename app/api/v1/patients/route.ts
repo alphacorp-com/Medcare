@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { requireModulePermission } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 
 // ── GET /api/v1/patients ──────────────────────────────────────────────────────
 // Query params:
@@ -156,8 +157,8 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ data: patient, success: true }, { status: 201 });
-  } catch (error: any) {
-    if (error?.code === "P2002") {
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return NextResponse.json(
         { error: "A patient with this NSS already exists", success: false },
         { status: 409 }

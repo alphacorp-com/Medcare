@@ -6,6 +6,7 @@ import { format } from "date-fns";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/routing";
 import { PDFPreviewModal } from "@/components/templates/PDFPreviewModal";
+import type { PatientListData } from "@/components/templates/PatientListTemplate";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertTriangle } from "lucide-react";
@@ -35,7 +36,7 @@ export default function PatientsPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [isNewPatientOpen, setIsNewPatientOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [pdfData, setPdfData] = useState<any>(null);
+  const [pdfData, setPdfData] = useState<PatientListData | null>(null);
 
   // Data State
   const [patients, setPatients] = useState<PatientRow[]>([]);
@@ -260,8 +261,8 @@ export default function PatientsPage() {
         onClose={() => setIsPreviewOpen(false)}
         templateId="patient_lists"
         data={pdfData}
-        facility={{ name: tc('hospital_name') }}
-        settings={{ watermark: true }}
+        facility={{ name: tc('hospital_name'), address: '', phone: '', email: '' }}
+        settings={{ showLogo: false, includeQR: false, digitalSignature: false, watermark: true }}
       />
 
       {/* Duplicate Patient Warning */}

@@ -15,7 +15,7 @@ export default function middleware(request: NextRequest) {
   if (!token && !isPublicPage) {
     // Attempt to extract locale from path or use default
     const locale = pathname.split('/')[1];
-    const isSupportedLocale = routing.locales.includes(locale as any);
+    const isSupportedLocale = (routing.locales as readonly string[]).includes(locale);
     const targetLocale = isSupportedLocale ? locale : routing.defaultLocale;
     
     return NextResponse.redirect(new URL(`/${targetLocale}/login`, request.url));
@@ -24,7 +24,7 @@ export default function middleware(request: NextRequest) {
   // If token and on login page, redirect to dashboard
   if (token && isPublicPage) {
     const locale = pathname.split('/')[1];
-    const isSupportedLocale = routing.locales.includes(locale as any);
+    const isSupportedLocale = (routing.locales as readonly string[]).includes(locale);
     const targetLocale = isSupportedLocale ? locale : routing.defaultLocale;
     return NextResponse.redirect(new URL(`/${targetLocale}/`, request.url));
   }

@@ -68,7 +68,7 @@ export function NotificationBell() {
     }
     setOpen(false);
     if (notification.link) {
-      router.push(notification.link as any);
+      router.push(notification.link);
     }
   };
 

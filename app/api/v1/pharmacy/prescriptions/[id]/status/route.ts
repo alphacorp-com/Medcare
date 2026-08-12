@@ -5,7 +5,14 @@ import { requireModulePermission } from "@/lib/permissions";
 import { isModuleActiveForTenant } from "@/lib/tenant-licensing";
 import { suggestInvoiceLines } from "@/lib/billing/suggestCharge";
 import prisma from "@/lib/prisma";
-import type { PrescriptionStatus } from "@prisma/client";
+import { Prisma, type PrescriptionStatus } from "@prisma/client";
+
+interface PharmacyPrescriptionItem {
+  drug?: string;
+  name?: string;
+  quantity?: number | string;
+  unit?: string;
+}
 
 function slugifyDrugName(name: string): string {
   return name
@@ -56,16 +63,16 @@ export async function PATCH(
 
     const tenantId = session.user.tenantId;
 
-    let itemsList: any[] = [];
+    let itemsList: PharmacyPrescriptionItem[] = [];
     try {
       if (typeof currentRx.items === 'string') {
         itemsList = JSON.parse(currentRx.items);
       } else if (Array.isArray(currentRx.items)) {
-        itemsList = currentRx.items;
+        itemsList = currentRx.items as unknown as PharmacyPrescriptionItem[];
       }
     } catch (e) {}
 
-    const updateData: any = {
+    const updateData: Prisma.PrescriptionUpdateInput = {
       status: status as PrescriptionStatus,
       ...(status === 'validated' ? { validatedAt: new Date() } : {})
     };
@@ -79,11 +86,11 @@ export async function PATCH(
       });
       const inventoryMap = new Map(inventory.map(i => [i.name.toLowerCase(), i]));
 
-      const lines = itemsList.map((item: any) => {
+      const lines = itemsList.map((item) => {
         const drugName = item.drug || item.name || '';
         const invItem = inventoryMap.get(drugName.toLowerCase());
         const drugCode = invItem?.id || slugifyDrugName(drugName);
-        const quantity = parseFloat(item.quantity) || 0;
+        const quantity = parseFloat(String(item.quantity)) || 0;
         return {
           sourceType: "pharmacy_dispensation" as const,
           sourceId: `${currentRx.id}:${drugCode}`,
@@ -129,7 +136,7 @@ export async function PATCH(
       for (const item of itemsList) {
         const drugName = item.drug || item.name || '';
         const invItem = inventoryMap.get(drugName.toLowerCase());
-        const quantity = parseFloat(item.quantity) || 0;
+        const quantity = parseFloat(String(item.quantity)) || 0;
 
         if (invItem) {
           await prisma.medicationInventory.update({
@@ -152,8 +159,6 @@ export async function PATCH(
           },
         });
       }
-
-      updateData.dispensedAt = new Date();
     }
 
     const prescription = await prisma.prescription.update({

@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { requireTenantAdmin } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
-import type { BedStatus } from "@prisma/client";
+import { Prisma, type BedStatus } from "@prisma/client";
 
 // Readable by any authenticated tenant member (used by admission/transfer bed
 // pickers, not just the settings management page) — writes stay admin-only.
@@ -68,8 +68,8 @@ export async function POST(request: Request) {
       },
     });
     return NextResponse.json(bed, { status: 201 });
-  } catch (error: any) {
-    if (error?.code === "P2002") {
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return NextResponse.json({ error: "A bed with this code already exists" }, { status: 409 });
     }
     console.error("[POST /api/v1/settings/beds]", error);

@@ -45,7 +45,7 @@ export const authOptions: NextAuthOptions = {
 
                 if (!isValidPassword) {
                     await recordAuditEvent({
-                        tenantId: (user as any).tenantId,
+                        tenantId: user.tenantId,
                         actorId: SYSTEM_ACTOR_ID,
                         actorType: "system",
                         action: "user.login_failed",
@@ -56,8 +56,8 @@ export const authOptions: NextAuthOptions = {
                     throw new Error("Invalid password");
                 }
 
-                if ((user as any).tenantId) {
-                    await syncTenantStatus((user as any).tenantId as string);
+                if (user.tenantId) {
+                    await syncTenantStatus(user.tenantId);
                 }
 
                 try {
@@ -70,7 +70,7 @@ export const authOptions: NextAuthOptions = {
                 }
 
                 await recordAuditEvent({
-                    tenantId: (user as any).tenantId,
+                    tenantId: user.tenantId,
                     actorId: user.id,
                     actorType: "tenant_user",
                     action: "user.login",
@@ -85,8 +85,8 @@ export const authOptions: NextAuthOptions = {
                     email: user.email,
                     name: user.fullName,
                     role: user.role as string,
-                    tenantId: (user as any).tenantId,
-                    modules: ((user as any).modules ?? []) as unknown as ModulePermission[],
+                    tenantId: user.tenantId,
+                    modules: (user.modules ?? []) as unknown as ModulePermission[],
                 };
             },
         }),
@@ -173,19 +173,19 @@ export const authOptions: NextAuthOptions = {
             if (user) {
                 token.id = user.id;
                 token.role = user.role;
-                token.tenantId = (user as any).tenantId;
+                token.tenantId = user.tenantId;
                 token.modules = user.modules;
-                token.adminRole = (user as any).adminRole;
+                token.adminRole = user.adminRole;
             }
             return token;
         },
         async session({ session, token }) {
             if (token && session.user) {
-                session.user.id = token.id as string;
-                session.user.role = token.role as string;
-                session.user.tenantId = token.tenantId as string;
-                session.user.modules = token.modules as any;
-                session.user.adminRole = token.adminRole as string;
+                session.user.id = token.id;
+                session.user.role = token.role;
+                session.user.tenantId = token.tenantId;
+                session.user.modules = token.modules;
+                session.user.adminRole = token.adminRole;
             }
             return session;
         },
