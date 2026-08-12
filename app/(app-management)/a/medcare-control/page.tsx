@@ -28,7 +28,7 @@ export default function AdminDashboard() {
   const { data: session } = useSession();
 
   const handleLogout = async () => {
-    await signOut({ redirect: true, callbackUrl: "/admin-login" });
+    await signOut({ redirect: true, callbackUrl: "a/auth/admin-login" });
   };
 
   return (

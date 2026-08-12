@@ -32,7 +32,7 @@ export default function AdminLoginPage() {
       if (result?.error) {
         setError("Invalid credentials");
       } else {
-        router.push("/medcare");
+        router.push("a/medcare-control");
       }
     } catch (error) {
       setError("An error occurred during login");

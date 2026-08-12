@@ -30,7 +30,7 @@ function AdminLayoutContent({
     if (status === "loading") return; // Still loading
 
     if (!session || session.user.role !== "admin") {
-      router.push("/admin-login");
+      router.push("a/auth/admin-login");
     }
   }, [session, status, router]);
 
