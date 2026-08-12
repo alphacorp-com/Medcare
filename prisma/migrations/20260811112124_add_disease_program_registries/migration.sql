@@ -1,35 +1,35 @@
 -- CreateEnum
-CREATE TYPE "MalariaTestType" AS ENUM ('rdt', 'microscopy', 'clinical_only');
+CREATE TYPE "tenant_template"."MalariaTestType" AS ENUM ('rdt', 'microscopy', 'clinical_only');
 
 -- CreateEnum
-CREATE TYPE "MalariaResult" AS ENUM ('pending', 'positive', 'negative');
+CREATE TYPE "tenant_template"."MalariaResult" AS ENUM ('pending', 'positive', 'negative');
 
 -- CreateEnum
-CREATE TYPE "MalariaSeverity" AS ENUM ('simple', 'severe');
+CREATE TYPE "tenant_template"."MalariaSeverity" AS ENUM ('simple', 'severe');
 
 -- CreateEnum
-CREATE TYPE "TbCaseType" AS ENUM ('new_case', 'relapse', 'treatment_after_failure', 'treatment_after_loss_to_follow_up', 'transfer_in', 'other');
+CREATE TYPE "tenant_template"."TbCaseType" AS ENUM ('new_case', 'relapse', 'treatment_after_failure', 'treatment_after_loss_to_follow_up', 'transfer_in', 'other');
 
 -- CreateEnum
-CREATE TYPE "TbClassification" AS ENUM ('pulmonary_bacteriologically_confirmed', 'pulmonary_clinically_diagnosed', 'extrapulmonary');
+CREATE TYPE "tenant_template"."TbClassification" AS ENUM ('pulmonary_bacteriologically_confirmed', 'pulmonary_clinically_diagnosed', 'extrapulmonary');
 
 -- CreateEnum
-CREATE TYPE "TbHivStatus" AS ENUM ('positive', 'negative', 'unknown');
+CREATE TYPE "tenant_template"."TbHivStatus" AS ENUM ('positive', 'negative', 'unknown');
 
 -- CreateEnum
-CREATE TYPE "TbTreatmentOutcome" AS ENUM ('on_treatment', 'cured', 'treatment_completed', 'treatment_failed', 'died', 'lost_to_follow_up', 'not_evaluated', 'transferred_out');
+CREATE TYPE "tenant_template"."TbTreatmentOutcome" AS ENUM ('on_treatment', 'cured', 'treatment_completed', 'treatment_failed', 'died', 'lost_to_follow_up', 'not_evaluated', 'transferred_out');
 
 -- CreateEnum
-CREATE TYPE "TbSputumResult" AS ENUM ('not_done', 'negative', 'positive');
+CREATE TYPE "tenant_template"."TbSputumResult" AS ENUM ('not_done', 'negative', 'positive');
 
 -- CreateEnum
-CREATE TYPE "TbControlPoint" AS ENUM ('m2', 'm3', 'm5', 'm6', 'other');
+CREATE TYPE "tenant_template"."TbControlPoint" AS ENUM ('m2', 'm3', 'm5', 'm6', 'other');
 
 -- AlterEnum
-ALTER TYPE "ReferenceCatalogType" ADD VALUE 'vaccine_antigen';
+ALTER TYPE "tenant_template"."ReferenceCatalogType" ADD VALUE 'vaccine_antigen';
 
 -- CreateTable
-CREATE TABLE "immunizations" (
+CREATE TABLE "tenant_template"."immunizations" (
     "id" UUID NOT NULL,
     "tenant_id" UUID,
     "patient_id" UUID NOT NULL,
@@ -48,14 +48,14 @@ CREATE TABLE "immunizations" (
 );
 
 -- CreateTable
-CREATE TABLE "malaria_cases" (
+CREATE TABLE "tenant_template"."malaria_cases" (
     "id" UUID NOT NULL,
     "tenant_id" UUID,
     "patient_id" UUID NOT NULL,
     "exam_result_id" UUID,
-    "test_type" "MalariaTestType" NOT NULL,
-    "result" "MalariaResult" NOT NULL DEFAULT 'pending',
-    "severity" "MalariaSeverity",
+    "test_type" "tenant_template"."MalariaTestType" NOT NULL,
+    "result" "tenant_template"."MalariaResult" NOT NULL DEFAULT 'pending',
+    "severity" "tenant_template"."MalariaSeverity",
     "is_pregnant_at_diagnosis" BOOLEAN NOT NULL DEFAULT false,
     "age_in_days_at_diagnosis" INTEGER NOT NULL,
     "diagnosed_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -69,19 +69,19 @@ CREATE TABLE "malaria_cases" (
 );
 
 -- CreateTable
-CREATE TABLE "tb_cases" (
+CREATE TABLE "tenant_template"."tb_cases" (
     "id" UUID NOT NULL,
     "tenant_id" UUID,
     "patient_id" UUID NOT NULL,
     "notification_date" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "case_type" "TbCaseType" NOT NULL,
-    "classification" "TbClassification" NOT NULL,
-    "hiv_status" "TbHivStatus" NOT NULL DEFAULT 'unknown',
+    "case_type" "tenant_template"."TbCaseType" NOT NULL,
+    "classification" "tenant_template"."TbClassification" NOT NULL,
+    "hiv_status" "tenant_template"."TbHivStatus" NOT NULL DEFAULT 'unknown',
     "weight_kg_at_diagnosis" DECIMAL(5,2),
     "confirming_exam_result_id" UUID,
     "treatment_regimen" VARCHAR(100),
     "treatment_start_date" TIMESTAMPTZ,
-    "outcome" "TbTreatmentOutcome" NOT NULL DEFAULT 'on_treatment',
+    "outcome" "tenant_template"."TbTreatmentOutcome" NOT NULL DEFAULT 'on_treatment',
     "outcome_date" TIMESTAMPTZ,
     "registered_by_id" UUID NOT NULL,
     "notes" TEXT,
@@ -92,15 +92,15 @@ CREATE TABLE "tb_cases" (
 );
 
 -- CreateTable
-CREATE TABLE "tb_follow_ups" (
+CREATE TABLE "tenant_template"."tb_follow_ups" (
     "id" UUID NOT NULL,
     "tenant_id" UUID,
     "tb_case_id" UUID NOT NULL,
     "follow_up_date" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "control_point" "TbControlPoint" NOT NULL,
-    "sputum_result" "TbSputumResult" NOT NULL DEFAULT 'not_done',
+    "control_point" "tenant_template"."TbControlPoint" NOT NULL,
+    "sputum_result" "tenant_template"."TbSputumResult" NOT NULL DEFAULT 'not_done',
     "weight_kg" DECIMAL(5,2),
-    "outcome_recorded" "TbTreatmentOutcome",
+    "outcome_recorded" "tenant_template"."TbTreatmentOutcome",
     "recorded_by_id" UUID NOT NULL,
     "notes" TEXT,
     "created_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -109,46 +109,46 @@ CREATE TABLE "tb_follow_ups" (
 );
 
 -- CreateIndex
-CREATE INDEX "immunizations_tenant_id_idx" ON "immunizations"("tenant_id");
+CREATE INDEX "immunizations_tenant_id_idx" ON "tenant_template"."immunizations"("tenant_id");
 
 -- CreateIndex
-CREATE INDEX "immunizations_patient_id_administered_at_idx" ON "immunizations"("patient_id", "administered_at" DESC);
+CREATE INDEX "immunizations_patient_id_administered_at_idx" ON "tenant_template"."immunizations"("patient_id", "administered_at" DESC);
 
 -- CreateIndex
-CREATE INDEX "immunizations_antigen_code_idx" ON "immunizations"("antigen_code");
+CREATE INDEX "immunizations_antigen_code_idx" ON "tenant_template"."immunizations"("antigen_code");
 
 -- CreateIndex
-CREATE INDEX "malaria_cases_tenant_id_idx" ON "malaria_cases"("tenant_id");
+CREATE INDEX "malaria_cases_tenant_id_idx" ON "tenant_template"."malaria_cases"("tenant_id");
 
 -- CreateIndex
-CREATE INDEX "malaria_cases_patient_id_diagnosed_at_idx" ON "malaria_cases"("patient_id", "diagnosed_at" DESC);
+CREATE INDEX "malaria_cases_patient_id_diagnosed_at_idx" ON "tenant_template"."malaria_cases"("patient_id", "diagnosed_at" DESC);
 
 -- CreateIndex
-CREATE INDEX "tb_cases_tenant_id_idx" ON "tb_cases"("tenant_id");
+CREATE INDEX "tb_cases_tenant_id_idx" ON "tenant_template"."tb_cases"("tenant_id");
 
 -- CreateIndex
-CREATE INDEX "tb_cases_patient_id_notification_date_idx" ON "tb_cases"("patient_id", "notification_date" DESC);
+CREATE INDEX "tb_cases_patient_id_notification_date_idx" ON "tenant_template"."tb_cases"("patient_id", "notification_date" DESC);
 
 -- CreateIndex
-CREATE INDEX "tb_follow_ups_tenant_id_idx" ON "tb_follow_ups"("tenant_id");
+CREATE INDEX "tb_follow_ups_tenant_id_idx" ON "tenant_template"."tb_follow_ups"("tenant_id");
 
 -- CreateIndex
-CREATE INDEX "tb_follow_ups_tb_case_id_follow_up_date_idx" ON "tb_follow_ups"("tb_case_id", "follow_up_date");
+CREATE INDEX "tb_follow_ups_tb_case_id_follow_up_date_idx" ON "tenant_template"."tb_follow_ups"("tb_case_id", "follow_up_date");
 
 -- AddForeignKey
-ALTER TABLE "immunizations" ADD CONSTRAINT "immunizations_patient_id_fkey" FOREIGN KEY ("patient_id") REFERENCES "patients"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "tenant_template"."immunizations" ADD CONSTRAINT "immunizations_patient_id_fkey" FOREIGN KEY ("patient_id") REFERENCES "tenant_template"."patients"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "malaria_cases" ADD CONSTRAINT "malaria_cases_patient_id_fkey" FOREIGN KEY ("patient_id") REFERENCES "patients"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "tenant_template"."malaria_cases" ADD CONSTRAINT "malaria_cases_patient_id_fkey" FOREIGN KEY ("patient_id") REFERENCES "tenant_template"."patients"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "malaria_cases" ADD CONSTRAINT "malaria_cases_exam_result_id_fkey" FOREIGN KEY ("exam_result_id") REFERENCES "exam_results"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "tenant_template"."malaria_cases" ADD CONSTRAINT "malaria_cases_exam_result_id_fkey" FOREIGN KEY ("exam_result_id") REFERENCES "tenant_template"."exam_results"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "tb_cases" ADD CONSTRAINT "tb_cases_patient_id_fkey" FOREIGN KEY ("patient_id") REFERENCES "patients"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "tenant_template"."tb_cases" ADD CONSTRAINT "tb_cases_patient_id_fkey" FOREIGN KEY ("patient_id") REFERENCES "tenant_template"."patients"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "tb_cases" ADD CONSTRAINT "tb_cases_confirming_exam_result_id_fkey" FOREIGN KEY ("confirming_exam_result_id") REFERENCES "exam_results"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "tenant_template"."tb_cases" ADD CONSTRAINT "tb_cases_confirming_exam_result_id_fkey" FOREIGN KEY ("confirming_exam_result_id") REFERENCES "tenant_template"."exam_results"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "tb_follow_ups" ADD CONSTRAINT "tb_follow_ups_tb_case_id_fkey" FOREIGN KEY ("tb_case_id") REFERENCES "tb_cases"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "tenant_template"."tb_follow_ups" ADD CONSTRAINT "tb_follow_ups_tb_case_id_fkey" FOREIGN KEY ("tb_case_id") REFERENCES "tenant_template"."tb_cases"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

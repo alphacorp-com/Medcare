@@ -1,21 +1,21 @@
 -- CreateEnum
-CREATE TYPE "ReferenceCatalogType" AS ENUM ('admission_type', 'appointment_type', 'room_type', 'insurance_type', 'pharmaceutical_unit', 'imaging_type', 'anatomical_zone');
+CREATE TYPE "tenant_template"."ReferenceCatalogType" AS ENUM ('admission_type', 'appointment_type', 'room_type', 'insurance_type', 'pharmaceutical_unit', 'imaging_type', 'anatomical_zone');
 
 -- CreateEnum
-CREATE TYPE "ExamCatalogDomain" AS ENUM ('laboratory', 'radiology');
+CREATE TYPE "tenant_template"."ExamCatalogDomain" AS ENUM ('laboratory', 'radiology');
 
 -- AlterTable
-ALTER TABLE "medication_inventory" ADD COLUMN     "storage_location_id" UUID,
+ALTER TABLE "tenant_template"."medication_inventory" ADD COLUMN     "storage_location_id" UUID,
 ADD COLUMN     "supplier_id" UUID;
 
 -- AlterTable
-ALTER TABLE "stays" ADD COLUMN     "admission_type_id" UUID;
+ALTER TABLE "tenant_template"."stays" ADD COLUMN     "admission_type_id" UUID;
 
 -- CreateTable
-CREATE TABLE "reference_catalog_items" (
+CREATE TABLE "tenant_template"."reference_catalog_items" (
     "id" UUID NOT NULL,
     "tenant_id" UUID,
-    "catalog_type" "ReferenceCatalogType" NOT NULL,
+    "catalog_type" "tenant_template"."ReferenceCatalogType" NOT NULL,
     "code" VARCHAR(40) NOT NULL,
     "name_fr" VARCHAR(150) NOT NULL,
     "name_en" VARCHAR(150),
@@ -32,7 +32,7 @@ CREATE TABLE "reference_catalog_items" (
 );
 
 -- CreateTable
-CREATE TABLE "medical_act_categories" (
+CREATE TABLE "tenant_template"."medical_act_categories" (
     "id" UUID NOT NULL,
     "tenant_id" UUID,
     "code" VARCHAR(40) NOT NULL,
@@ -48,7 +48,7 @@ CREATE TABLE "medical_act_categories" (
 );
 
 -- CreateTable
-CREATE TABLE "medical_acts" (
+CREATE TABLE "tenant_template"."medical_acts" (
     "id" UUID NOT NULL,
     "tenant_id" UUID,
     "category_id" UUID NOT NULL,
@@ -68,10 +68,10 @@ CREATE TABLE "medical_acts" (
 );
 
 -- CreateTable
-CREATE TABLE "exam_catalog_types" (
+CREATE TABLE "tenant_template"."exam_catalog_types" (
     "id" UUID NOT NULL,
     "tenant_id" UUID,
-    "domain" "ExamCatalogDomain" NOT NULL,
+    "domain" "tenant_template"."ExamCatalogDomain" NOT NULL,
     "code" VARCHAR(40) NOT NULL,
     "name_fr" VARCHAR(150) NOT NULL,
     "name_en" VARCHAR(150),
@@ -84,7 +84,7 @@ CREATE TABLE "exam_catalog_types" (
 );
 
 -- CreateTable
-CREATE TABLE "exam_catalog_entries" (
+CREATE TABLE "tenant_template"."exam_catalog_entries" (
     "id" UUID NOT NULL,
     "tenant_id" UUID,
     "exam_type_id" UUID NOT NULL,
@@ -104,7 +104,7 @@ CREATE TABLE "exam_catalog_entries" (
 );
 
 -- CreateTable
-CREATE TABLE "icd10_codes" (
+CREATE TABLE "tenant_template"."icd10_codes" (
     "id" UUID NOT NULL,
     "tenant_id" UUID,
     "code" VARCHAR(10) NOT NULL,
@@ -119,7 +119,7 @@ CREATE TABLE "icd10_codes" (
 );
 
 -- CreateTable
-CREATE TABLE "storage_locations" (
+CREATE TABLE "tenant_template"."storage_locations" (
     "id" UUID NOT NULL,
     "tenant_id" UUID,
     "code" VARCHAR(40) NOT NULL,
@@ -133,7 +133,7 @@ CREATE TABLE "storage_locations" (
 );
 
 -- CreateTable
-CREATE TABLE "suppliers" (
+CREATE TABLE "tenant_template"."suppliers" (
     "id" UUID NOT NULL,
     "tenant_id" UUID,
     "code" VARCHAR(40) NOT NULL,
@@ -150,61 +150,61 @@ CREATE TABLE "suppliers" (
 );
 
 -- CreateIndex
-CREATE INDEX "reference_catalog_items_tenant_id_catalog_type_idx" ON "reference_catalog_items"("tenant_id", "catalog_type");
+CREATE INDEX "reference_catalog_items_tenant_id_catalog_type_idx" ON "tenant_template"."reference_catalog_items"("tenant_id", "catalog_type");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "reference_catalog_items_tenant_id_catalog_type_code_key" ON "reference_catalog_items"("tenant_id", "catalog_type", "code");
+CREATE UNIQUE INDEX "reference_catalog_items_tenant_id_catalog_type_code_key" ON "tenant_template"."reference_catalog_items"("tenant_id", "catalog_type", "code");
 
 -- CreateIndex
-CREATE INDEX "medical_act_categories_tenant_id_idx" ON "medical_act_categories"("tenant_id");
+CREATE INDEX "medical_act_categories_tenant_id_idx" ON "tenant_template"."medical_act_categories"("tenant_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "medical_act_categories_tenant_id_code_key" ON "medical_act_categories"("tenant_id", "code");
+CREATE UNIQUE INDEX "medical_act_categories_tenant_id_code_key" ON "tenant_template"."medical_act_categories"("tenant_id", "code");
 
 -- CreateIndex
-CREATE INDEX "medical_acts_tenant_id_idx" ON "medical_acts"("tenant_id");
+CREATE INDEX "medical_acts_tenant_id_idx" ON "tenant_template"."medical_acts"("tenant_id");
 
 -- CreateIndex
-CREATE INDEX "medical_acts_category_id_idx" ON "medical_acts"("category_id");
+CREATE INDEX "medical_acts_category_id_idx" ON "tenant_template"."medical_acts"("category_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "medical_acts_tenant_id_code_key" ON "medical_acts"("tenant_id", "code");
+CREATE UNIQUE INDEX "medical_acts_tenant_id_code_key" ON "tenant_template"."medical_acts"("tenant_id", "code");
 
 -- CreateIndex
-CREATE INDEX "exam_catalog_types_tenant_id_domain_idx" ON "exam_catalog_types"("tenant_id", "domain");
+CREATE INDEX "exam_catalog_types_tenant_id_domain_idx" ON "tenant_template"."exam_catalog_types"("tenant_id", "domain");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "exam_catalog_types_tenant_id_domain_code_key" ON "exam_catalog_types"("tenant_id", "domain", "code");
+CREATE UNIQUE INDEX "exam_catalog_types_tenant_id_domain_code_key" ON "tenant_template"."exam_catalog_types"("tenant_id", "domain", "code");
 
 -- CreateIndex
-CREATE INDEX "exam_catalog_entries_tenant_id_idx" ON "exam_catalog_entries"("tenant_id");
+CREATE INDEX "exam_catalog_entries_tenant_id_idx" ON "tenant_template"."exam_catalog_entries"("tenant_id");
 
 -- CreateIndex
-CREATE INDEX "exam_catalog_entries_exam_type_id_idx" ON "exam_catalog_entries"("exam_type_id");
+CREATE INDEX "exam_catalog_entries_exam_type_id_idx" ON "tenant_template"."exam_catalog_entries"("exam_type_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "exam_catalog_entries_tenant_id_code_key" ON "exam_catalog_entries"("tenant_id", "code");
+CREATE UNIQUE INDEX "exam_catalog_entries_tenant_id_code_key" ON "tenant_template"."exam_catalog_entries"("tenant_id", "code");
 
 -- CreateIndex
-CREATE INDEX "icd10_codes_tenant_id_idx" ON "icd10_codes"("tenant_id");
+CREATE INDEX "icd10_codes_tenant_id_idx" ON "tenant_template"."icd10_codes"("tenant_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "icd10_codes_tenant_id_code_key" ON "icd10_codes"("tenant_id", "code");
+CREATE UNIQUE INDEX "icd10_codes_tenant_id_code_key" ON "tenant_template"."icd10_codes"("tenant_id", "code");
 
 -- CreateIndex
-CREATE INDEX "storage_locations_tenant_id_idx" ON "storage_locations"("tenant_id");
+CREATE INDEX "storage_locations_tenant_id_idx" ON "tenant_template"."storage_locations"("tenant_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "storage_locations_tenant_id_code_key" ON "storage_locations"("tenant_id", "code");
+CREATE UNIQUE INDEX "storage_locations_tenant_id_code_key" ON "tenant_template"."storage_locations"("tenant_id", "code");
 
 -- CreateIndex
-CREATE INDEX "suppliers_tenant_id_idx" ON "suppliers"("tenant_id");
+CREATE INDEX "suppliers_tenant_id_idx" ON "tenant_template"."suppliers"("tenant_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "suppliers_tenant_id_code_key" ON "suppliers"("tenant_id", "code");
+CREATE UNIQUE INDEX "suppliers_tenant_id_code_key" ON "tenant_template"."suppliers"("tenant_id", "code");
 
 -- AddForeignKey
-ALTER TABLE "medical_acts" ADD CONSTRAINT "medical_acts_category_id_fkey" FOREIGN KEY ("category_id") REFERENCES "medical_act_categories"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "tenant_template"."medical_acts" ADD CONSTRAINT "medical_acts_category_id_fkey" FOREIGN KEY ("category_id") REFERENCES "tenant_template"."medical_act_categories"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "exam_catalog_entries" ADD CONSTRAINT "exam_catalog_entries_exam_type_id_fkey" FOREIGN KEY ("exam_type_id") REFERENCES "exam_catalog_types"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "tenant_template"."exam_catalog_entries" ADD CONSTRAINT "exam_catalog_entries_exam_type_id_fkey" FOREIGN KEY ("exam_type_id") REFERENCES "tenant_template"."exam_catalog_types"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

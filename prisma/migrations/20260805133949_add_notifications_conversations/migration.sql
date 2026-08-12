@@ -1,12 +1,12 @@
 -- CreateEnum
-CREATE TYPE "NotificationType" AS ENUM ('module_event', 'message', 'system');
+CREATE TYPE "tenant_template"."NotificationType" AS ENUM ('module_event', 'message', 'system');
 
 -- CreateTable
-CREATE TABLE "notifications" (
+CREATE TABLE "tenant_template"."notifications" (
     "id" UUID NOT NULL,
     "tenant_id" UUID,
     "recipient_id" UUID NOT NULL,
-    "type" "NotificationType" NOT NULL DEFAULT 'module_event',
+    "type" "tenant_template"."NotificationType" NOT NULL DEFAULT 'module_event',
     "module_id" VARCHAR(60),
     "title" VARCHAR(200) NOT NULL,
     "body" TEXT,
@@ -22,7 +22,7 @@ CREATE TABLE "notifications" (
 );
 
 -- CreateTable
-CREATE TABLE "conversations" (
+CREATE TABLE "tenant_template"."conversations" (
     "id" UUID NOT NULL,
     "tenant_id" UUID,
     "title" VARCHAR(150),
@@ -36,7 +36,7 @@ CREATE TABLE "conversations" (
 );
 
 -- CreateTable
-CREATE TABLE "conversation_participants" (
+CREATE TABLE "tenant_template"."conversation_participants" (
     "id" UUID NOT NULL,
     "conversation_id" UUID NOT NULL,
     "user_id" UUID NOT NULL,
@@ -47,7 +47,7 @@ CREATE TABLE "conversation_participants" (
 );
 
 -- CreateTable
-CREATE TABLE "messages" (
+CREATE TABLE "tenant_template"."messages" (
     "id" UUID NOT NULL,
     "conversation_id" UUID NOT NULL,
     "sender_id" UUID NOT NULL,
@@ -58,34 +58,34 @@ CREATE TABLE "messages" (
 );
 
 -- CreateIndex
-CREATE INDEX "notifications_recipient_id_is_read_idx" ON "notifications"("recipient_id", "is_read");
+CREATE INDEX "notifications_recipient_id_is_read_idx" ON "tenant_template"."notifications"("recipient_id", "is_read");
 
 -- CreateIndex
-CREATE INDEX "notifications_tenant_id_created_at_idx" ON "notifications"("tenant_id", "created_at" DESC);
+CREATE INDEX "notifications_tenant_id_created_at_idx" ON "tenant_template"."notifications"("tenant_id", "created_at" DESC);
 
 -- CreateIndex
-CREATE INDEX "conversations_tenant_id_idx" ON "conversations"("tenant_id");
+CREATE INDEX "conversations_tenant_id_idx" ON "tenant_template"."conversations"("tenant_id");
 
 -- CreateIndex
-CREATE INDEX "conversation_participants_user_id_idx" ON "conversation_participants"("user_id");
+CREATE INDEX "conversation_participants_user_id_idx" ON "tenant_template"."conversation_participants"("user_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "conversation_participants_conversation_id_user_id_key" ON "conversation_participants"("conversation_id", "user_id");
+CREATE UNIQUE INDEX "conversation_participants_conversation_id_user_id_key" ON "tenant_template"."conversation_participants"("conversation_id", "user_id");
 
 -- CreateIndex
-CREATE INDEX "messages_conversation_id_created_at_idx" ON "messages"("conversation_id", "created_at");
+CREATE INDEX "messages_conversation_id_created_at_idx" ON "tenant_template"."messages"("conversation_id", "created_at");
 
 -- AddForeignKey
-ALTER TABLE "notifications" ADD CONSTRAINT "notifications_recipient_id_fkey" FOREIGN KEY ("recipient_id") REFERENCES "tenant_users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "tenant_template"."notifications" ADD CONSTRAINT "notifications_recipient_id_fkey" FOREIGN KEY ("recipient_id") REFERENCES "tenant_template"."tenant_users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "conversation_participants" ADD CONSTRAINT "conversation_participants_conversation_id_fkey" FOREIGN KEY ("conversation_id") REFERENCES "conversations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "tenant_template"."conversation_participants" ADD CONSTRAINT "conversation_participants_conversation_id_fkey" FOREIGN KEY ("conversation_id") REFERENCES "tenant_template"."conversations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "conversation_participants" ADD CONSTRAINT "conversation_participants_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "tenant_users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "tenant_template"."conversation_participants" ADD CONSTRAINT "conversation_participants_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "tenant_template"."tenant_users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "messages" ADD CONSTRAINT "messages_conversation_id_fkey" FOREIGN KEY ("conversation_id") REFERENCES "conversations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "tenant_template"."messages" ADD CONSTRAINT "messages_conversation_id_fkey" FOREIGN KEY ("conversation_id") REFERENCES "tenant_template"."conversations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "messages" ADD CONSTRAINT "messages_sender_id_fkey" FOREIGN KEY ("sender_id") REFERENCES "tenant_users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "tenant_template"."messages" ADD CONSTRAINT "messages_sender_id_fkey" FOREIGN KEY ("sender_id") REFERENCES "tenant_template"."tenant_users"("id") ON DELETE CASCADE ON UPDATE CASCADE;

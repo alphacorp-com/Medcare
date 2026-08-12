@@ -1,5 +1,5 @@
 -- CreateTable
-CREATE TABLE "vital_signs" (
+CREATE TABLE "tenant_template"."vital_signs" (
     "id" UUID NOT NULL,
     "tenant_id" UUID,
     "patient_id" UUID NOT NULL,
@@ -18,16 +18,16 @@ CREATE TABLE "vital_signs" (
 );
 
 -- CreateIndex
-CREATE INDEX "vital_signs_patient_id_recorded_at_idx" ON "vital_signs"("patient_id", "recorded_at" DESC);
+CREATE INDEX "vital_signs_patient_id_recorded_at_idx" ON "tenant_template"."vital_signs"("patient_id", "recorded_at" DESC);
 
 -- CreateIndex
-CREATE INDEX "vital_signs_stay_id_idx" ON "vital_signs"("stay_id");
+CREATE INDEX "vital_signs_stay_id_idx" ON "tenant_template"."vital_signs"("stay_id");
 
 -- CreateIndex
-CREATE INDEX "vital_signs_tenant_id_idx" ON "vital_signs"("tenant_id");
+CREATE INDEX "vital_signs_tenant_id_idx" ON "tenant_template"."vital_signs"("tenant_id");
 
 -- AddForeignKey
-ALTER TABLE "vital_signs" ADD CONSTRAINT "vital_signs_patient_id_fkey" FOREIGN KEY ("patient_id") REFERENCES "patients"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "tenant_template"."vital_signs" ADD CONSTRAINT "vital_signs_patient_id_fkey" FOREIGN KEY ("patient_id") REFERENCES "tenant_template"."patients"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "vital_signs" ADD CONSTRAINT "vital_signs_stay_id_fkey" FOREIGN KEY ("stay_id") REFERENCES "stays"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "tenant_template"."vital_signs" ADD CONSTRAINT "vital_signs_stay_id_fkey" FOREIGN KEY ("stay_id") REFERENCES "tenant_template"."stays"("id") ON DELETE SET NULL ON UPDATE CASCADE;

@@ -5,34 +5,34 @@
 
 */
 -- CreateEnum
-CREATE TYPE "BillingSourceType" AS ENUM ('consultation', 'exam', 'surgery', 'pharmacy_dispensation', 'antenatal_visit', 'delivery', 'other');
+CREATE TYPE "tenant_template"."BillingSourceType" AS ENUM ('consultation', 'exam', 'surgery', 'pharmacy_dispensation', 'antenatal_visit', 'delivery', 'other');
 
 -- CreateEnum
-CREATE TYPE "BillingInvoiceStatus" AS ENUM ('draft', 'pending_payment', 'partially_paid', 'paid', 'cancelled');
+CREATE TYPE "tenant_template"."BillingInvoiceStatus" AS ENUM ('draft', 'pending_payment', 'partially_paid', 'paid', 'cancelled');
 
 -- CreateEnum
-CREATE TYPE "PaymentMethod" AS ENUM ('cash', 'card', 'insurance', 'mobile_money_orange', 'mobile_money_mtn', 'bank_transfer');
+CREATE TYPE "tenant_template"."PaymentMethod" AS ENUM ('cash', 'card', 'insurance', 'mobile_money_orange', 'mobile_money_mtn', 'bank_transfer');
 
 -- CreateEnum
-CREATE TYPE "PaymentStatus" AS ENUM ('pending', 'successful', 'failed', 'cancelled');
+CREATE TYPE "tenant_template"."PaymentStatus" AS ENUM ('pending', 'successful', 'failed', 'cancelled');
 
 -- DropForeignKey
-ALTER TABLE "billing_stays" DROP CONSTRAINT "billing_stays_patient_id_fkey";
+ALTER TABLE "tenant_template"."billing_stays" DROP CONSTRAINT "billing_stays_patient_id_fkey";
 
 -- DropForeignKey
-ALTER TABLE "billing_stays" DROP CONSTRAINT "billing_stays_stay_id_fkey";
+ALTER TABLE "tenant_template"."billing_stays" DROP CONSTRAINT "billing_stays_stay_id_fkey";
 
 -- DropTable
-DROP TABLE "billing_stays";
+DROP TABLE "tenant_template"."billing_stays";
 
 -- DropEnum
-DROP TYPE "BillingStayStatus";
+DROP TYPE "tenant_template"."BillingStayStatus";
 
 -- CreateTable
-CREATE TABLE "fee_schedules" (
+CREATE TABLE "tenant_template"."fee_schedules" (
     "id" UUID NOT NULL,
     "tenant_id" UUID,
-    "source_type" "BillingSourceType" NOT NULL,
+    "source_type" "tenant_template"."BillingSourceType" NOT NULL,
     "code" VARCHAR(60) NOT NULL,
     "label" VARCHAR(255) NOT NULL,
     "unit_price" DECIMAL(12,2) NOT NULL,
@@ -44,12 +44,12 @@ CREATE TABLE "fee_schedules" (
 );
 
 -- CreateTable
-CREATE TABLE "patient_invoices" (
+CREATE TABLE "tenant_template"."patient_invoices" (
     "id" UUID NOT NULL,
     "tenant_id" UUID,
     "patient_id" UUID NOT NULL,
     "stay_id" UUID,
-    "status" "BillingInvoiceStatus" NOT NULL DEFAULT 'draft',
+    "status" "tenant_template"."BillingInvoiceStatus" NOT NULL DEFAULT 'draft',
     "subtotal" DECIMAL(14,2) NOT NULL DEFAULT 0,
     "insurance_amount" DECIMAL(14,2) NOT NULL DEFAULT 0,
     "patient_amount" DECIMAL(14,2) NOT NULL DEFAULT 0,
@@ -64,11 +64,11 @@ CREATE TABLE "patient_invoices" (
 );
 
 -- CreateTable
-CREATE TABLE "patient_invoice_lines" (
+CREATE TABLE "tenant_template"."patient_invoice_lines" (
     "id" UUID NOT NULL,
     "tenant_id" UUID,
     "invoice_id" UUID NOT NULL,
-    "source_type" "BillingSourceType" NOT NULL,
+    "source_type" "tenant_template"."BillingSourceType" NOT NULL,
     "source_id" VARCHAR(160),
     "description" VARCHAR(255) NOT NULL,
     "quantity" DECIMAL(8,2) NOT NULL DEFAULT 1,
@@ -80,13 +80,13 @@ CREATE TABLE "patient_invoice_lines" (
 );
 
 -- CreateTable
-CREATE TABLE "payments" (
+CREATE TABLE "tenant_template"."payments" (
     "id" UUID NOT NULL,
     "tenant_id" UUID,
     "invoice_id" UUID NOT NULL,
     "amount" DECIMAL(14,2) NOT NULL,
-    "method" "PaymentMethod" NOT NULL,
-    "status" "PaymentStatus" NOT NULL DEFAULT 'pending',
+    "method" "tenant_template"."PaymentMethod" NOT NULL,
+    "status" "tenant_template"."PaymentStatus" NOT NULL DEFAULT 'pending',
     "currency" VARCHAR(6) NOT NULL DEFAULT 'XAF',
     "phone_number" VARCHAR(20),
     "provider_reference" VARCHAR(120),
@@ -102,46 +102,46 @@ CREATE TABLE "payments" (
 );
 
 -- CreateIndex
-CREATE INDEX "fee_schedules_tenant_id_idx" ON "fee_schedules"("tenant_id");
+CREATE INDEX "fee_schedules_tenant_id_idx" ON "tenant_template"."fee_schedules"("tenant_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "fee_schedules_tenant_id_source_type_code_key" ON "fee_schedules"("tenant_id", "source_type", "code");
+CREATE UNIQUE INDEX "fee_schedules_tenant_id_source_type_code_key" ON "tenant_template"."fee_schedules"("tenant_id", "source_type", "code");
 
 -- CreateIndex
-CREATE INDEX "patient_invoices_tenant_id_idx" ON "patient_invoices"("tenant_id");
+CREATE INDEX "patient_invoices_tenant_id_idx" ON "tenant_template"."patient_invoices"("tenant_id");
 
 -- CreateIndex
-CREATE INDEX "patient_invoices_patient_id_idx" ON "patient_invoices"("patient_id");
+CREATE INDEX "patient_invoices_patient_id_idx" ON "tenant_template"."patient_invoices"("patient_id");
 
 -- CreateIndex
-CREATE INDEX "patient_invoices_stay_id_idx" ON "patient_invoices"("stay_id");
+CREATE INDEX "patient_invoices_stay_id_idx" ON "tenant_template"."patient_invoices"("stay_id");
 
 -- CreateIndex
-CREATE INDEX "patient_invoices_status_idx" ON "patient_invoices"("status");
+CREATE INDEX "patient_invoices_status_idx" ON "tenant_template"."patient_invoices"("status");
 
 -- CreateIndex
-CREATE INDEX "patient_invoice_lines_invoice_id_idx" ON "patient_invoice_lines"("invoice_id");
+CREATE INDEX "patient_invoice_lines_invoice_id_idx" ON "tenant_template"."patient_invoice_lines"("invoice_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "patient_invoice_lines_source_type_source_id_key" ON "patient_invoice_lines"("source_type", "source_id");
+CREATE UNIQUE INDEX "patient_invoice_lines_source_type_source_id_key" ON "tenant_template"."patient_invoice_lines"("source_type", "source_id");
 
 -- CreateIndex
-CREATE INDEX "payments_tenant_id_idx" ON "payments"("tenant_id");
+CREATE INDEX "payments_tenant_id_idx" ON "tenant_template"."payments"("tenant_id");
 
 -- CreateIndex
-CREATE INDEX "payments_invoice_id_idx" ON "payments"("invoice_id");
+CREATE INDEX "payments_invoice_id_idx" ON "tenant_template"."payments"("invoice_id");
 
 -- CreateIndex
-CREATE INDEX "payments_provider_reference_idx" ON "payments"("provider_reference");
+CREATE INDEX "payments_provider_reference_idx" ON "tenant_template"."payments"("provider_reference");
 
 -- AddForeignKey
-ALTER TABLE "patient_invoices" ADD CONSTRAINT "patient_invoices_patient_id_fkey" FOREIGN KEY ("patient_id") REFERENCES "patients"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "tenant_template"."patient_invoices" ADD CONSTRAINT "patient_invoices_patient_id_fkey" FOREIGN KEY ("patient_id") REFERENCES "tenant_template"."patients"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "patient_invoices" ADD CONSTRAINT "patient_invoices_stay_id_fkey" FOREIGN KEY ("stay_id") REFERENCES "stays"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "tenant_template"."patient_invoices" ADD CONSTRAINT "patient_invoices_stay_id_fkey" FOREIGN KEY ("stay_id") REFERENCES "tenant_template"."stays"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "patient_invoice_lines" ADD CONSTRAINT "patient_invoice_lines_invoice_id_fkey" FOREIGN KEY ("invoice_id") REFERENCES "patient_invoices"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "tenant_template"."patient_invoice_lines" ADD CONSTRAINT "patient_invoice_lines_invoice_id_fkey" FOREIGN KEY ("invoice_id") REFERENCES "tenant_template"."patient_invoices"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "payments" ADD CONSTRAINT "payments_invoice_id_fkey" FOREIGN KEY ("invoice_id") REFERENCES "patient_invoices"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "tenant_template"."payments" ADD CONSTRAINT "payments_invoice_id_fkey" FOREIGN KEY ("invoice_id") REFERENCES "tenant_template"."patient_invoices"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
