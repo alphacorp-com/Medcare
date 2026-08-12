@@ -28,7 +28,7 @@ export default function AdminDashboard() {
   const { data: session } = useSession();
 
   const handleLogout = async () => {
-    await signOut({ redirect: true, callbackUrl: "a/auth/admin-login" });
+    await signOut({ redirect: true, callbackUrl: "/console-9af3e589/sign-in" });
   };
 
   return (
@@ -48,11 +48,11 @@ export default function AdminDashboard() {
               {session?.user && (
                 <span className="text-sm text-gray-600">{session.user.email}</span>
               )}
-              <Button variant="outline" onClick={() => window.location.href = "/"}>
+              {/* <Button variant="outline" onClick={() => window.location.href = "/"}>
                 Back to App
-              </Button>
-              <Button 
-                variant="destructive" 
+              </Button> */}
+              <Button
+                variant="destructive"
                 onClick={handleLogout}
               >
                 Logout

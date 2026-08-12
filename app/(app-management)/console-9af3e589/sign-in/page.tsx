@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Shield, Loader2 } from "lucide-react";
 
-export default function AdminLoginPage() {
+export default function AdminSignInPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -32,7 +32,7 @@ export default function AdminLoginPage() {
       if (result?.error) {
         setError("Invalid credentials");
       } else {
-        router.push("a/medcare-control");
+        router.push("/console-9af3e589/portal");
       }
     } catch (error) {
       setError("An error occurred during login");
