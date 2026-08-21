@@ -83,3 +83,22 @@ export type Bed = {
   departmentId: string;
   status: "available" | "occupied" | "maintenance" | "reserved";
 };
+
+export type OrderSource = "laboratory" | "radiology" | "medical_act";
+
+export type CatalogOption = {
+  code: string;
+  label: string;
+  price: number | null;
+};
+
+export type MedicalActOption = CatalogOption & {
+  categoryId: string;
+  categoryName: string;
+};
+
+export type OrderItem = {
+  source: OrderSource;
+  code: string;
+  urgency: "routine" | "urgent" | "stat";
+};

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { requireTenantAdmin } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
+import { syncExamFeeSchedule } from "@/lib/billing/syncFeeSchedule";
 
 // GET /api/v1/settings/exam-types/[id]/entries — exams belonging to one exam type
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -67,6 +68,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         requiresContrast: requiresContrast ?? null,
       },
     });
+
+    await syncExamFeeSchedule({
+      tenantId: session.user.tenantId,
+      code: entry.code,
+      label: entry.nameFr,
+      price: entry.price ? Number(entry.price) : null,
+      isActive: entry.isActive,
+    });
+
     return NextResponse.json(entry, { status: 201 });
   } catch (error) {
     console.error("[POST /api/v1/settings/exam-types/[id]/entries]", error);

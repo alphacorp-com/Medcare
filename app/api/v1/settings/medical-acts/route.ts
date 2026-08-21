@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { requireTenantAdmin } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
+import { syncExamFeeSchedule } from "@/lib/billing/syncFeeSchedule";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -70,6 +71,15 @@ export async function POST(request: Request) {
       },
       include: { category: { select: { id: true, nameFr: true, nameEn: true, color: true } } },
     });
+
+    await syncExamFeeSchedule({
+      tenantId: session.user.tenantId,
+      code: act.code,
+      label: act.nameFr,
+      price: Number(act.basePrice),
+      isActive: act.isActive,
+    });
+
     return NextResponse.json(act, { status: 201 });
   } catch (error) {
     console.error("[POST /api/v1/settings/medical-acts]", error);

@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "eslint .",
     "seed": "tsx prisma/seed.ts",
+    "db:sync-fee-schedule": "tsx prisma/backfill-fee-schedule.ts",
     "clean": "next clean",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",

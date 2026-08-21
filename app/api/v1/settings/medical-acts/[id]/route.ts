@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { requireTenantAdmin } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
+import { syncExamFeeSchedule, deactivateExamFeeSchedule } from "@/lib/billing/syncFeeSchedule";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -52,6 +53,19 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       data,
       include: { category: { select: { id: true, nameFr: true, nameEn: true, color: true } } },
     });
+
+    // Renaming the code orphans the fee schedule row filed under the old one.
+    if (updated.code !== existing.code) {
+      await deactivateExamFeeSchedule(session.user.tenantId, existing.code);
+    }
+    await syncExamFeeSchedule({
+      tenantId: session.user.tenantId,
+      code: updated.code,
+      label: updated.nameFr,
+      price: Number(updated.basePrice),
+      isActive: updated.isActive,
+    });
+
     return NextResponse.json(updated);
   } catch (error) {
     console.error("[PATCH /api/v1/settings/medical-acts/[id]]", error);
@@ -74,5 +88,6 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   if (!existing) return NextResponse.json({ error: "Medical act not found" }, { status: 404 });
 
   await prisma.medicalAct.delete({ where: { id } });
+  await deactivateExamFeeSchedule(session.user.tenantId, existing.code);
   return NextResponse.json({ success: true });
 }

@@ -187,7 +187,7 @@ export function StayTabs({ stay, onPrescriptionOpen, onOrderOpen, getDoctorName 
                         <td className="px-6 py-5 font-mono text-[10px] text-slate-400 group-hover:text-slate-600">{format(new Date(order.requestedAt), "MMM d, yyyy HH:mm")}</td>
                         <td className="px-6 py-5">
                           <span className="px-3 py-1 rounded-lg bg-slate-100 text-slate-700 font-bold text-[10px] uppercase tracking-tight">
-                            {order.type}
+                            {t(`order_type_${order.type}`)}
                           </span>
                         </td>
                         <td className="px-6 py-5">
@@ -201,7 +201,7 @@ export function StayTabs({ stay, onPrescriptionOpen, onOrderOpen, getDoctorName 
                              order.urgency === 'urgent' ? "bg-orange-100 text-orange-700" : 
                              "bg-blue-100 text-blue-700"
                            )}>
-                            {order.urgency}
+                            {t(`urgency_${order.urgency}`)}
                           </span>
                         </td>
                       </tr>

@@ -19,7 +19,7 @@ import { VitalsSheet } from "./_components/VitalsSheet";
 import { EMPTY_VITALS, VitalsForm } from "@/components/shared/vitals-fields";
 
 // Types
-import { StayDetail, Doctor, Department, InventoryItem, Bed } from "./types";
+import { StayDetail, Doctor, Department, InventoryItem, Bed, CatalogOption, MedicalActOption, OrderItem } from "./types";
 import type { TriageAcuity } from "@/components/shared/triage-badge";
 
 export default function AdmissionDetailPage() {
@@ -39,6 +39,9 @@ export default function AdmissionDetailPage() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [beds, setBeds] = useState<Bed[]>([]);
+  const [labCatalog, setLabCatalog] = useState<CatalogOption[]>([]);
+  const [radiologyCatalog, setRadiologyCatalog] = useState<CatalogOption[]>([]);
+  const [medicalActs, setMedicalActs] = useState<MedicalActOption[]>([]);
 
   // Sheet states
   const [transferOpen, setTransferOpen] = useState(false);
@@ -49,6 +52,7 @@ export default function AdmissionDetailPage() {
   const [vitalsOpen, setVitalsOpen] = useState(false);
   const [vitalsForm, setVitalsForm] = useState<VitalsForm>(EMPTY_VITALS);
   const [rxItems, setRxItems] = useState([{ drug: "", dosage: "", frequency: "", duration: "" }]);
+  const [orderItems, setOrderItems] = useState<OrderItem[]>([{ source: "laboratory", code: "", urgency: "routine" }]);
 
   const fetchStay = async () => {
     try {
@@ -65,22 +69,31 @@ export default function AdmissionDetailPage() {
 
   const fetchData = async () => {
     try {
-      const [docsRes, deptsRes, invRes, bedsRes] = await Promise.all([
+      const [docsRes, deptsRes, invRes, bedsRes, labRes, radioRes, actsRes] = await Promise.all([
         fetch('/api/v1/doctors'),
         fetch('/api/v1/departments'),
         fetch('/api/v1/pharmacy/inventory'),
         fetch('/api/v1/settings/beds'),
+        fetch('/api/v1/exam-catalog?domain=laboratory'),
+        fetch('/api/v1/exam-catalog?domain=radiology'),
+        fetch('/api/v1/medical-acts'),
       ]);
-      const [docsJson, deptsJson, invJson, bedsJson] = await Promise.all([
+      const [docsJson, deptsJson, invJson, bedsJson, labJson, radioJson, actsJson] = await Promise.all([
         docsRes.json(),
         deptsRes.json(),
         invRes.json(),
         bedsRes.json(),
+        labRes.json(),
+        radioRes.json(),
+        actsRes.json(),
       ]);
       if (docsJson.success) setDoctors(docsJson.data);
       if (deptsJson.success) setDepartments(deptsJson.data);
       if (invJson.success) setInventory(invJson.data);
       if (Array.isArray(bedsJson)) setBeds(bedsJson);
+      if (Array.isArray(labJson)) setLabCatalog(labJson);
+      if (Array.isArray(radioJson)) setRadiologyCatalog(radioJson);
+      if (Array.isArray(actsJson)) setMedicalActs(actsJson);
     } catch (e) {
       console.error("Failed to fetch reference data", e);
     }
@@ -202,10 +215,8 @@ export default function AdmissionDetailPage() {
     const formData = new FormData(e.currentTarget);
     const data = {
       prescriberId: formData.get("prescriberId"),
-      type: formData.get("type"),
-      examLabel: formData.get("examLabel"),
-      urgency: formData.get("urgency"),
       notes: formData.get("notes"),
+      items: orderItems.filter((item) => item.code !== ""),
     };
 
     try {
@@ -218,6 +229,7 @@ export default function AdmissionDetailPage() {
       if (!res.ok || !json.success) throw new Error(json.error ?? t('error_save'));
       toast.success(t('save_order'));
       setOrderOpen(false);
+      setOrderItems([{ source: "laboratory", code: "", urgency: "routine" }]);
       fetchStay();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t('error_save'));
@@ -338,6 +350,11 @@ export default function AdmissionDetailPage() {
         open={orderOpen}
         onOpenChange={setOrderOpen}
         doctors={doctors}
+        labCatalog={labCatalog}
+        radiologyCatalog={radiologyCatalog}
+        medicalActs={medicalActs}
+        orderItems={orderItems}
+        setOrderItems={setOrderItems}
         submitting={submitting}
         onSubmit={handleOrder}
       />
