@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { AdminRole } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
-import { requireSuperAdmin } from "@/lib/permissions";
+import { isSuperAdmin, requireSuperAdmin } from "@/lib/permissions";
 import { assertNotLastActiveSuperAdmin } from "@/lib/admin-accounts";
 import { recordAuditEvent, extractRequestMeta } from "@/lib/audit";
 
@@ -36,6 +36,12 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
 
     if (role !== undefined && !Object.values(AdminRole).includes(role)) {
       return NextResponse.json({ error: "Invalid admin role" }, { status: 400 });
+    }
+
+    // Explicit check at the point of role assignment — see admin-accounts/route.ts POST for why
+    // this isn't just left implicit in the surrounding requireSuperAdmin gate.
+    if (role === "superadmin" && existing.role !== "superadmin" && !isSuperAdmin(session)) {
+      return NextResponse.json({ error: "Only a super admin can promote an account to super admin" }, { status: 403 });
     }
 
     const isSelf = id === session!.user.id;

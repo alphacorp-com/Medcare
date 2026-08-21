@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 import { AdminRole } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
-import { requireSuperAdmin } from "@/lib/permissions";
+import { isSuperAdmin, requireSuperAdmin } from "@/lib/permissions";
 import { generateTemporaryPassword } from "@/lib/tenant-licensing";
 import { recordAuditEvent, extractRequestMeta } from "@/lib/audit";
 
@@ -55,6 +55,13 @@ export async function POST(request: NextRequest) {
 
     if (!Object.values(AdminRole).includes(role)) {
       return NextResponse.json({ error: "Invalid admin role" }, { status: 400 });
+    }
+
+    // Explicit check at the point of role assignment, not just inherited from the surrounding
+    // requireSuperAdmin gate — keeps "only a super admin can grant super admin" true even if
+    // account creation is ever opened up to other admin roles later.
+    if (role === "superadmin" && !isSuperAdmin(session)) {
+      return NextResponse.json({ error: "Only a super admin can create another super admin account" }, { status: 403 });
     }
 
     const existing = await prisma.adminUser.findUnique({ where: { email } });
