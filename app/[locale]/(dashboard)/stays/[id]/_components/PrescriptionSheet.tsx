@@ -92,7 +92,10 @@ export function PrescriptionSheet({
             <form id="rx-form" onSubmit={onSubmit} className="space-y-8">
               <div className="space-y-2.5">
                 <Label className="text-xs font-bold uppercase text-slate-400 tracking-wider ml-1">{t('prescriber_id')}</Label>
-                <Select name="prescriberId">
+                <Select
+                  name="prescriberId"
+                  items={doctors.map((doc) => ({ value: doc.id, label: `Dr. ${doc.fullName}` }))}
+                >
                   <SelectTrigger className="h-11 rounded-xl border-slate-200 focus:ring-slate-900 transition-all">
                     <SelectValue placeholder={t('prescriber_placeholder')} />
                   </SelectTrigger>

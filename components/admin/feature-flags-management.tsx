@@ -328,7 +328,11 @@ export function FeatureFlagsManagement() {
             </div>
             <div className="space-y-2">
               <p className="text-sm font-medium">Module (optional)</p>
-              <Select value={form.moduleId} onValueChange={(value) => setForm((prev) => ({ ...prev, moduleId: value || "none" }))}>
+              <Select
+                value={form.moduleId}
+                onValueChange={(value) => setForm((prev) => ({ ...prev, moduleId: value || "none" }))}
+                items={[{ value: "none", label: "None" }, ...modules.map((module) => ({ value: module.id, label: module.name }))]}
+              >
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
@@ -347,6 +351,10 @@ export function FeatureFlagsManagement() {
               <Select
                 value={String(form.defaultValue)}
                 onValueChange={(value) => setForm((prev) => ({ ...prev, defaultValue: value === "true" }))}
+                items={[
+                  { value: "false", label: "off" },
+                  { value: "true", label: "on" },
+                ]}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue />
@@ -362,6 +370,10 @@ export function FeatureFlagsManagement() {
               <Select
                 value={String(form.isGlobal)}
                 onValueChange={(value) => setForm((prev) => ({ ...prev, isGlobal: value === "true" }))}
+                items={[
+                  { value: "false", label: "per-tenant (tenant overrides decide)" },
+                  { value: "true", label: "global (same value for every tenant)" },
+                ]}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue />
@@ -425,6 +437,7 @@ export function FeatureFlagsManagement() {
                   <Select
                     value={overrideForm.tenantId}
                     onValueChange={(value) => setOverrideForm((prev) => ({ ...prev, tenantId: value || "" }))}
+                    items={tenants.map((tenant) => ({ value: tenant.id, label: tenant.name }))}
                   >
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select a tenant" />
@@ -443,6 +456,10 @@ export function FeatureFlagsManagement() {
                   <Select
                     value={overrideForm.value}
                     onValueChange={(value) => setOverrideForm((prev) => ({ ...prev, value: value || "true" }))}
+                    items={[
+                      { value: "true", label: "on" },
+                      { value: "false", label: "off" },
+                    ]}
                   >
                     <SelectTrigger className="w-full">
                       <SelectValue />

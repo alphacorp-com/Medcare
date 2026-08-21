@@ -56,7 +56,10 @@ export function MedicalOrderSheet({
             <form id="order-form" onSubmit={onSubmit} className="space-y-6">
               <div className="space-y-2.5">
                 <Label className="text-xs font-bold uppercase text-slate-400 tracking-wider ml-1">{t('prescriber_id')}</Label>
-                <Select name="prescriberId">
+                <Select
+                  name="prescriberId"
+                  items={doctors.map((doc) => ({ value: doc.id, label: `Dr. ${doc.fullName}` }))}
+                >
                   <SelectTrigger className="h-11 rounded-xl border-slate-200 focus:ring-slate-900 transition-all">
                     <SelectValue placeholder={t('prescriber_placeholder')} />
                   </SelectTrigger>
@@ -67,10 +70,20 @@ export function MedicalOrderSheet({
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div className="space-y-2.5">
                 <Label className="text-xs font-bold uppercase text-slate-400 tracking-wider ml-1">{t('order_type')}</Label>
-                <Select name="type" defaultValue="biology">
+                <Select
+                  name="type"
+                  defaultValue="biology"
+                  items={[
+                    { value: "biology", label: t('order_type_biology') },
+                    { value: "radiology", label: t('order_type_radiology') },
+                    { value: "pathology", label: t('order_type_pathology') },
+                    { value: "cardiology", label: t('order_type_cardiology') },
+                    { value: "other", label: t('order_type_other') },
+                  ]}
+                >
                   <SelectTrigger className="h-11 rounded-xl border-slate-200 focus:ring-slate-900 transition-all">
                     <SelectValue />
                   </SelectTrigger>
@@ -91,7 +104,15 @@ export function MedicalOrderSheet({
 
               <div className="space-y-2.5">
                 <Label>{t('urgency')}</Label>
-                <Select name="urgency" defaultValue="routine">
+                <Select
+                  name="urgency"
+                  defaultValue="routine"
+                  items={[
+                    { value: "routine", label: t('urgency_routine') },
+                    { value: "urgent", label: t('urgency_urgent') },
+                    { value: "stat", label: t('urgency_stat') },
+                  ]}
+                >
                   <SelectTrigger className="h-11 rounded-xl border-slate-200 focus:ring-slate-900 transition-all">
                     <SelectValue />
                   </SelectTrigger>

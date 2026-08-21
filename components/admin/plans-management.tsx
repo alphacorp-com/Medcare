@@ -208,7 +208,16 @@ export function PlansManagement() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <p className="text-sm font-medium">Tier</p>
-                <Select value={form.tier} onValueChange={(value) => setForm((prev) => ({ ...prev, tier: value || "" }))}>
+                <Select
+                  value={form.tier}
+                  onValueChange={(value) => setForm((prev) => ({ ...prev, tier: value || "" }))}
+                  items={[
+                    { value: "core", label: "core" },
+                    { value: "clinical", label: "clinical" },
+                    { value: "advanced", label: "advanced" },
+                    { value: "enterprise", label: "enterprise" },
+                  ]}
+                >
                   <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="core">core</SelectItem>
@@ -220,7 +229,15 @@ export function PlansManagement() {
               </div>
               <div className="space-y-2">
                 <p className="text-sm font-medium">Billing Cycle</p>
-                <Select value={form.billingCycle} onValueChange={(value) => setForm((prev) => ({ ...prev, billingCycle: value || "" }))}>
+                <Select
+                  value={form.billingCycle}
+                  onValueChange={(value) => setForm((prev) => ({ ...prev, billingCycle: value || "" }))}
+                  items={[
+                    { value: "monthly", label: "monthly" },
+                    { value: "annual", label: "annual" },
+                    { value: "perpetual", label: "perpetual" },
+                  ]}
+                >
                   <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="monthly">monthly</SelectItem>

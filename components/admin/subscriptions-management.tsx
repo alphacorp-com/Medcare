@@ -273,7 +273,14 @@ export function SubscriptionsManagement() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <p className="text-sm font-medium">Subscription</p>
-            <Select value={selectedSubscription} onValueChange={(value) => setSelectedSubscription(value || "")}> 
+            <Select
+              value={selectedSubscription}
+              onValueChange={(value) => setSelectedSubscription(value || "")}
+              items={subscriptions.map((subscription) => ({
+                value: subscription.id,
+                label: `${subscription.tenant.name} / ${subscription.plan.name} (${subscription.plan.billingCycle}) — ${subscription.status}`,
+              }))}
+            >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select subscription" />
               </SelectTrigger>
@@ -362,6 +369,7 @@ export function SubscriptionsManagement() {
                 value={subscriptionForm.tenantId}
                 onValueChange={(value) => setSubscriptionForm((prev) => ({ ...prev, tenantId: value || "" }))}
                 disabled={Boolean(editingSubscription)}
+                items={tenants.map((tenant) => ({ value: tenant.id, label: tenant.name }))}
               >
                 <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -373,7 +381,11 @@ export function SubscriptionsManagement() {
             </div>
             <div className="space-y-2">
               <p className="text-sm font-medium">Plan</p>
-              <Select value={subscriptionForm.planId} onValueChange={(value) => setSubscriptionForm((prev) => ({ ...prev, planId: value || "" }))}>
+              <Select
+                value={subscriptionForm.planId}
+                onValueChange={(value) => setSubscriptionForm((prev) => ({ ...prev, planId: value || "" }))}
+                items={plans.map((plan) => ({ value: plan.id, label: `${plan.name} (${plan.billingCycle})` }))}
+              >
                 <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {plans.map((plan) => (
@@ -399,7 +411,16 @@ export function SubscriptionsManagement() {
             </div>
             <div className="space-y-2">
               <p className="text-sm font-medium">Status</p>
-              <Select value={subscriptionForm.status} onValueChange={(value) => setSubscriptionForm((prev) => ({ ...prev, status: value || "" }))}>
+              <Select
+                value={subscriptionForm.status}
+                onValueChange={(value) => setSubscriptionForm((prev) => ({ ...prev, status: value || "" }))}
+                items={[
+                  { value: "trial", label: "trial" },
+                  { value: "active", label: "active" },
+                  { value: "past_due", label: "past_due" },
+                  { value: "cancelled", label: "cancelled" },
+                ]}
+              >
                 <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="trial">trial</SelectItem>

@@ -235,7 +235,17 @@ export function TenantsManagement() {
             </div>
             <div className="space-y-2">
               <p className="text-sm font-medium">Type</p>
-              <Select value={form.type} onValueChange={(value) => setForm((prev) => ({ ...prev, type: value || "" }))}>
+              <Select
+                value={form.type}
+                onValueChange={(value) => setForm((prev) => ({ ...prev, type: value || "" }))}
+                items={[
+                  { value: "hospital", label: "hospital" },
+                  { value: "clinic", label: "clinic" },
+                  { value: "ehpad", label: "ehpad" },
+                  { value: "lab", label: "lab" },
+                  { value: "specialized", label: "specialized" },
+                ]}
+              >
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
@@ -250,7 +260,16 @@ export function TenantsManagement() {
             </div>
             <div className="space-y-2">
               <p className="text-sm font-medium">Status</p>
-              <Select value={form.status} onValueChange={(value) => setForm((prev) => ({ ...prev, status: value || "" }))}>
+              <Select
+                value={form.status}
+                onValueChange={(value) => setForm((prev) => ({ ...prev, status: value || "" }))}
+                items={[
+                  { value: "trial", label: "trial" },
+                  { value: "active", label: "active" },
+                  { value: "suspended", label: "suspended" },
+                  { value: "churned", label: "churned" },
+                ]}
+              >
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>

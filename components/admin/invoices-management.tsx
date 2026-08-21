@@ -142,7 +142,18 @@ export function InvoicesManagement() {
                 />
               </div>
             </div>
-            <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value || "")}>
+            <Select
+              value={statusFilter}
+              onValueChange={(value) => setStatusFilter(value || "")}
+              items={[
+                { value: "all", label: "All Statuses" },
+                { value: "draft", label: "Draft" },
+                { value: "open", label: "Open" },
+                { value: "paid", label: "Paid" },
+                { value: "void", label: "Void" },
+                { value: "uncollectible", label: "Uncollectible" },
+              ]}
+            >
               <SelectTrigger className="w-48">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>

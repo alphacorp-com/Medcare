@@ -180,7 +180,11 @@ export function TenantUsersManagement() {
           <h2 className="text-xl font-bold">Tenant Users</h2>
           <p className="text-gray-600 text-sm">Browse and manage admins &amp; users across all tenants</p>
         </div>
-        <Select value={tenantFilter} onValueChange={(value) => setTenantFilter(value || "all")}>
+        <Select
+          value={tenantFilter}
+          onValueChange={(value) => setTenantFilter(value || "all")}
+          items={[{ value: "all", label: "All tenants" }, ...tenants.map((tenant) => ({ value: tenant.id, label: tenant.name }))]}
+        >
           <SelectTrigger className="w-full sm:w-64">
             <SelectValue placeholder="All tenants" />
           </SelectTrigger>
@@ -265,7 +269,11 @@ export function TenantUsersManagement() {
             </div>
             <div className="space-y-2">
               <p className="text-sm font-medium">Role</p>
-              <Select value={form.role} onValueChange={(value) => setForm((prev) => ({ ...prev, role: value || "" }))}>
+              <Select
+                value={form.role}
+                onValueChange={(value) => setForm((prev) => ({ ...prev, role: value || "" }))}
+                items={TENANT_USER_ROLES.map((role) => ({ value: role, label: role }))}
+              >
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
@@ -280,7 +288,14 @@ export function TenantUsersManagement() {
             </div>
             <div className="space-y-2">
               <p className="text-sm font-medium">Status</p>
-              <Select value={form.status} onValueChange={(value) => setForm((prev) => ({ ...prev, status: value || "" }))}>
+              <Select
+                value={form.status}
+                onValueChange={(value) => setForm((prev) => ({ ...prev, status: value || "" }))}
+                items={[
+                  { value: "active", label: "active" },
+                  { value: "inactive", label: "inactive" },
+                ]}
+              >
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>

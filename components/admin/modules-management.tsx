@@ -134,7 +134,11 @@ export function ModulesManagement() {
         <CardContent>
           <div className="space-y-4">
             <div className="max-w-sm">
-              <Select value={selectedTenantId} onValueChange={(value) => setSelectedTenantId(value || "")}>
+              <Select
+                value={selectedTenantId}
+                onValueChange={(value) => setSelectedTenantId(value || "")}
+                items={tenants.map((tenant) => ({ value: tenant.id, label: `${tenant.name} (${tenant.slug})` }))}
+              >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select tenant" />
                 </SelectTrigger>
@@ -207,6 +211,12 @@ export function ModulesManagement() {
                       [module.id]: value as TenantModuleItem["status"],
                     }))
                   }
+                  items={[
+                    { value: "active", label: "active" },
+                    { value: "suspended", label: "suspended" },
+                    { value: "trial", label: "trial" },
+                    { value: "pending", label: "pending" },
+                  ]}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue />

@@ -119,7 +119,7 @@ export function AuditLogViewer() {
         <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           <div className="space-y-1">
             <Label>Action</Label>
-            <Select value={actionFilter} onValueChange={(value) => setActionFilter(value || "all")}>
+            <Select value={actionFilter} onValueChange={(value) => setActionFilter(value || "all")} items={ACTIONS}>
               <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
@@ -134,7 +134,11 @@ export function AuditLogViewer() {
           </div>
           <div className="space-y-1">
             <Label>Tenant</Label>
-            <Select value={tenantFilter} onValueChange={(value) => setTenantFilter(value || "all")}>
+            <Select
+              value={tenantFilter}
+              onValueChange={(value) => setTenantFilter(value || "all")}
+              items={[{ value: "all", label: "All tenants" }, ...tenants.map((tenant) => ({ value: tenant.id, label: tenant.name }))]}
+            >
               <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
