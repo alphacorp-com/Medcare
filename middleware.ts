@@ -1,32 +1,43 @@
 import {NextRequest, NextResponse} from 'next/server';
+import {getToken} from 'next-auth/jwt';
 import createMiddleware from 'next-intl/middleware';
 import {routing} from './i18n/routing';
+import {getNextAuthSecret} from './lib/auth-secret';
 
 const handleI18nRouting = createMiddleware(routing);
 
-export default function middleware(request: NextRequest) {
+function resolveLocale(pathname: string) {
+  const candidate = pathname.split('/')[1];
+  const isSupportedLocale = (routing.locales as readonly string[]).includes(candidate);
+  return isSupportedLocale ? candidate : routing.defaultLocale;
+}
+
+export default async function middleware(request: NextRequest) {
   const {pathname} = request.nextUrl;
-  const token = request.cookies.get('next-auth.session-token') || request.cookies.get('__Secure-next-auth.session-token');
 
   // Check if the page is public (login)
   const isPublicPage = pathname.endsWith('/login') || pathname.includes('/login/');
 
-  // If no token and not a public page, redirect to login
-  if (!token && !isPublicPage) {
-    // Attempt to extract locale from path or use default
-    const locale = pathname.split('/')[1];
-    const isSupportedLocale = (routing.locales as readonly string[]).includes(locale);
-    const targetLocale = isSupportedLocale ? locale : routing.defaultLocale;
-    
-    return NextResponse.redirect(new URL(`/${targetLocale}/login`, request.url));
+  const token = await getToken({
+    req: request,
+    secret: getNextAuthSecret(),
+  });
+
+  // A session only grants access to the tenant app if it belongs to a tenant
+  // user with a tenantId. Admin sessions (tenantId always null) and orphaned
+  // tenant accounts (missing tenantId) don't qualify, even though a session exists.
+  const isValidTenantSession = Boolean(token) && token?.role !== 'admin' && Boolean(token?.tenantId);
+
+  // No valid tenant session and not on the login page: send to tenant login.
+  if (!isPublicPage && !isValidTenantSession) {
+    const locale = resolveLocale(pathname);
+    return NextResponse.redirect(new URL(`/${locale}/login`, request.url));
   }
 
-  // If token and on login page, redirect to dashboard
-  if (token && isPublicPage) {
-    const locale = pathname.split('/')[1];
-    const isSupportedLocale = (routing.locales as readonly string[]).includes(locale);
-    const targetLocale = isSupportedLocale ? locale : routing.defaultLocale;
-    return NextResponse.redirect(new URL(`/${targetLocale}/`, request.url));
+  // Already has a valid tenant session and is on the login page: skip straight to the app.
+  if (isPublicPage && isValidTenantSession) {
+    const locale = resolveLocale(pathname);
+    return NextResponse.redirect(new URL(`/${locale}/`, request.url));
   }
 
   return handleI18nRouting(request);

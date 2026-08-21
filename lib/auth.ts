@@ -5,6 +5,9 @@ import prisma from "@/lib/prisma";
 import { ModulePermission } from "./store/useAppStore";
 import { syncTenantStatus } from "./tenant-licensing";
 import { recordAuditEvent, extractAuthRequestMeta, SYSTEM_ACTOR_ID } from "./audit";
+import { getNextAuthSecret } from "./auth-secret";
+
+const INVALID_CREDENTIALS_MESSAGE = "Invalid email or password";
 
 export const authOptions: NextAuthOptions = {
     providers: [
@@ -35,7 +38,7 @@ export const authOptions: NextAuthOptions = {
                         ipAddress,
                         userAgent,
                     });
-                    throw new Error("User not found or inactive");
+                    throw new Error(INVALID_CREDENTIALS_MESSAGE);
                 }
 
                 const isValidPassword = await bcrypt.compare(
@@ -53,7 +56,7 @@ export const authOptions: NextAuthOptions = {
                         ipAddress,
                         userAgent,
                     });
-                    throw new Error("Invalid password");
+                    throw new Error(INVALID_CREDENTIALS_MESSAGE);
                 }
 
                 if (user.tenantId) {
@@ -117,7 +120,7 @@ export const authOptions: NextAuthOptions = {
                         ipAddress,
                         userAgent,
                     });
-                    throw new Error("Admin user not found or inactive");
+                    throw new Error(INVALID_CREDENTIALS_MESSAGE);
                 }
 
                 const isValidPassword = await bcrypt.compare(
@@ -134,7 +137,7 @@ export const authOptions: NextAuthOptions = {
                         ipAddress,
                         userAgent,
                     });
-                    throw new Error("Invalid password");
+                    throw new Error(INVALID_CREDENTIALS_MESSAGE);
                 }
 
                 try {
@@ -196,5 +199,5 @@ export const authOptions: NextAuthOptions = {
     session: {
         strategy: "jwt",
     },
-    secret: process.env.NEXTAUTH_SECRET || "super-secret-key-for-development",
+    secret: getNextAuthSecret(),
 };

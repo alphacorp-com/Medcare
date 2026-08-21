@@ -60,8 +60,8 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-slate-50 flex items-center justify-center p-4">
-      <div className="max-w-5xl w-full grid md:grid-cols-2 gap-8 items-stretch overflow-hidden rounded-2xl shadow-xl bg-white border border-slate-100">
+    <div className="min-h-screen w-full bg-slate-50 flex justify-center p-4 py-8 overflow-y-auto">
+      <div className="max-w-5xl w-full my-auto grid md:grid-cols-2 gap-8 items-stretch overflow-hidden rounded-2xl shadow-xl bg-white border border-slate-100">
         
         {/* Left Side - Brand & Information */}
         <div className="bg-slate-900 text-white p-10 flex flex-col justify-between hidden md:flex relative overflow-hidden">
