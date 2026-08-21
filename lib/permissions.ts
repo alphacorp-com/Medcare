@@ -42,7 +42,7 @@ const ACTION_PHRASES: Record<ModuleAction, { en: string; fr: string }> = {
 // Joins an English and French sentence into a single bilingual message. Kept as one string
 // (rather than two separate response fields) so every existing call site that does
 // `NextResponse.json({ error: check.error }, { status: check.status })` keeps working unchanged.
-function bilingual(en: string, fr: string): string {
+export function bilingual(en: string, fr: string): string {
   return `${en} / ${fr}`;
 }
 
@@ -59,6 +59,11 @@ const MUST_BE_ADMIN = bilingual(
 const MUST_BE_TENANT_ADMIN = bilingual(
   "This action requires tenant administrator privileges.",
   "Cette action nécessite des privilèges d'administrateur de l'établissement."
+);
+
+const MUST_BE_SUPER_ADMIN = bilingual(
+  "This action requires MedCare super admin privileges.",
+  "Cette action nécessite des privilèges de super administrateur MedCare."
 );
 
 const SELF_OR_ADMIN_REQUIRED = bilingual(
@@ -107,6 +112,26 @@ export function requireAdminOrTenantAdmin(session: Session | null | undefined): 
   }
   if (!isAdminOrTenantAdmin(session)) {
     return { ok: false, status: 403, error: MUST_BE_ADMIN };
+  }
+  return { ok: true };
+}
+
+// True only for a MedCare platform admin whose granular AdminUser.role is "superadmin" — the
+// other AdminRole values (sales/support/devops/finance) are plain "admin" sessions and don't
+// qualify, even though they share the same session.user.role === "admin".
+export function isSuperAdmin(session: Session | null | undefined): boolean {
+  return session?.user?.role === "admin" && session?.user?.adminRole === "superadmin";
+}
+
+// For routes gated to MedCare super admins only — managing admin accounts and cross-tenant
+// user administration. Stricter than requireAdminOrTenantAdmin: the other admin sub-roles
+// don't bypass this one.
+export function requireSuperAdmin(session: Session | null | undefined): PermissionCheck {
+  if (!session?.user) {
+    return { ok: false, status: 401, error: UNAUTHENTICATED };
+  }
+  if (!isSuperAdmin(session)) {
+    return { ok: false, status: 403, error: MUST_BE_SUPER_ADMIN };
   }
   return { ok: true };
 }

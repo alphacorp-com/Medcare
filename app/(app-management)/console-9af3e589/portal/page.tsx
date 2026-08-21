@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { signOut, useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,11 +47,10 @@ export default function AdminDashboard() {
             </div>
             <div className="flex items-center gap-3">
               {session?.user && (
-                <span className="text-sm text-gray-600">{session.user.email}</span>
+                <Link href="/console-9af3e589/portal/profile" className="text-sm text-gray-600 hover:text-gray-900 hover:underline">
+                  {session.user.email}
+                </Link>
               )}
-              {/* <Button variant="outline" onClick={() => window.location.href = "/"}>
-                Back to App
-              </Button> */}
               <Button
                 variant="destructive"
                 onClick={handleLogout}
