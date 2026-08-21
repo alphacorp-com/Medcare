@@ -176,6 +176,17 @@ enum TriageAcuity {
   @@schema("tenant_template")
 }
 
+// Tracks a Stay's progress through the doctor's consultation queue, independent of
+// StayStatus (which stays "in_progress" the whole time) — so adding this never changes
+// what any existing `status: "in_progress"` filter across admissions/KPIs/dashboard sees.
+enum ConsultationStatus {
+  waiting
+  claimed
+  completed
+
+  @@schema("tenant_template")
+}
+
 enum MedicalRecordType {
   consultation
   observation
@@ -771,25 +782,27 @@ model Patient {
 }
 
 model Stay {
-  id                String        @id @default(uuid()) @db.Uuid
-  tenantId          String?       @map("tenant_id") @db.Uuid
-  patientId         String        @map("patient_id") @db.Uuid
-  stayNumber        String        @map("stay_number") @db.VarChar(20)
-  type              StayType
-  status            StayStatus    @default(in_progress)
-  admissionDate     DateTime      @default(now()) @map("admission_date") @db.Timestamptz
-  dischargeDate     DateTime?     @map("discharge_date") @db.Timestamptz
-  departmentId      String?       @map("department_id") @db.Uuid
-  bedId             String?       @map("bed_id") @db.Uuid
-  attendingDoctorId String?       @map("attending_doctor_id") @db.Uuid
-  admissionReason   String?       @map("admission_reason")
-  dischargeSummary  String?       @map("discharge_summary")
-  pmsiCode          String?       @map("pmsi_code") @db.VarChar(20)
-  pmsiValidated     Boolean       @default(false) @map("pmsi_validated")
-  admissionTypeId   String?       @map("admission_type_id") @db.Uuid
-  triageAcuity      TriageAcuity? @map("triage_acuity")
-  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+  id                 String             @id @default(uuid()) @db.Uuid
+  tenantId           String?            @map("tenant_id") @db.Uuid
+  patientId          String             @map("patient_id") @db.Uuid
+  stayNumber         String             @map("stay_number") @db.VarChar(20)
+  type               StayType
+  status             StayStatus         @default(in_progress)
+  admissionDate      DateTime           @default(now()) @map("admission_date") @db.Timestamptz
+  dischargeDate      DateTime?          @map("discharge_date") @db.Timestamptz
+  departmentId       String?            @map("department_id") @db.Uuid
+  bedId              String?            @map("bed_id") @db.Uuid
+  attendingDoctorId  String?            @map("attending_doctor_id") @db.Uuid
+  admissionReason    String?            @map("admission_reason")
+  dischargeSummary   String?            @map("discharge_summary")
+  pmsiCode           String?            @map("pmsi_code") @db.VarChar(20)
+  pmsiValidated      Boolean            @default(false) @map("pmsi_validated")
+  admissionTypeId    String?            @map("admission_type_id") @db.Uuid
+  triageAcuity       TriageAcuity?      @map("triage_acuity")
+  triagedAt          DateTime?          @map("triaged_at") @db.Timestamptz
+  consultationStatus ConsultationStatus @default(waiting) @map("consultation_status")
+  createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime           @updatedAt @map("updated_at") @db.Timestamptz
 
   patient Patient @relation(fields: [patientId], references: [id])
 
@@ -807,6 +820,7 @@ model Stay {
   @@index([patientId])
   @@index([status])
   @@index([admissionDate(sort: Desc)])
+  @@index([consultationStatus])
   @@map("stays")
   @@schema("tenant_template")
 }

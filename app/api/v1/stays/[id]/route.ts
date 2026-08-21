@@ -112,7 +112,7 @@ export async function PATCH(
 
     const existingStay = await prisma.stay.findFirst({
       where: { id, tenantId: session.user.tenantId },
-      select: { id: true, bedId: true, departmentId: true, status: true },
+      select: { id: true, bedId: true, departmentId: true, status: true, triagedAt: true },
     });
 
     if (!existingStay) {
@@ -162,6 +162,9 @@ export async function PATCH(
           ...(departmentId !== undefined && { departmentId: resolvedDepartmentId }),
           ...(attendingDoctorId !== undefined && { attendingDoctorId }),
           ...(triageAcuity !== undefined && { triageAcuity }),
+          // Marks the start of the wait-for-doctor clock the first time acuity is known —
+          // a later re-triage adjusts the acuity but must not reset this timestamp.
+          ...(triageAcuity && !existingStay.triagedAt && { triagedAt: new Date() }),
         },
         include: {
           patient: {

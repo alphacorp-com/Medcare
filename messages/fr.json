@@ -4,6 +4,7 @@
     "dashboard": "Tableau de Bord",
     "patients": "Gestion des Patients",
     "stays": "Admissions",
+    "consultations": "Consultations",
     "pharmacy": "Pharmacie",
     "laboratory": "Laboratoire",
     "surgery": "Chirurgie",
@@ -216,6 +217,22 @@
     "units": "unités",
     "cloud_status": "État du Réseau Cloud",
     "optimal": "Optimal"
+  },
+  "consultations": {
+    "title": "File de consultation",
+    "subtitle": "Patients à consulter, du plus urgent au moins urgent",
+    "column_patient": "Patient",
+    "column_type": "Type",
+    "column_wait": "Attente",
+    "column_status": "Statut",
+    "claim": "Prendre en charge",
+    "continue": "Continuer",
+    "claimed_by": "Pris en charge par {name}",
+    "no_patients": "Aucun patient en attente",
+    "loading": "Chargement de la file de consultation...",
+    "failed_load": "Échec du chargement de la file de consultation",
+    "claim_failed": "Échec de la prise en charge de ce patient",
+    "already_claimed": "Ce patient a déjà été pris en charge par un autre médecin"
   },
   "patients": {
     "module_title": "Gestion des Patients",

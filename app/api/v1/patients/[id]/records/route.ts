@@ -197,8 +197,10 @@ export async function POST(
       },
     });
 
+    const isCompletedConsultation = record.type === "consultation" && record.isSigned;
+
     const billing =
-      record.type === "consultation" && record.isSigned && session.user.tenantId
+      isCompletedConsultation && session.user.tenantId
         ? await suggestInvoiceLine({
             tenantId: session.user.tenantId,
             patientId: id,
@@ -210,6 +212,20 @@ export async function POST(
             performedById: session.user.id,
           })
         : null;
+
+    // Closes the consultation-queue loop: signing the note is what marks the doctor's
+    // work on this stay as done, moving it out of the shared "waiting"/"claimed" queue.
+    // Never throws — this is a side effect of documenting the consult, not a precondition.
+    if (isCompletedConsultation && record.stayId) {
+      try {
+        await prisma.stay.update({
+          where: { id: record.stayId },
+          data: { consultationStatus: "completed" },
+        });
+      } catch (statusError) {
+        console.error("[POST /api/v1/patients/:id/records] Failed to close consultation status:", statusError);
+      }
+    }
 
     return NextResponse.json({ data: record, billing, success: true }, { status: 201 });
   } catch (error) {

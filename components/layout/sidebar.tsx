@@ -18,13 +18,15 @@ import {
   CreditCard,
   CalendarDays,
   MessageSquare,
-  ShieldPlus
+  ShieldPlus,
+  Stethoscope
 } from "lucide-react";
 
 const navigation = [
   { name: "dashboard", href: "/", icon: LayoutDashboard, module: null, hideBadge: true },
   { name: "patients", href: "/patients", icon: Users, module: "MODULE_CORE_PATIENT" },
   { name: "stays", href: "/stays", icon: Bed, module: "MODULE_ADMISSION" },
+  { name: "consultations", href: "/consultations", icon: Stethoscope, module: "MODULE_ADMISSION" },
   { name: "pharmacy", href: "/pharmacy", icon: Pill, module: "MODULE_PHARMACY" },
   { name: "laboratory", href: "/laboratory", icon: Fingerprint, module: "MODULE_LAB" },
   { name: "surgery", href: "/surgery", icon: Syringe, module: "MODULE_SURGERY" },

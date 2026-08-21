@@ -4,6 +4,7 @@
     "dashboard": "Dashboard",
     "patients": "Patient Management",
     "stays": "Admissions",
+    "consultations": "Consultations",
     "pharmacy": "Pharmacy",
     "laboratory": "Laboratory",
     "surgery": "Surgery",
@@ -216,6 +217,22 @@
     "units": "units",
     "cloud_status": "Cloud Network Status",
     "optimal": "Optimal"
+  },
+  "consultations": {
+    "title": "Consultation Queue",
+    "subtitle": "Patients ready to be seen, most urgent first",
+    "column_patient": "Patient",
+    "column_type": "Type",
+    "column_wait": "Waiting",
+    "column_status": "Status",
+    "claim": "Claim",
+    "continue": "Continue",
+    "claimed_by": "Claimed by {name}",
+    "no_patients": "No patients waiting",
+    "loading": "Loading consultation queue...",
+    "failed_load": "Failed to load the consultation queue",
+    "claim_failed": "Failed to claim this patient",
+    "already_claimed": "This patient has already been claimed by another doctor"
   },
   "patients": {
     "module_title": "Patient Management",

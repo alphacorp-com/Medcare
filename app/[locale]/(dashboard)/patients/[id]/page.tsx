@@ -1,7 +1,7 @@
 "use client";
 
 import { Link } from "@/i18n/routing";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
@@ -59,6 +59,7 @@ export default function PatientDetailPage() {
   const tc = useTranslations('common');
   const params = useParams();
   const id = params.id as string;
+  const searchParams = useSearchParams();
   const { data: session } = useSession();
 
   // Data State
@@ -197,6 +198,22 @@ export default function PatientDetailPage() {
       if (Array.isArray(antigensJson)) setAntigens(antigensJson);
     });
   }, [id]);
+
+  // Deep-link from the consultation queue (/consultations "Claim"/"Continue"): pre-fill
+  // and open the same "add medical record" sheet used everywhere else, pre-selected to
+  // the consultation type and linked to the stay the doctor just claimed.
+  useEffect(() => {
+    if (searchParams.get("openConsultation") !== "1") return;
+    const stayIdParam = searchParams.get("stayId") || "";
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setRecordForm((prev) => ({
+      ...prev,
+      type: "consultation",
+      stayId: stayIdParam,
+      authorId: session?.user?.id || prev.authorId,
+    }));
+    setIsRecordOpen(true);
+  }, [searchParams, session?.user?.id]);
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 

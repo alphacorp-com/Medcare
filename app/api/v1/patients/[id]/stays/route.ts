@@ -223,6 +223,7 @@ export async function POST(
           bedId: resolvedBedId,
           attendingDoctorId: toUuid(attendingDoctorId),
           triageAcuity: resolvedTriageAcuity,
+          triagedAt: resolvedTriageAcuity ? new Date() : null,
           ...(hasAnyVital(vitals)
             ? {
                 vitalSigns: {

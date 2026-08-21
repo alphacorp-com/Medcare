@@ -61,7 +61,7 @@ export async function GET() {
             minute: '2-digit',
             hour12: false,
           }),
-          waiting: Math.floor((Date.now() - stay.admissionDate.getTime()) / (1000 * 60)), // minutes
+          waiting: Math.floor((Date.now() - (stay.triagedAt ?? stay.admissionDate).getTime()) / (1000 * 60)), // minutes
           status: 'active',
           type: stay.type,
           triageAcuity: stay.triageAcuity,
