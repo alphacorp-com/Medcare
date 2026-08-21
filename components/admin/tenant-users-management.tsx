@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Edit, KeyRound, Trash2, Copy, Check } from "lucide-react";
+import { Plus, Edit, KeyRound, Trash2, Copy, Check } from "lucide-react";
 
 const TENANT_USER_ROLES = [
   "tenant_admin",
@@ -49,8 +49,9 @@ export function TenantUsersManagement() {
   const [saving, setSaving] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<TenantUserRow | null>(null);
-  const [form, setForm] = useState({ fullName: "", role: "viewer", status: "active" });
+  const [form, setForm] = useState({ tenantId: "", email: "", fullName: "", role: "tenant_admin", status: "active" });
   const [error, setError] = useState<string | null>(null);
+  const [generatedPassword, setGeneratedPassword] = useState<{ email: string; password: string } | null>(null);
 
   const [resetTarget, setResetTarget] = useState<TenantUserRow | null>(null);
   const [resetPassword, setResetPassword] = useState<string | null>(null);
@@ -95,33 +96,68 @@ export function TenantUsersManagement() {
     void fetchUsers(tenantFilter);
   }, [tenantFilter, fetchUsers]);
 
+  const openCreateSheet = () => {
+    setEditingUser(null);
+    setError(null);
+    setGeneratedPassword(null);
+    setForm({
+      tenantId: tenantFilter !== "all" ? tenantFilter : "",
+      email: "",
+      fullName: "",
+      role: "tenant_admin",
+      status: "active",
+    });
+    setSheetOpen(true);
+  };
+
   const openEditSheet = (user: TenantUserRow) => {
     setEditingUser(user);
     setError(null);
-    setForm({ fullName: user.fullName, role: user.role, status: user.isActive ? "active" : "inactive" });
+    setGeneratedPassword(null);
+    setForm({ tenantId: user.tenantId || "", email: user.email, fullName: user.fullName, role: user.role, status: user.isActive ? "active" : "inactive" });
     setSheetOpen(true);
   };
 
   const handleSubmit = async () => {
-    if (!editingUser) return;
+    if (!editingUser && (!form.tenantId || !form.email || !form.fullName)) {
+      setError("Tenant, email, and full name are required.");
+      return;
+    }
+
     setSaving(true);
     setError(null);
     try {
-      const response = await fetch(`/api/admin/tenant-users/${editingUser.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fullName: form.fullName,
-          role: form.role,
-          isActive: form.status === "active",
-        }),
-      });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload?.error || "Failed to update user");
-      setSheetOpen(false);
+      if (editingUser) {
+        const response = await fetch(`/api/admin/tenant-users/${editingUser.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fullName: form.fullName,
+            role: form.role,
+            isActive: form.status === "active",
+          }),
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload?.error || "Failed to update user");
+        setSheetOpen(false);
+      } else {
+        const response = await fetch("/api/admin/tenant-users", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            tenantId: form.tenantId,
+            email: form.email,
+            fullName: form.fullName,
+            role: form.role,
+          }),
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload?.error || "Failed to create user");
+        setGeneratedPassword({ email: form.email, password: payload.temporaryPassword });
+      }
       await fetchUsers(tenantFilter);
     } catch (submitError) {
-      const message = submitError instanceof Error ? submitError.message : "Failed to update user";
+      const message = submitError instanceof Error ? submitError.message : "Failed to save user";
       setError(message);
     } finally {
       setSaving(false);
@@ -180,23 +216,29 @@ export function TenantUsersManagement() {
           <h2 className="text-xl font-bold">Tenant Users</h2>
           <p className="text-gray-600 text-sm">Browse and manage admins &amp; users across all tenants</p>
         </div>
-        <Select
-          value={tenantFilter}
-          onValueChange={(value) => setTenantFilter(value || "all")}
-          items={[{ value: "all", label: "All tenants" }, ...tenants.map((tenant) => ({ value: tenant.id, label: tenant.name }))]}
-        >
-          <SelectTrigger className="w-full sm:w-64">
-            <SelectValue placeholder="All tenants" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All tenants</SelectItem>
-            {tenants.map((tenant) => (
-              <SelectItem key={tenant.id} value={tenant.id}>
-                {tenant.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Select
+            value={tenantFilter}
+            onValueChange={(value) => setTenantFilter(value || "all")}
+            items={[{ value: "all", label: "All tenants" }, ...tenants.map((tenant) => ({ value: tenant.id, label: tenant.name }))]}
+          >
+            <SelectTrigger className="w-full sm:w-64">
+              <SelectValue placeholder="All tenants" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All tenants</SelectItem>
+              {tenants.map((tenant) => (
+                <SelectItem key={tenant.id} value={tenant.id}>
+                  {tenant.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button onClick={openCreateSheet}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add User
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -256,13 +298,52 @@ export function TenantUsersManagement() {
         </CardContent>
       </Card>
 
-      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+      <Sheet
+        open={sheetOpen}
+        onOpenChange={(open) => {
+          setSheetOpen(open);
+          if (!open) setGeneratedPassword(null);
+        }}
+      >
         <SheetContent side="right" className="w-full sm:max-w-md">
           <SheetHeader>
-            <SheetTitle>Update User</SheetTitle>
-            <SheetDescription>Update this user&apos;s name, role, and status.</SheetDescription>
+            <SheetTitle>{editingUser ? "Update User" : "Create Tenant User"}</SheetTitle>
+            <SheetDescription>
+              {editingUser ? "Update this user's name, role, and status." : "Create a new admin or user for a tenant."}
+            </SheetDescription>
           </SheetHeader>
           <div className="p-4 space-y-4">
+            {!editingUser && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Tenant</p>
+                <Select
+                  value={form.tenantId}
+                  onValueChange={(value) => setForm((prev) => ({ ...prev, tenantId: value || "" }))}
+                  items={tenants.map((tenant) => ({ value: tenant.id, label: tenant.name }))}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select a tenant" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {tenants.map((tenant) => (
+                      <SelectItem key={tenant.id} value={tenant.id}>
+                        {tenant.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {!editingUser && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Email</p>
+                <Input
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
+                />
+              </div>
+            )}
             <div className="space-y-2">
               <p className="text-sm font-medium">Full name</p>
               <Input value={form.fullName} onChange={(e) => setForm((prev) => ({ ...prev, fullName: e.target.value }))} />
@@ -286,29 +367,52 @@ export function TenantUsersManagement() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <p className="text-sm font-medium">Status</p>
-              <Select
-                value={form.status}
-                onValueChange={(value) => setForm((prev) => ({ ...prev, status: value || "" }))}
-                items={[
-                  { value: "active", label: "active" },
-                  { value: "inactive", label: "inactive" },
-                ]}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">active</SelectItem>
-                  <SelectItem value="inactive">inactive</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {error ? <p className="text-sm text-red-600">{error}</p> : null}
-            <Button className="w-full" onClick={handleSubmit} disabled={saving}>
-              {saving ? "Saving..." : "Update User"}
-            </Button>
+            {editingUser && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Status</p>
+                <Select
+                  value={form.status}
+                  onValueChange={(value) => setForm((prev) => ({ ...prev, status: value || "" }))}
+                  items={[
+                    { value: "active", label: "active" },
+                    { value: "inactive", label: "inactive" },
+                  ]}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">active</SelectItem>
+                    <SelectItem value="inactive">inactive</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {!editingUser && generatedPassword ? (
+              <div className="rounded border border-emerald-200 bg-emerald-50 p-3 space-y-2">
+                <p className="text-sm text-emerald-700">
+                  User created. Share these credentials with the account holder — this password won&apos;t be shown again.
+                </p>
+                <p className="text-sm">
+                  <span className="text-gray-600">Email:</span> <span className="font-mono">{generatedPassword.email}</span>
+                </p>
+                <p className="text-sm">
+                  <span className="text-gray-600">Password:</span>{" "}
+                  <span className="font-mono font-semibold">{generatedPassword.password}</span>
+                </p>
+                <Button className="w-full" onClick={() => setSheetOpen(false)}>
+                  Done
+                </Button>
+              </div>
+            ) : (
+              <>
+                {error ? <p className="text-sm text-red-600">{error}</p> : null}
+                <Button className="w-full" onClick={handleSubmit} disabled={saving}>
+                  {saving ? "Saving..." : editingUser ? "Update User" : "Create User"}
+                </Button>
+              </>
+            )}
           </div>
         </SheetContent>
       </Sheet>
