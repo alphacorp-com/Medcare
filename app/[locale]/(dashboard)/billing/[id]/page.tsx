@@ -7,11 +7,14 @@ import { format } from "date-fns";
 import { Link } from "@/i18n/routing";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { ArrowLeft, Loader2, Plus, CreditCard, Pencil } from "lucide-react";
+import { ArrowLeft, Loader2, Plus, CreditCard, Pencil, Printer } from "lucide-react";
 import { RecordPaymentDialog } from "./_components/RecordPaymentDialog";
 import { AddLineDialog } from "./_components/AddLineDialog";
 import { EditLineDialog } from "./_components/EditLineDialog";
-import { InvoiceDetail, InvoiceLine } from "../types";
+import { InvoiceDetail, InvoiceLine, Payment } from "../types";
+import { PDFPreviewModal } from "@/components/templates/PDFPreviewModal";
+import { usePdfBranding } from "@/components/templates/usePdfBranding";
+import type { PdfInvoiceData, PdfReceiptData } from "@/components/templates/types";
 
 export default function InvoiceDetailPage() {
   const t = useTranslations("billing");
@@ -24,6 +27,9 @@ export default function InvoiceDetailPage() {
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [isAddLineOpen, setIsAddLineOpen] = useState(false);
   const [editingLine, setEditingLine] = useState<InvoiceLine | null>(null);
+  const [isInvoicePreviewOpen, setIsInvoicePreviewOpen] = useState(false);
+  const [receiptPreview, setReceiptPreview] = useState<Payment | null>(null);
+  const { facility: pdfFacility, settings: pdfSettings } = usePdfBranding();
 
   const fetchInvoice = async () => {
     try {
@@ -61,11 +67,48 @@ export default function InvoiceDetailPage() {
   }
 
   const subtotal = Number(invoice.subtotal);
+  const insuranceAmount = Number(invoice.insuranceAmount);
   const patientAmount = Number(invoice.patientAmount);
   const paidAmount = Number(invoice.paidAmount);
   const outstanding = Math.max(0, patientAmount - paidAmount);
+  const refundDue = Math.max(0, paidAmount - patientAmount);
+  const hasInsuranceDiscount = insuranceAmount > 0;
   const canPay = invoice.status !== "paid" && invoice.status !== "cancelled" && outstanding > 0;
   const canAddLine = invoice.status !== "paid" && invoice.status !== "cancelled";
+
+  const pdfInvoiceData: PdfInvoiceData = {
+    number: invoice.id.slice(0, 8).toUpperCase(),
+    date: format(new Date(invoice.createdAt), "PPP"),
+    patientName: `${invoice.patient.firstName} ${invoice.patient.lastName}`,
+    patientIpp: invoice.patient.ipp,
+    status: t(invoice.status),
+    items: invoice.lines.map((line) => ({
+      description: line.description,
+      quantity: Number(line.quantity),
+      amount: Number(line.amount),
+    })),
+    subtotal,
+    total: subtotal,
+    insuranceAmount,
+    patientAmount,
+    paidAmount,
+    refundDue,
+  };
+
+  const buildReceiptData = (payment: Payment): PdfReceiptData => ({
+    receiptNumber: payment.id.slice(0, 8).toUpperCase(),
+    date: format(new Date(payment.initiatedAt), "PPP"),
+    patientName: `${invoice.patient.firstName} ${invoice.patient.lastName}`,
+    patientIpp: invoice.patient.ipp,
+    invoiceNumber: invoice.id.slice(0, 8).toUpperCase(),
+    method: t(`method_${payment.method}`),
+    amount: Number(payment.amount),
+    currency: payment.currency,
+    // The balance shown is the invoice's current outstanding balance, not a historical
+    // snapshot as of this specific payment — payments aren't stored with a running total.
+    balanceAfter: outstanding,
+    isPaidInFull: invoice.status === "paid",
+  });
 
   const statusBadgeClass = cn(
     "px-2.5 py-0.5 text-[10px] rounded-full uppercase font-bold tracking-wider ring-1",
@@ -99,6 +142,9 @@ export default function InvoiceDetailPage() {
           </div>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setIsInvoicePreviewOpen(true)}>
+            <Printer className="h-3.5 w-3.5 mr-2" /> {t("print_invoice")}
+          </Button>
           {canAddLine && (
             <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setIsAddLineOpen(true)}>
               <Plus className="h-3.5 w-3.5 mr-2" /> {t("add_line")}
@@ -172,19 +218,30 @@ export default function InvoiceDetailPage() {
                     </div>
                     {payment.failureReason && <div className="text-red-500 text-[10px] mt-0.5">{payment.failureReason}</div>}
                   </div>
-                  <div className="text-right">
-                    <div className="font-mono font-semibold">{Number(payment.amount).toLocaleString()} {payment.currency}</div>
-                    <span
-                      className={cn(
-                        "px-1.5 py-0.5 rounded text-[9px] uppercase font-bold",
-                        payment.status === "successful" ? "bg-green-100 text-green-700" :
-                        payment.status === "failed" ? "bg-red-100 text-red-700" :
-                        payment.status === "cancelled" ? "bg-slate-100 text-slate-500" :
-                        "bg-yellow-100 text-yellow-700"
-                      )}
-                    >
-                      {t(`payment_status_${payment.status}`)}
-                    </span>
+                  <div className="text-right flex items-center gap-2">
+                    <div>
+                      <div className="font-mono font-semibold">{Number(payment.amount).toLocaleString()} {payment.currency}</div>
+                      <span
+                        className={cn(
+                          "px-1.5 py-0.5 rounded text-[9px] uppercase font-bold",
+                          payment.status === "successful" ? "bg-green-100 text-green-700" :
+                          payment.status === "failed" ? "bg-red-100 text-red-700" :
+                          payment.status === "cancelled" ? "bg-slate-100 text-slate-500" :
+                          "bg-yellow-100 text-yellow-700"
+                        )}
+                      >
+                        {t(`payment_status_${payment.status}`)}
+                      </span>
+                    </div>
+                    {payment.status === "successful" && (
+                      <button
+                        onClick={() => setReceiptPreview(payment)}
+                        className="text-slate-300 hover:text-blue-600 transition-colors"
+                        title={t("print_receipt")}
+                      >
+                        <Printer className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -204,7 +261,12 @@ export default function InvoiceDetailPage() {
             </div>
             <div className="flex justify-between text-xs">
               <span className="text-slate-500">{t("insurance_amount")}</span>
-              <span className="font-mono text-slate-800">{Number(invoice.insuranceAmount).toLocaleString()} {invoice.currency}</span>
+              <span className="font-mono text-slate-800">{insuranceAmount.toLocaleString()} {invoice.currency}</span>
+            </div>
+            <div className="text-[10px]">
+              <span className={hasInsuranceDiscount ? "text-green-600 font-semibold" : "text-slate-400 italic"}>
+                {hasInsuranceDiscount ? t("insurance_discount_applied") : t("no_insurance_discount")}
+              </span>
             </div>
             <div className="flex justify-between text-xs pt-2 border-t border-slate-100">
               <span className="text-slate-500">{t("patient_amount")}</span>
@@ -214,10 +276,17 @@ export default function InvoiceDetailPage() {
               <span className="text-slate-500">{t("paid")}</span>
               <span className="font-mono text-green-700">{paidAmount.toLocaleString()} {invoice.currency}</span>
             </div>
-            <div className="flex justify-between text-sm font-bold pt-2 border-t border-slate-200">
-              <span className="text-slate-900">{t("outstanding_balance")}</span>
-              <span className="text-blue-700">{outstanding.toLocaleString()} {invoice.currency}</span>
-            </div>
+            {refundDue > 0 ? (
+              <div className="flex justify-between text-sm font-bold pt-2 border-t border-green-200 bg-green-50 -mx-4 px-4 py-2">
+                <span className="text-green-800">{t("refund_due")}</span>
+                <span className="text-green-800">{refundDue.toLocaleString()} {invoice.currency}</span>
+              </div>
+            ) : (
+              <div className="flex justify-between text-sm font-bold pt-2 border-t border-slate-200">
+                <span className="text-slate-900">{t("outstanding_balance")}</span>
+                <span className="text-blue-700">{outstanding.toLocaleString()} {invoice.currency}</span>
+              </div>
+            )}
           </div>
           {invoice.notes && (
             <div className="bg-white rounded border border-slate-200 shadow-sm p-4">
@@ -245,6 +314,23 @@ export default function InvoiceDetailPage() {
         invoiceId={invoice.id}
         line={editingLine}
         onSaved={fetchInvoice}
+      />
+
+      <PDFPreviewModal
+        isOpen={isInvoicePreviewOpen}
+        onClose={() => setIsInvoicePreviewOpen(false)}
+        templateId="invoices"
+        data={{ invoice: pdfInvoiceData }}
+        facility={pdfFacility}
+        settings={pdfSettings}
+      />
+      <PDFPreviewModal
+        isOpen={Boolean(receiptPreview)}
+        onClose={() => setReceiptPreview(null)}
+        templateId="receipts"
+        data={receiptPreview ? buildReceiptData(receiptPreview) : undefined}
+        facility={pdfFacility}
+        settings={pdfSettings}
       />
     </div>
   );

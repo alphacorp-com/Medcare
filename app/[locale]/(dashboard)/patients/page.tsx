@@ -6,6 +6,7 @@ import { format } from "date-fns";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/routing";
 import { PDFPreviewModal } from "@/components/templates/PDFPreviewModal";
+import { usePdfBranding } from "@/components/templates/usePdfBranding";
 import type { PatientListData } from "@/components/templates/PatientListTemplate";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -31,7 +32,8 @@ export default function PatientsPage() {
   const t = useTranslations('patients');
   const tc = useTranslations('common');
   const tDocs = useTranslations('documents');
-  
+  const { facility: pdfFacility, settings: pdfSettings } = usePdfBranding();
+
   // UI State
   const [showFilters, setShowFilters] = useState(false);
   const [isNewPatientOpen, setIsNewPatientOpen] = useState(false);
@@ -261,8 +263,8 @@ export default function PatientsPage() {
         onClose={() => setIsPreviewOpen(false)}
         templateId="patient_lists"
         data={pdfData}
-        facility={{ name: tc('hospital_name'), address: '', phone: '', email: '' }}
-        settings={{ showLogo: false, includeQR: false, digitalSignature: false, watermark: true }}
+        facility={pdfFacility}
+        settings={pdfSettings}
       />
 
       {/* Duplicate Patient Warning */}

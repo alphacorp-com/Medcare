@@ -89,23 +89,25 @@ const styles = StyleSheet.create({
   }
 });
 
+export interface PrescriptionData {
+  patientName: string;
+  patientAge: string;
+  patientGender: string;
+  date: string;
+  prescriptionId: string;
+  doctorName: string;
+  doctorSpecialty: string;
+  medications: Array<{
+    name: string;
+    dosage: string;
+    frequency: string;
+    duration: string;
+    instructions: string;
+  }>;
+}
+
 interface PrescriptionTemplateProps {
-  data: {
-    patientName: string;
-    patientAge: string;
-    patientGender: string;
-    date: string;
-    prescriptionId: string;
-    doctorName: string;
-    doctorSpecialty: string;
-    medications: Array<{
-      name: string;
-      dosage: string;
-      frequency: string;
-      duration: string;
-      instructions: string;
-    }>;
-  };
+  data: PrescriptionData;
   facility: PdfFacility;
   settings: PdfSettings;
   labels: PdfLabels;

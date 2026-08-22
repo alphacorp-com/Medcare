@@ -80,23 +80,25 @@ const styles = StyleSheet.create({
   }
 });
 
+export interface LabResultData {
+  patientName: string;
+  patientIpp: string;
+  orderId: string;
+  dateCollected: string;
+  dateReported: string;
+  requestingPhysician: string;
+  results: Array<{
+    testName: string;
+    result: string;
+    unit: string;
+    referenceRange: string;
+    isCritical?: boolean;
+  }>;
+  interpretation?: string;
+}
+
 interface LabResultTemplateProps {
-  data: {
-    patientName: string;
-    patientIpp: string;
-    orderId: string;
-    dateCollected: string;
-    dateReported: string;
-    requestingPhysician: string;
-    results: Array<{
-      testName: string;
-      result: string;
-      unit: string;
-      referenceRange: string;
-      isCritical?: boolean;
-    }>;
-    interpretation?: string;
-  };
+  data: LabResultData;
   facility: PdfFacility;
   settings: PdfSettings;
   labels: PdfLabels;

@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { useSession } from "next-auth/react";
 import { PDFPreviewModal } from "@/components/templates/PDFPreviewModal";
+import { usePdfBranding } from "@/components/templates/usePdfBranding";
 import type { PatientFileData } from "@/components/templates/PatientFileTemplate";
 import { EMPTY_VITALS } from "@/components/shared/vitals-fields";
 import { notifyBillingGenerated } from "@/lib/billing/client";
@@ -61,6 +62,7 @@ export default function PatientDetailPage() {
   const id = params.id as string;
   const searchParams = useSearchParams();
   const { data: session } = useSession();
+  const { facility: pdfFacility, settings: pdfSettings } = usePdfBranding();
 
   // Data State
   const [patient, setPatient] = useState<PatientDetail | null>(null);
@@ -513,8 +515,8 @@ export default function PatientDetailPage() {
       <PDFPreviewModal
         isOpen={isPreviewOpen} onClose={() => setIsPreviewOpen(false)}
         templateId="patient_files" data={pdfData}
-        facility={{ name: tc('hospital_name'), address: '', phone: '', email: '' }}
-        settings={{ showLogo: false, includeQR: false, digitalSignature: false, watermark: true }}
+        facility={pdfFacility}
+        settings={pdfSettings}
       />
     </div>
   );

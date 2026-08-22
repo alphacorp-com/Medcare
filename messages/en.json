@@ -1268,6 +1268,11 @@
     "paid": "Paid",
     "cancelled": "Cancelled",
     "outstanding_balance": "Outstanding Balance",
+    "refund_due": "Refund Due",
+    "insurance_discount_applied": "Insurance discount applied",
+    "no_insurance_discount": "No insurance discount applied",
+    "print_invoice": "Print Invoice",
+    "print_receipt": "Print receipt",
     "total": "Total",
     "invoice_not_found": "Invoice not found",
     "line_items": "Line Items",
@@ -1650,7 +1655,9 @@
     "lab_results_title": "Laboratory Results",
     "lab_results_desc": "Standardized lab test result reports.",
     "prescriptions_title": "Medical Prescriptions",
-    "prescriptions_desc": "Doctor prescriptions and treatment orders."
+    "prescriptions_desc": "Doctor prescriptions and treatment orders.",
+    "receipts_title": "Payment Receipts",
+    "receipts_desc": "Proof-of-payment slips for a single invoice payment."
   },
   "documents": {
     "invoice": "INVOICE",
@@ -1713,7 +1720,15 @@
     "how_to_take": "How to take this medication",
     "best_time": "Best Time",
     "warnings": "IMPORTANT WARNINGS",
-    "side_effects": "Common Side Effects"
+    "side_effects": "Common Side Effects",
+    "insurance_discount_applied": "Insurance discount applied",
+    "no_insurance_discount": "No insurance discount applied",
+    "refund_due": "Refund due",
+    "receipt": "RECEIPT",
+    "payment_method": "Payment Method",
+    "amount_paid": "Amount Paid",
+    "balance_remaining": "Balance Remaining",
+    "paid_in_full": "PAID IN FULL"
   },
   "notifications": {
     "title": "Notifications",

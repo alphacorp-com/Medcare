@@ -134,6 +134,9 @@ export const MedicationGuideTemplate = ({ data, facility, settings, labels }: Me
 
         <View style={styles.footer}>
           <Text>If symptoms persist or worsen, contact {facility.phone} immediately.</Text>
+          {settings.watermark && (
+            <Text style={{ marginTop: 5, color: '#fca5a5' }}>{labels.confidential}</Text>
+          )}
         </View>
       </View>
     </Page>

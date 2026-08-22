@@ -16,12 +16,16 @@ import {
   X,
   Receipt,
   PillBottle,
-  FileWarning
+  FileWarning,
+  Printer
 } from "lucide-react";
 import { format } from "date-fns";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Link } from "@/i18n/routing";
 import { PrescriptionRow } from "../types";
+import { PDFPreviewModal } from "@/components/templates/PDFPreviewModal";
+import { usePdfBranding } from "@/components/templates/usePdfBranding";
 
 interface RxDetailSheetProps {
   rx: PrescriptionRow | null;
@@ -38,10 +42,30 @@ export function RxDetailSheet({
 }: RxDetailSheetProps) {
   const t = useTranslations('pharmacy');
   const tc = useTranslations('common');
+  const [isPrintOpen, setIsPrintOpen] = useState(false);
+  const { facility: pdfFacility, settings: pdfSettings } = usePdfBranding();
 
   if (!rx) return null;
 
+  const pdfPrescriptionData = {
+    patientName: rx.patientName,
+    patientAge: "",
+    patientGender: "",
+    date: format(new Date(rx.date), "PPP"),
+    prescriptionId: rx.id.slice(0, 8).toUpperCase(),
+    doctorName: rx.prescriber,
+    doctorSpecialty: "",
+    medications: rx.itemsData.map((item) => ({
+      name: item.name ?? item.drug ?? "",
+      dosage: item.dosage ?? item.dose ?? "",
+      frequency: item.frequency ?? "",
+      duration: item.duration ?? "",
+      instructions: "",
+    })),
+  };
+
   return (
+    <>
     <Sheet open={!!rx} onOpenChange={(open) => !open && onClose()}>
       <SheetContent className="sm:max-w-xl w-full right-0 p-0 flex flex-col bg-slate-50 border-l border-slate-200">
         <SheetHeader className="p-4 border-b border-slate-200 bg-white shrink-0">
@@ -171,6 +195,9 @@ export function RxDetailSheet({
           </div>
 
           <div className="flex gap-2">
+            <Button variant="outline" className="text-xs h-8" onClick={() => setIsPrintOpen(true)}>
+              <Printer className="mr-2 h-3.5 w-3.5" /> {tc('print')}
+            </Button>
             {rx.status === 'Pending Queue' && (
               <>
                 <Button variant="outline" className="text-xs h-8 border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800">
@@ -210,5 +237,14 @@ export function RxDetailSheet({
         </SheetFooter>
       </SheetContent>
     </Sheet>
+    <PDFPreviewModal
+      isOpen={isPrintOpen}
+      onClose={() => setIsPrintOpen(false)}
+      templateId="prescriptions"
+      data={pdfPrescriptionData}
+      facility={pdfFacility}
+      settings={pdfSettings}
+    />
+    </>
   );
 }

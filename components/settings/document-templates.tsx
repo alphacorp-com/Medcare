@@ -23,6 +23,7 @@ export function DocumentTemplates({ facility, templateSettings, setTemplateSetti
 
   const templates = [
     { id: 'invoices', name: ttpl('invoices_title'), desc: ttpl('invoices_desc') },
+    { id: 'receipts', name: ttpl('receipts_title'), desc: ttpl('receipts_desc') },
     { id: 'patient_lists', name: ttpl('patient_lists_title'), desc: ttpl('patient_lists_desc') },
     { id: 'medications', name: ttpl('medications_title'), desc: ttpl('medications_desc') },
     { id: 'stock_reports', name: ttpl('stock_reports_title'), desc: ttpl('stock_reports_desc') },

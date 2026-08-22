@@ -12,6 +12,8 @@ import { ResultEntryDialog } from "./ResultEntryDialog";
 import { RejectExamDialog } from "./RejectExamDialog";
 import { CancelExamDialog } from "./CancelExamDialog";
 import { notifyBillingGenerated } from "@/lib/billing/client";
+import { PDFPreviewModal } from "@/components/templates/PDFPreviewModal";
+import { usePdfBranding } from "@/components/templates/usePdfBranding";
 
 export function ExamDetailSheet({
   open,
@@ -34,12 +36,30 @@ export function ExamDetailSheet({
   const [isCancelOpen, setIsCancelOpen] = useState(false);
   const [busyAction, setBusyAction] = useState<"collect" | "validate" | "notify" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isPrintOpen, setIsPrintOpen] = useState(false);
+  const { facility: pdfFacility, settings: pdfSettings } = usePdfBranding();
 
   if (!exam) return null;
 
   const state = deriveWorkflowState(exam);
   const latestResult = exam.results[0] ?? null;
   const userName = (id: string) => usersById.get(id)?.fullName ?? id;
+
+  const pdfLabData = {
+    patientName: `${exam.patient.firstName} ${exam.patient.lastName}`,
+    patientIpp: exam.patient.ipp,
+    orderId: exam.examCode,
+    dateCollected: format(new Date(exam.requestedAt), "PPP p"),
+    dateReported: exam.completedAt ? format(new Date(exam.completedAt), "PPP p") : "—",
+    requestingPhysician: userName(exam.prescriberId),
+    results: (latestResult?.resultData.parameters ?? []).map((p) => ({
+      testName: p.name,
+      result: p.value,
+      unit: p.unit,
+      referenceRange: p.referenceRange,
+      isCritical: p.flag === "critical",
+    })),
+  };
 
   const runAction = async (action: "collect" | "validate" | "notify") => {
     const endpoint = action === "notify" ? "notify-critical" : action;
@@ -205,7 +225,7 @@ export function ExamDetailSheet({
 
           <SheetFooter className="flex flex-col gap-3 border-t border-slate-200 bg-slate-100 p-4 shrink-0 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-              <Button variant="ghost" size="sm" className="text-xs text-slate-600 hover:text-slate-900 w-full sm:w-auto justify-center" onClick={() => window.print()}>
+              <Button variant="ghost" size="sm" className="text-xs text-slate-600 hover:text-slate-900 w-full sm:w-auto justify-center" onClick={() => setIsPrintOpen(true)}>
                 <Printer className="mr-2 h-4 w-4" /> {t("print_detail")}
               </Button>
               {(state === "pending_sample" || state === "in_analysis" || state === "awaiting_validation") && (
@@ -255,6 +275,14 @@ export function ExamDetailSheet({
         onOpenChange={setIsCancelOpen}
         exam={exam}
         onDone={() => { onUpdated(); onOpenChange(false); }}
+      />
+      <PDFPreviewModal
+        isOpen={isPrintOpen}
+        onClose={() => setIsPrintOpen(false)}
+        templateId="lab_results"
+        data={pdfLabData}
+        facility={pdfFacility}
+        settings={pdfSettings}
       />
     </>
   );

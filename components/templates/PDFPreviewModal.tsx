@@ -12,14 +12,15 @@ import { PDFViewer } from "@react-pdf/renderer";
 // );
 
 import { InvoiceTemplate } from './InvoiceTemplate';
-import { PrescriptionTemplate } from './PrescriptionTemplate';
-import { LabResultTemplate } from './LabResultTemplate';
+import { PrescriptionTemplate, type PrescriptionData } from './PrescriptionTemplate';
+import { LabResultTemplate, type LabResultData } from './LabResultTemplate';
 import { PatientListTemplate, type PatientListData } from './PatientListTemplate';
 import { StockReportTemplate } from './StockReportTemplate';
 import { PatientFileTemplate, type PatientFileData } from './PatientFileTemplate';
 import { MedicationGuideTemplate } from './MedicationGuideTemplate';
+import { ReceiptTemplate } from './ReceiptTemplate';
 import { useTranslations } from 'next-intl';
-import type { PdfFacility, PdfInvoiceData, PdfSettings } from './types';
+import type { PdfFacility, PdfInvoiceData, PdfReceiptData, PdfSettings } from './types';
 
 interface PDFPreviewModalProps {
   isOpen: boolean;
@@ -104,7 +105,15 @@ export function PDFPreviewModal({ isOpen, onClose, templateId, facility, setting
     best_time: tDocs('best_time'),
     warnings: tDocs('warnings'),
     side_effects: tDocs('side_effects'),
-    not_applicable: tCommon('not_applicable')
+    not_applicable: tCommon('not_applicable'),
+    insurance_discount_applied: tDocs('insurance_discount_applied'),
+    no_insurance_discount: tDocs('no_insurance_discount'),
+    refund_due: tDocs('refund_due'),
+    receipt: tDocs('receipt'),
+    payment_method: tDocs('payment_method'),
+    amount_paid: tDocs('amount_paid'),
+    balance_remaining: tDocs('balance_remaining'),
+    paid_in_full: tDocs('paid_in_full'),
   };
 
   const getTemplate = () => {
@@ -134,7 +143,7 @@ export function PDFPreviewModal({ isOpen, onClose, templateId, facility, setting
       case 'prescriptions':
         return (
           <PrescriptionTemplate
-            data={{
+            data={(data as PrescriptionData | undefined) ?? {
               patientName: 'Jane Smith',
               patientAge: '28y',
               patientGender: 'Female',
@@ -155,7 +164,7 @@ export function PDFPreviewModal({ isOpen, onClose, templateId, facility, setting
       case 'lab_results':
         return (
           <LabResultTemplate
-            data={{
+            data={(data as LabResultData | undefined) ?? {
               patientName: 'Robert Brown',
               patientIpp: '987654',
               orderId: 'LAB-5542',
@@ -168,6 +177,26 @@ export function PDFPreviewModal({ isOpen, onClose, templateId, facility, setting
                 { testName: 'Platelet Count', result: '250', unit: '10^3/µL', referenceRange: '150 - 450' },
               ],
               interpretation: 'Mildly elevated WBC count suggests possible infection. Correlation with clinical findings recommended.'
+            }}
+            facility={facility}
+            settings={settings}
+            labels={labels}
+          />
+        );
+      case 'receipts':
+        return (
+          <ReceiptTemplate
+            data={(data as PdfReceiptData | undefined) ?? {
+              receiptNumber: 'RCT-2024-001',
+              date: new Date().toLocaleDateString(),
+              patientName: 'John Doe',
+              patientIpp: '123456',
+              invoiceNumber: 'INV-2024-001',
+              method: 'Cash',
+              amount: 15000,
+              currency: 'XAF',
+              balanceAfter: 0,
+              isPaidInFull: true,
             }}
             facility={facility}
             settings={settings}

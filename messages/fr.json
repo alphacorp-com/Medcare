@@ -1286,6 +1286,11 @@
     "paid": "Payée",
     "cancelled": "Annulée",
     "outstanding_balance": "Solde Restant",
+    "refund_due": "Remboursement Dû",
+    "insurance_discount_applied": "Réduction assurance appliquée",
+    "no_insurance_discount": "Aucune réduction d'assurance appliquée",
+    "print_invoice": "Imprimer la Facture",
+    "print_receipt": "Imprimer le reçu",
     "total": "Total",
     "invoice_not_found": "Facture introuvable",
     "line_items": "Lignes de Facture",
@@ -1669,7 +1674,9 @@
     "lab_results_title": "Résultats de Laboratoire",
     "lab_results_desc": "Rapports de résultats de tests de laboratoire standardisés.",
     "prescriptions_title": "Prescriptions Médicales",
-    "prescriptions_desc": "Prescriptions des médecins et ordonnances de traitement."
+    "prescriptions_desc": "Prescriptions des médecins et ordonnances de traitement.",
+    "receipts_title": "Reçus de Paiement",
+    "receipts_desc": "Justificatifs de paiement pour un règlement de facture."
   },
   "documents": {
     "invoice": "FACTURE",
@@ -1732,7 +1739,15 @@
     "how_to_take": "Comment prendre ce médicament",
     "best_time": "Meilleur moment",
     "warnings": "AVERTISSEMENTS IMPORTANTS",
-    "side_effects": "Effets secondaires courants"
+    "side_effects": "Effets secondaires courants",
+    "insurance_discount_applied": "Réduction assurance appliquée",
+    "no_insurance_discount": "Aucune réduction d'assurance appliquée",
+    "refund_due": "Remboursement dû",
+    "receipt": "REÇU",
+    "payment_method": "Mode de paiement",
+    "amount_paid": "Montant payé",
+    "balance_remaining": "Solde restant",
+    "paid_in_full": "PAYÉ INTÉGRALEMENT"
   },
   "notifications": {
     "title": "Notifications",
