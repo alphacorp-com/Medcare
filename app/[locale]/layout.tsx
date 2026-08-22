@@ -4,6 +4,7 @@ import { getMessages } from 'next-intl/server';
 import { cn } from "@/lib/utils";
 import { AuthInitializer } from '@/components/auth/AuthInitializer';
 import { NextAuthProvider } from '@/components/providers/session-provider';
+import { TenantMobileGate } from '@/components/shared/tenant-mobile-gate';
 import { Toaster } from "sonner";
 import "../globals.css";
 
@@ -31,12 +32,14 @@ export default async function RootLayout({
     <html lang={locale} className={cn("font-sans", inter.variable)} suppressHydrationWarning>
       <body className="bg-slate-100 text-slate-800 h-screen w-full flex overflow-hidden">
         <NextIntlClientProvider messages={messages} locale={locale}>
-          <NextAuthProvider>
-            <AuthInitializer>
-              {children}
-            </AuthInitializer>
-            <Toaster richColors position="top-right" />
-          </NextAuthProvider>
+          <TenantMobileGate>
+            <NextAuthProvider>
+              <AuthInitializer>
+                {children}
+              </AuthInitializer>
+              <Toaster richColors position="top-right" />
+            </NextAuthProvider>
+          </TenantMobileGate>
         </NextIntlClientProvider>
       </body>
     </html>

@@ -1,6 +1,8 @@
 {
   "common": {
     "app_name": "Medcare",
+    "desktop_only_title": "Desktop or Tablet Required",
+    "desktop_only_desc": "This application is optimized for larger screens and isn't available on phones. Please switch to a tablet, laptop, or desktop computer to continue.",
     "dashboard": "Dashboard",
     "patients": "Patient Management",
     "stays": "Admissions",

@@ -1,6 +1,8 @@
 {
   "common": {
     "app_name": "Medcare",
+    "desktop_only_title": "PC ou tablette requis",
+    "desktop_only_desc": "Cette application est optimisée pour les grands écrans et n'est pas disponible sur téléphone. Merci d'utiliser une tablette, un ordinateur portable ou un ordinateur de bureau pour continuer.",
     "dashboard": "Tableau de Bord",
     "patients": "Gestion des Patients",
     "stays": "Admissions",

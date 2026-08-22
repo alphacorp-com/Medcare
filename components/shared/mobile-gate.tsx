@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { MonitorSmartphone } from "lucide-react";
 
 interface MobileGateProps {
@@ -9,20 +9,28 @@ interface MobileGateProps {
   description: string;
 }
 
+const DESKTOP_QUERY = "(min-width: 768px)";
+
+function subscribe(callback: () => void) {
+  const query = window.matchMedia(DESKTOP_QUERY);
+  query.addEventListener("change", callback);
+  return () => query.removeEventListener("change", callback);
+}
+
+function getSnapshot() {
+  return window.matchMedia(DESKTOP_QUERY).matches;
+}
+
+function getServerSnapshot() {
+  return true;
+}
+
 // Below md (768px) the app isn't usable — tables, sheets, and multi-column layouts
 // throughout the product assume at least a tablet-sized viewport. Rather than let a
 // phone user hit a broken layout, block entirely and mount `children` only once a
 // wide-enough viewport is confirmed.
 export function MobileGate({ children, title, description }: MobileGateProps) {
-  const [isDesktop, setIsDesktop] = useState(true);
-
-  useEffect(() => {
-    const query = window.matchMedia("(min-width: 768px)");
-    setIsDesktop(query.matches);
-    const handleChange = (event: MediaQueryListEvent) => setIsDesktop(event.matches);
-    query.addEventListener("change", handleChange);
-    return () => query.removeEventListener("change", handleChange);
-  }, []);
+  const isDesktop = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   if (!isDesktop) {
     return (

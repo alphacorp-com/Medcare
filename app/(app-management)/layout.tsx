@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { MobileGate } from "@/components/shared/mobile-gate";
 import "../globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -17,7 +18,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        {children}
+        <MobileGate
+          title="Desktop or Tablet Required"
+          description="The MedCare admin portal is optimized for larger screens and isn't available on phones. Please switch to a tablet, laptop, or desktop computer to continue."
+        >
+          {children}
+        </MobileGate>
       </body>
     </html>
   );
