@@ -202,6 +202,14 @@ async function main() {
       description: 'Track immunizations, malaria cases and TB registration/follow-up for national program reporting.',
       isPublished: true,
     },
+    {
+      code: 'MODULE_APPOINTMENTS',
+      name: 'Appointments',
+      category: 'clinical',
+      tier: 'core',
+      description: 'Book patient appointments, manage doctor agendas, and check patients in on arrival.',
+      isPublished: true,
+    },
   ];
 
   const seededModules: Record<string, { id: string }> = {};
@@ -252,6 +260,7 @@ async function main() {
     { planId: annualPlan.id, moduleCode: 'MODULE_PLANNING' },
     { planId: annualPlan.id, moduleCode: 'MODULE_MATERNITY' },
     { planId: annualPlan.id, moduleCode: 'MODULE_DISEASE_PROGRAMS' },
+    { planId: annualPlan.id, moduleCode: 'MODULE_APPOINTMENTS' },
   ];
 
   for (const assignment of planAssignments) {
