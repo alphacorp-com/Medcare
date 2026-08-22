@@ -187,6 +187,17 @@ enum ConsultationStatus {
   @@schema("tenant_template")
 }
 
+enum AppointmentStatus {
+  booked
+  confirmed
+  checked_in
+  completed
+  no_show
+  cancelled
+
+  @@schema("tenant_template")
+}
+
 enum MedicalRecordType {
   consultation
   observation
@@ -758,6 +769,7 @@ model Patient {
   updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
   stays              Stay[]
+  appointments       Appointment[]
   medicalRecords     MedicalRecord[]
   prescriptions      Prescription[]
   examRequests       ExamRequest[]
@@ -822,6 +834,60 @@ model Stay {
   @@index([admissionDate(sort: Desc)])
   @@index([consultationStatus])
   @@map("stays")
+  @@schema("tenant_template")
+}
+
+// A future-dated booking, distinct from Stay (which represents an actual physical
+// visit already under way). Check-in (see /api/v1/appointments/[id]/check-in) creates
+// a real Stay and links it back via stayId — from that point on the patient flows
+// through the existing consultation queue / triage / billing pipeline unchanged, so
+// nothing downstream of check-in needs to know appointments exist at all.
+model Appointment {
+  id                  String            @id @default(uuid()) @db.Uuid
+  tenantId            String?           @map("tenant_id") @db.Uuid
+  patientId           String            @map("patient_id") @db.Uuid
+  doctorId            String            @map("doctor_id") @db.Uuid
+  departmentId        String?           @map("department_id") @db.Uuid
+  appointmentTypeCode String?           @map("appointment_type_code") @db.VarChar(40)
+  scheduledAt         DateTime          @map("scheduled_at") @db.Timestamptz
+  durationMinutes     Int               @default(30) @map("duration_minutes")
+  status              AppointmentStatus @default(booked)
+  reasonForVisit      String?           @map("reason_for_visit")
+  notes               String?
+  stayId              String?           @map("stay_id") @db.Uuid
+  seriesId            String?           @map("series_id") @db.Uuid
+  cancelledAt         DateTime?         @map("cancelled_at") @db.Timestamptz
+  cancelledReason     String?           @map("cancelled_reason")
+  createdBy           String?           @map("created_by") @db.Uuid
+  createdAt           DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+
+  patient Patient @relation(fields: [patientId], references: [id])
+
+  @@index([tenantId, doctorId, scheduledAt])
+  @@index([tenantId, patientId])
+  @@index([seriesId])
+  @@index([status])
+  @@map("appointments")
+  @@schema("tenant_template")
+}
+
+// Recurring weekly availability window for a doctor's bookable appointment slots —
+// distinct from Schedule (staff shift roster in the Planning module), which tracks who's
+// on duty, not what's open for patient booking.
+model DoctorAvailability {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String?  @map("tenant_id") @db.Uuid
+  doctorId    String   @map("doctor_id") @db.Uuid
+  weekday     Int      @db.SmallInt
+  startTime   String   @map("start_time") @db.VarChar(5)
+  endTime     String   @map("end_time") @db.VarChar(5)
+  slotMinutes Int      @default(30) @map("slot_minutes")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([tenantId, doctorId, weekday])
+  @@map("doctor_availabilities")
   @@schema("tenant_template")
 }
 

@@ -67,6 +67,7 @@ export default function SettingsPage() {
   const tc = useTranslations('common');
   const tp = useTranslations('patients');
   const tadm = useTranslations('admissions');
+  const tappt = useTranslations('appointments');
   const tph = useTranslations('pharmacy');
   const tlab = useTranslations('lab');
   const trad = useTranslations('radiology');
@@ -142,6 +143,7 @@ export default function SettingsPage() {
   const APP_MODULES = [
     { id: "MODULE_CORE_PATIENT", name: tp('module_title'), desc: tp('module_desc'), required: true },
     { id: "MODULE_ADMISSION", name: tadm('title'), desc: tadm('description') },
+    { id: "MODULE_APPOINTMENTS", name: tappt('module_title'), desc: tappt('module_desc') },
     { id: "MODULE_PHARMACY", name: tph('title'), desc: tph('description') },
     { id: "MODULE_LAB", name: tlab('title'), desc: tlab('description') },
     { id: "MODULE_SURGERY", name: tsurg('title'), desc: tsurg('description') },

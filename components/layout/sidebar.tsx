@@ -17,6 +17,7 @@ import {
   HeartPulse,
   CreditCard,
   CalendarDays,
+  CalendarClock,
   MessageSquare,
   ShieldPlus,
   Stethoscope
@@ -25,6 +26,7 @@ import {
 const navigation = [
   { name: "dashboard", href: "/", icon: LayoutDashboard, module: null, hideBadge: true },
   { name: "patients", href: "/patients", icon: Users, module: "MODULE_CORE_PATIENT" },
+  { name: "appointments", href: "/appointments", icon: CalendarClock, module: "MODULE_APPOINTMENTS" },
   { name: "stays", href: "/stays", icon: Bed, module: "MODULE_ADMISSION" },
   { name: "consultations", href: "/consultations", icon: Stethoscope, module: "MODULE_ADMISSION" },
   { name: "pharmacy", href: "/pharmacy", icon: Pill, module: "MODULE_PHARMACY" },

@@ -22,6 +22,7 @@ export function hasModulePermission(
 const MODULE_LABELS: Record<string, { en: string; fr: string }> = {
   MODULE_CORE_PATIENT: { en: "Patients", fr: "Patients" },
   MODULE_ADMISSION: { en: "Admissions", fr: "Admissions" },
+  MODULE_APPOINTMENTS: { en: "Appointments", fr: "Rendez-vous" },
   MODULE_PHARMACY: { en: "Pharmacy", fr: "Pharmacie" },
   MODULE_LAB: { en: "Laboratory", fr: "Laboratoire" },
   MODULE_SURGERY: { en: "Surgery", fr: "Chirurgie" },
