@@ -41,10 +41,10 @@ export function StaysFilterBar({ showFilters, onFilterClose }: StaysFilterBarPro
             </label>
             <select className="h-7 text-xs bg-white border border-slate-200 rounded px-2 outline-none focus:border-blue-400 text-slate-700">
               <option>{tc("all")}</option>
-              <option value="in_progress">In Progress</option>
-              <option value="pre_admission">Pre-Admission</option>
-              <option value="discharged">Discharged</option>
-              <option value="transferred">Transferred</option>
+              <option value="in_progress">{tc("status_in_progress")}</option>
+              <option value="pre_admission">{tc("status_pre_admission")}</option>
+              <option value="discharged">{tc("status_discharged")}</option>
+              <option value="transferred">{tc("status_transferred")}</option>
             </select>
           </div>
           <div className="flex items-center gap-2">
@@ -53,10 +53,10 @@ export function StaysFilterBar({ showFilters, onFilterClose }: StaysFilterBarPro
             </label>
             <select className="h-7 text-xs bg-white border border-slate-200 rounded px-2 outline-none focus:border-blue-400 text-slate-700">
               <option>{tc("all")}</option>
-              <option value="emergency">Emergency</option>
-              <option value="scheduled">Scheduled</option>
-              <option value="day_care">Day Care</option>
-              <option value="outpatient">Outpatient</option>
+              <option value="emergency">{t("type_emergency")}</option>
+              <option value="scheduled">{t("type_scheduled")}</option>
+              <option value="day_care">{t("type_day_care")}</option>
+              <option value="outpatient">{t("type_outpatient")}</option>
             </select>
           </div>
           <Button size="sm" variant="secondary" className="h-7 text-xs ml-auto">

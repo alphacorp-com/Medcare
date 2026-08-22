@@ -43,7 +43,7 @@ export function StayHeader({ stay, onTransferOpen, onDischargeOpen, onVitalsOpen
                 stay.status === 'discharged' ? "bg-green-100 text-green-700 ring-1 ring-green-200" :
                 "bg-slate-100 text-slate-600 ring-1 ring-slate-200"
             )}>
-              {stay.status.replace('_', ' ')}
+              {tc(`status_${stay.status}`)}
             </span>
             <span className={cn(
                 "px-2.5 py-0.5 text-[10px] rounded-full uppercase font-bold tracking-wider",
@@ -51,7 +51,7 @@ export function StayHeader({ stay, onTransferOpen, onDischargeOpen, onVitalsOpen
                 stay.type === 'scheduled' ? "bg-blue-100 text-blue-700 ring-1 ring-blue-200" :
                 "bg-slate-100 text-slate-700 ring-1 ring-slate-200"
             )}>
-              {stay.type}
+              {t(`type_${stay.type}`)}
             </span>
             {stay.type === 'emergency' && stay.triageAcuity && (
               <TriageBadge acuity={stay.triageAcuity} className="rounded-full ring-1 ring-black/5" />
