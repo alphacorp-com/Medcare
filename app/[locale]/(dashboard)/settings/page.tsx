@@ -13,6 +13,7 @@ import { useTranslations } from "next-intl";
 // Modular Components
 import { UsersManagement } from "@/components/settings/users-management";
 import { ProfileSettings } from "@/components/settings/profile-settings";
+import { ChangePasswordCard } from "@/components/settings/change-password-card";
 import { OrganizationSettings } from "@/components/settings/organization-settings";
 import { ModuleConfiguration } from "@/components/settings/module-configuration";
 import { DocumentTemplates } from "@/components/settings/document-templates";
@@ -29,9 +30,7 @@ export default function SettingsPage() {
   const [profileData, setProfileData] = useState({
     fullName: "",
     email: "",
-    language: "en",
-    password: "",
-    confirmPassword: ""
+    language: "en"
   });
 
   // Organization State
@@ -173,24 +172,12 @@ export default function SettingsPage() {
           return;
         }
 
-        if (profileData.password || profileData.confirmPassword) {
-          if (profileData.password !== profileData.confirmPassword) {
-            setProfileError(tc('password_mismatch'));
-            return;
-          }
-          if (profileData.password.length > 0 && profileData.password.length < 8) {
-            setProfileError(tc('password_min_length'));
-            return;
-          }
-        }
-
         const response = await fetch(`/api/v1/users/${currentUser?.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             fullName: profileData.fullName,
-            email: profileData.email,
-            password: profileData.password || undefined
+            email: profileData.email
           })
         });
 
@@ -206,11 +193,6 @@ export default function SettingsPage() {
           fullName: updatedUser.fullName,
           email: updatedUser.email,
           role: updatedUser.role
-        });
-        setProfileData({
-          ...profileData,
-          password: "",
-          confirmPassword: ""
         });
       } else if (activeTab === "organization") {
         await fetch('/api/v1/settings/organization', {
@@ -386,7 +368,7 @@ export default function SettingsPage() {
           </TabsList>
 
           <div className="flex-1 max-w-3xl min-w-0">
-            <TabsContent value="profile" className="m-0 mt-0 focus-visible:outline-none">
+            <TabsContent value="profile" className="m-0 mt-0 focus-visible:outline-none space-y-6">
               <ProfileSettings
                 currentUser={currentUser}
                 profileData={profileData}
@@ -395,6 +377,7 @@ export default function SettingsPage() {
                 tc={tc}
                 error={profileError}
               />
+              <ChangePasswordCard t={t} tc={tc} />
             </TabsContent>
 
             {isSysAdmin && (
