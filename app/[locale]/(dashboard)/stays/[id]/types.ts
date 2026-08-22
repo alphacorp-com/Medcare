@@ -20,6 +20,7 @@ export type StayExamRequest = {
   examLabel: string;
   examCode: string;
   urgency: string;
+  status: string;
 };
 
 export type StayMedicalRecord = {

@@ -17,6 +17,7 @@ import { PrescriptionSheet } from "./_components/PrescriptionSheet";
 import { MedicalOrderSheet } from "./_components/MedicalOrderSheet";
 import { VitalsSheet } from "./_components/VitalsSheet";
 import { EMPTY_VITALS, VitalsForm } from "@/components/shared/vitals-fields";
+import { notifyBillingGenerated } from "@/lib/billing/client";
 
 // Types
 import { StayDetail, Doctor, Department, InventoryItem, Bed, CatalogOption, MedicalActOption, OrderItem } from "./types";
@@ -238,6 +239,32 @@ export default function AdmissionDetailPage() {
     }
   };
 
+  const handleCompleteOrder = async (orderId: string) => {
+    try {
+      const res = await fetch(`/api/v1/exam-requests/${orderId}/complete`, { method: "PATCH" });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error ?? t('error_save'));
+      toast.success(t('order_completed'));
+      notifyBillingGenerated(json.billing, tc('invoice_generated'));
+      fetchStay();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t('error_save'));
+    }
+  };
+
+  const handleCancelOrder = async (orderId: string) => {
+    if (!window.confirm(t('confirm_cancel_order'))) return;
+    try {
+      const res = await fetch(`/api/v1/exam-requests/${orderId}/cancel`, { method: "PATCH" });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error ?? t('error_save'));
+      toast.success(t('order_cancelled'));
+      fetchStay();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t('error_save'));
+    }
+  };
+
   const handleVitals = async () => {
     if (!stay) return;
     setSubmitting(true);
@@ -299,11 +326,13 @@ export default function AdmissionDetailPage() {
           doctorName={stay.attendingDoctorId ? getDoctorName(stay.attendingDoctorId) : t('unassigned')}
         />
 
-        <StayTabs 
-          stay={stay} 
-          onPrescriptionOpen={() => setPrescriptionOpen(true)} 
-          onOrderOpen={() => setOrderOpen(true)} 
-          getDoctorName={getDoctorName} 
+        <StayTabs
+          stay={stay}
+          onPrescriptionOpen={() => setPrescriptionOpen(true)}
+          onOrderOpen={() => setOrderOpen(true)}
+          onCompleteOrder={handleCompleteOrder}
+          onCancelOrder={handleCancelOrder}
+          getDoctorName={getDoctorName}
         />
       </div>
 
