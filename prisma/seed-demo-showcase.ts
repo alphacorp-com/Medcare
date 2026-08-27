@@ -596,7 +596,15 @@ async function main() {
   const sarahResult = await prisma.examResult.create({
     data: {
       tenantId: tenant.id, requestId: sarahExamRequest.id, patientId: patients.sarah.id, performerId: labTech.id,
-      resultData: { WBC: '6.2', RBC: '4.6', Hemoglobin: '13.8', Hematocrit: '41', Platelets: '260' } as unknown as Prisma.InputJsonValue,
+      resultData: {
+        parameters: [
+          { name: 'WBC', value: '6.2', unit: '10^9/L', referenceRange: '4.0-11.0', flag: 'normal' },
+          { name: 'RBC', value: '4.6', unit: '10^12/L', referenceRange: '4.2-5.9', flag: 'normal' },
+          { name: 'Hemoglobin', value: '13.8', unit: 'g/dL', referenceRange: '13.0-17.0', flag: 'normal' },
+          { name: 'Hematocrit', value: '41', unit: '%', referenceRange: '38-50', flag: 'normal' },
+          { name: 'Platelets', value: '260', unit: '10^9/L', referenceRange: '150-400', flag: 'normal' },
+        ],
+      } as unknown as Prisma.InputJsonValue,
       validatedAt: daysAgo(0, 10, 5), validatedBy: labTech.id,
     },
   });
@@ -619,7 +627,9 @@ async function main() {
   const jeanTroponinResult = await prisma.examResult.create({
     data: {
       tenantId: tenant.id, requestId: jeanTroponinRequest.id, patientId: patients.jean.id, performerId: labTech.id,
-      resultData: { 'Troponin I': '2.4 ng/mL (seuil critique: > 0.04)' } as unknown as Prisma.InputJsonValue,
+      resultData: {
+        parameters: [{ name: 'Troponin I', value: '2.4', unit: 'ng/mL', referenceRange: '< 0.04', flag: 'critical' }],
+      } as unknown as Prisma.InputJsonValue,
       isCritical: true, criticalNotifiedAt: daysAgo(0, 8, 6), validatedAt: daysAgo(0, 8, 6), validatedBy: labTech.id,
     },
   });
@@ -646,7 +656,11 @@ async function main() {
   await prisma.examResult.create({
     data: {
       tenantId: tenant.id, requestId: robertCtRequest.id, patientId: patients.robert.id, performerId: radiologist.id,
-      resultData: { compteRendu: 'Pas de saignement intracrânien ni de lésion ischémique constituée visible.' } as unknown as Prisma.InputJsonValue,
+      resultData: {
+        technique: 'Scanner cérébral sans injection, coupes axiales.',
+        findings: "Pas de saignement intracrânien ni de lésion ischémique constituée visible. Pas d'effet de masse.",
+        impression: "Scanner cérébral non contributif — absence de saignement ou d'ischémie constituée.",
+      } as unknown as Prisma.InputJsonValue,
       validatedAt: daysAgo(1, 11, 0), validatedBy: radiologist.id,
     },
   });
@@ -869,7 +883,13 @@ async function main() {
     },
   });
   await prisma.examResult.create({
-    data: { tenantId: tenant.id, requestId: hivPtmeRequest.id, patientId: patients.aminatou.id, performerId: labTech.id, resultData: { HIV: 'Non-réactif' } as unknown as Prisma.InputJsonValue, validatedAt: daysAgo(89), validatedBy: labTech.id },
+    data: {
+      tenantId: tenant.id, requestId: hivPtmeRequest.id, patientId: patients.aminatou.id, performerId: labTech.id,
+      resultData: {
+        parameters: [{ name: 'HIV', value: 'Non-réactif', unit: '', referenceRange: 'Non-réactif', flag: 'normal' }],
+      } as unknown as Prisma.InputJsonValue,
+      validatedAt: daysAgo(89), validatedBy: labTech.id,
+    },
   });
 
   const gracePregnancy = await prisma.pregnancy.create({
@@ -961,7 +981,10 @@ async function main() {
           },
         })
       ).id,
-      patientId: patients.emmanuel.id, performerId: labTech.id, resultData: { 'Paludisme (TDR)': 'Positif' } as unknown as Prisma.InputJsonValue,
+      patientId: patients.emmanuel.id, performerId: labTech.id,
+      resultData: {
+        parameters: [{ name: 'Paludisme (TDR)', value: 'Positif', unit: '', referenceRange: 'Négatif', flag: 'high' }],
+      } as unknown as Prisma.InputJsonValue,
       validatedAt: daysAgo(6, 10, 35), validatedBy: labTech.id,
     },
   });
@@ -992,7 +1015,13 @@ async function main() {
           },
         })
       ).id,
-      patientId: patients.fatima.id, performerId: labTech.id, resultData: { 'MTB détecté': 'Oui', 'Résistance Rifampicine': 'Non détectée' } as unknown as Prisma.InputJsonValue,
+      patientId: patients.fatima.id, performerId: labTech.id,
+      resultData: {
+        parameters: [
+          { name: 'MTB détecté', value: 'Oui', unit: '', referenceRange: 'Non détecté', flag: 'high' },
+          { name: 'Résistance Rifampicine', value: 'Non détectée', unit: '', referenceRange: 'Non détectée', flag: 'normal' },
+        ],
+      } as unknown as Prisma.InputJsonValue,
       validatedAt: daysAgo(14), validatedBy: labTech.id,
     },
   });
