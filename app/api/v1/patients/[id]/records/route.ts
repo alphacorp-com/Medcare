@@ -169,6 +169,23 @@ export async function POST(
       );
     }
 
+    // ── Resolve + validate the linked stay, if one was given — a bare toUuid()
+    // check only confirms the format, not that it's a real stay belonging to this
+    // tenant and patient. Without this, a client could attach any other tenant's
+    // stayId to a record it creates, and read that stay's number/type/admission
+    // date back via the `include: { stay }` below, or (once signed) trigger an
+    // unscoped consultationStatus update against it further down. ────────────
+    const resolvedStayId = toUuid(stayId);
+    if (resolvedStayId) {
+      const stay = await prisma.stay.findFirst({
+        where: { id: resolvedStayId, tenantId: session.user.tenantId, patientId: id },
+        select: { id: true },
+      });
+      if (!stay) {
+        return NextResponse.json({ error: "Stay not found", success: false }, { status: 404 });
+      }
+    }
+
     // ── Create ─────────────────────────────────────────────────────────────
     const record = await prisma.medicalRecord.create({
       data: {
@@ -179,7 +196,7 @@ export async function POST(
         content: content.trim(),
         title: title || null,
         contentHtml: contentHtml || null,
-        stayId: toUuid(stayId),
+        stayId: resolvedStayId,
         isSigned: typeof isSigned === "boolean" ? isSigned : false,
         signedAt: isSigned && signedAt ? new Date(signedAt) : null,
         signedBy: isSigned ? toUuid(signedBy) : null,

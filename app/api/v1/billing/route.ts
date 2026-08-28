@@ -99,6 +99,15 @@ export async function POST(req: Request) {
     const patient = await prisma.patient.findFirst({ where: { id: patientId, tenantId: session.user.tenantId } });
     if (!patient) return NextResponse.json({ error: "Patient not found" }, { status: 404 });
 
+    // stayId is optional but, if given, must actually belong to this tenant and patient —
+    // otherwise a client could link the invoice to another tenant's stay and read its
+    // number/dates back through GET /api/v1/billing and GET /api/v1/billing/[id], which
+    // both include the linked stay.
+    if (stayId) {
+      const stay = await prisma.stay.findFirst({ where: { id: stayId, tenantId: session.user.tenantId, patientId } });
+      if (!stay) return NextResponse.json({ error: "Stay not found" }, { status: 404 });
+    }
+
     const qty = Number(quantity ?? 1);
     const price = Number(unitPrice);
     if (Number.isNaN(qty) || Number.isNaN(price)) {

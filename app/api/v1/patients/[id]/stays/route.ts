@@ -193,6 +193,28 @@ export async function POST(
         return NextResponse.json({ error: "Bed is not available", success: false }, { status: 409 });
       }
       resolvedDepartmentId = resolvedDepartmentId ?? bed.departmentId;
+    } else if (resolvedDepartmentId) {
+      // No bed was chosen (which would have already proven the department belongs to
+      // this tenant) — validate the standalone departmentId directly, otherwise a
+      // client could link this stay to another tenant's department.
+      const department = await prisma.department.findFirst({
+        where: { id: resolvedDepartmentId, tenantId: session.user.tenantId },
+      });
+      if (!department) {
+        return NextResponse.json({ error: "Department not found", success: false }, { status: 404 });
+      }
+    }
+
+    // A raw FK like the other two, so the same cross-tenant risk applies: verify the
+    // attending doctor is actually one of this tenant's staff before storing it.
+    const resolvedDoctorId = toUuid(attendingDoctorId);
+    if (resolvedDoctorId) {
+      const doctor = await prisma.tenantUser.findFirst({
+        where: { id: resolvedDoctorId, tenantId: session.user.tenantId },
+      });
+      if (!doctor) {
+        return NextResponse.json({ error: "Attending doctor not found", success: false }, { status: 404 });
+      }
     }
 
     // ── Generate stay number (scoped to tenant since Stay.stayNumber is
@@ -221,7 +243,7 @@ export async function POST(
           pmsiValidated: typeof pmsiValidated === "boolean" ? pmsiValidated : false,
           departmentId: resolvedDepartmentId,
           bedId: resolvedBedId,
-          attendingDoctorId: toUuid(attendingDoctorId),
+          attendingDoctorId: resolvedDoctorId,
           triageAcuity: resolvedTriageAcuity,
           triagedAt: resolvedTriageAcuity ? new Date() : null,
           ...(hasAnyVital(vitals)
