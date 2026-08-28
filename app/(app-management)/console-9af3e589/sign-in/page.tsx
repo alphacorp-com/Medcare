@@ -31,7 +31,7 @@ export default function AdminSignInPage() {
       });
 
       if (result?.error) {
-        setError("Invalid credentials");
+        setError(result.error);
       } else {
         router.push("/console-9af3e589/portal");
       }

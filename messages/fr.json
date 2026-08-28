@@ -448,7 +448,7 @@
     "change_password": "Changer le mot de passe",
     "change_password_desc": "Mettez à jour le mot de passe utilisé pour vous connecter à votre compte.",
     "current_password": "Mot de passe actuel",
-    "password_changed": "Mot de passe changé avec succès.",
+    "password_changed": "Mot de passe changé avec succès. Vous allez être déconnecté(e) pour vous reconnecter avec votre nouveau mot de passe.",
     "change_avatar": "Changer l'avatar",
     "facility_config": "Configuration de l'Établissement",
     "facility_config_desc": "Configurez les informations publiques de votre établissement de santé.",

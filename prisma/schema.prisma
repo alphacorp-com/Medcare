@@ -670,15 +670,19 @@ model TenantFeatureFlag {
 }
 
 model AdminUser {
-  id           String    @id @default(uuid()) @db.Uuid
-  email        String    @unique @db.VarChar(255)
-  fullName     String    @map("full_name") @db.VarChar(255)
-  role         AdminRole
-  passwordHash String    @map("password_hash")
-  totpSecret   String?   @map("totp_secret")
-  isActive     Boolean   @default(true) @map("is_active")
-  lastLoginAt  DateTime? @map("last_login_at") @db.Timestamptz
-  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  id             String    @id @default(uuid()) @db.Uuid
+  email          String    @unique @db.VarChar(255)
+  fullName       String    @map("full_name") @db.VarChar(255)
+  role           AdminRole
+  passwordHash   String    @map("password_hash")
+  totpSecret     String?   @map("totp_secret")
+  isActive       Boolean   @default(true) @map("is_active")
+  // Bumped on every password change — the JWT carries the value from sign-in time, so
+  // a mismatch on a later request means that session was issued before the password
+  // changed and should no longer be trusted (see callbacks.jwt in lib/auth.ts).
+  sessionVersion Int       @default(0) @map("session_version")
+  lastLoginAt    DateTime? @map("last_login_at") @db.Timestamptz
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
 
   @@map("admin_users")
   @@schema("public")
@@ -1244,22 +1248,24 @@ model Department {
 }
 
 model TenantUser {
-  id           String         @id @default(uuid()) @db.Uuid
-  tenantId     String?        @map("tenant_id") @db.Uuid
-  email        String         @unique @db.VarChar(255)
-  fullName     String         @map("full_name") @db.VarChar(255)
-  role         TenantUserRole
-  specialty    String?        @db.VarChar(120)
-  rppsNumber   String?        @map("rpps_number") @db.VarChar(20)
-  departmentId String?        @map("department_id") @db.Uuid
-  phone        String?        @db.VarChar(30)
-  passwordHash String         @map("password_hash")
-  totpSecret   String?        @map("totp_secret")
-  isActive     Boolean        @default(true) @map("is_active")
-  modules      Json           @default("[]")
-  lastLoginAt  DateTime?      @map("last_login_at") @db.Timestamptz
-  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt    DateTime       @updatedAt @map("updated_at") @db.Timestamptz
+  id             String         @id @default(uuid()) @db.Uuid
+  tenantId       String?        @map("tenant_id") @db.Uuid
+  email          String         @unique @db.VarChar(255)
+  fullName       String         @map("full_name") @db.VarChar(255)
+  role           TenantUserRole
+  specialty      String?        @db.VarChar(120)
+  rppsNumber     String?        @map("rpps_number") @db.VarChar(20)
+  departmentId   String?        @map("department_id") @db.Uuid
+  phone          String?        @db.VarChar(30)
+  passwordHash   String         @map("password_hash")
+  totpSecret     String?        @map("totp_secret")
+  isActive       Boolean        @default(true) @map("is_active")
+  // Bumped on every password change — see AdminUser.sessionVersion above.
+  sessionVersion Int            @default(0) @map("session_version")
+  modules        Json           @default("[]")
+  lastLoginAt    DateTime?      @map("last_login_at") @db.Timestamptz
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz
 
   department               Department?               @relation(fields: [departmentId], references: [id])
   schedules                Schedule[]

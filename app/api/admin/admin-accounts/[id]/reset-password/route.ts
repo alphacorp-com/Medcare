@@ -24,7 +24,13 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     const temporaryPassword = generateTemporaryPassword();
     const passwordHash = await bcrypt.hash(temporaryPassword, 10);
 
-    await prisma.adminUser.update({ where: { id }, data: { passwordHash } });
+    // Invalidates every session this admin currently holds — the whole point of a
+    // forced reset (e.g. a lost/stolen device) is that it takes effect immediately,
+    // not only once their existing token happens to expire.
+    await prisma.adminUser.update({
+      where: { id },
+      data: { passwordHash, sessionVersion: { increment: 1 } },
+    });
 
     const { ipAddress, userAgent } = extractRequestMeta(request.headers);
     await recordAuditEvent({

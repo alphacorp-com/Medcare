@@ -431,7 +431,7 @@
     "change_password": "Change Password",
     "change_password_desc": "Update the password used to sign in to your account.",
     "current_password": "Current Password",
-    "password_changed": "Password changed successfully.",
+    "password_changed": "Password changed successfully. You'll be signed out to log back in with your new password.",
     "facility_config": "Facility Configuration",
     "facility_config_desc": "Configure public details for your healthcare facility.",
     "facility_name": "Facility Name",

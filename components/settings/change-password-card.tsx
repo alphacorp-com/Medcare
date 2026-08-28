@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { signOut } from "next-auth/react";
+import { useLocale } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +17,7 @@ interface ChangePasswordCardProps {
 // before anything is written, so it gets its own request and its own button rather than
 // riding along with handleSaveSettings.
 export function ChangePasswordCard({ t, tc }: ChangePasswordCardProps) {
+  const locale = useLocale();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -48,6 +51,11 @@ export function ChangePasswordCard({ t, tc }: ChangePasswordCardProps) {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
+      // The password change just invalidated this session too — sign out for real
+      // instead of leaving the user on a page that will start failing requests.
+      setTimeout(() => {
+        void signOut({ callbackUrl: `/${locale}/login` });
+      }, 1800);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : tc("save_error"));
     } finally {

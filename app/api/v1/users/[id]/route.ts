@@ -97,7 +97,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         ...(role && canManage && { role }),
         ...(modules && canManage && { modules }),
         ...(status && canManage && { isActive: status === 'active' }),
-        ...(password && { passwordHash: await bcrypt.hash(password, 10) }),
+        // Bumping sessionVersion when a password is set here invalidates this user's
+        // existing sessions immediately, same as the dedicated reset-password routes.
+        ...(password && { passwordHash: await bcrypt.hash(password, 10), sessionVersion: { increment: 1 } }),
       },
     });
 

@@ -34,7 +34,13 @@ export async function POST(request: NextRequest) {
     }
 
     const passwordHash = await bcrypt.hash(newPassword, 10);
-    await prisma.adminUser.update({ where: { id: session.user.id }, data: { passwordHash } });
+    // Bumping sessionVersion invalidates every session issued before this change —
+    // including the one making this request — so the user (and anyone else holding a
+    // copy of an old token) is signed out and must reauthenticate with the new password.
+    await prisma.adminUser.update({
+      where: { id: session.user.id },
+      data: { passwordHash, sessionVersion: { increment: 1 } },
+    });
 
     const { ipAddress, userAgent } = extractRequestMeta(request.headers);
     await recordAuditEvent({

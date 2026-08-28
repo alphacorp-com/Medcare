@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
@@ -95,10 +96,15 @@ export default function AdminProfilePage() {
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload?.error || "Failed to change password");
-      setPasswordMessage("Password changed successfully.");
+      setPasswordMessage("Password changed successfully. You'll be signed out to log back in with your new password.");
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
+      // The password change just invalidated this session too — sign out for real
+      // instead of leaving the user on a page that will start failing requests.
+      setTimeout(() => {
+        void signOut({ callbackUrl: "/console-9af3e589/sign-in" });
+      }, 1800);
     } catch (error) {
       setPasswordError(error instanceof Error ? error.message : "Failed to change password");
     } finally {
