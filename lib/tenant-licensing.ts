@@ -255,6 +255,8 @@ export async function redeemLicenseForTenant(args: {
       redeemedAt: true,
       revokedAt: true,
       redeemedBy: true,
+      validFrom: true,
+      validUntil: true,
     },
   });
 
@@ -274,19 +276,30 @@ export async function redeemLicenseForTenant(args: {
     return failRedemption("Key already redeemed.", license.id);
   }
 
+  if (license.validUntil && license.validUntil < now) {
+    return failRedemption("Key's validity period has already ended.", license.id);
+  }
+
   const period = normalizePeriod(license.period);
-  const periodEnd = addPeriod(now, period);
 
   const redeemed = await prisma.$transaction(async (tx) => {
       if (!license.subscriptionId) {
         throw new Error("License key is not linked to a subscription.");
       }
 
+      // The key's validity window was fixed at generation time from the subscription's
+      // own period (see app/api/admin/licenses/route.ts) — redemption activates it as-is
+      // rather than computing a fresh "now + one period" window, so a key generated for
+      // a specific billing period always grants exactly that period, regardless of when
+      // the tenant actually gets around to redeeming it.
+      const periodStart = license.validFrom ?? now;
+      const periodEnd = license.validUntil ?? addPeriod(now, period);
+
       const subscription = await tx.subscription.update({
         where: { id: license.subscriptionId },
         data: {
           status: SubscriptionStatus.active,
-          currentPeriodStart: now,
+          currentPeriodStart: periodStart,
           currentPeriodEnd: periodEnd,
         },
         include: {
@@ -300,8 +313,6 @@ export async function redeemLicenseForTenant(args: {
           status: LicenseKeyStatus.redeemed,
           redeemedAt: now,
           redeemedBy: redeemedByUserId,
-          validFrom: now,
-          validUntil: subscription.currentPeriodEnd,
           subscriptionId: license.subscriptionId,
         },
       });

@@ -94,6 +94,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (subscription.currentPeriodEnd <= new Date()) {
+      return NextResponse.json(
+        { error: "This subscription's period has already ended — update its period before generating a key." },
+        { status: 400 }
+      );
+    }
+
     const rawKey = createLicenseKey();
     const keyHash = hashLicenseKey(rawKey);
     // Reveals only the first 3 characters — enough for a human to recognize "yes,
@@ -107,6 +114,11 @@ export async function POST(request: NextRequest) {
         planId: subscription.plan.id,
         subscriptionId,
         period: normalizedPeriod,
+        // Fixed at generation time from the subscription's own period — the key
+        // grants exactly the validity window the admin already set for this
+        // subscription, rather than a fresh period computed from redemption time.
+        validFrom: subscription.currentPeriodStart,
+        validUntil: subscription.currentPeriodEnd,
         keyHash,
         keyPreview,
         status: LicenseKeyStatus.generated,
