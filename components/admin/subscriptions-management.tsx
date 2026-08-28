@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Edit, Plus } from "lucide-react";
+import { Edit, Plus, Ban } from "lucide-react";
 
 interface TenantOption {
   id: string;
@@ -63,6 +63,7 @@ export function SubscriptionsManagement() {
   const [subscriptions, setSubscriptions] = useState<SubscriptionRow[]>([]);
   const [selectedSubscription, setSelectedSubscription] = useState("");
   const [generatedKey, setGeneratedKey] = useState<string | null>(null);
+  const [revokingId, setRevokingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [subscriptionForm, setSubscriptionForm] = useState({
     tenantId: "",
@@ -191,6 +192,23 @@ export function SubscriptionsManagement() {
       setError(message);
     } finally {
       setSavingSubscription(false);
+    }
+  };
+
+  const handleRevoke = async (licenseId: string) => {
+    if (!window.confirm("Revoke this license key? It will no longer be redeemable.")) return;
+    setRevokingId(licenseId);
+    setError(null);
+    try {
+      const response = await fetch(`/api/admin/licenses/${licenseId}/revoke`, { method: "POST" });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload?.error || "Failed to revoke license key.");
+      await fetchLicensingData();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to revoke license key.";
+      setError(message);
+    } finally {
+      setRevokingId(null);
     }
   };
 
@@ -324,6 +342,7 @@ export function SubscriptionsManagement() {
                 <TableHead>Status</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead>Valid Until</TableHead>
+                <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -340,11 +359,27 @@ export function SubscriptionsManagement() {
                   <TableCell>
                     {license.validUntil ? new Date(license.validUntil).toLocaleDateString() : "-"}
                   </TableCell>
+                  <TableCell>
+                    {license.status === "generated" ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-red-600 hover:text-red-700"
+                        disabled={revokingId === license.id}
+                        onClick={() => handleRevoke(license.id)}
+                      >
+                        <Ban className="h-4 w-4 mr-1.5" />
+                        {revokingId === license.id ? "Revoking..." : "Revoke"}
+                      </Button>
+                    ) : (
+                      "—"
+                    )}
+                  </TableCell>
                 </TableRow>
               ))}
               {licenses.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-gray-500 py-8">
+                  <TableCell colSpan={8} className="text-center text-gray-500 py-8">
                     No license keys generated yet.
                   </TableCell>
                 </TableRow>

@@ -1,6 +1,14 @@
 import crypto from "crypto";
 import { BillingCycle, InvoiceStatus, LicenseKeyStatus, ModuleStatus, Prisma, SubscriptionStatus, TenantStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
+import { recordAuditEvent } from "@/lib/audit";
+
+// Shown to the caller for every redemption failure (invalid key, wrong tenant,
+// revoked, already used) — deliberately identical in every case. Distinct messages
+// per failure reason let an attacker enumerate whether a guessed key exists at all,
+// belongs to another tenant, or is merely already-redeemed; the real reason is still
+// captured in the audit log below for MedCare's own diagnostics.
+const GENERIC_REDEMPTION_ERROR = "Invalid or already-used license key.";
 
 export type ModulePermission = {
   moduleId: string;
@@ -33,9 +41,14 @@ function normalizePeriod(period: BillingCycle): BillingCycle {
 }
 
 export function createLicenseKey(): string {
+  // A license key grants paid access to a tenant — it's a security token, not a
+  // display string, so it must come from a CSPRNG. Math.random() (V8's xorshift128+)
+  // is predictable given enough observed outputs and must never back a credential;
+  // crypto.randomInt gives unbiased, cryptographically-secure selection per character,
+  // the same class of primitive already used by generateTemporaryPassword() below.
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const section = () =>
-    Array.from({ length: 5 }, () => alphabet[Math.floor(Math.random() * alphabet.length)]).join("");
+    Array.from({ length: 5 }, () => alphabet[crypto.randomInt(alphabet.length)]).join("");
 
   return `${section()}-${section()}-${section()}-${section()}`;
 }
@@ -206,11 +219,30 @@ export async function redeemLicenseForTenant(args: {
   tenantId: string;
   rawLicenseKey: string;
   redeemedByUserId: string;
+  ipAddress?: string | null;
+  userAgent?: string | null;
 }) {
-  const { tenantId, rawLicenseKey, redeemedByUserId } = args;
+  const { tenantId, rawLicenseKey, redeemedByUserId, ipAddress, userAgent } = args;
   const normalizedKey = rawLicenseKey.trim().toUpperCase();
   const licenseHash = hashLicenseKey(normalizedKey);
   const now = new Date();
+
+  // Logs the real reason for MedCare's own audit trail, then throws the generic
+  // message the caller actually sees — see GENERIC_REDEMPTION_ERROR above.
+  const failRedemption = async (reason: string, licenseId?: string): Promise<never> => {
+    await recordAuditEvent({
+      tenantId,
+      actorId: redeemedByUserId,
+      actorType: "tenant_user",
+      action: "license.redemption_failed",
+      resourceType: "license_key",
+      resourceId: licenseId,
+      payload: { reason },
+      ipAddress,
+      userAgent,
+    });
+    throw new Error(GENERIC_REDEMPTION_ERROR);
+  };
 
   const license = await prisma.licenseKey.findUnique({
     where: { keyHash: licenseHash },
@@ -227,19 +259,19 @@ export async function redeemLicenseForTenant(args: {
   });
 
   if (!license) {
-    throw new Error("Invalid license key.");
+    return failRedemption("Key not found.");
   }
 
   if (license.tenantId !== tenantId) {
-    throw new Error("This license key does not belong to your tenant.");
+    return failRedemption("Key belongs to a different tenant.", license.id);
   }
 
   if (license.revokedAt) {
-    throw new Error("This license key has been revoked.");
+    return failRedemption("Key has been revoked.", license.id);
   }
 
   if (license.redeemedAt) {
-    throw new Error("This license key has already been used.");
+    return failRedemption("Key already redeemed.", license.id);
   }
 
   const period = normalizePeriod(license.period);
@@ -314,6 +346,18 @@ export async function redeemLicenseForTenant(args: {
   });
 
   const access = await syncTenantStatus(tenantId);
+
+  await recordAuditEvent({
+    tenantId,
+    actorId: redeemedByUserId,
+    actorType: "tenant_user",
+    action: "license.redeemed",
+    resourceType: "license_key",
+    resourceId: license.id,
+    payload: { subscriptionId: redeemed.id },
+    ipAddress,
+    userAgent,
+  });
 
   return {
     subscriptionId: redeemed.id,
