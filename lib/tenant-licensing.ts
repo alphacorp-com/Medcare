@@ -88,6 +88,54 @@ export async function getTenantSeatLimit(tenantId: string): Promise<number | nul
 export async function resolveTenantAccess(tenantId: string): Promise<TenantAccessState> {
   const now = new Date();
 
+  // The Subscription row is the live, admin-editable source of truth for a tenant's
+  // validity window. Previously a redeemed LicenseKey was checked first, which froze
+  // the tenant's displayed validity at whatever the key said at generation time — if an
+  // admin later edited the subscription's period (e.g. a manual renewal/extension), the
+  // admin console showed the new dates while the tenant kept seeing the old ones. Now
+  // the subscription is checked first, so editing it is immediately reflected for the
+  // tenant; a redeemed license is only consulted as a fallback below.
+  const subscription = await prisma.subscription.findFirst({
+    where: {
+      tenantId,
+      status: SubscriptionStatus.active,
+      currentPeriodStart: { lte: now },
+      currentPeriodEnd: { gte: now },
+      plan: {
+        billingCycle: { in: [BillingCycle.monthly, BillingCycle.annual] },
+      },
+    },
+    orderBy: { currentPeriodEnd: "desc" },
+    include: {
+      plan: true,
+    },
+  });
+
+  if (subscription) {
+    // Just proof the subscription was legitimately paid for at some point — not scoped
+    // to the current period window, since an admin editing the period afterward (e.g.
+    // extending it, or correcting the start date) shouldn't retroactively invalidate a
+    // real payment that's already on file.
+    const paidInvoice = await prisma.invoice.findFirst({
+      where: {
+        tenantId,
+        subscriptionId: subscription.id,
+        status: InvoiceStatus.paid,
+      },
+    });
+
+    if (paidInvoice) {
+      return {
+        isActive: true,
+        source: "subscription_invoice",
+        reason: "Tenant is active via a paid invoice for an active subscription.",
+        validUntil: toIso(subscription.currentPeriodEnd),
+      };
+    }
+  }
+
+  // Fallback: a redeemed, non-revoked license key still within its own validity window —
+  // covers a tenant activated without a matching subscription+invoice pair.
   const activeLicense = await prisma.licenseKey.findFirst({
     where: {
       tenantId,
@@ -109,57 +157,13 @@ export async function resolveTenantAccess(tenantId: string): Promise<TenantAcces
     };
   }
 
-  const subscription = await prisma.subscription.findFirst({
-    where: {
-      tenantId,
-      status: SubscriptionStatus.active,
-      currentPeriodStart: { lte: now },
-      currentPeriodEnd: { gte: now },
-      plan: {
-        billingCycle: { in: [BillingCycle.monthly, BillingCycle.annual] },
-      },
-    },
-    orderBy: { currentPeriodEnd: "desc" },
-    include: {
-      plan: true,
-    },
-  });
-
-  if (!subscription) {
-    return {
-      isActive: false,
-      source: "none",
-      reason: "No active monthly or yearly subscription found.",
-      validUntil: null,
-    };
-  }
-
-  const paidInvoice = await prisma.invoice.findFirst({
-    where: {
-      tenantId,
-      subscriptionId: subscription.id,
-      status: InvoiceStatus.paid,
-      createdAt: {
-        gte: subscription.currentPeriodStart,
-        lte: subscription.currentPeriodEnd,
-      },
-    },
-  });
-
-  if (!paidInvoice) {
-    return {
-      isActive: false,
-      source: "none",
-      reason: "No valid paid invoice found for the active subscription period.",
-      validUntil: toIso(subscription.currentPeriodEnd),
-    };
-  }
-
   return {
-    isActive: true,
-    source: "subscription_invoice",
-    reason: "Tenant is active via a paid invoice for an active subscription.",
-    validUntil: toIso(subscription.currentPeriodEnd),
+    isActive: false,
+    source: "none",
+    reason: subscription
+      ? "No valid paid invoice found for this subscription."
+      : "No active monthly or yearly subscription found.",
+    validUntil: subscription ? toIso(subscription.currentPeriodEnd) : null,
   };
 }
 
