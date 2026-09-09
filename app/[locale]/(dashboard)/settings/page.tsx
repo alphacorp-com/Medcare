@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Building, User, ShieldCheck, LayoutTemplate, Link2, Users, FileText, Loader2, Key
+  Building, User, ShieldCheck, LayoutTemplate, Link2, Users, FileText, Loader2, Key, ServerCog
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 
 // Modular Components
@@ -19,13 +20,24 @@ import { ModuleConfiguration } from "@/components/settings/module-configuration"
 import { DocumentTemplates } from "@/components/settings/document-templates";
 import { Dhis2IntegrationSettings } from "@/components/settings/dhis2-integration-settings";
 import { MobileMoneySettings } from "@/components/settings/mobile-money-settings";
+import { OnPremLicensePanel } from "@/components/settings/onprem-license-panel";
 import type { TenantAccessState } from "@/lib/tenant-licensing";
 
 export default function SettingsPage() {
+  return (
+    <Suspense fallback={null}>
+      <SettingsPageContent />
+    </Suspense>
+  );
+}
+
+function SettingsPageContent() {
   const { currentUser, activeModules, setActiveModules, setUser } = useAppStore();
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get("tab") || "profile";
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("profile");
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [profileData, setProfileData] = useState({
     fullName: "",
@@ -265,7 +277,7 @@ export default function SettingsPage() {
       </div>
 
       <div className="flex flex-col md:flex-row gap-6 flex-1 items-start">
-        <Tabs defaultValue="profile" onValueChange={setActiveTab} orientation="vertical" className="flex-1 w-full flex flex-col md:flex-row gap-8">
+        <Tabs defaultValue={initialTab} onValueChange={setActiveTab} orientation="vertical" className="flex-1 w-full flex flex-col md:flex-row gap-8">
           <TabsList className="flex flex-col justify-start h-auto bg-transparent items-stretch space-y-1 md:w-64 shrink-0 p-0">
             <TabsTrigger value="profile" className="justify-start px-4 py-2.5 text-sm rounded-md text-slate-600 transition-all data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:font-semibold data-[state=active]:shadow-none hover:bg-slate-100">
               <User className="h-4 w-4 mr-3" /> {t('user_profile')}
@@ -287,6 +299,9 @@ export default function SettingsPage() {
                 </TabsTrigger>
                 <TabsTrigger value="license" className="justify-start px-4 py-2.5 text-sm rounded-md text-slate-600 transition-all data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:font-semibold data-[state=active]:shadow-none hover:bg-slate-100">
                   <Key className="h-4 w-4 mr-3" /> {t('license_management')}
+                </TabsTrigger>
+                <TabsTrigger value="onprem_license" className="justify-start px-4 py-2.5 text-sm rounded-md text-slate-600 transition-all data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:font-semibold data-[state=active]:shadow-none hover:bg-slate-100">
+                  <ServerCog className="h-4 w-4 mr-3" /> {t('onprem_license_management')}
                 </TabsTrigger>
                 <div className="h-px bg-slate-200 my-4 mx-2"></div>
                 <TabsTrigger value="security" className="justify-start px-4 py-2.5 text-sm rounded-md text-slate-600 transition-all data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:font-semibold data-[state=active]:shadow-none hover:bg-slate-100">
@@ -415,6 +430,10 @@ export default function SettingsPage() {
                       </div>
                     </div>
                   </div>
+                </TabsContent>
+
+                <TabsContent value="onprem_license" className="m-0 mt-0 focus-visible:outline-none">
+                  <OnPremLicensePanel />
                 </TabsContent>
 
                 <TabsContent value="security" className="m-0 mt-0 focus-visible:outline-none">

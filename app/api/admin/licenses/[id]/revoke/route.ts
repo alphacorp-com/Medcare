@@ -1,9 +1,7 @@
 import { LicenseKeyStatus } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { requireSuperAdmin } from "@/lib/permissions";
+import { requireSuperAdminOrServiceAuth } from "@/lib/admin/service-auth";
 import { recordAuditEvent, extractRequestMeta } from "@/lib/audit";
 
 // POST /api/admin/licenses/[id]/revoke
@@ -11,10 +9,9 @@ import { recordAuditEvent, extractRequestMeta } from "@/lib/audit";
 // was the missing incident-response lever: if a key leaks, there was previously no
 // way to invalidate it before a tenant (or anyone who obtained it) redeems it.
 export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
-  const session = await getServerSession(authOptions);
-  const permCheck = requireSuperAdmin(session);
-  if (!permCheck.ok) {
-    return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
+  const auth = await requireSuperAdminOrServiceAuth(request);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
 
   const { id } = await context.params;
@@ -42,11 +39,12 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     const { ipAddress, userAgent } = extractRequestMeta(request.headers);
     await recordAuditEvent({
       tenantId: license.tenantId,
-      actorId: session!.user.id,
-      actorType: "admin",
+      actorId: auth.actorId,
+      actorType: auth.actorType,
       action: "license.revoked",
       resourceType: "license_key",
       resourceId: id,
+      payload: auth.actorType === "api" ? { viaService: "alphacorp", actorLabel: auth.actorLabel } : undefined,
       ipAddress,
       userAgent,
     });

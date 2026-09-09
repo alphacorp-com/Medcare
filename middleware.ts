@@ -40,7 +40,23 @@ export default async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL(`/${locale}/`, request.url));
   }
 
-  return handleI18nRouting(request);
+  // Forward the current pathname to Server Components via a request header —
+  // layouts (e.g. the dashboard layout's on-prem license guard) don't otherwise
+  // have access to it, and need it to avoid redirecting /settings back to itself.
+  const forwardedHeaders = new Headers(request.headers);
+  forwardedHeaders.set('x-pathname', pathname);
+  const withPathname = NextResponse.next({ request: { headers: forwardedHeaders } });
+
+  const intlResponse = handleI18nRouting(request);
+  if (intlResponse.headers.get('location')) {
+    // next-intl decided to redirect (e.g. bare "/" to the default locale) —
+    // no Server Component render happens for this response.
+    return intlResponse;
+  }
+  intlResponse.headers.forEach((value, key) => {
+    withPathname.headers.set(key, value);
+  });
+  return withPathname;
 }
 
 export const config = {

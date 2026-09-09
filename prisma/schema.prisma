@@ -741,6 +741,34 @@ model LicenseKey {
   @@schema("public")
 }
 
+// -----------------------------------------------------------------------------
+// On-premise install licensing (separate from the multi-tenant SaaS licensing
+// above — this install has no shared DB with AlphaCorp, so licenses are issued
+// remotely and applied here as a signed token). Single mutable row: this
+// install has exactly one currently-applied license at a time.
+// -----------------------------------------------------------------------------
+model OnPremLicense {
+  id              String   @id @default("current")
+  token           String   @map("token") @db.Text
+  jti             String   @map("jti")
+  clientId        String   @map("client_id")
+  tier            String   @map("tier")
+  modules         String[] @map("modules")
+  maxUsers        Int?     @map("max_users")
+  maxBeds         Int?     @map("max_beds")
+  validFrom       DateTime @map("valid_from") @db.Timestamptz
+  validUntil      DateTime @map("valid_until") @db.Timestamptz
+  gracePeriodDays Int      @map("grace_period_days")
+  fingerprint     String   @map("fingerprint")
+  channel         String   @map("channel")
+  appliedAt       DateTime @default(now()) @map("applied_at") @db.Timestamptz
+  lastKnownGoodAt DateTime @map("last_known_good_at") @db.Timestamptz
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("onprem_license")
+  @@schema("public")
+}
+
 // =============================================================================
 // 4. TENANT SCHEMA — Données métier (schema_template)
 // =============================================================================

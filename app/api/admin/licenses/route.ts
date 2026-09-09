@@ -1,10 +1,8 @@
 import { BillingCycle, LicenseKeyStatus } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { createLicenseKey, hashLicenseKey } from "@/lib/tenant-licensing";
-import { requireSuperAdmin } from "@/lib/permissions";
+import { requireAdminOrServiceAuth, requireSuperAdminOrServiceAuth } from "@/lib/admin/service-auth";
 import { recordAuditEvent, extractRequestMeta } from "@/lib/audit";
 
 function normalizePeriod(input: string): BillingCycle | null {
@@ -13,10 +11,10 @@ function normalizePeriod(input: string): BillingCycle | null {
   return null;
 }
 
-export async function GET() {
-  const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "admin") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export async function GET(request: NextRequest) {
+  const auth = await requireAdminOrServiceAuth(request);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
 
   try {
@@ -57,10 +55,9 @@ export async function GET() {
 // Issuing a license key grants a tenant full paid access — restricted to super_admin,
 // consistent with the platform's other financial/access-granting actions.
 export async function POST(request: NextRequest) {
-  const session = await getServerSession(authOptions);
-  const permCheck = requireSuperAdmin(session);
-  if (!permCheck.ok) {
-    return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
+  const auth = await requireSuperAdminOrServiceAuth(request);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
 
   try {
@@ -122,18 +119,23 @@ export async function POST(request: NextRequest) {
         keyHash,
         keyPreview,
         status: LicenseKeyStatus.generated,
-        issuedBy: session!.user.id,
+        issuedBy: auth.actorId,
       },
     });
 
     const { ipAddress, userAgent } = extractRequestMeta(request.headers);
     await recordAuditEvent({
-      actorId: session!.user.id,
-      actorType: "admin",
+      actorId: auth.actorId,
+      actorType: auth.actorType,
       action: "license.generated",
       resourceType: "license_key",
       resourceId: license.id,
-      payload: { tenantId: subscription.tenant.id, subscriptionId, period: normalizedPeriod },
+      payload: {
+        tenantId: subscription.tenant.id,
+        subscriptionId,
+        period: normalizedPeriod,
+        ...(auth.actorType === "api" ? { viaService: "alphacorp", actorLabel: auth.actorLabel } : {}),
+      },
       ipAddress,
       userAgent,
     });

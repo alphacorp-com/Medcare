@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
 import { syncTenantStatus } from "@/lib/subscription-sync";
 import prisma from "@/lib/prisma";
+import { requireAdminOrServiceAuth } from "@/lib/admin/service-auth";
 
 /**
  * POST /api/admin/tenants/[id]/sync-status
@@ -13,10 +12,10 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
+    const auth = await requireAdminOrServiceAuth(request);
 
-    if (!session || session.user.role !== "admin") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
 
     const { id: tenantId } = await params;

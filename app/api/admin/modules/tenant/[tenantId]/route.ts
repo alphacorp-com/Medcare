@@ -1,8 +1,7 @@
 import { ModuleStatus } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import prisma from "@/lib/prisma";
-import { authOptions } from "@/lib/auth";
+import { requireAdminOrServiceAuth } from "@/lib/admin/service-auth";
 
 type IncomingModuleAssignment = {
   moduleId: string;
@@ -13,9 +12,9 @@ type IncomingModuleAssignment = {
 
 export async function PUT(request: NextRequest, context: { params: Promise<{ tenantId: string }> }) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== "admin") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const auth = await requireAdminOrServiceAuth(request);
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
 
     const { tenantId } = await context.params;
@@ -41,7 +40,7 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ ten
             status: entry.status,
             activatedAt: entry.status === "active" ? new Date() : null,
             expiresAt: entry.expiresAt ? new Date(entry.expiresAt) : null,
-            activatedBy: session.user.id,
+            activatedBy: auth.actorId,
             notes: entry.notes || null,
           },
           update: {
