@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Building, User, ShieldCheck, LayoutTemplate, Link2, Users, FileText, Loader2, Key
+  Building, User, ShieldCheck, Database, LayoutTemplate, Link2, Users, FileText, Loader2, Key
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
@@ -13,13 +13,11 @@ import { useTranslations } from "next-intl";
 // Modular Components
 import { UsersManagement } from "@/components/settings/users-management";
 import { ProfileSettings } from "@/components/settings/profile-settings";
-import { ChangePasswordCard } from "@/components/settings/change-password-card";
 import { OrganizationSettings } from "@/components/settings/organization-settings";
 import { ModuleConfiguration } from "@/components/settings/module-configuration";
 import { DocumentTemplates } from "@/components/settings/document-templates";
 import { Dhis2IntegrationSettings } from "@/components/settings/dhis2-integration-settings";
 import { MobileMoneySettings } from "@/components/settings/mobile-money-settings";
-import type { TenantAccessState } from "@/lib/tenant-licensing";
 
 export default function SettingsPage() {
   const { currentUser, activeModules, setActiveModules, setUser } = useAppStore();
@@ -30,7 +28,9 @@ export default function SettingsPage() {
   const [profileData, setProfileData] = useState({
     fullName: "",
     email: "",
-    language: "en"
+    language: "en",
+    password: "",
+    confirmPassword: ""
   });
 
   // Organization State
@@ -52,18 +52,21 @@ export default function SettingsPage() {
     watermark: false
   });
 
+  // Database Backup State
+  const [isBackingUp, setIsBackingUp] = useState(false);
+  const [backupHistory, setBackupHistory] = useState<any[]>([]);
+
   // License Management State
   const [licenseKey, setLicenseKey] = useState("");
   const [isRedeeming, setIsRedeeming] = useState(false);
   const [licenseError, setLicenseError] = useState<string | null>(null);
   const [licenseSuccess, setLicenseSuccess] = useState<string | null>(null);
-  const [currentSubscription, setCurrentSubscription] = useState<TenantAccessState | null>(null);
+  const [currentSubscription, setCurrentSubscription] = useState<any>(null);
 
   const t = useTranslations('settings');
   const tc = useTranslations('common');
   const tp = useTranslations('patients');
   const tadm = useTranslations('admissions');
-  const tappt = useTranslations('appointments');
   const tph = useTranslations('pharmacy');
   const tlab = useTranslations('lab');
   const trad = useTranslations('radiology');
@@ -80,9 +83,10 @@ export default function SettingsPage() {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const [orgRes, tplRes, licenseRes] = await Promise.all([
+        const [orgRes, tplRes, backupRes, licenseRes] = await Promise.all([
           fetch('/api/v1/settings/organization'),
           fetch('/api/v1/settings/templates'),
+          isSysAdmin ? fetch('/api/v1/settings/database') : Promise.resolve(null),
           isSysAdmin ? fetch('/api/v1/licensing/status') : Promise.resolve(null)
         ]);
 
@@ -102,6 +106,11 @@ export default function SettingsPage() {
         if (tplRes.ok) {
           const data = await tplRes.json();
           setTemplateSettings(prev => ({ ...prev, ...data }));
+        }
+
+        if (backupRes && backupRes.ok) {
+          const data = await backupRes.json();
+          setBackupHistory(data.backups || []);
         }
 
         if (licenseRes && licenseRes.ok) {
@@ -133,7 +142,6 @@ export default function SettingsPage() {
   const APP_MODULES = [
     { id: "MODULE_CORE_PATIENT", name: tp('module_title'), desc: tp('module_desc'), required: true },
     { id: "MODULE_ADMISSION", name: tadm('title'), desc: tadm('description') },
-    { id: "MODULE_APPOINTMENTS", name: tappt('module_title'), desc: tappt('module_desc') },
     { id: "MODULE_PHARMACY", name: tph('title'), desc: tph('description') },
     { id: "MODULE_LAB", name: tlab('title'), desc: tlab('description') },
     { id: "MODULE_SURGERY", name: tsurg('title'), desc: tsurg('description') },
@@ -164,12 +172,24 @@ export default function SettingsPage() {
           return;
         }
 
+        if (profileData.password || profileData.confirmPassword) {
+          if (profileData.password !== profileData.confirmPassword) {
+            setProfileError(tc('password_mismatch'));
+            return;
+          }
+          if (profileData.password.length > 0 && profileData.password.length < 8) {
+            setProfileError(tc('password_min_length'));
+            return;
+          }
+        }
+
         const response = await fetch(`/api/v1/users/${currentUser?.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             fullName: profileData.fullName,
-            email: profileData.email
+            email: profileData.email,
+            password: profileData.password || undefined
           })
         });
 
@@ -185,6 +205,11 @@ export default function SettingsPage() {
           fullName: updatedUser.fullName,
           email: updatedUser.email,
           role: updatedUser.role
+        });
+        setProfileData({
+          ...profileData,
+          password: "",
+          confirmPassword: ""
         });
       } else if (activeTab === "organization") {
         await fetch('/api/v1/settings/organization', {
@@ -209,6 +234,63 @@ export default function SettingsPage() {
     }
   };
 
+  const handleDownloadBackup = async (filename: string) => {
+    try {
+      const response = await fetch('/api/v1/settings/database', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename })
+      });
+
+      if (response.ok) {
+        // Create a blob from the response and trigger download
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } else {
+        const error = await response.json();
+        alert(`Erreur lors du téléchargement: ${error.error}`);
+      }
+    } catch (error) {
+      console.error("Failed to download backup:", error);
+      alert("Erreur lors du téléchargement de la sauvegarde");
+    }
+  };
+
+  const handleCreateBackup = async () => {
+    setIsBackingUp(true);
+    try {
+      const response = await fetch('/api/v1/settings/database', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Refresh backup history
+        const backupRes = await fetch('/api/v1/settings/database');
+        if (backupRes.ok) {
+          const backupData = await backupRes.json();
+          setBackupHistory(backupData.backups || []);
+        }
+        alert(`Sauvegarde créée avec succès: ${data.backupFile} (${data.size})`);
+      } else {
+        const error = await response.json();
+        alert(`Erreur lors de la sauvegarde: ${error.error}`);
+      }
+    } catch (error) {
+      console.error("Failed to create backup:", error);
+      alert("Erreur lors de la création de la sauvegarde");
+    } finally {
+      setIsBackingUp(false);
+    }
+  };
 
   const handleRedeemLicense = async () => {
     if (!licenseKey.trim()) {
@@ -285,6 +367,9 @@ export default function SettingsPage() {
                 <TabsTrigger value="templates" className="justify-start px-4 py-2.5 text-sm rounded-md text-slate-600 transition-all data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:font-semibold data-[state=active]:shadow-none hover:bg-slate-100">
                   <FileText className="h-4 w-4 mr-3" /> {ttpl('title')}
                 </TabsTrigger>
+                <TabsTrigger value="database" className="justify-start px-4 py-2.5 text-sm rounded-md text-slate-600 transition-all data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:font-semibold data-[state=active]:shadow-none hover:bg-slate-100">
+                  <Database className="h-4 w-4 mr-3" /> {t('database_backup')}
+                </TabsTrigger>
                 <TabsTrigger value="license" className="justify-start px-4 py-2.5 text-sm rounded-md text-slate-600 transition-all data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:font-semibold data-[state=active]:shadow-none hover:bg-slate-100">
                   <Key className="h-4 w-4 mr-3" /> {t('license_management')}
                 </TabsTrigger>
@@ -300,7 +385,7 @@ export default function SettingsPage() {
           </TabsList>
 
           <div className="flex-1 max-w-3xl min-w-0">
-            <TabsContent value="profile" className="m-0 mt-0 focus-visible:outline-none space-y-6">
+            <TabsContent value="profile" className="m-0 mt-0 focus-visible:outline-none">
               <ProfileSettings
                 currentUser={currentUser}
                 profileData={profileData}
@@ -309,7 +394,6 @@ export default function SettingsPage() {
                 tc={tc}
                 error={profileError}
               />
-              <ChangePasswordCard t={t} tc={tc} />
             </TabsContent>
 
             {isSysAdmin && (
@@ -339,6 +423,63 @@ export default function SettingsPage() {
                     setTemplateSettings={setTemplateSettings} 
                     ttpl={ttpl} 
                   />
+                </TabsContent>
+
+                <TabsContent value="database" className="m-0 mt-0 focus-visible:outline-none">
+                  <div className="bg-white rounded border border-slate-200 shadow-sm p-6 space-y-6">
+                    <div>
+                      <h2 className="text-lg font-bold text-slate-900">{t('database_backup')}</h2>
+                      <p className="text-xs text-slate-500">{t('database_backup_desc')}</p>
+                    </div>
+
+                    <div className="p-6 text-center border-2 border-dashed border-slate-200 rounded-lg bg-amber-50/30">
+                      <Database className="h-10 w-10 text-amber-300 mx-auto mb-3" />
+                      <h3 className="text-sm font-bold text-amber-800">{t('backup_database')}</h3>
+                      <p className="text-xs text-amber-600/70 mt-1 max-w-sm mx-auto">{t('backup_database_desc')}</p>
+                      <Button
+                        onClick={handleCreateBackup}
+                        disabled={isBackingUp}
+                        variant="outline"
+                        size="sm"
+                        className="mt-4 border-amber-200 text-amber-700 hover:bg-amber-50 text-xs"
+                      >
+                        {isBackingUp ? (
+                          <>
+                            <Loader2 className="h-3 w-3 animate-spin mr-2" />
+                            {tc('saving')}
+                          </>
+                        ) : (
+                          t('create_backup')
+                        )}
+                      </Button>
+                    </div>
+
+                    {backupHistory.length > 0 && (
+                      <div className="space-y-3">
+                        <h3 className="text-sm font-semibold text-slate-700">Historique des sauvegardes</h3>
+                        <div className="space-y-2 max-h-48 overflow-y-auto">
+                          {backupHistory.map((backup, index) => (
+                            <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded border">
+                              <div className="flex-1">
+                                <p className="text-sm font-medium text-slate-800">{backup.filename}</p>
+                                <p className="text-xs text-slate-500">
+                                  {new Date(backup.createdAt).toLocaleString()} • {backup.size}
+                                </p>
+                              </div>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="text-xs text-slate-600 hover:text-slate-800"
+                                onClick={() => handleDownloadBackup(backup.filename)}
+                              >
+                                {t('download_backup')}
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </TabsContent>
 
                 <TabsContent value="license" className="m-0 mt-0 focus-visible:outline-none">

@@ -72,7 +72,7 @@ export function StaysTable({ stays, loading, error, view = "all" }: StaysTablePr
                         : "bg-slate-100 text-slate-700"
                     )}
                   >
-                    {t(`type_${stay.type}`)}
+                    {stay.type}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-slate-600">
@@ -109,7 +109,7 @@ export function StaysTable({ stays, loading, error, view = "all" }: StaysTablePr
                           : "text-slate-600 bg-slate-100"
                       )}
                     >
-                      {tc(`status_${stay.status}`)}
+                      {stay.status}
                     </span>
                   )}
                 </td>

@@ -64,12 +64,7 @@ export function TransferSheet({
             <form id="transfer-form" onSubmit={onSubmit} className="space-y-6">
               <div className="space-y-2.5">
                 <Label className="text-xs font-bold uppercase text-slate-400 tracking-wider ml-1">{t('new_dept_id')}</Label>
-                <Select
-                  name="departmentId"
-                  value={deptId}
-                  onValueChange={(v) => { setDeptId(v ?? ""); setBedId(""); }}
-                  items={departments.map((dept) => ({ value: dept.id, label: `${dept.name} (${dept.code})` }))}
-                >
+                <Select name="departmentId" value={deptId} onValueChange={(v) => { setDeptId(v ?? ""); setBedId(""); }}>
                   <SelectTrigger className="h-11 rounded-xl border-slate-200 focus:ring-slate-900 transition-all">
                     <SelectValue placeholder={t('new_dept_placeholder')} />
                   </SelectTrigger>
@@ -83,15 +78,7 @@ export function TransferSheet({
 
               <div className="space-y-2.5">
                 <Label className="text-xs font-bold uppercase text-slate-400 tracking-wider ml-1">{t('new_bed_id')}</Label>
-                <Select
-                  name="bedId"
-                  value={bedId}
-                  onValueChange={(v) => setBedId(v ?? "")}
-                  disabled={!deptId}
-                  items={beds
-                    .filter((b) => b.departmentId === deptId && (b.status === "available" || b.id === stay.bedId))
-                    .map((b) => ({ value: b.id, label: b.label }))}
-                >
+                <Select name="bedId" value={bedId} onValueChange={(v) => setBedId(v ?? "")} disabled={!deptId}>
                   <SelectTrigger className="h-11 rounded-xl border-slate-200 focus:ring-slate-900 transition-all">
                     <SelectValue placeholder={t('new_bed_placeholder')} />
                   </SelectTrigger>
@@ -107,14 +94,7 @@ export function TransferSheet({
 
               <div className="space-y-2.5">
                 <Label className="text-xs font-bold uppercase text-slate-400 tracking-wider ml-1">{t('attending_doctor_id')}</Label>
-                <Select
-                  name="attendingDoctorId"
-                  defaultValue={stay.attendingDoctorId || ""}
-                  items={doctors.map((doc) => ({
-                    value: doc.id,
-                    label: `Dr. ${doc.fullName}${doc.specialty ? ` — ${doc.specialty}` : ""}`,
-                  }))}
-                >
+                <Select name="attendingDoctorId" defaultValue={stay.attendingDoctorId || ""}>
                   <SelectTrigger className="h-11 rounded-xl border-slate-200 focus:ring-slate-900 transition-all">
                     <SelectValue placeholder={t('attending_doctor_placeholder')} />
                   </SelectTrigger>

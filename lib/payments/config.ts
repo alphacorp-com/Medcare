@@ -1,5 +1,4 @@
 import prisma from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
 import { decryptSecret } from "./crypto";
 import type { OrangeMoneyConfig, MtnMomoConfig } from "./mobile-money/types";
 
@@ -38,8 +37,8 @@ export async function saveMobileMoneyConfig(
 ): Promise<void> {
   await prisma.tenantSetting.upsert({
     where: { tenantId_key: { tenantId, key: MOBILE_MONEY_SETTING_KEY } },
-    create: { tenantId, key: MOBILE_MONEY_SETTING_KEY, value: config as unknown as Prisma.InputJsonValue, updatedBy },
-    update: { value: config as unknown as Prisma.InputJsonValue, updatedBy },
+    create: { tenantId, key: MOBILE_MONEY_SETTING_KEY, value: config as any, updatedBy },
+    update: { value: config as any, updatedBy },
   });
 }
 

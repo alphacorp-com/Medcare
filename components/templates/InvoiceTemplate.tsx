@@ -1,6 +1,5 @@
 import React from 'react';
 import { Page, Text, View, Document, StyleSheet, Image } from '@react-pdf/renderer';
-import type { PdfInvoiceData, PdfLabels } from './types';
 
 const styles = StyleSheet.create({
   page: {
@@ -85,7 +84,7 @@ const styles = StyleSheet.create({
 });
 
 interface InvoiceTemplateProps {
-  invoice: PdfInvoiceData;
+  invoice: any;
   facility: {
     name: string;
     address: string;
@@ -100,7 +99,7 @@ interface InvoiceTemplateProps {
     digitalSignature: boolean;
     watermark: boolean;
   };
-  labels: PdfLabels;
+  labels: any;
 }
 
 export const InvoiceTemplate = ({ invoice, facility, settings, labels }: InvoiceTemplateProps) => (
@@ -149,7 +148,7 @@ export const InvoiceTemplate = ({ invoice, facility, settings, labels }: Invoice
           <View style={{ flex: 1, textAlign: 'right' }}><Text>{labels.qty}</Text></View>
           <View style={{ flex: 1, textAlign: 'right' }}><Text>{labels.amount}</Text></View>
         </View>
-        {invoice.items.map((item, i) => (
+        {invoice.items.map((item: any, i: number) => (
           <View key={i} style={styles.tableRow}>
             <View style={{ flex: 3 }}><Text>{item.description}</Text></View>
             <View style={{ flex: 1, textAlign: 'right' }}><Text>{item.quantity}</Text></View>
@@ -159,7 +158,7 @@ export const InvoiceTemplate = ({ invoice, facility, settings, labels }: Invoice
       </View>
 
       <View style={{ marginTop: 20, alignItems: 'flex-end' }}>
-        <View style={{ width: 220 }}>
+        <View style={{ width: 150 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 }}>
             <Text>{labels.subtotal}:</Text>
             <Text>{invoice.subtotal} XAF</Text>
@@ -168,18 +167,6 @@ export const InvoiceTemplate = ({ invoice, facility, settings, labels }: Invoice
             <Text>{labels.total}:</Text>
             <Text>{invoice.total} XAF</Text>
           </View>
-          {invoice.insuranceAmount !== undefined && (
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 }}>
-              <Text>{invoice.insuranceAmount > 0 ? labels.insurance_discount_applied : labels.no_insurance_discount}:</Text>
-              <Text>{invoice.insuranceAmount > 0 ? `${invoice.insuranceAmount} XAF` : '—'}</Text>
-            </View>
-          )}
-          {Boolean(invoice.refundDue && invoice.refundDue > 0) && (
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4, marginTop: 4 }}>
-              <Text style={{ color: '#15803d', fontWeight: 'bold' }}>{labels.refund_due}:</Text>
-              <Text style={{ color: '#15803d', fontWeight: 'bold' }}>{invoice.refundDue} XAF</Text>
-            </View>
-          )}
         </View>
       </View>
 

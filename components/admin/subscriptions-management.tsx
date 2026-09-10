@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Edit, Plus, Ban, Copy, Check } from "lucide-react";
+import { Edit, Plus } from "lucide-react";
 
 interface TenantOption {
   id: string;
@@ -63,8 +63,6 @@ export function SubscriptionsManagement() {
   const [subscriptions, setSubscriptions] = useState<SubscriptionRow[]>([]);
   const [selectedSubscription, setSelectedSubscription] = useState("");
   const [generatedKey, setGeneratedKey] = useState<string | null>(null);
-  const [keyCopied, setKeyCopied] = useState(false);
-  const [revokingId, setRevokingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [subscriptionForm, setSubscriptionForm] = useState({
     tenantId: "",
@@ -116,7 +114,6 @@ export function SubscriptionsManagement() {
     setGenerating(true);
     setError(null);
     setGeneratedKey(null);
-    setKeyCopied(false);
     try {
       const response = await fetch("/api/admin/licenses", {
         method: "POST",
@@ -194,34 +191,6 @@ export function SubscriptionsManagement() {
       setError(message);
     } finally {
       setSavingSubscription(false);
-    }
-  };
-
-  const handleCopyKey = async () => {
-    if (!generatedKey) return;
-    try {
-      await navigator.clipboard.writeText(generatedKey);
-      setKeyCopied(true);
-      setTimeout(() => setKeyCopied(false), 2000);
-    } catch (err) {
-      console.error("Failed to copy license key:", err);
-    }
-  };
-
-  const handleRevoke = async (licenseId: string) => {
-    if (!window.confirm("Revoke this license key? It will no longer be redeemable.")) return;
-    setRevokingId(licenseId);
-    setError(null);
-    try {
-      const response = await fetch(`/api/admin/licenses/${licenseId}/revoke`, { method: "POST" });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload?.error || "Failed to revoke license key.");
-      await fetchLicensingData();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to revoke license key.";
-      setError(message);
-    } finally {
-      setRevokingId(null);
     }
   };
 
@@ -304,14 +273,7 @@ export function SubscriptionsManagement() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <p className="text-sm font-medium">Subscription</p>
-            <Select
-              value={selectedSubscription}
-              onValueChange={(value) => setSelectedSubscription(value || "")}
-              items={subscriptions.map((subscription) => ({
-                value: subscription.id,
-                label: `${subscription.tenant.name} / ${subscription.plan.name} (${subscription.plan.billingCycle}) — ${subscription.status}`,
-              }))}
-            >
+            <Select value={selectedSubscription} onValueChange={(value) => setSelectedSubscription(value || "")}> 
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select subscription" />
               </SelectTrigger>
@@ -327,28 +289,9 @@ export function SubscriptionsManagement() {
 
           {error ? <p className="text-sm text-red-600">{error}</p> : null}
           {generatedKey ? (
-            <div className="rounded border border-emerald-200 bg-emerald-50 p-3 flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm text-emerald-700">Generated key</p>
-                <p className="font-mono text-lg font-semibold tracking-wide text-emerald-900">{generatedKey}</p>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="shrink-0 border-emerald-300 text-emerald-700 hover:bg-emerald-100"
-                onClick={handleCopyKey}
-              >
-                {keyCopied ? (
-                  <>
-                    <Check className="h-4 w-4 mr-1.5" /> Copied
-                  </>
-                ) : (
-                  <>
-                    <Copy className="h-4 w-4 mr-1.5" /> Copy
-                  </>
-                )}
-              </Button>
+            <div className="rounded border border-emerald-200 bg-emerald-50 p-3">
+              <p className="text-sm text-emerald-700">Generated key</p>
+              <p className="font-mono text-lg font-semibold tracking-wide text-emerald-900">{generatedKey}</p>
             </div>
           ) : null}
 
@@ -374,7 +317,6 @@ export function SubscriptionsManagement() {
                 <TableHead>Status</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead>Valid Until</TableHead>
-                <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -391,27 +333,11 @@ export function SubscriptionsManagement() {
                   <TableCell>
                     {license.validUntil ? new Date(license.validUntil).toLocaleDateString() : "-"}
                   </TableCell>
-                  <TableCell>
-                    {license.status === "generated" ? (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-red-600 hover:text-red-700"
-                        disabled={revokingId === license.id}
-                        onClick={() => handleRevoke(license.id)}
-                      >
-                        <Ban className="h-4 w-4 mr-1.5" />
-                        {revokingId === license.id ? "Revoking..." : "Revoke"}
-                      </Button>
-                    ) : (
-                      "—"
-                    )}
-                  </TableCell>
                 </TableRow>
               ))}
               {licenses.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-gray-500 py-8">
+                  <TableCell colSpan={7} className="text-center text-gray-500 py-8">
                     No license keys generated yet.
                   </TableCell>
                 </TableRow>
@@ -436,7 +362,6 @@ export function SubscriptionsManagement() {
                 value={subscriptionForm.tenantId}
                 onValueChange={(value) => setSubscriptionForm((prev) => ({ ...prev, tenantId: value || "" }))}
                 disabled={Boolean(editingSubscription)}
-                items={tenants.map((tenant) => ({ value: tenant.id, label: tenant.name }))}
               >
                 <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -448,11 +373,7 @@ export function SubscriptionsManagement() {
             </div>
             <div className="space-y-2">
               <p className="text-sm font-medium">Plan</p>
-              <Select
-                value={subscriptionForm.planId}
-                onValueChange={(value) => setSubscriptionForm((prev) => ({ ...prev, planId: value || "" }))}
-                items={plans.map((plan) => ({ value: plan.id, label: `${plan.name} (${plan.billingCycle})` }))}
-              >
+              <Select value={subscriptionForm.planId} onValueChange={(value) => setSubscriptionForm((prev) => ({ ...prev, planId: value || "" }))}>
                 <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {plans.map((plan) => (
@@ -478,16 +399,7 @@ export function SubscriptionsManagement() {
             </div>
             <div className="space-y-2">
               <p className="text-sm font-medium">Status</p>
-              <Select
-                value={subscriptionForm.status}
-                onValueChange={(value) => setSubscriptionForm((prev) => ({ ...prev, status: value || "" }))}
-                items={[
-                  { value: "trial", label: "trial" },
-                  { value: "active", label: "active" },
-                  { value: "past_due", label: "past_due" },
-                  { value: "cancelled", label: "cancelled" },
-                ]}
-              >
+              <Select value={subscriptionForm.status} onValueChange={(value) => setSubscriptionForm((prev) => ({ ...prev, status: value || "" }))}>
                 <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="trial">trial</SelectItem>

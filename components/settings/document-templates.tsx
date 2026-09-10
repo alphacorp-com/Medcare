@@ -2,19 +2,16 @@ import { Button } from "@/components/ui/button";
 import { FileText, Printer, ShieldCheck, Eye } from "lucide-react";
 import { useState } from "react";
 import { PDFPreviewModal } from "../templates/PDFPreviewModal";
-import type { OrgData } from "./organization-settings";
-
-interface TemplateSettings {
-  showLogo: boolean;
-  includeQR: boolean;
-  digitalSignature: boolean;
-  watermark: boolean;
-}
 
 interface DocumentTemplatesProps {
-  facility: OrgData;
-  templateSettings: TemplateSettings;
-  setTemplateSettings: (data: TemplateSettings) => void;
+  facility: any;
+  templateSettings: {
+    showLogo: boolean;
+    includeQR: boolean;
+    digitalSignature: boolean;
+    watermark: boolean;
+  };
+  setTemplateSettings: (data: any) => void;
   ttpl: (key: string) => string;
 }
 
@@ -23,7 +20,6 @@ export function DocumentTemplates({ facility, templateSettings, setTemplateSetti
 
   const templates = [
     { id: 'invoices', name: ttpl('invoices_title'), desc: ttpl('invoices_desc') },
-    { id: 'receipts', name: ttpl('receipts_title'), desc: ttpl('receipts_desc') },
     { id: 'patient_lists', name: ttpl('patient_lists_title'), desc: ttpl('patient_lists_desc') },
     { id: 'medications', name: ttpl('medications_title'), desc: ttpl('medications_desc') },
     { id: 'stock_reports', name: ttpl('stock_reports_title'), desc: ttpl('stock_reports_desc') },
@@ -80,21 +76,19 @@ export function DocumentTemplates({ facility, templateSettings, setTemplateSetti
             <h4 className="text-sm font-bold text-slate-800">{ttpl('global_branding')}</h4>
             <p className="text-xs text-slate-500 mt-0.5">{ttpl('global_branding_desc')}</p>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-              {(
-                [
-                  { id: 'showLogo', label: ttpl('show_logo') },
-                  { id: 'includeQR', label: ttpl('include_qr') },
-                  { id: 'digitalSignature', label: ttpl('digital_signature') },
-                  { id: 'watermark', label: ttpl('confidentiality_watermark') },
-                ] satisfies { id: keyof TemplateSettings; label: string }[]
-              ).map((setting) => (
+              {[
+                { id: 'showLogo', label: ttpl('show_logo') },
+                { id: 'includeQR', label: ttpl('include_qr') },
+                { id: 'digitalSignature', label: ttpl('digital_signature') },
+                { id: 'watermark', label: ttpl('confidentiality_watermark') },
+              ].map((setting) => (
                 <div key={setting.id} className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
+                  <input 
+                    type="checkbox" 
                     id={setting.id}
-                    checked={templateSettings[setting.id]}
+                    checked={(templateSettings as any)[setting.id]} 
                     onChange={(e) => setTemplateSettings({...templateSettings, [setting.id]: e.target.checked})}
-                    className="rounded border-slate-300 text-blue-600"
+                    className="rounded border-slate-300 text-blue-600" 
                   />
                   <label htmlFor={setting.id} className="text-[11px] text-slate-600 cursor-pointer">{setting.label}</label>
                 </div>
@@ -104,18 +98,11 @@ export function DocumentTemplates({ facility, templateSettings, setTemplateSetti
         </div>
       </div>
 
-      <PDFPreviewModal
-        isOpen={!!previewTemplate}
+      <PDFPreviewModal 
+        isOpen={!!previewTemplate} 
         onClose={() => setPreviewTemplate(null)}
         templateId={previewTemplate || ''}
-        facility={{
-          name: facility.name,
-          address: facility.address,
-          phone: facility.contactPhone,
-          email: facility.contactEmail,
-          logoUrl: facility.logoUrl || undefined,
-          taxId: facility.taxId || undefined,
-        }}
+        facility={facility}
         settings={templateSettings}
       />
     </div>

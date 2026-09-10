@@ -12,23 +12,21 @@ import { PDFViewer } from "@react-pdf/renderer";
 // );
 
 import { InvoiceTemplate } from './InvoiceTemplate';
-import { PrescriptionTemplate, type PrescriptionData } from './PrescriptionTemplate';
-import { LabResultTemplate, type LabResultData } from './LabResultTemplate';
-import { PatientListTemplate, type PatientListData } from './PatientListTemplate';
+import { PrescriptionTemplate } from './PrescriptionTemplate';
+import { LabResultTemplate } from './LabResultTemplate';
+import { PatientListTemplate } from './PatientListTemplate';
 import { StockReportTemplate } from './StockReportTemplate';
-import { PatientFileTemplate, type PatientFileData } from './PatientFileTemplate';
+import { PatientFileTemplate } from './PatientFileTemplate';
 import { MedicationGuideTemplate } from './MedicationGuideTemplate';
-import { ReceiptTemplate } from './ReceiptTemplate';
 import { useTranslations } from 'next-intl';
-import type { PdfFacility, PdfInvoiceData, PdfReceiptData, PdfSettings } from './types';
 
 interface PDFPreviewModalProps {
   isOpen: boolean;
   onClose: () => void;
   templateId: string;
-  facility: PdfFacility;
-  settings: PdfSettings;
-  data?: unknown;
+  facility: any;
+  settings: any;
+  data?: any;
 }
 
 export function PDFPreviewModal({ isOpen, onClose, templateId, facility, settings, data }: PDFPreviewModalProps) {
@@ -105,15 +103,7 @@ export function PDFPreviewModal({ isOpen, onClose, templateId, facility, setting
     best_time: tDocs('best_time'),
     warnings: tDocs('warnings'),
     side_effects: tDocs('side_effects'),
-    not_applicable: tCommon('not_applicable'),
-    insurance_discount_applied: tDocs('insurance_discount_applied'),
-    no_insurance_discount: tDocs('no_insurance_discount'),
-    refund_due: tDocs('refund_due'),
-    receipt: tDocs('receipt'),
-    payment_method: tDocs('payment_method'),
-    amount_paid: tDocs('amount_paid'),
-    balance_remaining: tDocs('balance_remaining'),
-    paid_in_full: tDocs('paid_in_full'),
+    not_applicable: tCommon('not_applicable')
   };
 
   const getTemplate = () => {
@@ -121,7 +111,7 @@ export function PDFPreviewModal({ isOpen, onClose, templateId, facility, setting
       case 'invoices':
         return (
           <InvoiceTemplate
-            invoice={(data as { invoice?: PdfInvoiceData } | undefined)?.invoice ?? {
+            invoice={data?.invoice ?? {
               number: 'INV-2024-001',
               date: new Date().toLocaleDateString(),
               patientName: 'John Doe',
@@ -143,7 +133,7 @@ export function PDFPreviewModal({ isOpen, onClose, templateId, facility, setting
       case 'prescriptions':
         return (
           <PrescriptionTemplate
-            data={(data as PrescriptionData | undefined) ?? {
+            data={{
               patientName: 'Jane Smith',
               patientAge: '28y',
               patientGender: 'Female',
@@ -164,7 +154,7 @@ export function PDFPreviewModal({ isOpen, onClose, templateId, facility, setting
       case 'lab_results':
         return (
           <LabResultTemplate
-            data={(data as LabResultData | undefined) ?? {
+            data={{
               patientName: 'Robert Brown',
               patientIpp: '987654',
               orderId: 'LAB-5542',
@@ -183,30 +173,10 @@ export function PDFPreviewModal({ isOpen, onClose, templateId, facility, setting
             labels={labels}
           />
         );
-      case 'receipts':
-        return (
-          <ReceiptTemplate
-            data={(data as PdfReceiptData | undefined) ?? {
-              receiptNumber: 'RCT-2024-001',
-              date: new Date().toLocaleDateString(),
-              patientName: 'John Doe',
-              patientIpp: '123456',
-              invoiceNumber: 'INV-2024-001',
-              method: 'Cash',
-              amount: 15000,
-              currency: 'XAF',
-              balanceAfter: 0,
-              isPaidInFull: true,
-            }}
-            facility={facility}
-            settings={settings}
-            labels={labels}
-          />
-        );
       case 'patient_lists':
         return (
           <PatientListTemplate
-            data={(data as PatientListData | undefined) || {
+            data={data || {
               title: labels.patient_list,
               department: 'General Medicine - Wing B',
               date: new Date().toLocaleDateString(),
@@ -271,7 +241,7 @@ export function PDFPreviewModal({ isOpen, onClose, templateId, facility, setting
       case 'patient_files':
         return (
           <PatientFileTemplate
-            data={(data as PatientFileData | undefined) || {
+            data={data || {
               patient: {
                 ipp: '12345678',
                 fullName: 'Samantha Richards',

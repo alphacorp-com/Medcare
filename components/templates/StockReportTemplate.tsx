@@ -1,6 +1,5 @@
 import React from 'react';
 import { Page, Text, View, Document, StyleSheet, Image } from '@react-pdf/renderer';
-import type { PdfFacility, PdfLabels, PdfSettings } from './types';
 
 const styles = StyleSheet.create({
   page: {
@@ -102,9 +101,9 @@ interface StockReportTemplateProps {
       unit: string;
     }>;
   };
-  facility: PdfFacility;
-  settings: PdfSettings;
-  labels: PdfLabels;
+  facility: any;
+  settings: any;
+  labels: any;
 }
 
 export const StockReportTemplate = ({ data, facility, settings, labels }: StockReportTemplateProps) => (

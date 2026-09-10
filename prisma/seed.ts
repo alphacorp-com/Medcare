@@ -7,8 +7,6 @@ import {
   PlanTier,
   BillingCycle,
   ModuleCategory,
-  ModuleStatus,
-  Department,
 } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import prisma from '../lib/prisma';
@@ -202,14 +200,6 @@ async function main() {
       description: 'Track immunizations, malaria cases and TB registration/follow-up for national program reporting.',
       isPublished: true,
     },
-    {
-      code: 'MODULE_APPOINTMENTS',
-      name: 'Appointments',
-      category: 'clinical',
-      tier: 'core',
-      description: 'Book patient appointments, manage doctor agendas, and check patients in on arrival.',
-      isPublished: true,
-    },
   ];
 
   const seededModules: Record<string, { id: string }> = {};
@@ -218,8 +208,8 @@ async function main() {
       where: { code: moduleDefinition.code },
       update: {
         name: moduleDefinition.name,
-        category: moduleDefinition.category,
-        tier: moduleDefinition.tier,
+        category: moduleDefinition.category as any,
+        tier: moduleDefinition.tier as any,
         description: moduleDefinition.description,
         isPublished: moduleDefinition.isPublished,
       },
@@ -260,7 +250,6 @@ async function main() {
     { planId: annualPlan.id, moduleCode: 'MODULE_PLANNING' },
     { planId: annualPlan.id, moduleCode: 'MODULE_MATERNITY' },
     { planId: annualPlan.id, moduleCode: 'MODULE_DISEASE_PROGRAMS' },
-    { planId: annualPlan.id, moduleCode: 'MODULE_APPOINTMENTS' },
   ];
 
   for (const assignment of planAssignments) {
@@ -294,14 +283,14 @@ async function main() {
     where: { email: 'admin@medcare.com' },
     update: {
       fullName: 'MedCare Administrator',
-      role: 'superadmin',
+      role: 'superadmin' as any,
       passwordHash: adminHashedPassword,
       isActive: true,
     },
     create: {
       email: 'admin@medcare.com',
       fullName: 'MedCare Administrator',
-      role: 'superadmin',
+      role: 'superadmin' as any,
       passwordHash: adminHashedPassword,
       isActive: true,
     },
@@ -397,7 +386,7 @@ async function main() {
   }
   console.log('Tenant feature flags ensured');
 
-  const tenantModuleSeeds: Array<{ moduleCode: string; status: ModuleStatus }> = [
+  const tenantModuleSeeds = [
     { moduleCode: 'MODULE_CORE_PATIENT', status: 'active' },
     { moduleCode: 'MODULE_PHARMACY', status: 'active' },
     { moduleCode: 'MODULE_LAB', status: 'active' },
@@ -418,14 +407,14 @@ async function main() {
         },
       },
       update: {
-        status: assignment.status,
+        status: assignment.status as any,
         activatedAt: assignment.status === 'active' ? new Date() : null,
         activatedBy: adminUser.id,
       },
       create: {
         tenantId: tenant.id,
         moduleId: moduleEntry.id,
-        status: assignment.status,
+        status: assignment.status as any,
         activatedAt: assignment.status === 'active' ? new Date() : null,
         activatedBy: adminUser.id,
       },
@@ -465,7 +454,7 @@ async function main() {
     { code: 'PHAR', name: 'Pharmacy', type: DepartmentType.pharmacy },
   ];
 
-  const departments: Record<string, Department> = {};
+  const departments: Record<string, any> = {};
   for (const dept of departmentsData) {
     departments[dept.code] = await prisma.department.upsert({
       where: { tenantId_code: { tenantId: tenant.id, code: dept.code } },

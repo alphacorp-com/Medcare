@@ -1,6 +1,5 @@
 import React from 'react';
 import { Page, Text, View, Document, StyleSheet, Image } from '@react-pdf/renderer';
-import type { PdfFacility, PdfLabels, PdfSettings } from './types';
 
 const styles = StyleSheet.create({
   page: {
@@ -89,9 +88,9 @@ interface MedicationGuideTemplateProps {
     warnings: string[];
     sideEffects: string[];
   };
-  facility: PdfFacility;
-  settings: PdfSettings;
-  labels: PdfLabels;
+  facility: any;
+  settings: any;
+  labels: any;
 }
 
 export const MedicationGuideTemplate = ({ data, facility, settings, labels }: MedicationGuideTemplateProps) => (
@@ -134,9 +133,6 @@ export const MedicationGuideTemplate = ({ data, facility, settings, labels }: Me
 
         <View style={styles.footer}>
           <Text>If symptoms persist or worsen, contact {facility.phone} immediately.</Text>
-          {settings.watermark && (
-            <Text style={{ marginTop: 5, color: '#fca5a5' }}>{labels.confidential}</Text>
-          )}
         </View>
       </View>
     </Page>

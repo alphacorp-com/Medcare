@@ -1,19 +1,17 @@
 import { Input } from "@/components/ui/input";
 import { ImageIcon, UploadCloud } from "lucide-react";
 
-export interface OrgData {
-  name: string;
-  contactEmail: string;
-  contactPhone: string;
-  address: string;
-  logoUrl: string;
-  taxId: string;
-  website: string;
-}
-
 interface OrganizationSettingsProps {
-  orgData: OrgData;
-  setOrgData: (data: OrgData) => void;
+  orgData: {
+    name: string;
+    contactEmail: string;
+    contactPhone: string;
+    address: string;
+    logoUrl: string;
+    taxId: string;
+    website: string;
+  };
+  setOrgData: (data: any) => void;
   t: (key: string) => string;
   tc: (key: string) => string;
 }

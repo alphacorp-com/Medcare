@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import {
   Settings, BedDouble, BedSingle, CalendarDays, DoorOpen, ShieldCheck,
   FolderTree, Stethoscope, FlaskConical, BookOpen,
-  Beaker, Warehouse, Truck, ScanLine, PersonStanding, Syringe, FileText, Clock,
+  Beaker, Warehouse, Truck, ScanLine, PersonStanding, Syringe, FileText,
 } from "lucide-react";
 
 type NavItem = { href: string; label: string; icon: React.ComponentType<{ className?: string }> };
@@ -25,7 +25,6 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
       items: [
         { href: "/settings/admission-types", label: t("admissionTypes"), icon: BedDouble },
         { href: "/settings/appointment-types", label: t("appointmentTypes"), icon: CalendarDays },
-        { href: "/settings/doctor-availability", label: t("doctorAvailability"), icon: Clock },
         { href: "/settings/room-types", label: t("roomTypes"), icon: DoorOpen },
         { href: "/settings/insurance-types", label: t("insuranceTypes"), icon: ShieldCheck },
         { href: "/settings/beds", label: t("beds"), icon: BedSingle },

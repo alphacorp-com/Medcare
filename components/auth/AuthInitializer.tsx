@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useTranslations } from "next-intl";
 import { useAppStore, ModulePermission } from "@/lib/store/useAppStore";
@@ -19,9 +19,6 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
   const [licenseKey, setLicenseKey] = useState("");
   const [activationLoading, setActivationLoading] = useState(false);
   const [activationError, setActivationError] = useState<string | null>(null);
-  const retryCountRef = useRef(0);
-  const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const retryFnRef = useRef<() => void>(() => {});
 
   const refreshTenantAccess = useCallback(async () => {
     const response = await fetch("/api/v1/licensing/status", { cache: "no-store" });
@@ -46,7 +43,6 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
   // dismisses the gate screen instead of only being reflected on the next page load.
   const applyTenantAccess = useCallback(
     (isActive: boolean, reason: string | null, tenantModules: ModulePermission[]) => {
-      retryCountRef.current = 0;
       setTenantIsActive(isActive);
       setTenantReason(reason);
       setTenantAccess(isActive, reason);
@@ -61,35 +57,6 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
     },
     [session, setActiveModules, setTenantAccess]
   );
-
-  // Retries a failed tenant-access verification in the background, re-arming itself on
-  // repeated failure up to 3 attempts with backoff, instead of leaving the user stuck on
-  // whatever transient error triggered the first failure.
-  const scheduleTenantAccessRetry = useCallback(() => {
-    if (retryCountRef.current >= 3) return;
-    retryCountRef.current += 1;
-    const attempt = retryCountRef.current;
-    if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
-    retryTimeoutRef.current = setTimeout(async () => {
-      try {
-        const { isActive, reason, tenantModules } = await refreshTenantAccess();
-        applyTenantAccess(isActive, reason, tenantModules);
-      } catch (retryError) {
-        console.error("Retry to resolve tenant access failed:", retryError);
-        retryFnRef.current();
-      }
-    }, 4000 * attempt);
-  }, [refreshTenantAccess, applyTenantAccess]);
-
-  useEffect(() => {
-    retryFnRef.current = scheduleTenantAccessRetry;
-  }, [scheduleTenantAccessRetry]);
-
-  useEffect(() => {
-    return () => {
-      if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
-    };
-  }, []);
 
   useEffect(() => {
     const initialize = async () => {
@@ -107,17 +74,18 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
             const { isActive, reason, tenantModules } = await refreshTenantAccess();
             applyTenantAccess(isActive, reason, tenantModules);
           } catch (error) {
-            // A network hiccup or a transient 5xx here is not proof the tenant is inactive —
-            // treat it as "couldn't verify yet", not "denied". Keep whatever access the JWT
-            // already grants (the server still enforces real permissions on every API call
-            // regardless of this client-side gate) and retry silently in the background
-            // instead of locking the user out until they happen to refresh.
-            setTenantIsActive(true);
-            setTenantReason(null);
-            setTenantAccess(true, null);
-            setActiveModules(session.user.modules || []);
-            console.error("Failed to resolve tenant access, will retry:", error);
-            scheduleTenantAccessRetry();
+            if (session.user.role === "tenant_admin") {
+              setTenantIsActive(true);
+              setTenantReason(t("tenant_admin_access_preserved"));
+              setTenantAccess(true, null);
+              setActiveModules(session.user.modules || []);
+            } else {
+              setTenantIsActive(false);
+              setTenantReason(t("tenant_access_verification_failed"));
+              setTenantAccess(false, t("tenant_access_verification_failed"));
+            }
+
+            console.error("Failed to resolve tenant access:", error);
           }
         } else {
           setTenantIsActive(true);
@@ -137,7 +105,7 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
     };
 
     void initialize();
-  }, [session, status, setUser, setActiveModules, setTenantAccess, refreshTenantAccess, applyTenantAccess, scheduleTenantAccessRetry]);
+  }, [session, status, setUser, setActiveModules, setTenantAccess, refreshTenantAccess, applyTenantAccess, t]);
 
   const handleActivateTenant = async () => {
     if (!licenseKey.trim()) {

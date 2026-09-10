@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
 import { requireModulePermission } from "@/lib/permissions";
 import { computeIsCritical, ResultParameter } from "@/lib/laboratory/results";
 
@@ -51,7 +50,7 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
         requestId: id,
         patientId: exam.patientId,
         performerId: session.user.id,
-        resultData: { parameters } as unknown as Prisma.InputJsonValue,
+        resultData: { parameters } as any,
         isCritical: computeIsCritical(parameters, isCritical),
       },
     });

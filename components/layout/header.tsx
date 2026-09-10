@@ -27,7 +27,7 @@ export function Header() {
   };
 
   const handleLocaleChange = (newLocale: string) => {
-    router.push(pathname, { locale: newLocale });
+    router.push(pathname, { locale: newLocale as any });
   };
 
   const [orgInfo, setOrgInfo] = useState({

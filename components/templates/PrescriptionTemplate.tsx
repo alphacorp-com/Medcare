@@ -1,6 +1,5 @@
 import React from 'react';
 import { Page, Text, View, Document, StyleSheet, Image } from '@react-pdf/renderer';
-import type { PdfFacility, PdfLabels, PdfSettings } from './types';
 
 const styles = StyleSheet.create({
   page: {
@@ -89,28 +88,26 @@ const styles = StyleSheet.create({
   }
 });
 
-export interface PrescriptionData {
-  patientName: string;
-  patientAge: string;
-  patientGender: string;
-  date: string;
-  prescriptionId: string;
-  doctorName: string;
-  doctorSpecialty: string;
-  medications: Array<{
-    name: string;
-    dosage: string;
-    frequency: string;
-    duration: string;
-    instructions: string;
-  }>;
-}
-
 interface PrescriptionTemplateProps {
-  data: PrescriptionData;
-  facility: PdfFacility;
-  settings: PdfSettings;
-  labels: PdfLabels;
+  data: {
+    patientName: string;
+    patientAge: string;
+    patientGender: string;
+    date: string;
+    prescriptionId: string;
+    doctorName: string;
+    doctorSpecialty: string;
+    medications: Array<{
+      name: string;
+      dosage: string;
+      frequency: string;
+      duration: string;
+      instructions: string;
+    }>;
+  };
+  facility: any;
+  settings: any;
+  labels: any;
 }
 
 export const PrescriptionTemplate = ({ data, facility, settings, labels }: PrescriptionTemplateProps) => (
