@@ -4,8 +4,6 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { createLicenseKey, hashLicenseKey } from "@/lib/tenant-licensing";
-import { requireSuperAdmin } from "@/lib/permissions";
-import { recordAuditEvent, extractRequestMeta } from "@/lib/audit";
 
 function normalizePeriod(input: string): BillingCycle | null {
   if (input === "monthly") return BillingCycle.monthly;
@@ -54,13 +52,10 @@ export async function GET() {
   }
 }
 
-// Issuing a license key grants a tenant full paid access — restricted to super_admin,
-// consistent with the platform's other financial/access-granting actions.
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
-  const permCheck = requireSuperAdmin(session);
-  if (!permCheck.ok) {
-    return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
+  if (!session || session.user.role !== "admin") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
@@ -94,48 +89,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (subscription.currentPeriodEnd <= new Date()) {
-      return NextResponse.json(
-        { error: "This subscription's period has already ended — update its period before generating a key." },
-        { status: 400 }
-      );
-    }
-
     const rawKey = createLicenseKey();
     const keyHash = hashLicenseKey(rawKey);
-    // Reveals only the first 3 characters — enough for a human to recognize "yes,
-    // that's the key I generated," without exposing a meaningful fraction of the
-    // secret in a screen/table meant to just be a non-sensitive display teaser.
-    const keyPreview = `${rawKey.slice(0, 3)}**-*****-*****-*****`;
+    const keyPreview = `${rawKey.slice(0, 5)}-*****-*****-${rawKey.slice(-5)}`;
 
-    const license = await prisma.licenseKey.create({
+    await prisma.licenseKey.create({
       data: {
         tenantId: subscription.tenant.id,
         planId: subscription.plan.id,
         subscriptionId,
         period: normalizedPeriod,
-        // Fixed at generation time from the subscription's own period — the key
-        // grants exactly the validity window the admin already set for this
-        // subscription, rather than a fresh period computed from redemption time.
-        validFrom: subscription.currentPeriodStart,
-        validUntil: subscription.currentPeriodEnd,
         keyHash,
         keyPreview,
         status: LicenseKeyStatus.generated,
-        issuedBy: session!.user.id,
+        issuedBy: session.user.id,
       },
-    });
-
-    const { ipAddress, userAgent } = extractRequestMeta(request.headers);
-    await recordAuditEvent({
-      actorId: session!.user.id,
-      actorType: "admin",
-      action: "license.generated",
-      resourceType: "license_key",
-      resourceId: license.id,
-      payload: { tenantId: subscription.tenant.id, subscriptionId, period: normalizedPeriod },
-      ipAddress,
-      userAgent,
     });
 
     return NextResponse.json({

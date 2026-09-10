@@ -10,12 +10,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Download, Search, Loader2, Eye } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-interface InvoiceLineItem {
-  description: string;
-  quantity: number;
-  amount: number;
-}
-
 interface Invoice {
   id: string;
   invoiceNumber: string;
@@ -30,7 +24,7 @@ interface Invoice {
   dueDate: string;
   paidAt?: string;
   createdAt: string;
-  lineItems: InvoiceLineItem[];
+  lineItems: any[];
 }
 
 export function InvoicesManagement() {
@@ -142,18 +136,7 @@ export function InvoicesManagement() {
                 />
               </div>
             </div>
-            <Select
-              value={statusFilter}
-              onValueChange={(value) => setStatusFilter(value || "")}
-              items={[
-                { value: "all", label: "All Statuses" },
-                { value: "draft", label: "Draft" },
-                { value: "open", label: "Open" },
-                { value: "paid", label: "Paid" },
-                { value: "void", label: "Void" },
-                { value: "uncollectible", label: "Uncollectible" },
-              ]}
-            >
+            <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value || "")}>
               <SelectTrigger className="w-48">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
@@ -320,8 +303,8 @@ export function InvoicesManagement() {
               <div>
                 <p className="text-sm font-semibold mb-2">Line Items</p>
                 <div className="border rounded-lg divide-y">
-                  {selectedInvoice.lineItems.map(
-                    (item, idx) => (
+                  {(selectedInvoice.lineItems as any[]).map(
+                    (item: any, idx: number) => (
                       <div key={idx} className="p-3 flex justify-between">
                         <div>
                           <p className="font-medium">{item.description}</p>

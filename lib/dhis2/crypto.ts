@@ -1,11 +1,11 @@
 import crypto from "crypto";
-import { getNextAuthSecret } from "@/lib/auth-secret";
 
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 12;
 
 function getKey(): Buffer {
-  return crypto.scryptSync(getNextAuthSecret(), "dhis2-credential-store", 32);
+  const secret = process.env.NEXTAUTH_SECRET || "super-secret-key-for-development";
+  return crypto.scryptSync(secret, "dhis2-credential-store", 32);
 }
 
 export function encryptSecret(plainText: string): string {

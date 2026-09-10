@@ -46,7 +46,7 @@ export async function syncTenantStatus(tenantId: string): Promise<void> {
     }
 
     let newTenantStatus: TenantStatus;
-    const updateData: { suspendedAt?: Date | null; churnedAt?: Date | null } = {};
+    let updateData: any = {};
 
     switch (subscription.status) {
       case "trial":

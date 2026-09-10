@@ -1,6 +1,5 @@
 import React from 'react';
 import { Page, Text, View, Document, StyleSheet, Image } from '@react-pdf/renderer';
-import type { PdfFacility, PdfLabels, PdfSettings } from './types';
 
 const styles = StyleSheet.create({
   page: {
@@ -74,32 +73,30 @@ const styles = StyleSheet.create({
   }
 });
 
-export interface PatientFileData {
-  patient: {
-    ipp: string;
-    fullName: string;
-    dob: string;
-    gender: string;
-    phone: string;
-    address: string;
-    bloodGroup?: string;
-    allergies?: string[];
-    chronicConditions?: string[];
-  };
-  medicalSummary: string;
-  recentVisits: Array<{
-    date: string;
-    type: string;
-    reason: string;
-    doctor: string;
-  }>;
-}
-
 interface PatientFileTemplateProps {
-  data: PatientFileData;
-  facility: PdfFacility;
-  settings: PdfSettings;
-  labels: PdfLabels;
+  data: {
+    patient: {
+      ipp: string;
+      fullName: string;
+      dob: string;
+      gender: string;
+      phone: string;
+      address: string;
+      bloodGroup?: string;
+      allergies?: string[];
+      chronicConditions?: string[];
+    };
+    medicalSummary: string;
+    recentVisits: Array<{
+      date: string;
+      type: string;
+      reason: string;
+      doctor: string;
+    }>;
+  };
+  facility: any;
+  settings: any;
+  labels: any;
 }
 
 export const PatientFileTemplate = ({ data, facility, settings, labels }: PatientFileTemplateProps) => (

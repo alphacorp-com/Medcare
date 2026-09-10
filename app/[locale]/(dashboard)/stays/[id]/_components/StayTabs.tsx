@@ -3,14 +3,12 @@
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  History,
-  Stethoscope,
-  Pill,
-  Plus,
-  User,
-  Check,
-  X
+import { 
+  History, 
+  Stethoscope, 
+  Pill, 
+  Plus, 
+  User
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
@@ -21,14 +19,10 @@ interface StayTabsProps {
   stay: StayDetail;
   onPrescriptionOpen: () => void;
   onOrderOpen: () => void;
-  onCompleteOrder: (orderId: string) => void;
-  onCancelOrder: (orderId: string) => void;
   getDoctorName: (id: string) => string;
 }
 
-const LAB_RADIO_TYPES = ["biology", "radiology"];
-
-export function StayTabs({ stay, onPrescriptionOpen, onOrderOpen, onCompleteOrder, onCancelOrder, getDoctorName }: StayTabsProps) {
+export function StayTabs({ stay, onPrescriptionOpen, onOrderOpen, getDoctorName }: StayTabsProps) {
   const t = useTranslations('admissions');
   const tc = useTranslations('common');
 
@@ -126,12 +120,12 @@ export function StayTabs({ stay, onPrescriptionOpen, onOrderOpen, onCompleteOrde
                       </td>
                     </tr>
                   ) : (
-                    stay.prescriptions.map((rx) => (
+                    stay.prescriptions.map((rx: any) => (
                       <tr key={rx.id} className="hover:bg-slate-50/50 transition-colors group">
                         <td className="px-6 py-5 font-mono text-[10px] text-slate-400 group-hover:text-slate-600">{format(new Date(rx.prescribedAt), "MMM d, yyyy HH:mm")}</td>
                         <td className="px-6 py-5">
                           <div className="flex flex-col gap-2">
-                            {rx.items?.map((item, idx) => (
+                            {rx.items?.map((item: any, idx: number) => (
                               <div key={idx} className="flex items-center gap-2">
                                 <div className="h-1.5 w-1.5 rounded-full bg-blue-400" />
                                 <span className="font-bold text-slate-900">{item.drug}</span>
@@ -175,14 +169,12 @@ export function StayTabs({ stay, onPrescriptionOpen, onOrderOpen, onCompleteOrde
                     <th className="px-6 py-4 w-40 tracking-wider">{t('order_type')}</th>
                     <th className="px-6 py-4 tracking-wider">{t('exam_label')}</th>
                     <th className="px-6 py-4 w-32 tracking-wider">{t('urgency')}</th>
-                    <th className="px-6 py-4 w-32 tracking-wider">{tc('status')}</th>
-                    <th className="px-6 py-4 w-28 tracking-wider">{tc('actions')}</th>
                   </tr>
                 </thead>
                 <tbody className="text-xs divide-y divide-slate-50">
                   {stay.examRequests?.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-6 py-12 text-center text-slate-400 italic bg-slate-50/30">
+                      <td colSpan={4} className="px-6 py-12 text-center text-slate-400 italic bg-slate-50/30">
                         <div className="flex flex-col items-center gap-2">
                           <Stethoscope className="h-8 w-8 text-slate-200" />
                           <span className="text-[11px] uppercase tracking-widest font-semibold">{t('no_orders')}</span>
@@ -190,14 +182,12 @@ export function StayTabs({ stay, onPrescriptionOpen, onOrderOpen, onCompleteOrde
                       </td>
                     </tr>
                   ) : (
-                    stay.examRequests?.map((order) => {
-                      const isMedicalAct = !LAB_RADIO_TYPES.includes(order.type);
-                      return (
+                    stay.examRequests?.map((order: any) => (
                       <tr key={order.id} className="hover:bg-slate-50/50 transition-colors group">
                         <td className="px-6 py-5 font-mono text-[10px] text-slate-400 group-hover:text-slate-600">{format(new Date(order.requestedAt), "MMM d, yyyy HH:mm")}</td>
                         <td className="px-6 py-5">
                           <span className="px-3 py-1 rounded-lg bg-slate-100 text-slate-700 font-bold text-[10px] uppercase tracking-tight">
-                            {t(`order_type_${order.type}`)}
+                            {order.type}
                           </span>
                         </td>
                         <td className="px-6 py-5">
@@ -206,54 +196,16 @@ export function StayTabs({ stay, onPrescriptionOpen, onOrderOpen, onCompleteOrde
                         </td>
                         <td className="px-6 py-5">
                            <span className={cn(
-                             "px-2.5 py-1 rounded-full text-[10px] uppercase font-bold tracking-tight shadow-sm",
-                             order.urgency === 'stat' ? "bg-red-600 text-white" :
-                             order.urgency === 'urgent' ? "bg-orange-100 text-orange-700" :
+                             "px-2.5 py-1 rounded-full text-[10px] uppercase font-bold tracking-tight shadow-sm", 
+                             order.urgency === 'stat' ? "bg-red-600 text-white" : 
+                             order.urgency === 'urgent' ? "bg-orange-100 text-orange-700" : 
                              "bg-blue-100 text-blue-700"
                            )}>
-                            {t(`urgency_${order.urgency}`)}
+                            {order.urgency}
                           </span>
-                        </td>
-                        <td className="px-6 py-5">
-                          <span className={cn(
-                            "px-2.5 py-1 rounded-full text-[10px] uppercase font-bold tracking-tight",
-                            order.status === 'completed' ? "bg-green-100 text-green-700" :
-                            order.status === 'cancelled' ? "bg-slate-100 text-slate-400" :
-                            order.status === 'in_progress' ? "bg-blue-100 text-blue-700" :
-                            "bg-orange-50 text-orange-600"
-                          )}>
-                            {t(`exam_status_${order.status}`)}
-                          </span>
-                        </td>
-                        <td className="px-6 py-5">
-                          {isMedicalAct && order.status === 'requested' ? (
-                            <div className="flex gap-1">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 rounded-full bg-green-100 text-green-600 hover:bg-green-200"
-                                onClick={() => onCompleteOrder(order.id)}
-                                title={t('complete_order')}
-                              >
-                                <Check className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 rounded-full bg-red-100 text-red-600 hover:bg-red-200"
-                                onClick={() => onCancelOrder(order.id)}
-                                title={t('cancel_order')}
-                              >
-                                <X className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
-                          ) : null}
                         </td>
                       </tr>
-                      );
-                    })
+                    ))
                   )}
                 </tbody>
               </table>

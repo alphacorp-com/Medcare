@@ -7,22 +7,20 @@ export interface ModulePermission {
   actions: ModuleAction[];
 }
 
-export type CurrentUser = {
-  id: string;
-  fullName: string;
-  email: string;
-  role: string;
-} | null;
-
 interface AppState {
   currentTenantId: string | null;
   tenantIsActive: boolean;
   tenantAccessReason: string | null;
-  currentUser: CurrentUser;
+  currentUser: {
+    id: string;
+    fullName: string;
+    email: string;
+    role: string;
+  } | null;
   activeModules: ModulePermission[];
   setTenantId: (id: string) => void;
   setTenantAccess: (isActive: boolean, reason?: string | null) => void;
-  setUser: (user: CurrentUser) => void;
+  setUser: (user: any) => void;
   setActiveModules: (modules: ModulePermission[]) => void;
   hasModule: (moduleCode: string) => boolean;
   hasPermission: (moduleCode: string, action: ModuleAction) => boolean;

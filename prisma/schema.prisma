@@ -176,28 +176,6 @@ enum TriageAcuity {
   @@schema("tenant_template")
 }
 
-// Tracks a Stay's progress through the doctor's consultation queue, independent of
-// StayStatus (which stays "in_progress" the whole time) — so adding this never changes
-// what any existing `status: "in_progress"` filter across admissions/KPIs/dashboard sees.
-enum ConsultationStatus {
-  waiting
-  claimed
-  completed
-
-  @@schema("tenant_template")
-}
-
-enum AppointmentStatus {
-  booked
-  confirmed
-  checked_in
-  completed
-  no_show
-  cancelled
-
-  @@schema("tenant_template")
-}
-
 enum MedicalRecordType {
   consultation
   observation
@@ -670,19 +648,15 @@ model TenantFeatureFlag {
 }
 
 model AdminUser {
-  id             String    @id @default(uuid()) @db.Uuid
-  email          String    @unique @db.VarChar(255)
-  fullName       String    @map("full_name") @db.VarChar(255)
-  role           AdminRole
-  passwordHash   String    @map("password_hash")
-  totpSecret     String?   @map("totp_secret")
-  isActive       Boolean   @default(true) @map("is_active")
-  // Bumped on every password change — the JWT carries the value from sign-in time, so
-  // a mismatch on a later request means that session was issued before the password
-  // changed and should no longer be trusted (see callbacks.jwt in lib/auth.ts).
-  sessionVersion Int       @default(0) @map("session_version")
-  lastLoginAt    DateTime? @map("last_login_at") @db.Timestamptz
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  id           String    @id @default(uuid()) @db.Uuid
+  email        String    @unique @db.VarChar(255)
+  fullName     String    @map("full_name") @db.VarChar(255)
+  role         AdminRole
+  passwordHash String    @map("password_hash")
+  totpSecret   String?   @map("totp_secret")
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at") @db.Timestamptz
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
 
   @@map("admin_users")
   @@schema("public")
@@ -773,7 +747,6 @@ model Patient {
   updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
   stays              Stay[]
-  appointments       Appointment[]
   medicalRecords     MedicalRecord[]
   prescriptions      Prescription[]
   examRequests       ExamRequest[]
@@ -798,27 +771,25 @@ model Patient {
 }
 
 model Stay {
-  id                 String             @id @default(uuid()) @db.Uuid
-  tenantId           String?            @map("tenant_id") @db.Uuid
-  patientId          String             @map("patient_id") @db.Uuid
-  stayNumber         String             @map("stay_number") @db.VarChar(20)
-  type               StayType
-  status             StayStatus         @default(in_progress)
-  admissionDate      DateTime           @default(now()) @map("admission_date") @db.Timestamptz
-  dischargeDate      DateTime?          @map("discharge_date") @db.Timestamptz
-  departmentId       String?            @map("department_id") @db.Uuid
-  bedId              String?            @map("bed_id") @db.Uuid
-  attendingDoctorId  String?            @map("attending_doctor_id") @db.Uuid
-  admissionReason    String?            @map("admission_reason")
-  dischargeSummary   String?            @map("discharge_summary")
-  pmsiCode           String?            @map("pmsi_code") @db.VarChar(20)
-  pmsiValidated      Boolean            @default(false) @map("pmsi_validated")
-  admissionTypeId    String?            @map("admission_type_id") @db.Uuid
-  triageAcuity       TriageAcuity?      @map("triage_acuity")
-  triagedAt          DateTime?          @map("triaged_at") @db.Timestamptz
-  consultationStatus ConsultationStatus @default(waiting) @map("consultation_status")
-  createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt          DateTime           @updatedAt @map("updated_at") @db.Timestamptz
+  id                String        @id @default(uuid()) @db.Uuid
+  tenantId          String?       @map("tenant_id") @db.Uuid
+  patientId         String        @map("patient_id") @db.Uuid
+  stayNumber        String        @map("stay_number") @db.VarChar(20)
+  type              StayType
+  status            StayStatus    @default(in_progress)
+  admissionDate     DateTime      @default(now()) @map("admission_date") @db.Timestamptz
+  dischargeDate     DateTime?     @map("discharge_date") @db.Timestamptz
+  departmentId      String?       @map("department_id") @db.Uuid
+  bedId             String?       @map("bed_id") @db.Uuid
+  attendingDoctorId String?       @map("attending_doctor_id") @db.Uuid
+  admissionReason   String?       @map("admission_reason")
+  dischargeSummary  String?       @map("discharge_summary")
+  pmsiCode          String?       @map("pmsi_code") @db.VarChar(20)
+  pmsiValidated     Boolean       @default(false) @map("pmsi_validated")
+  admissionTypeId   String?       @map("admission_type_id") @db.Uuid
+  triageAcuity      TriageAcuity? @map("triage_acuity")
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz
 
   patient Patient @relation(fields: [patientId], references: [id])
 
@@ -836,62 +807,7 @@ model Stay {
   @@index([patientId])
   @@index([status])
   @@index([admissionDate(sort: Desc)])
-  @@index([consultationStatus])
   @@map("stays")
-  @@schema("tenant_template")
-}
-
-// A future-dated booking, distinct from Stay (which represents an actual physical
-// visit already under way). Check-in (see /api/v1/appointments/[id]/check-in) creates
-// a real Stay and links it back via stayId — from that point on the patient flows
-// through the existing consultation queue / triage / billing pipeline unchanged, so
-// nothing downstream of check-in needs to know appointments exist at all.
-model Appointment {
-  id                  String            @id @default(uuid()) @db.Uuid
-  tenantId            String?           @map("tenant_id") @db.Uuid
-  patientId           String            @map("patient_id") @db.Uuid
-  doctorId            String            @map("doctor_id") @db.Uuid
-  departmentId        String?           @map("department_id") @db.Uuid
-  appointmentTypeCode String?           @map("appointment_type_code") @db.VarChar(40)
-  scheduledAt         DateTime          @map("scheduled_at") @db.Timestamptz
-  durationMinutes     Int               @default(30) @map("duration_minutes")
-  status              AppointmentStatus @default(booked)
-  reasonForVisit      String?           @map("reason_for_visit")
-  notes               String?
-  stayId              String?           @map("stay_id") @db.Uuid
-  seriesId            String?           @map("series_id") @db.Uuid
-  cancelledAt         DateTime?         @map("cancelled_at") @db.Timestamptz
-  cancelledReason     String?           @map("cancelled_reason")
-  createdBy           String?           @map("created_by") @db.Uuid
-  createdAt           DateTime          @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt           DateTime          @updatedAt @map("updated_at") @db.Timestamptz
-
-  patient Patient @relation(fields: [patientId], references: [id])
-
-  @@index([tenantId, doctorId, scheduledAt])
-  @@index([tenantId, patientId])
-  @@index([seriesId])
-  @@index([status])
-  @@map("appointments")
-  @@schema("tenant_template")
-}
-
-// Recurring weekly availability window for a doctor's bookable appointment slots —
-// distinct from Schedule (staff shift roster in the Planning module), which tracks who's
-// on duty, not what's open for patient booking.
-model DoctorAvailability {
-  id          String   @id @default(uuid()) @db.Uuid
-  tenantId    String?  @map("tenant_id") @db.Uuid
-  doctorId    String   @map("doctor_id") @db.Uuid
-  weekday     Int      @db.SmallInt
-  startTime   String   @map("start_time") @db.VarChar(5)
-  endTime     String   @map("end_time") @db.VarChar(5)
-  slotMinutes Int      @default(30) @map("slot_minutes")
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
-
-  @@unique([tenantId, doctorId, weekday])
-  @@map("doctor_availabilities")
   @@schema("tenant_template")
 }
 
@@ -1248,24 +1164,22 @@ model Department {
 }
 
 model TenantUser {
-  id             String         @id @default(uuid()) @db.Uuid
-  tenantId       String?        @map("tenant_id") @db.Uuid
-  email          String         @unique @db.VarChar(255)
-  fullName       String         @map("full_name") @db.VarChar(255)
-  role           TenantUserRole
-  specialty      String?        @db.VarChar(120)
-  rppsNumber     String?        @map("rpps_number") @db.VarChar(20)
-  departmentId   String?        @map("department_id") @db.Uuid
-  phone          String?        @db.VarChar(30)
-  passwordHash   String         @map("password_hash")
-  totpSecret     String?        @map("totp_secret")
-  isActive       Boolean        @default(true) @map("is_active")
-  // Bumped on every password change — see AdminUser.sessionVersion above.
-  sessionVersion Int            @default(0) @map("session_version")
-  modules        Json           @default("[]")
-  lastLoginAt    DateTime?      @map("last_login_at") @db.Timestamptz
-  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz
+  id           String         @id @default(uuid()) @db.Uuid
+  tenantId     String?        @map("tenant_id") @db.Uuid
+  email        String         @unique @db.VarChar(255)
+  fullName     String         @map("full_name") @db.VarChar(255)
+  role         TenantUserRole
+  specialty    String?        @db.VarChar(120)
+  rppsNumber   String?        @map("rpps_number") @db.VarChar(20)
+  departmentId String?        @map("department_id") @db.Uuid
+  phone        String?        @db.VarChar(30)
+  passwordHash String         @map("password_hash")
+  totpSecret   String?        @map("totp_secret")
+  isActive     Boolean        @default(true) @map("is_active")
+  modules      Json           @default("[]")
+  lastLoginAt  DateTime?      @map("last_login_at") @db.Timestamptz
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime       @updatedAt @map("updated_at") @db.Timestamptz
 
   department               Department?               @relation(fields: [departmentId], references: [id])
   schedules                Schedule[]

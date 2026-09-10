@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { requireSuperAdmin } from '@/lib/permissions';
+import prisma from '@/lib/prisma';
+import { requireTenantAdmin } from '@/lib/permissions';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import path from 'path';
@@ -9,19 +10,17 @@ import fs from 'fs/promises';
 
 const execAsync = promisify(exec);
 
-// This is a full pg_dump of the entire shared database — every tenant's data in one
-// file, regardless of who triggers it, because this platform uses one shared Postgres
-// database with tenantId row-scoping, not a physically separate database per tenant.
-// It was previously gated by requireTenantAdmin, meaning any customer's tenant admin
-// could trigger and download a dump containing every OTHER tenant's data too — a
-// critical cross-tenant data exposure. This is a platform operations tool, not a
-// tenant self-service feature, so it's now restricted to MedCare super_admin only.
-const BACKUP_DIR = path.join(process.cwd(), 'backups');
-
 export async function POST(request: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
-        const permCheck = requireSuperAdmin(session);
+
+        if (!session?.user) {
+            return NextResponse.json(
+                { error: 'Unauthorized' },
+                { status: 401 }
+            );
+        }
+        const permCheck = requireTenantAdmin(session);
         if (!permCheck.ok) {
             return NextResponse.json(
                 { error: permCheck.error },
@@ -29,13 +28,34 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        if (!session.user.tenantId) {
+            return NextResponse.json(
+                { error: 'Tenant ID not found in session' },
+                { status: 400 }
+            );
+        }
+
+        // Get tenant info
+        const tenant = await prisma.tenant.findUnique({
+            where: { id: session.user.tenantId },
+            select: { name: true }
+        });
+
+        if (!tenant) {
+            return NextResponse.json(
+                { error: 'Tenant not found' },
+                { status: 404 }
+            );
+        }
+
         // Create backups directory if it doesn't exist
-        await fs.mkdir(BACKUP_DIR, { recursive: true });
+        const backupDir = path.join(process.cwd(), 'backups');
+        await fs.mkdir(backupDir, { recursive: true });
 
         // Generate backup filename with timestamp
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        const backupFileName = `medcare_full_backup_${timestamp}.sql`;
-        const backupPath = path.join(BACKUP_DIR, backupFileName);
+        const backupFileName = `${tenant.name.replace(/\s+/g, '_')}_backup_${timestamp}.sql`;
+        const backupPath = path.join(backupDir, backupFileName);
 
         // Get database connection info from environment
         const dbUrl = process.env.DATABASE_URL;
@@ -94,7 +114,14 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
-        const permCheck = requireSuperAdmin(session);
+
+        if (!session?.user) {
+            return NextResponse.json(
+                { error: 'Unauthorized' },
+                { status: 401 }
+            );
+        }
+        const permCheck = requireTenantAdmin(session);
         if (!permCheck.ok) {
             return NextResponse.json(
                 { error: permCheck.error },
@@ -102,12 +129,14 @@ export async function GET(request: NextRequest) {
             );
         }
 
+        const backupDir = path.join(process.cwd(), 'backups');
+
         try {
-            const files = await fs.readdir(BACKUP_DIR);
+            const files = await fs.readdir(backupDir);
             const backupFiles = files
                 .filter(file => file.endsWith('.sql'))
                 .map(async file => {
-                    const filePath = path.join(BACKUP_DIR, file);
+                    const filePath = path.join(backupDir, file);
                     const stats = await fs.stat(filePath);
                     return {
                         filename: file,
@@ -145,7 +174,14 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
-        const permCheck = requireSuperAdmin(session);
+
+        if (!session?.user) {
+            return NextResponse.json(
+                { error: 'Unauthorized' },
+                { status: 401 }
+            );
+        }
+        const permCheck = requireTenantAdmin(session);
         if (!permCheck.ok) {
             return NextResponse.json(
                 { error: permCheck.error },
@@ -162,11 +198,12 @@ export async function PUT(request: NextRequest) {
             );
         }
 
-        const filePath = path.join(BACKUP_DIR, filename);
+        const backupDir = path.join('/home/pliya/Desktop', 'Medcare_Backups');
+        const filePath = path.join(backupDir, filename);
 
         // Security check: ensure the file is within the backup directory
         const resolvedPath = path.resolve(filePath);
-        const resolvedBackupDir = path.resolve(BACKUP_DIR);
+        const resolvedBackupDir = path.resolve(backupDir);
 
         if (!resolvedPath.startsWith(resolvedBackupDir)) {
             return NextResponse.json(

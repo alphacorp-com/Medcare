@@ -6,7 +6,6 @@ import { useTranslations } from "next-intl";
 import { signIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Building2, UserCircle2, ArrowRight, ShieldCheck, Mail, KeyRound } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -61,8 +60,8 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-slate-50 flex justify-center p-4 py-8 overflow-y-auto">
-      <div className="max-w-5xl w-full my-auto grid md:grid-cols-2 gap-8 items-stretch overflow-hidden rounded-2xl shadow-xl bg-white border border-slate-100">
+    <div className="min-h-screen w-full bg-slate-50 flex items-center justify-center p-4">
+      <div className="max-w-5xl w-full grid md:grid-cols-2 gap-8 items-stretch overflow-hidden rounded-2xl shadow-xl bg-white border border-slate-100">
         
         {/* Left Side - Brand & Information */}
         <div className="bg-slate-900 text-white p-10 flex flex-col justify-between hidden md:flex relative overflow-hidden">
@@ -128,11 +127,12 @@ export default function LoginPage() {
                 <Label htmlFor="password" className="text-xs font-bold text-slate-500 uppercase tracking-widest block">{t('password')}</Label>
                 <div className="relative">
                   <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                  <PasswordInput
-                    id="password"
+                  <Input 
+                    id="password" 
+                    type="password" 
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="pl-10 h-12 bg-slate-50 border-slate-200 text-slate-900 font-medium tracking-widest"
+                    className="pl-10 h-12 bg-slate-50 border-slate-200 text-slate-900 font-medium tracking-widest" 
                     required
                   />
                 </div>

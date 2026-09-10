@@ -72,7 +72,7 @@ export function PatientSearchAutocomplete({
 
         setResults(json.data ?? []);
       } catch (error) {
-        if (!(error instanceof DOMException && error.name === "AbortError")) {
+        if ((error as any)?.name !== "AbortError") {
           setResults([]);
         }
       } finally {

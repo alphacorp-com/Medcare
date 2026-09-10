@@ -169,23 +169,6 @@ export async function POST(
       );
     }
 
-    // ── Resolve + validate the linked stay, if one was given — a bare toUuid()
-    // check only confirms the format, not that it's a real stay belonging to this
-    // tenant and patient. Without this, a client could attach any other tenant's
-    // stayId to a record it creates, and read that stay's number/type/admission
-    // date back via the `include: { stay }` below, or (once signed) trigger an
-    // unscoped consultationStatus update against it further down. ────────────
-    const resolvedStayId = toUuid(stayId);
-    if (resolvedStayId) {
-      const stay = await prisma.stay.findFirst({
-        where: { id: resolvedStayId, tenantId: session.user.tenantId, patientId: id },
-        select: { id: true },
-      });
-      if (!stay) {
-        return NextResponse.json({ error: "Stay not found", success: false }, { status: 404 });
-      }
-    }
-
     // ── Create ─────────────────────────────────────────────────────────────
     const record = await prisma.medicalRecord.create({
       data: {
@@ -196,7 +179,7 @@ export async function POST(
         content: content.trim(),
         title: title || null,
         contentHtml: contentHtml || null,
-        stayId: resolvedStayId,
+        stayId: toUuid(stayId),
         isSigned: typeof isSigned === "boolean" ? isSigned : false,
         signedAt: isSigned && signedAt ? new Date(signedAt) : null,
         signedBy: isSigned ? toUuid(signedBy) : null,
@@ -214,10 +197,8 @@ export async function POST(
       },
     });
 
-    const isCompletedConsultation = record.type === "consultation" && record.isSigned;
-
     const billing =
-      isCompletedConsultation && session.user.tenantId
+      record.type === "consultation" && record.isSigned && session.user.tenantId
         ? await suggestInvoiceLine({
             tenantId: session.user.tenantId,
             patientId: id,
@@ -229,20 +210,6 @@ export async function POST(
             performedById: session.user.id,
           })
         : null;
-
-    // Closes the consultation-queue loop: signing the note is what marks the doctor's
-    // work on this stay as done, moving it out of the shared "waiting"/"claimed" queue.
-    // Never throws — this is a side effect of documenting the consult, not a precondition.
-    if (isCompletedConsultation && record.stayId) {
-      try {
-        await prisma.stay.update({
-          where: { id: record.stayId },
-          data: { consultationStatus: "completed" },
-        });
-      } catch (statusError) {
-        console.error("[POST /api/v1/patients/:id/records] Failed to close consultation status:", statusError);
-      }
-    }
 
     return NextResponse.json({ data: record, billing, success: true }, { status: 201 });
   } catch (error) {

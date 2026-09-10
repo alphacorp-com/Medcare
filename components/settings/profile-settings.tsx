@@ -1,18 +1,21 @@
 import { Input } from "@/components/ui/input";
-import type { CurrentUser } from "@/lib/store/useAppStore";
 
 interface ProfileSettingsProps {
   profileData: {
     fullName: string;
     email: string;
     language: string;
+    password: string;
+    confirmPassword: string;
   };
   setProfileData: (data: {
     fullName: string;
     email: string;
     language: string;
+    password: string;
+    confirmPassword: string;
   }) => void;
-  currentUser: CurrentUser;
+  currentUser: any;
   t: (key: string) => string;
   tc: (key: string) => string;
   error?: string | null;
@@ -62,6 +65,29 @@ export function ProfileSettings({ profileData, setProfileData, currentUser, t, t
             <option value="en">English (UK)</option>
             <option value="fr">French (FR)</option>
           </select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div>
+          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 block">{tc('password')}</label>
+          <Input
+            type="password"
+            value={profileData.password}
+            onChange={(e) => setProfileData({ ...profileData, password: e.target.value })}
+            className="text-sm h-10 transition-all focus-visible:ring-blue-500 bg-white"
+            placeholder="••••••••"
+          />
+        </div>
+        <div>
+          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 block">{tc('confirm_password')}</label>
+          <Input
+            type="password"
+            value={profileData.confirmPassword}
+            onChange={(e) => setProfileData({ ...profileData, confirmPassword: e.target.value })}
+            className="text-sm h-10 transition-all focus-visible:ring-blue-500 bg-white"
+            placeholder="••••••••"
+          />
         </div>
       </div>
 

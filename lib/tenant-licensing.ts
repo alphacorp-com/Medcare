@@ -1,14 +1,6 @@
 import crypto from "crypto";
 import { BillingCycle, InvoiceStatus, LicenseKeyStatus, ModuleStatus, Prisma, SubscriptionStatus, TenantStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
-import { recordAuditEvent } from "@/lib/audit";
-
-// Shown to the caller for every redemption failure (invalid key, wrong tenant,
-// revoked, already used) — deliberately identical in every case. Distinct messages
-// per failure reason let an attacker enumerate whether a guessed key exists at all,
-// belongs to another tenant, or is merely already-redeemed; the real reason is still
-// captured in the audit log below for MedCare's own diagnostics.
-const GENERIC_REDEMPTION_ERROR = "Invalid or already-used license key.";
 
 export type ModulePermission = {
   moduleId: string;
@@ -41,14 +33,9 @@ function normalizePeriod(period: BillingCycle): BillingCycle {
 }
 
 export function createLicenseKey(): string {
-  // A license key grants paid access to a tenant — it's a security token, not a
-  // display string, so it must come from a CSPRNG. Math.random() (V8's xorshift128+)
-  // is predictable given enough observed outputs and must never back a credential;
-  // crypto.randomInt gives unbiased, cryptographically-secure selection per character,
-  // the same class of primitive already used by generateTemporaryPassword() below.
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const section = () =>
-    Array.from({ length: 5 }, () => alphabet[crypto.randomInt(alphabet.length)]).join("");
+    Array.from({ length: 5 }, () => alphabet[Math.floor(Math.random() * alphabet.length)]).join("");
 
   return `${section()}-${section()}-${section()}-${section()}`;
 }
@@ -88,54 +75,6 @@ export async function getTenantSeatLimit(tenantId: string): Promise<number | nul
 export async function resolveTenantAccess(tenantId: string): Promise<TenantAccessState> {
   const now = new Date();
 
-  // The Subscription row is the live, admin-editable source of truth for a tenant's
-  // validity window. Previously a redeemed LicenseKey was checked first, which froze
-  // the tenant's displayed validity at whatever the key said at generation time — if an
-  // admin later edited the subscription's period (e.g. a manual renewal/extension), the
-  // admin console showed the new dates while the tenant kept seeing the old ones. Now
-  // the subscription is checked first, so editing it is immediately reflected for the
-  // tenant; a redeemed license is only consulted as a fallback below.
-  const subscription = await prisma.subscription.findFirst({
-    where: {
-      tenantId,
-      status: SubscriptionStatus.active,
-      currentPeriodStart: { lte: now },
-      currentPeriodEnd: { gte: now },
-      plan: {
-        billingCycle: { in: [BillingCycle.monthly, BillingCycle.annual] },
-      },
-    },
-    orderBy: { currentPeriodEnd: "desc" },
-    include: {
-      plan: true,
-    },
-  });
-
-  if (subscription) {
-    // Just proof the subscription was legitimately paid for at some point — not scoped
-    // to the current period window, since an admin editing the period afterward (e.g.
-    // extending it, or correcting the start date) shouldn't retroactively invalidate a
-    // real payment that's already on file.
-    const paidInvoice = await prisma.invoice.findFirst({
-      where: {
-        tenantId,
-        subscriptionId: subscription.id,
-        status: InvoiceStatus.paid,
-      },
-    });
-
-    if (paidInvoice) {
-      return {
-        isActive: true,
-        source: "subscription_invoice",
-        reason: "Tenant is active via a paid invoice for an active subscription.",
-        validUntil: toIso(subscription.currentPeriodEnd),
-      };
-    }
-  }
-
-  // Fallback: a redeemed, non-revoked license key still within its own validity window —
-  // covers a tenant activated without a matching subscription+invoice pair.
   const activeLicense = await prisma.licenseKey.findFirst({
     where: {
       tenantId,
@@ -157,13 +96,57 @@ export async function resolveTenantAccess(tenantId: string): Promise<TenantAcces
     };
   }
 
+  const subscription = await prisma.subscription.findFirst({
+    where: {
+      tenantId,
+      status: SubscriptionStatus.active,
+      currentPeriodStart: { lte: now },
+      currentPeriodEnd: { gte: now },
+      plan: {
+        billingCycle: { in: [BillingCycle.monthly, BillingCycle.annual] },
+      },
+    },
+    orderBy: { currentPeriodEnd: "desc" },
+    include: {
+      plan: true,
+    },
+  });
+
+  if (!subscription) {
+    return {
+      isActive: false,
+      source: "none",
+      reason: "No active monthly or yearly subscription found.",
+      validUntil: null,
+    };
+  }
+
+  const paidInvoice = await prisma.invoice.findFirst({
+    where: {
+      tenantId,
+      subscriptionId: subscription.id,
+      status: InvoiceStatus.paid,
+      createdAt: {
+        gte: subscription.currentPeriodStart,
+        lte: subscription.currentPeriodEnd,
+      },
+    },
+  });
+
+  if (!paidInvoice) {
+    return {
+      isActive: false,
+      source: "none",
+      reason: "No valid paid invoice found for the active subscription period.",
+      validUntil: toIso(subscription.currentPeriodEnd),
+    };
+  }
+
   return {
-    isActive: false,
-    source: "none",
-    reason: subscription
-      ? "No valid paid invoice found for this subscription."
-      : "No active monthly or yearly subscription found.",
-    validUntil: subscription ? toIso(subscription.currentPeriodEnd) : null,
+    isActive: true,
+    source: "subscription_invoice",
+    reason: "Tenant is active via a paid invoice for an active subscription.",
+    validUntil: toIso(subscription.currentPeriodEnd),
   };
 }
 
@@ -223,30 +206,11 @@ export async function redeemLicenseForTenant(args: {
   tenantId: string;
   rawLicenseKey: string;
   redeemedByUserId: string;
-  ipAddress?: string | null;
-  userAgent?: string | null;
 }) {
-  const { tenantId, rawLicenseKey, redeemedByUserId, ipAddress, userAgent } = args;
+  const { tenantId, rawLicenseKey, redeemedByUserId } = args;
   const normalizedKey = rawLicenseKey.trim().toUpperCase();
   const licenseHash = hashLicenseKey(normalizedKey);
   const now = new Date();
-
-  // Logs the real reason for MedCare's own audit trail, then throws the generic
-  // message the caller actually sees — see GENERIC_REDEMPTION_ERROR above.
-  const failRedemption = async (reason: string, licenseId?: string): Promise<never> => {
-    await recordAuditEvent({
-      tenantId,
-      actorId: redeemedByUserId,
-      actorType: "tenant_user",
-      action: "license.redemption_failed",
-      resourceType: "license_key",
-      resourceId: licenseId,
-      payload: { reason },
-      ipAddress,
-      userAgent,
-    });
-    throw new Error(GENERIC_REDEMPTION_ERROR);
-  };
 
   const license = await prisma.licenseKey.findUnique({
     where: { keyHash: licenseHash },
@@ -259,51 +223,38 @@ export async function redeemLicenseForTenant(args: {
       redeemedAt: true,
       revokedAt: true,
       redeemedBy: true,
-      validFrom: true,
-      validUntil: true,
     },
   });
 
   if (!license) {
-    return failRedemption("Key not found.");
+    throw new Error("Invalid license key.");
   }
 
   if (license.tenantId !== tenantId) {
-    return failRedemption("Key belongs to a different tenant.", license.id);
+    throw new Error("This license key does not belong to your tenant.");
   }
 
   if (license.revokedAt) {
-    return failRedemption("Key has been revoked.", license.id);
+    throw new Error("This license key has been revoked.");
   }
 
   if (license.redeemedAt) {
-    return failRedemption("Key already redeemed.", license.id);
-  }
-
-  if (license.validUntil && license.validUntil < now) {
-    return failRedemption("Key's validity period has already ended.", license.id);
+    throw new Error("This license key has already been used.");
   }
 
   const period = normalizePeriod(license.period);
+  const periodEnd = addPeriod(now, period);
 
   const redeemed = await prisma.$transaction(async (tx) => {
       if (!license.subscriptionId) {
         throw new Error("License key is not linked to a subscription.");
       }
 
-      // The key's validity window was fixed at generation time from the subscription's
-      // own period (see app/api/admin/licenses/route.ts) — redemption activates it as-is
-      // rather than computing a fresh "now + one period" window, so a key generated for
-      // a specific billing period always grants exactly that period, regardless of when
-      // the tenant actually gets around to redeeming it.
-      const periodStart = license.validFrom ?? now;
-      const periodEnd = license.validUntil ?? addPeriod(now, period);
-
       const subscription = await tx.subscription.update({
         where: { id: license.subscriptionId },
         data: {
           status: SubscriptionStatus.active,
-          currentPeriodStart: periodStart,
+          currentPeriodStart: now,
           currentPeriodEnd: periodEnd,
         },
         include: {
@@ -317,6 +268,8 @@ export async function redeemLicenseForTenant(args: {
           status: LicenseKeyStatus.redeemed,
           redeemedAt: now,
           redeemedBy: redeemedByUserId,
+          validFrom: now,
+          validUntil: subscription.currentPeriodEnd,
           subscriptionId: license.subscriptionId,
         },
       });
@@ -353,7 +306,7 @@ export async function redeemLicenseForTenant(args: {
           status: InvoiceStatus.paid,
           dueDate: now,
           paidAt: now,
-          lineItems: lineItems as unknown as Prisma.InputJsonValue,
+          lineItems: lineItems as any,
         },
       });
 
@@ -361,18 +314,6 @@ export async function redeemLicenseForTenant(args: {
   });
 
   const access = await syncTenantStatus(tenantId);
-
-  await recordAuditEvent({
-    tenantId,
-    actorId: redeemedByUserId,
-    actorType: "tenant_user",
-    action: "license.redeemed",
-    resourceType: "license_key",
-    resourceId: license.id,
-    payload: { subscriptionId: redeemed.id },
-    ipAddress,
-    userAgent,
-  });
 
   return {
     subscriptionId: redeemed.id,

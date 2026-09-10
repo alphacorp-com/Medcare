@@ -1,14 +1,12 @@
 "use client";
 
 import { Link } from "@/i18n/routing";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { useSession } from "next-auth/react";
 import { PDFPreviewModal } from "@/components/templates/PDFPreviewModal";
-import { usePdfBranding } from "@/components/templates/usePdfBranding";
-import type { PatientFileData } from "@/components/templates/PatientFileTemplate";
 import { EMPTY_VITALS } from "@/components/shared/vitals-fields";
 import { notifyBillingGenerated } from "@/lib/billing/client";
 
@@ -60,9 +58,7 @@ export default function PatientDetailPage() {
   const tc = useTranslations('common');
   const params = useParams();
   const id = params.id as string;
-  const searchParams = useSearchParams();
   const { data: session } = useSession();
-  const { facility: pdfFacility, settings: pdfSettings } = usePdfBranding();
 
   // Data State
   const [patient, setPatient] = useState<PatientDetail | null>(null);
@@ -96,7 +92,7 @@ export default function PatientDetailPage() {
   const [isTbFollowUpOpen, setIsTbFollowUpOpen] = useState(false);
   const [activeTbCaseId, setActiveTbCaseId] = useState<string | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [pdfData, setPdfData] = useState<PatientFileData | null>(null);
+  const [pdfData, setPdfData] = useState<any>(null);
 
   // Form States
   const [editForm, setEditForm] = useState<EditPatientForm>({
@@ -200,22 +196,6 @@ export default function PatientDetailPage() {
       if (Array.isArray(antigensJson)) setAntigens(antigensJson);
     });
   }, [id]);
-
-  // Deep-link from the consultation queue (/consultations "Claim"/"Continue"): pre-fill
-  // and open the same "add medical record" sheet used everywhere else, pre-selected to
-  // the consultation type and linked to the stay the doctor just claimed.
-  useEffect(() => {
-    if (searchParams.get("openConsultation") !== "1") return;
-    const stayIdParam = searchParams.get("stayId") || "";
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setRecordForm((prev) => ({
-      ...prev,
-      type: "consultation",
-      stayId: stayIdParam,
-      authorId: session?.user?.id || prev.authorId,
-    }));
-    setIsRecordOpen(true);
-  }, [searchParams, session?.user?.id]);
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
@@ -515,8 +495,7 @@ export default function PatientDetailPage() {
       <PDFPreviewModal
         isOpen={isPreviewOpen} onClose={() => setIsPreviewOpen(false)}
         templateId="patient_files" data={pdfData}
-        facility={pdfFacility}
-        settings={pdfSettings}
+        facility={{ name: tc('hospital_name') }} settings={{ watermark: true }}
       />
     </div>
   );

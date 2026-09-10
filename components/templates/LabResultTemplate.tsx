@@ -1,6 +1,5 @@
 import React from 'react';
 import { Page, Text, View, Document, StyleSheet, Image } from '@react-pdf/renderer';
-import type { PdfFacility, PdfLabels, PdfSettings } from './types';
 
 const styles = StyleSheet.create({
   page: {
@@ -80,28 +79,26 @@ const styles = StyleSheet.create({
   }
 });
 
-export interface LabResultData {
-  patientName: string;
-  patientIpp: string;
-  orderId: string;
-  dateCollected: string;
-  dateReported: string;
-  requestingPhysician: string;
-  results: Array<{
-    testName: string;
-    result: string;
-    unit: string;
-    referenceRange: string;
-    isCritical?: boolean;
-  }>;
-  interpretation?: string;
-}
-
 interface LabResultTemplateProps {
-  data: LabResultData;
-  facility: PdfFacility;
-  settings: PdfSettings;
-  labels: PdfLabels;
+  data: {
+    patientName: string;
+    patientIpp: string;
+    orderId: string;
+    dateCollected: string;
+    dateReported: string;
+    requestingPhysician: string;
+    results: Array<{
+      testName: string;
+      result: string;
+      unit: string;
+      referenceRange: string;
+      isCritical?: boolean;
+    }>;
+    interpretation?: string;
+  };
+  facility: any;
+  settings: any;
+  labels: any;
 }
 
 export const LabResultTemplate = ({ data, facility, settings, labels }: LabResultTemplateProps) => (
