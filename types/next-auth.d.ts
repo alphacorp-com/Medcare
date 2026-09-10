@@ -14,7 +14,6 @@ declare module "next-auth" {
       role: string;
       tenantId: string | null;
       modules: ModulePermission[];
-      adminRole?: string;
     } & DefaultSession["user"];
   }
 
@@ -22,7 +21,6 @@ declare module "next-auth" {
     role: string;
     tenantId: string | null;
     modules: ModulePermission[];
-    adminRole?: string;
     sessionVersion: number;
   }
 }
@@ -33,7 +31,6 @@ declare module "next-auth/jwt" {
     role: string;
     tenantId: string | null;
     modules: ModulePermission[];
-    adminRole?: string;
     // Snapshot of the account's sessionVersion at sign-in time — compared against the
     // live DB value on every subsequent request (see callbacks.jwt in lib/auth.ts) to
     // detect a session that should no longer be trusted (password changed elsewhere,

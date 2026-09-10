@@ -51,17 +51,10 @@ export async function GET() {
               email: true,
             },
           });
-        } else if (activity.actorType === 'admin') {
-          // Get admin user info
-          user = await prisma.adminUser.findUnique({
-            where: { id: activity.actorId },
-            select: {
-              id: true,
-              fullName: true,
-              email: true,
-            },
-          });
         }
+        // Note: actorType 'admin' can still appear on historical rows from the
+        // decommissioned cross-tenant admin console, but there's no longer any
+        // AdminUser table to resolve a name from — those fall through to "Unknown User".
 
         return {
           id: activity.id,

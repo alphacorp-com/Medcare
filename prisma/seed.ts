@@ -12,6 +12,7 @@ import {
 } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import prisma from '../lib/prisma';
+import { SYSTEM_ACTOR_ID } from '../lib/audit';
 import { seedReferenceData } from './seed-reference-data';
 
 async function main() {
@@ -286,117 +287,6 @@ async function main() {
   }
   console.log('Plan module associations ensured');
 
-  // Seed Admin User
-  const adminPassword = 'admin123';
-  const adminHashedPassword = await bcrypt.hash(adminPassword, 10);
-
-  const adminUser = await prisma.adminUser.upsert({
-    where: { email: 'admin@medcare.com' },
-    update: {
-      fullName: 'MedCare Administrator',
-      role: 'superadmin',
-      passwordHash: adminHashedPassword,
-      isActive: true,
-    },
-    create: {
-      email: 'admin@medcare.com',
-      fullName: 'MedCare Administrator',
-      role: 'superadmin',
-      passwordHash: adminHashedPassword,
-      isActive: true,
-    },
-  });
-
-  console.log('Admin user ensured:', adminUser.email);
-
-  const featureFlags = [
-    {
-      key: 'feature_advanced_reporting',
-      description: 'Enable advanced analytics and reporting dashboards.',
-      defaultValue: false,
-      isGlobal: true,
-      rolloutPct: 0,
-    },
-    {
-      key: 'feature_custom_templates',
-      description: 'Allow custom document templates for invoices and reports.',
-      defaultValue: true,
-      isGlobal: false,
-      rolloutPct: 0,
-    },
-    {
-      key: 'feature_prescription_refill',
-      moduleCode: 'MODULE_PHARMACY',
-      description: 'Allow automated prescription refill requests.',
-      defaultValue: false,
-      isGlobal: false,
-      rolloutPct: 0,
-    },
-    {
-      key: 'feature_image_annotations',
-      moduleCode: 'MODULE_RADIOLOGY',
-      description: 'Allow image annotation tools for radiology studies.',
-      defaultValue: false,
-      isGlobal: false,
-      rolloutPct: 0,
-    },
-  ];
-
-  const seededFlags: Record<string, { id: string }> = {};
-  for (const flag of featureFlags) {
-    const flagRecord = await prisma.featureFlag.upsert({
-      where: { key: flag.key },
-      update: {
-        description: flag.description,
-        defaultValue: flag.defaultValue,
-        isGlobal: flag.isGlobal,
-        rolloutPct: flag.rolloutPct,
-        moduleId: flag.moduleCode ? seededModules[flag.moduleCode]?.id : null,
-      },
-      create: {
-        key: flag.key,
-        description: flag.description,
-        defaultValue: flag.defaultValue,
-        isGlobal: flag.isGlobal,
-        rolloutPct: flag.rolloutPct,
-        moduleId: flag.moduleCode ? seededModules[flag.moduleCode]?.id : null,
-      },
-    });
-    seededFlags[flagRecord.key] = { id: flagRecord.id };
-  }
-  console.log('Feature flags ensured');
-
-  const tenantFlagAssignments = [
-    { flagKey: 'feature_advanced_reporting', value: true },
-    { flagKey: 'feature_custom_templates', value: true },
-    { flagKey: 'feature_image_annotations', value: false },
-  ];
-
-  for (const assignment of tenantFlagAssignments) {
-    const flagEntry = seededFlags[assignment.flagKey];
-    if (!flagEntry) continue;
-
-    await prisma.tenantFeatureFlag.upsert({
-      where: {
-        tenantId_flagId: {
-          tenantId: tenant.id,
-          flagId: flagEntry.id,
-        },
-      },
-      update: {
-        value: assignment.value,
-        setBy: adminUser.id,
-      },
-      create: {
-        tenantId: tenant.id,
-        flagId: flagEntry.id,
-        value: assignment.value,
-        setBy: adminUser.id,
-      },
-    });
-  }
-  console.log('Tenant feature flags ensured');
-
   const tenantModuleSeeds: Array<{ moduleCode: string; status: ModuleStatus }> = [
     { moduleCode: 'MODULE_CORE_PATIENT', status: 'active' },
     { moduleCode: 'MODULE_PHARMACY', status: 'active' },
@@ -420,14 +310,14 @@ async function main() {
       update: {
         status: assignment.status,
         activatedAt: assignment.status === 'active' ? new Date() : null,
-        activatedBy: adminUser.id,
+        activatedBy: SYSTEM_ACTOR_ID,
       },
       create: {
         tenantId: tenant.id,
         moduleId: moduleEntry.id,
         status: assignment.status,
         activatedAt: assignment.status === 'active' ? new Date() : null,
-        activatedBy: adminUser.id,
+        activatedBy: SYSTEM_ACTOR_ID,
       },
     });
   }

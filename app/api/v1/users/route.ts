@@ -111,7 +111,7 @@ export async function POST(req: Request) {
     await recordAuditEvent({
       tenantId: session.user.tenantId,
       actorId: session.user.id,
-      actorType: session.user.role === "admin" ? "admin" : "tenant_user",
+      actorType: "tenant_user",
       action: "user.create",
       resourceType: "tenant_user",
       resourceId: newUser.id,

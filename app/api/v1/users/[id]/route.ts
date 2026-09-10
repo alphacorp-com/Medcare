@@ -19,14 +19,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
     }
 
-    // Platform admins manage users across all tenants; everyone else (self-view or
-    // tenant_admin) is restricted to their own tenant — a tenant_admin from tenant A must not
-    // be able to fetch tenant B's user by id.
-    const isPlatformAdmin = session.user.role === "admin";
+    // A tenant_admin (or a self-view) is restricted to their own tenant — a tenant_admin
+    // from tenant A must not be able to fetch tenant B's user by id.
     const user = await prisma.tenantUser.findFirst({
       where: {
         id,
-        ...(isPlatformAdmin ? {} : { tenantId: session.user.tenantId }),
+        tenantId: session.user.tenantId,
       },
       select: {
         id: true,
@@ -71,11 +69,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const body = await req.json();
     const { fullName, email, role, modules, status, password } = body;
 
-    const isPlatformAdmin = session.user.role === "admin";
     const existingUser = await prisma.tenantUser.findFirst({
       where: {
         id,
-        ...(isPlatformAdmin ? {} : { tenantId: session.user.tenantId }),
+        tenantId: session.user.tenantId,
       },
     });
 
@@ -110,7 +107,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     await recordAuditEvent({
       tenantId: session.user.tenantId,
       actorId: session.user.id,
-      actorType: session.user.role === "admin" ? "admin" : "tenant_user",
+      actorType: "tenant_user",
       action: "user.update",
       resourceType: "tenant_user",
       resourceId: id,
@@ -151,11 +148,10 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
       return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
     }
 
-    const isPlatformAdmin = session.user.role === "admin";
     const existingUser = await prisma.tenantUser.findFirst({
       where: {
         id,
-        ...(isPlatformAdmin ? {} : { tenantId: session.user.tenantId }),
+        tenantId: session.user.tenantId,
       },
     });
 
@@ -171,7 +167,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     await recordAuditEvent({
       tenantId: session.user.tenantId,
       actorId: session.user.id,
-      actorType: session.user.role === "admin" ? "admin" : "tenant_user",
+      actorType: "tenant_user",
       action: "user.delete",
       resourceType: "tenant_user",
       resourceId: id,

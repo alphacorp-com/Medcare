@@ -102,27 +102,21 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
         });
         setActiveModules(session.user.modules || []);
 
-        if (session.user.role !== "admin") {
-          try {
-            const { isActive, reason, tenantModules } = await refreshTenantAccess();
-            applyTenantAccess(isActive, reason, tenantModules);
-          } catch (error) {
-            // A network hiccup or a transient 5xx here is not proof the tenant is inactive —
-            // treat it as "couldn't verify yet", not "denied". Keep whatever access the JWT
-            // already grants (the server still enforces real permissions on every API call
-            // regardless of this client-side gate) and retry silently in the background
-            // instead of locking the user out until they happen to refresh.
-            setTenantIsActive(true);
-            setTenantReason(null);
-            setTenantAccess(true, null);
-            setActiveModules(session.user.modules || []);
-            console.error("Failed to resolve tenant access, will retry:", error);
-            scheduleTenantAccessRetry();
-          }
-        } else {
+        try {
+          const { isActive, reason, tenantModules } = await refreshTenantAccess();
+          applyTenantAccess(isActive, reason, tenantModules);
+        } catch (error) {
+          // A network hiccup or a transient 5xx here is not proof the tenant is inactive —
+          // treat it as "couldn't verify yet", not "denied". Keep whatever access the JWT
+          // already grants (the server still enforces real permissions on every API call
+          // regardless of this client-side gate) and retry silently in the background
+          // instead of locking the user out until they happen to refresh.
           setTenantIsActive(true);
           setTenantReason(null);
           setTenantAccess(true, null);
+          setActiveModules(session.user.modules || []);
+          console.error("Failed to resolve tenant access, will retry:", error);
+          scheduleTenantAccessRetry();
         }
       } else if (status === "unauthenticated") {
         setUser(null);
@@ -182,7 +176,7 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (status === "authenticated" && session?.user?.role !== "admin" && !tenantIsActive) {
+  if (status === "authenticated" && !tenantIsActive) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-slate-100 px-4">
         <Card className="w-full max-w-xl">

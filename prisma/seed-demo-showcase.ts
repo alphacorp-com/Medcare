@@ -52,6 +52,7 @@ import {
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import prisma from '../lib/prisma';
+import { SYSTEM_ACTOR_ID } from '../lib/audit';
 
 const IPP_PREFIX = 'DEMO';
 const STAY_PREFIX = 'STAYDEMO';
@@ -88,9 +89,6 @@ async function main() {
   const tenant = await prisma.tenant.findFirst({ where: { dbSchema: 'public' } });
   if (!tenant) throw new Error('No tenant found — run `npm run seed` first.');
 
-  const adminUser = await prisma.adminUser.findUnique({ where: { email: 'admin@medcare.com' } });
-  if (!adminUser) throw new Error('Platform admin not found — run `npm run seed` first.');
-
   const existingDemoPatient = await prisma.patient.findFirst({
     where: { tenantId: tenant.id, ipp: { startsWith: IPP_PREFIX } },
   });
@@ -108,13 +106,13 @@ async function main() {
   for (const mod of allModules) {
     await prisma.tenantModule.upsert({
       where: { tenantId_moduleId: { tenantId: tenant.id, moduleId: mod.id } },
-      update: { status: ModuleStatus.active, activatedAt: new Date(), activatedBy: adminUser.id },
+      update: { status: ModuleStatus.active, activatedAt: new Date(), activatedBy: SYSTEM_ACTOR_ID },
       create: {
         tenantId: tenant.id,
         moduleId: mod.id,
         status: ModuleStatus.active,
         activatedAt: new Date(),
-        activatedBy: adminUser.id,
+        activatedBy: SYSTEM_ACTOR_ID,
       },
     });
   }
@@ -155,8 +153,8 @@ async function main() {
       keyPreview: 'DEMO1-****-****-DEMO4',
       period: BillingCycle.annual,
       status: LicenseKeyStatus.redeemed,
-      issuedBy: adminUser.id,
-      redeemedBy: adminUser.id,
+      issuedBy: SYSTEM_ACTOR_ID,
+      redeemedBy: SYSTEM_ACTOR_ID,
       redeemedAt: daysAgo(30),
       validFrom: daysAgo(30),
       validUntil: daysFromNow(335),

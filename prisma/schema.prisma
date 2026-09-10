@@ -108,16 +108,6 @@ enum OneTimeChargeStatus {
   @@schema("public")
 }
 
-enum AdminRole {
-  superadmin
-  sales
-  support
-  devops
-  finance
-
-  @@schema("public")
-}
-
 enum AuditActorType {
   admin
   tenant_user
@@ -438,7 +428,6 @@ model Tenant {
   invoices           Invoice[]
   oneTimeCharges     OneTimeCharge[]
   tenantModules      TenantModule[]
-  tenantFeatureFlags TenantFeatureFlag[]
   licenseKeys        LicenseKey[]
   auditLogs          AuditLog[]
 
@@ -587,7 +576,6 @@ model Module {
 
   planModules   PlanModule[]
   tenantModules TenantModule[]
-  featureFlags  FeatureFlag[]
 
   @@index([code])
   @@index([tier])
@@ -629,62 +617,6 @@ model TenantModule {
   @@index([tenantId])
   @@index([status])
   @@map("tenant_modules")
-  @@schema("public")
-}
-
-model FeatureFlag {
-  id           String   @id @default(uuid()) @db.Uuid
-  key          String   @unique @db.VarChar(120)
-  moduleId     String?  @map("module_id") @db.Uuid
-  description  String?
-  defaultValue Boolean  @default(false) @map("default_value")
-  isGlobal     Boolean  @default(false) @map("is_global")
-  rolloutPct   Int      @default(0) @map("rollout_pct") @db.SmallInt
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
-
-  module             Module?             @relation(fields: [moduleId], references: [id], onDelete: SetNull)
-  tenantFeatureFlags TenantFeatureFlag[]
-
-  @@index([key])
-  @@map("feature_flags")
-  @@schema("public")
-}
-
-model TenantFeatureFlag {
-  id        String    @id @default(uuid()) @db.Uuid
-  tenantId  String    @map("tenant_id") @db.Uuid
-  flagId    String    @map("flag_id") @db.Uuid
-  value     Boolean
-  setBy     String    @map("set_by") @db.Uuid
-  reason    String?
-  expiresAt DateTime? @map("expires_at") @db.Timestamptz
-  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
-
-  tenant Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  flag   FeatureFlag @relation(fields: [flagId], references: [id], onDelete: Cascade)
-
-  @@unique([tenantId, flagId])
-  @@index([tenantId])
-  @@map("tenant_feature_flags")
-  @@schema("public")
-}
-
-model AdminUser {
-  id             String    @id @default(uuid()) @db.Uuid
-  email          String    @unique @db.VarChar(255)
-  fullName       String    @map("full_name") @db.VarChar(255)
-  role           AdminRole
-  passwordHash   String    @map("password_hash")
-  totpSecret     String?   @map("totp_secret")
-  isActive       Boolean   @default(true) @map("is_active")
-  // Bumped on every password change — the JWT carries the value from sign-in time, so
-  // a mismatch on a later request means that session was issued before the password
-  // changed and should no longer be trusted (see callbacks.jwt in lib/auth.ts).
-  sessionVersion Int       @default(0) @map("session_version")
-  lastLoginAt    DateTime? @map("last_login_at") @db.Timestamptz
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
-
-  @@map("admin_users")
   @@schema("public")
 }
 
@@ -1288,7 +1220,9 @@ model TenantUser {
   passwordHash   String         @map("password_hash")
   totpSecret     String?        @map("totp_secret")
   isActive       Boolean        @default(true) @map("is_active")
-  // Bumped on every password change — see AdminUser.sessionVersion above.
+  // Bumped on every password change — the JWT carries the value from sign-in time, so
+  // a mismatch on a later request means that session was issued before the password
+  // changed and should no longer be trusted (see callbacks.jwt in lib/auth.ts).
   sessionVersion Int            @default(0) @map("session_version")
   modules        Json           @default("[]")
   lastLoginAt    DateTime?      @map("last_login_at") @db.Timestamptz
