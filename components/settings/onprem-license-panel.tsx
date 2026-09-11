@@ -38,6 +38,7 @@ export function OnPremLicensePanel() {
 
   const [status, setStatus] = useState<LicenseStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [statusError, setStatusError] = useState<string | null>(null);
 
   const [isActivating, setIsActivating] = useState(false);
   const [activateError, setActivateError] = useState<string | null>(null);
@@ -55,13 +56,22 @@ export function OnPremLicensePanel() {
       if (res.ok) {
         const data = await res.json();
         setStatus(data);
+        setStatusError(null);
+      } else {
+        // Distinct from "no license applied" (a real, empty state) — this is
+        // "we couldn't even check", which must never be silently presented
+        // as if there were no license, or an admin could be misled into
+        // re-activating a license that's actually already applied and fine.
+        const payload = await res.json().catch(() => null);
+        setStatusError(payload?.error || t("onprem_status_fetch_error"));
       }
     } catch (error) {
       console.error("Failed to fetch on-prem license status:", error);
+      setStatusError(t("onprem_status_fetch_error"));
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     fetchStatus();
@@ -127,6 +137,23 @@ export function OnPremLicensePanel() {
     return (
       <div className="bg-white rounded border border-slate-200 shadow-sm p-6 flex items-center justify-center h-48">
         <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
+      </div>
+    );
+  }
+
+  if (statusError && !status) {
+    return (
+      <div className="bg-white rounded border border-slate-200 shadow-sm p-6 space-y-4">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex gap-3">
+          <ShieldAlert className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-red-800">{t("onprem_status_fetch_error_title")}</p>
+            <p className="text-xs text-red-700 mt-1">{statusError}</p>
+          </div>
+        </div>
+        <Button type="button" variant="outline" onClick={() => fetchStatus()}>
+          {t("onprem_status_retry")}
+        </Button>
       </div>
     );
   }

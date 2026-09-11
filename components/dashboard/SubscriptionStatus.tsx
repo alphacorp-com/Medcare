@@ -115,8 +115,8 @@ export function SubscriptionStatus() {
       <div className="space-y-2">
         <div className="text-xs">
           <span className="font-medium">{t('status')}:</span>{' '}
-          <span className={`font-semibold ${status.isActive ? 'text-green-600' : 'text-red-600'}`}>
-            {status.isActive ? tc('active') : tc('inactive')}
+          <span className={`font-semibold ${!status.isActive ? 'text-red-600' : isInGracePeriod ? 'text-amber-700' : 'text-green-600'}`}>
+            {!status.isActive ? tc('inactive') : isInGracePeriod ? t('grace_period') : tc('active')}
           </span>
         </div>
 
@@ -136,7 +136,11 @@ export function SubscriptionStatus() {
           </div>
         )}
 
-        {timeRemaining?.expired && (
+        {isInGracePeriod && (
+          <div className="text-xs text-amber-700">{t('grace_period_warning')}</div>
+        )}
+
+        {!status.isActive && timeRemaining?.expired && (
           <div className="text-xs">
             <span className="font-medium text-red-600">{t('expired')}</span>
           </div>

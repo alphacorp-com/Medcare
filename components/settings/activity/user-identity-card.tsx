@@ -1,20 +1,6 @@
 import { Building2, Mail, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Maps TenantUserRole enum values to the shared `roles` translation namespace keys,
-// mirroring the pairing already used by SYSTEM_ROLES in components/settings/users-management.tsx.
-const ROLE_LABEL_KEY: Record<string, string> = {
-  tenant_admin: "admin",
-  doctor: "physician",
-  nurse: "nurse",
-  pharmacist: "pharmacist",
-  lab_tech: "lab",
-  radiologist: "radiologist",
-  billing: "billing",
-  hr: "hr",
-  viewer: "viewer",
-};
-
 export interface ActivityUser {
   id: string;
   fullName: string;
@@ -31,9 +17,10 @@ interface UserIdentityCardProps {
   tr: (key: string) => string;
 }
 
-export function UserIdentityCard({ user, t, tc, tr }: UserIdentityCardProps) {
-  const roleKey = ROLE_LABEL_KEY[user.role];
-  const roleLabel = roleKey ? tr(roleKey) : user.role;
+// Role names are admin-defined text (see prisma Role model) — displayed
+// as-is, no translation lookup needed.
+export function UserIdentityCard({ user, t, tc }: UserIdentityCardProps) {
+  const roleLabel = user.role;
 
   return (
     <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-6 md:items-center items-start">
