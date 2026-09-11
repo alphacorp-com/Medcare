@@ -4,6 +4,7 @@
 // the other.
 import prisma from "@/lib/prisma";
 import { recordAuditEvent, SYSTEM_ACTOR_ID } from "@/lib/audit";
+import { syncTenantModulesFromLicense } from "@/lib/tenant-licensing";
 import { verifyLicenseToken } from "./verify";
 import { computeFingerprint } from "./fingerprint";
 
@@ -89,6 +90,15 @@ export async function applyLicenseToken(
     resourceId: payload.jti,
     payload: { channel, tier: payload.tier, validUntil: payload.validUntil },
   });
+
+  // Make the license's module list the actual source of truth for this
+  // install's TenantModule rows — otherwise plannedModules chosen in
+  // AlphaCorp never affects what's actually enforced here (see
+  // isModuleActiveForTenant/resolveTenantModules in lib/tenant-licensing.ts).
+  const tenant = await prisma.tenant.findFirst({ where: { dbSchema: "public" }, select: { id: true } });
+  if (tenant) {
+    await syncTenantModulesFromLicense(tenant.id, payload.modules);
+  }
 
   return { appliedAt: applied.appliedAt, validUntil: applied.validUntil };
 }

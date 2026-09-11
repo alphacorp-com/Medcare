@@ -12,6 +12,12 @@ declare module "next-auth" {
     user: {
       id: string;
       role: string;
+      roleId: string;
+      // Grants full, unconditional access — see Role.isSystemAdmin and
+      // isAdminOrTenantAdmin in lib/permissions.ts. The sole source of
+      // "is this an administrator" now that roles are admin-defined names,
+      // not a fixed enum with a magic "tenant_admin" value.
+      isSystemAdmin: boolean;
       tenantId: string | null;
       modules: ModulePermission[];
     } & DefaultSession["user"];
@@ -19,6 +25,8 @@ declare module "next-auth" {
 
   interface User extends DefaultUser {
     role: string;
+    roleId: string;
+    isSystemAdmin: boolean;
     tenantId: string | null;
     modules: ModulePermission[];
     sessionVersion: number;
@@ -29,6 +37,8 @@ declare module "next-auth/jwt" {
   interface JWT {
     id: string;
     role: string;
+    roleId: string;
+    isSystemAdmin: boolean;
     tenantId: string | null;
     modules: ModulePermission[];
     // Snapshot of the account's sessionVersion at sign-in time — compared against the

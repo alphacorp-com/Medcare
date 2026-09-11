@@ -9,7 +9,7 @@ import { computeFingerprint } from "@/lib/onprem-license/fingerprint";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.id || session.user.role !== "tenant_admin") {
+  if (!session?.user?.id || !session.user.isSystemAdmin) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

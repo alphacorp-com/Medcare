@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { requireTenantAdmin } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
+import { getTenantBedLimit } from "@/lib/tenant-licensing";
 import { Prisma, type BedStatus } from "@prisma/client";
 
 // Readable by any authenticated tenant member (used by admission/transfer bed
@@ -56,6 +57,21 @@ export async function POST(request: Request) {
     });
     if (!department) {
       return NextResponse.json({ error: "Department not found" }, { status: 404 });
+    }
+
+    const bedLimit = await getTenantBedLimit(session.user.tenantId);
+    if (bedLimit != null) {
+      const activeBedCount = await prisma.bed.count({
+        where: { tenantId: session.user.tenantId, isActive: true },
+      });
+      if (activeBedCount >= bedLimit) {
+        return NextResponse.json(
+          {
+            error: `Bed limit reached (${bedLimit}). Contact your administrator to increase this install's license. / Limite de lits atteinte (${bedLimit}). Contactez votre administrateur pour augmenter la licence de cette installation.`,
+          },
+          { status: 403 }
+        );
+      }
     }
 
     const bed = await prisma.bed.create({

@@ -2,8 +2,7 @@ import type { Session } from "next-auth";
 import type { ModuleAction } from "@/types/next-auth";
 
 export function isAdminOrTenantAdmin(session: Session | null | undefined): boolean {
-  const role = session?.user?.role;
-  return role === "tenant_admin";
+  return session?.user?.isSystemAdmin === true;
 }
 
 export function hasModulePermission(
@@ -118,7 +117,7 @@ export function requireTenantAdmin(session: Session | null | undefined): Permiss
   if (!session?.user) {
     return { ok: false, status: 401, error: UNAUTHENTICATED };
   }
-  if (session.user.role !== "tenant_admin") {
+  if (!session.user.isSystemAdmin) {
     return { ok: false, status: 403, error: MUST_BE_TENANT_ADMIN };
   }
   return { ok: true };

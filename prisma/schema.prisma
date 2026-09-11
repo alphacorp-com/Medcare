@@ -351,20 +351,6 @@ enum AdverseEventStatus {
   @@schema("tenant_template")
 }
 
-enum TenantUserRole {
-  tenant_admin
-  doctor
-  nurse
-  pharmacist
-  lab_tech
-  radiologist
-  billing
-  hr
-  viewer
-
-  @@schema("tenant_template")
-}
-
 enum DepartmentType {
   emergency
   surgery
@@ -1207,34 +1193,67 @@ model Department {
   @@schema("tenant_template")
 }
 
+model Role {
+  id     String  @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  name   String  @db.VarChar(100)
+  // Grants full, unconditional access (bypasses the per-module modules check
+  // entirely — see isAdminOrTenantAdmin in lib/permissions.ts). Not tied to
+  // any specific role name, so renaming a role never changes its authority;
+  // only this flag does. At least one active user with an isSystemAdmin
+  // role must always remain (enforced in the roles API, not here).
+  isSystemAdmin  Boolean  @default(false) @map("is_system_admin")
+  // Marks a role's members as eligible clinical providers (doctors,
+  // surgeons, ...) — the durable substitute for matching on the literal
+  // role name "doctor". Anything that needs to list "the doctors" (an
+  // appointment picker, a prescriber lookup) filters on this flag instead,
+  // so it keeps working no matter what the role is named or renamed to.
+  isClinicalProvider Boolean @default(false) @map("is_clinical_provider")
+  // Default per-module permission set applied when a new user is created
+  // with this role — still freely editable per-user afterward, same as
+  // today's module checklist.
+  defaultModules Json     @default("[]") @map("default_modules")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  users TenantUser[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@map("roles")
+  @@schema("tenant_template")
+}
+
 model TenantUser {
-  id             String         @id @default(uuid()) @db.Uuid
-  tenantId       String?        @map("tenant_id") @db.Uuid
-  email          String         @unique @db.VarChar(255)
-  fullName       String         @map("full_name") @db.VarChar(255)
-  role           TenantUserRole
-  specialty      String?        @db.VarChar(120)
-  rppsNumber     String?        @map("rpps_number") @db.VarChar(20)
-  departmentId   String?        @map("department_id") @db.Uuid
-  phone          String?        @db.VarChar(30)
-  passwordHash   String         @map("password_hash")
-  totpSecret     String?        @map("totp_secret")
-  isActive       Boolean        @default(true) @map("is_active")
+  id             String    @id @default(uuid()) @db.Uuid
+  tenantId       String?   @map("tenant_id") @db.Uuid
+  email          String    @unique @db.VarChar(255)
+  fullName       String    @map("full_name") @db.VarChar(255)
+  roleId         String    @map("role_id") @db.Uuid
+  specialty      String?   @db.VarChar(120)
+  rppsNumber     String?   @map("rpps_number") @db.VarChar(20)
+  departmentId   String?   @map("department_id") @db.Uuid
+  phone          String?   @db.VarChar(30)
+  passwordHash   String    @map("password_hash")
+  totpSecret     String?   @map("totp_secret")
+  isActive       Boolean   @default(true) @map("is_active")
   // Bumped on every password change — the JWT carries the value from sign-in time, so
   // a mismatch on a later request means that session was issued before the password
   // changed and should no longer be trusted (see callbacks.jwt in lib/auth.ts).
-  sessionVersion Int            @default(0) @map("session_version")
-  modules        Json           @default("[]")
-  lastLoginAt    DateTime?      @map("last_login_at") @db.Timestamptz
-  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz
+  sessionVersion Int       @default(0) @map("session_version")
+  modules        Json      @default("[]")
+  lastLoginAt    DateTime? @map("last_login_at") @db.Timestamptz
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
+  role                     Role                      @relation(fields: [roleId], references: [id])
   department               Department?               @relation(fields: [departmentId], references: [id])
   schedules                Schedule[]
   notifications            Notification[]
   conversationParticipants ConversationParticipant[]
   messages                 Message[]
 
+  @@index([roleId])
   @@map("tenant_users")
   @@schema("tenant_template")
 }

@@ -23,8 +23,9 @@ export interface NotifyModuleInput {
 // recipient. Eligibility requires BOTH:
 //   1. The tenant currently has `moduleId` licensed (TenantModule status active/trial). If the
 //      tenant's plan doesn't include the module (or the license lapsed), nobody is notified.
-//   2. The user is either `tenant_admin` (implicit full access, matching lib/permissions.ts's
-//      bypass convention) or has `action` granted on `moduleId` in their own `modules` grant.
+//   2. The user's role has `isSystemAdmin` (implicit full access, matching
+//      lib/permissions.ts's bypass convention) or they have `action` granted on
+//      `moduleId` in their own `modules` grant.
 // Returns the number of notifications created.
 export async function notifyModule(input: NotifyModuleInput): Promise<number> {
   const action = input.action ?? "read";
@@ -49,12 +50,12 @@ export async function notifyModule(input: NotifyModuleInput): Promise<number> {
       isActive: true,
       ...(input.excludeUserId ? { id: { not: input.excludeUserId } } : {}),
     },
-    select: { id: true, role: true, modules: true },
+    select: { id: true, modules: true, role: { select: { isSystemAdmin: true } } },
   });
 
   const recipientIds = users
     .filter((user) => {
-      if (user.role === "tenant_admin") return true;
+      if (user.role.isSystemAdmin) return true;
       const modules = (user.modules ?? []) as unknown as { moduleId: string; actions: string[] }[];
       return modules.some((m) => m.moduleId === input.moduleId && m.actions.includes(action));
     })

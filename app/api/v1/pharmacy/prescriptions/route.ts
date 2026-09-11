@@ -38,7 +38,7 @@ export async function GET() {
 
     // Fetch all doctors to map prescriberId to name
     const doctors = await prisma.tenantUser.findMany({
-      where: { role: 'doctor' },
+      where: { role: { isClinicalProvider: true } },
       select: { id: true, fullName: true }
     });
 

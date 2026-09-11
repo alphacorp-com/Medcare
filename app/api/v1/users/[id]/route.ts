@@ -30,7 +30,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         id: true,
         email: true,
         fullName: true,
-        role: true,
+        roleId: true,
+        role: { select: { name: true, isSystemAdmin: true } },
         modules: true,
         isActive: true,
         lastLoginAt: true,
@@ -41,8 +42,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
+    const { role, ...rest } = user;
     return NextResponse.json({
-      ...user,
+      ...rest,
+      role: role.name,
+      isSystemAdmin: role.isSystemAdmin,
       status: user.isActive ? 'active' : 'inactive',
       lastActive: user.lastLoginAt?.toISOString(),
     });
@@ -57,7 +61,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const { id } = await params;
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.id) {
+    if (!session?.user?.id || !session.user.tenantId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -67,13 +71,14 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     const body = await req.json();
-    const { fullName, email, role, modules, status, password } = body;
+    const { fullName, email, roleId, modules, status, password } = body;
 
     const existingUser = await prisma.tenantUser.findFirst({
       where: {
         id,
         tenantId: session.user.tenantId,
       },
+      include: { role: { select: { id: true, name: true, isSystemAdmin: true } } },
     });
 
     if (!existingUser) {
@@ -86,22 +91,51 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
     const canManage = isAdminOrTenantAdmin(session);
 
+    let newRole: { id: string; name: string; isSystemAdmin: boolean } | null = null;
+    if (roleId && canManage && roleId !== existingUser.roleId) {
+      newRole = await prisma.role.findFirst({
+        where: { id: roleId, tenantId: session.user.tenantId },
+      });
+      if (!newRole) {
+        return NextResponse.json({ error: "Role not found" }, { status: 400 });
+      }
+      // Refuse a reassignment that would leave the tenant with zero active
+      // administrators — the same self-lockout guard the roles API applies
+      // when a role itself is demoted or deleted.
+      if (existingUser.role.isSystemAdmin && !newRole.isSystemAdmin) {
+        const otherActiveAdmins = await prisma.tenantUser.count({
+          where: {
+            tenantId: session.user.tenantId,
+            isActive: true,
+            id: { not: id },
+            role: { isSystemAdmin: true },
+          },
+        });
+        if (otherActiveAdmins === 0) {
+          return NextResponse.json(
+            { error: "This is the last administrator — assign another user an administrator role first." },
+            { status: 400 }
+          );
+        }
+      }
+    }
+
     const updatedUser = await prisma.tenantUser.update({
       where: { id },
       data: {
         ...(fullName && { fullName }),
         ...(email && { email }),
-        ...(role && canManage && { role }),
+        ...(newRole && { roleId: newRole.id }),
         ...(modules && canManage && { modules }),
         ...(status && canManage && { isActive: status === 'active' }),
         // Bumping sessionVersion when a password is set here invalidates this user's
         // existing sessions immediately, same as the dedicated reset-password routes.
         ...(password && { passwordHash: await bcrypt.hash(password, 10), sessionVersion: { increment: 1 } }),
       },
+      include: { role: { select: { name: true, isSystemAdmin: true } } },
     });
 
     const { ipAddress, userAgent } = extractRequestMeta(req.headers);
-    const roleChanged = role && canManage && role !== existingUser.role;
     const modulesChanged = modules && canManage &&
       JSON.stringify(modules) !== JSON.stringify(existingUser.modules);
     await recordAuditEvent({
@@ -113,7 +147,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       resourceId: id,
       payload: {
         fields: Object.keys(body),
-        ...(roleChanged ? { roleChanged: { from: existingUser.role, to: role } } : {}),
+        ...(newRole ? { roleChanged: { from: existingUser.role.name, to: newRole.name } } : {}),
         ...(modulesChanged ? { modulesChanged: { from: existingUser.modules, to: modules } } : {}),
       },
       ipAddress,
@@ -124,7 +158,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       id: updatedUser.id,
       email: updatedUser.email,
       fullName: updatedUser.fullName,
-      role: updatedUser.role,
+      role: updatedUser.role.name,
+      isSystemAdmin: updatedUser.role.isSystemAdmin,
       modules: updatedUser.modules,
       status: updatedUser.isActive ? 'active' : 'inactive',
       lastActive: updatedUser.lastLoginAt?.toISOString(),

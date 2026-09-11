@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Building, User, ShieldCheck, LayoutTemplate, Link2, Users, FileText, Loader2, Key, ServerCog
+  Building, User, ShieldCheck, LayoutTemplate, Link2, Users, UserCog, FileText, Loader2, ServerCog
 } from "lucide-react";
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
@@ -13,6 +13,7 @@ import { useTranslations } from "next-intl";
 
 // Modular Components
 import { UsersManagement } from "@/components/settings/users-management";
+import { RolesManagement } from "@/components/settings/roles-management";
 import { ProfileSettings } from "@/components/settings/profile-settings";
 import { ChangePasswordCard } from "@/components/settings/change-password-card";
 import { OrganizationSettings } from "@/components/settings/organization-settings";
@@ -21,7 +22,6 @@ import { DocumentTemplates } from "@/components/settings/document-templates";
 import { Dhis2IntegrationSettings } from "@/components/settings/dhis2-integration-settings";
 import { MobileMoneySettings } from "@/components/settings/mobile-money-settings";
 import { OnPremLicensePanel } from "@/components/settings/onprem-license-panel";
-import type { TenantAccessState } from "@/lib/tenant-licensing";
 
 export default function SettingsPage() {
   return (
@@ -64,13 +64,6 @@ function SettingsPageContent() {
     watermark: false
   });
 
-  // License Management State
-  const [licenseKey, setLicenseKey] = useState("");
-  const [isRedeeming, setIsRedeeming] = useState(false);
-  const [licenseError, setLicenseError] = useState<string | null>(null);
-  const [licenseSuccess, setLicenseSuccess] = useState<string | null>(null);
-  const [currentSubscription, setCurrentSubscription] = useState<TenantAccessState | null>(null);
-
   const t = useTranslations('settings');
   const tc = useTranslations('common');
   const tp = useTranslations('patients');
@@ -86,16 +79,15 @@ function SettingsPageContent() {
   const tdp = useTranslations('diseasePrograms');
   const ttpl = useTranslations('templates');
 
-  const isSysAdmin = currentUser?.role === "tenant_admin";
+  const isSysAdmin = currentUser?.isSystemAdmin === true;
 
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const [orgRes, tplRes, licenseRes] = await Promise.all([
+        const [orgRes, tplRes] = await Promise.all([
           fetch('/api/v1/settings/organization'),
           fetch('/api/v1/settings/templates'),
-          isSysAdmin ? fetch('/api/v1/licensing/status') : Promise.resolve(null)
         ]);
 
         if (orgRes.ok) {
@@ -114,11 +106,6 @@ function SettingsPageContent() {
         if (tplRes.ok) {
           const data = await tplRes.json();
           setTemplateSettings(prev => ({ ...prev, ...data }));
-        }
-
-        if (licenseRes && licenseRes.ok) {
-          const data = await licenseRes.json();
-          setCurrentSubscription(data);
         }
       } catch (error) {
         console.error("Failed to fetch settings:", error);
@@ -196,7 +183,8 @@ function SettingsPageContent() {
           id: updatedUser.id,
           fullName: updatedUser.fullName,
           email: updatedUser.email,
-          role: updatedUser.role
+          role: updatedUser.role,
+          isSystemAdmin: updatedUser.isSystemAdmin
         });
       } else if (activeTab === "organization") {
         await fetch('/api/v1/settings/organization', {
@@ -221,45 +209,6 @@ function SettingsPageContent() {
     }
   };
 
-
-  const handleRedeemLicense = async () => {
-    if (!licenseKey.trim()) {
-      setLicenseError(t("please_enter_license_key"));
-      return;
-    }
-
-    setIsRedeeming(true);
-    setLicenseError(null);
-    setLicenseSuccess(null);
-
-    try {
-      const response = await fetch("/api/v1/licensing/activate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ licenseKey: licenseKey.trim() }),
-      });
-
-      const payload = await response.json();
-      if (!response.ok) {
-        throw new Error(payload?.error || t("license_redeem_error"));
-      }
-
-      setLicenseKey("");
-      setLicenseSuccess(t("license_redeemed", { date: new Date(payload.activeUntil).toLocaleDateString() }));
-      
-      // Refresh subscription status
-      const licenseRes = await fetch('/api/v1/licensing/status');
-      if (licenseRes.ok) {
-        const data = await licenseRes.json();
-        setCurrentSubscription(data);
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : t("license_redeem_error");
-      setLicenseError(message);
-    } finally {
-      setIsRedeeming(false);
-    }
-  };
 
   return (
     <div className="flex flex-col h-full space-y-4 max-w-5xl mx-auto w-full pb-8">
@@ -288,6 +237,9 @@ function SettingsPageContent() {
                 <TabsTrigger value="users" className="justify-start px-4 py-2.5 text-sm rounded-md text-slate-600 transition-all data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:font-semibold data-[state=active]:shadow-none hover:bg-slate-100">
                   <Users className="h-4 w-4 mr-3" /> {t('users_roles')}
                 </TabsTrigger>
+                <TabsTrigger value="roles" className="justify-start px-4 py-2.5 text-sm rounded-md text-slate-600 transition-all data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:font-semibold data-[state=active]:shadow-none hover:bg-slate-100">
+                  <UserCog className="h-4 w-4 mr-3" /> {t('roles_management')}
+                </TabsTrigger>
                 <TabsTrigger value="organization" className="justify-start px-4 py-2.5 text-sm rounded-md text-slate-600 transition-all data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:font-semibold data-[state=active]:shadow-none hover:bg-slate-100">
                   <Building className="h-4 w-4 mr-3" /> {t('organization')}
                 </TabsTrigger>
@@ -296,9 +248,6 @@ function SettingsPageContent() {
                 </TabsTrigger>
                 <TabsTrigger value="templates" className="justify-start px-4 py-2.5 text-sm rounded-md text-slate-600 transition-all data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:font-semibold data-[state=active]:shadow-none hover:bg-slate-100">
                   <FileText className="h-4 w-4 mr-3" /> {ttpl('title')}
-                </TabsTrigger>
-                <TabsTrigger value="license" className="justify-start px-4 py-2.5 text-sm rounded-md text-slate-600 transition-all data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:font-semibold data-[state=active]:shadow-none hover:bg-slate-100">
-                  <Key className="h-4 w-4 mr-3" /> {t('license_management')}
                 </TabsTrigger>
                 <TabsTrigger value="onprem_license" className="justify-start px-4 py-2.5 text-sm rounded-md text-slate-600 transition-all data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:font-semibold data-[state=active]:shadow-none hover:bg-slate-100">
                   <ServerCog className="h-4 w-4 mr-3" /> {t('onprem_license_management')}
@@ -333,6 +282,10 @@ function SettingsPageContent() {
                   <UsersManagement />
                 </TabsContent>
 
+                <TabsContent value="roles" className="m-0 mt-0 focus-visible:outline-none">
+                  <RolesManagement />
+                </TabsContent>
+
                 <TabsContent value="organization" className="m-0 mt-0 focus-visible:outline-none">
                   <OrganizationSettings orgData={orgData} setOrgData={setOrgData} t={t} tc={tc} />
                 </TabsContent>
@@ -354,82 +307,6 @@ function SettingsPageContent() {
                     setTemplateSettings={setTemplateSettings} 
                     ttpl={ttpl} 
                   />
-                </TabsContent>
-
-                <TabsContent value="license" className="m-0 mt-0 focus-visible:outline-none">
-                  <div className="bg-white rounded border border-slate-200 shadow-sm p-6 space-y-6">
-                    <div>
-                      <h2 className="text-lg font-bold text-slate-900">{t('license_management')}</h2>
-                      <p className="text-xs text-slate-500">{t('license_management_desc')}</p>
-                    </div>
-
-                    {currentSubscription && (
-                      <div className="bg-slate-50 rounded-lg p-4 border">
-                        <h3 className="text-sm font-semibold text-slate-700 mb-3">{t('current_subscription')}</h3>
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                          <div>
-                            <span className="text-slate-500">{t('subscription_status')}:</span>
-                            <span className="ml-2 font-medium text-slate-900">
-                              {currentSubscription.isActive ? tc('active') : tc('inactive')}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-slate-500">{t('valid_until')}:</span>
-                            <span className="ml-2 font-medium text-slate-900">
-                              {currentSubscription.validUntil ? new Date(currentSubscription.validUntil).toLocaleDateString() : tc('unknown')}
-                            </span>
-                          </div>
-                        </div>
-                        <p className="text-xs text-slate-600 mt-2">{currentSubscription.reason}</p>
-                      </div>
-                    )}
-
-                    <div className="space-y-4">
-                      <div>
-                        <h3 className="text-sm font-semibold text-slate-700">{t('extend_access')}</h3>
-                        <p className="text-xs text-slate-500 mt-1">{t('extend_access_desc')}</p>
-                      </div>
-
-                      <div className="space-y-3">
-                        <div className="space-y-2">
-                          <label htmlFor="license-key" className="text-sm font-medium text-slate-700">
-                            {t('enter_license_key')}
-                          </label>
-                          <Input
-                            id="license-key"
-                            placeholder="XXXXX-XXXXX-XXXXX-XXXXX"
-                            value={licenseKey}
-                            onChange={(event: React.ChangeEvent<HTMLInputElement>) => setLicenseKey(event.target.value.toUpperCase())}
-                            disabled={isRedeeming}
-                            className="font-mono"
-                          />
-                        </div>
-
-                        {licenseError && (
-                          <p className="text-sm text-red-600">{licenseError}</p>
-                        )}
-
-                        {licenseSuccess && (
-                          <p className="text-sm text-green-600">{licenseSuccess}</p>
-                        )}
-
-                        <Button 
-                          onClick={handleRedeemLicense} 
-                          disabled={isRedeeming || !licenseKey.trim()}
-                          className="w-full"
-                        >
-                          {isRedeeming ? (
-                            <>
-                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                              {t('redeeming')}
-                            </>
-                          ) : (
-                            t('redeem_license')
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
                 </TabsContent>
 
                 <TabsContent value="onprem_license" className="m-0 mt-0 focus-visible:outline-none">

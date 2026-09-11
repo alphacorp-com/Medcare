@@ -16,7 +16,10 @@ export async function GET() {
       where: {
         tenantId: session.user.tenantId,
         isActive: true,
-        role: "doctor",
+        // Roles are admin-defined names — isClinicalProvider is the durable
+        // marker for "counts as a doctor here", set per-role in Settings >
+        // Roles, independent of what the role happens to be named.
+        role: { isClinicalProvider: true },
       },
       select: {
         id: true,

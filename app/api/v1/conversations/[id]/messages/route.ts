@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { resolveTenantAccess } from "@/lib/tenant-licensing";
+import { checkOnPremLicenseGuard } from "@/lib/onprem-license/guard";
 import { RESOURCE_ACCESS_DENIED } from "@/lib/permissions";
 
 async function requireParticipant(conversationId: string, userId: string) {
@@ -50,11 +50,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  if (session.user.tenantId) {
-    const access = await resolveTenantAccess(session.user.tenantId);
-    if (!access.isActive) {
-      return NextResponse.json({ error: "Tenant access is not active" }, { status: 403 });
-    }
+  const guard = await checkOnPremLicenseGuard();
+  if (guard.blocked) {
+    return NextResponse.json({ error: "Tenant access is not active" }, { status: 403 });
   }
 
   const { id } = await params;

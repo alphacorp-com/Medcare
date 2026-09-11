@@ -4,7 +4,6 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import prisma from "@/lib/prisma";
 import { ModulePermission } from "./store/useAppStore";
-import { syncTenantStatus } from "./tenant-licensing";
 import { recordAuditEvent, extractAuthRequestMeta, SYSTEM_ACTOR_ID } from "./audit";
 import { getNextAuthSecret } from "./auth-secret";
 import { checkRateLimit } from "./rate-limit";
@@ -54,6 +53,8 @@ function revokeToken(token: JWT): JWT {
         ...token,
         id: SYSTEM_ACTOR_ID,
         role: "revoked",
+        roleId: "",
+        isSystemAdmin: false,
         tenantId: null,
         modules: [],
     };
@@ -96,6 +97,7 @@ export const authOptions: NextAuthOptions = {
 
                 const user = await prisma.tenantUser.findUnique({
                     where: { email: credentials.email },
+                    include: { role: { select: { id: true, name: true, isSystemAdmin: true } } },
                 });
 
                 if (!user || !user.isActive) {
@@ -128,10 +130,6 @@ export const authOptions: NextAuthOptions = {
                     throw new Error(INVALID_CREDENTIALS_MESSAGE);
                 }
 
-                if (user.tenantId) {
-                    await syncTenantStatus(user.tenantId);
-                }
-
                 try {
                     await prisma.tenantUser.update({
                         where: { id: user.id },
@@ -156,7 +154,9 @@ export const authOptions: NextAuthOptions = {
                     id: user.id,
                     email: user.email,
                     name: user.fullName,
-                    role: user.role as string,
+                    role: user.role.name,
+                    roleId: user.role.id,
+                    isSystemAdmin: user.role.isSystemAdmin,
                     tenantId: user.tenantId,
                     modules: (user.modules ?? []) as unknown as ModulePermission[],
                     sessionVersion: user.sessionVersion,
@@ -169,6 +169,8 @@ export const authOptions: NextAuthOptions = {
             if (user) {
                 token.id = user.id;
                 token.role = user.role;
+                token.roleId = user.roleId;
+                token.isSystemAdmin = user.isSystemAdmin;
                 token.tenantId = user.tenantId;
                 token.modules = user.modules;
                 token.sessionVersion = user.sessionVersion;
@@ -196,6 +198,8 @@ export const authOptions: NextAuthOptions = {
             if (token && session.user) {
                 session.user.id = token.id;
                 session.user.role = token.role;
+                session.user.roleId = token.roleId;
+                session.user.isSystemAdmin = token.isSystemAdmin;
                 session.user.tenantId = token.tenantId;
                 session.user.modules = token.modules;
             }

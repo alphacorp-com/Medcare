@@ -16,7 +16,9 @@ export default async function middleware(request: NextRequest) {
   const {pathname} = request.nextUrl;
 
   // Check if the page is public (login)
-  const isPublicPage = pathname.endsWith('/login') || pathname.includes('/login/');
+  const isPublicPage =
+    pathname.endsWith('/login') || pathname.includes('/login/') ||
+    pathname.endsWith('/setup') || pathname.includes('/setup/');
 
   const token = await getToken({
     req: request,

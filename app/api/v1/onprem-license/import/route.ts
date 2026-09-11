@@ -9,7 +9,7 @@ import { applyLicenseToken, LicenseApplyError } from "@/lib/onprem-license/apply
 
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.id || session.user.role !== "tenant_admin") {
+  if (!session?.user?.id || !session.user.isSystemAdmin) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

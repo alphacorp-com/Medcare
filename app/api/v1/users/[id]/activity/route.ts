@@ -18,9 +18,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const isSelf = session.user.id === id;
 
     if (!isSelf) {
-      // A tenant_admin may only view activity for users in their OWN tenant — being
-      // "tenant_admin" alone doesn't imply access to another tenant's users.
-      if (session.user.role !== "tenant_admin") {
+      // An administrator may only view activity for users in their OWN tenant — being
+      // an admin alone doesn't imply access to another tenant's users.
+      if (!session.user.isSystemAdmin) {
         return NextResponse.json({ error: RESOURCE_ACCESS_DENIED }, { status: 403 });
       }
       const targetUser = await prisma.tenantUser.findUnique({
