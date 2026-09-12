@@ -1,4 +1,6 @@
+import 'dotenv/config';
 import { PrismaClient, Prisma, ReferenceCatalogType, ExamCatalogDomain } from '@prisma/client';
+import prismaClient from '../lib/prisma';
 
 // Seeds every new tenant-configurable reference-data catalog introduced alongside the
 // Settings "reference data" pages: the 7 generic ReferenceCatalogItem lists, Medical Act
@@ -963,3 +965,29 @@ export async function seedReferenceData(prisma: PrismaClient, tenantId: string) 
   await seedIcd10(prisma, tenantId);
   console.log('All reference data seeded successfully');
 }
+
+// Standalone entrypoint (`npm run seed-settings`). This file only used to be
+// called from prisma/seed.ts's main() for a demo tenant it created itself —
+// once that demo tenant was removed (seed.ts now only seeds the
+// tenant-independent module catalog; a real install onboards its own tenant
+// through /setup), the call site disappeared and this became unreachable:
+// running the file directly just defined and exported the function without
+// ever invoking it. This resolves the one real tenant an on-prem install
+// actually has and seeds it instead.
+async function main() {
+  const tenant = await prismaClient.tenant.findFirst({ where: { dbSchema: 'public' } });
+  if (!tenant) {
+    console.error('No tenant found on this install — complete /setup first (creates the hospital and its first admin), then re-run `npm run seed-settings`.');
+    process.exit(1);
+  }
+  await seedReferenceData(prismaClient, tenant.id);
+}
+
+main()
+  .catch((e) => {
+    console.error('Error during reference-data seeding:', e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prismaClient.$disconnect();
+  });
