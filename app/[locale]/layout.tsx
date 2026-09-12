@@ -29,7 +29,7 @@ export default async function RootLayout({
 
   return (
     <html lang={locale} className={cn("font-sans", inter.variable)} suppressHydrationWarning>
-      <body className="bg-slate-100 text-slate-800 h-screen w-full flex overflow-hidden">
+      <body className="bg-slate-100 text-slate-800 h-screen w-full min-w-0 flex overflow-x-hidden overflow-y-hidden">
         <NextIntlClientProvider messages={messages} locale={locale}>
           <NextAuthProvider>
             <AuthInitializer>

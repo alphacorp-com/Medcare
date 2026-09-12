@@ -220,6 +220,7 @@
   "patients": {
     "module_title": "Patient Management",
     "title": "Patient Directory",
+    "subtitle": "Manage and search for registered patients.",
     "description": "Manage and search for registered patients.",
     "new_patient": "New Patient",
     "search_placeholder": "Search by name, IPP, SSN...",

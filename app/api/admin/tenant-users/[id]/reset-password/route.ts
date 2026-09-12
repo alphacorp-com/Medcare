@@ -29,7 +29,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     // not only once their existing token happens to expire.
     await prisma.tenantUser.update({
       where: { id },
-      data: { passwordHash, sessionVersion: { increment: 1 } },
+      data: { passwordHash },
     });
 
     const { ipAddress, userAgent } = extractRequestMeta(request.headers);

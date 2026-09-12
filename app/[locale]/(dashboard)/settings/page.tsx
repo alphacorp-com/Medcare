@@ -9,6 +9,8 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
+import StandardMobileTemplate from "@/components/layout/mobile/StandardMobileTemplate";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 // Modular Components
 import { UsersManagement } from "@/components/settings/users-management";
@@ -66,6 +68,7 @@ export default function SettingsPage() {
   const t = useTranslations('settings');
   const tc = useTranslations('common');
   const tp = useTranslations('patients');
+  const isMobile = useIsMobile();
   const tadm = useTranslations('admissions');
   const tph = useTranslations('pharmacy');
   const tlab = useTranslations('lab');
@@ -130,13 +133,17 @@ export default function SettingsPage() {
   }, [currentUser, isSysAdmin]);
 
   useEffect(() => {
-    if (currentUser) {
-      setProfileData(prev => ({
+    if (!currentUser) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setProfileData((prev) => ({
         ...prev,
         fullName: currentUser.fullName || "",
         email: currentUser.email || ""
       }));
-    }
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
   }, [currentUser]);
 
   const APP_MODULES = [
@@ -330,6 +337,140 @@ export default function SettingsPage() {
       setIsRedeeming(false);
     }
   };
+
+  if (isMobile) {
+    const mobileActions = (
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant={activeTab === "profile" ? "default" : "outline"}
+          size="sm"
+          className="h-8 text-[11px]"
+          onClick={() => setActiveTab("profile")}
+        >
+          {t("user_profile")}
+        </Button>
+        {isSysAdmin && (
+          <>
+            <Button variant={activeTab === "users" ? "default" : "outline"} size="sm" className="h-8 text-[11px]" onClick={() => setActiveTab("users")}>{t("users_roles")}</Button>
+            <Button variant={activeTab === "organization" ? "default" : "outline"} size="sm" className="h-8 text-[11px]" onClick={() => setActiveTab("organization")}>{t("organization")}</Button>
+            <Button variant={activeTab === "modules" ? "default" : "outline"} size="sm" className="h-8 text-[11px]" onClick={() => setActiveTab("modules")}>{t("clinical_modules")}</Button>
+            <Button variant={activeTab === "templates" ? "default" : "outline"} size="sm" className="h-8 text-[11px]" onClick={() => setActiveTab("templates")}>{ttpl("title")}</Button>
+            <Button variant={activeTab === "database" ? "default" : "outline"} size="sm" className="h-8 text-[11px]" onClick={() => setActiveTab("database")}>{t("database_backup")}</Button>
+            <Button variant={activeTab === "license" ? "default" : "outline"} size="sm" className="h-8 text-[11px]" onClick={() => setActiveTab("license")}>{t("license_management")}</Button>
+            <Button variant={activeTab === "security" ? "default" : "outline"} size="sm" className="h-8 text-[11px]" onClick={() => setActiveTab("security")}>{t("security")}</Button>
+            <Button variant={activeTab === "integrations" ? "default" : "outline"} size="sm" className="h-8 text-[11px]" onClick={() => setActiveTab("integrations")}>{t("integrations")}</Button>
+          </>
+        )}
+        <Button onClick={handleSaveSettings} disabled={isSaving || isLoading} className="bg-slate-900 text-white hover:bg-slate-800 text-[11px] h-8">
+          {isSaving ? tc("saving") : tc("save_changes")}
+        </Button>
+      </div>
+    );
+
+    return (
+      <StandardMobileTemplate
+        title={t("title")}
+        subtitle={t("description")}
+        actions={mobileActions}
+      >
+        <div className="space-y-4 overflow-hidden">
+          {activeTab === "profile" && (
+            <ProfileSettings
+              currentUser={currentUser}
+              profileData={profileData}
+              setProfileData={setProfileData}
+              t={t}
+              tc={tc}
+              error={profileError}
+            />
+          )}
+
+          {isSysAdmin && activeTab === "users" && <UsersManagement />}
+          {isSysAdmin && activeTab === "organization" && <OrganizationSettings orgData={orgData} setOrgData={setOrgData} t={t} tc={tc} />}
+          {isSysAdmin && activeTab === "modules" && (
+            <ModuleConfiguration appModules={APP_MODULES} activeModules={activeModules} t={t} readOnly showOnlyActive />
+          )}
+          {isSysAdmin && activeTab === "templates" && (
+            <DocumentTemplates facility={orgData} templateSettings={templateSettings} setTemplateSettings={setTemplateSettings} ttpl={ttpl} />
+          )}
+          {isSysAdmin && activeTab === "database" && (
+            <div className="space-y-4">
+              <div>
+                <h2 className="text-base font-bold text-slate-900">{t("database_backup")}</h2>
+                <p className="text-[11px] text-slate-500">{t("database_backup_desc")}</p>
+              </div>
+              <div className="p-4 text-center border-2 border-dashed border-slate-200 rounded-lg bg-amber-50/30">
+                <Database className="h-8 w-8 text-amber-300 mx-auto mb-2" />
+                <h3 className="text-sm font-bold text-amber-800">{t("backup_database")}</h3>
+                <p className="text-[11px] text-amber-600/70 mt-1">{t("backup_database_desc")}</p>
+                <Button onClick={handleCreateBackup} disabled={isBackingUp} variant="outline" size="sm" className="mt-3 border-amber-200 text-amber-700 hover:bg-amber-50 text-[11px]">
+                  {isBackingUp ? <><Loader2 className="h-3 w-3 animate-spin mr-2" />{tc("saving")}</> : t("create_backup")}
+                </Button>
+              </div>
+              {backupHistory.length > 0 && (
+                <div className="space-y-2">
+                  {backupHistory.map((backup, index) => (
+                    <div key={index} className="flex items-center justify-between p-2 bg-slate-50 rounded border text-[11px]">
+                      <div className="min-w-0 pr-2">
+                        <p className="font-medium text-slate-800 truncate">{backup.filename}</p>
+                        <p className="text-slate-500">{new Date(backup.createdAt).toLocaleString()}</p>
+                      </div>
+                      <Button variant="ghost" size="sm" className="text-[10px]" onClick={() => handleDownloadBackup(backup.filename)}>{t("download_backup")}</Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+          {isSysAdmin && activeTab === "license" && (
+            <div className="space-y-4">
+              <div>
+                <h2 className="text-base font-bold text-slate-900">{t("license_management")}</h2>
+                <p className="text-[11px] text-slate-500">{t("license_management_desc")}</p>
+              </div>
+              {currentSubscription && (
+                <div className="bg-slate-50 rounded-lg p-3 border text-[12px]">
+                  <p className="font-semibold text-slate-700">{t("current_subscription")}</p>
+                  <div className="mt-2 space-y-1">
+                    <p>{t("subscription_status")}: <span className="font-medium">{currentSubscription.isActive ? tc("active") : tc("inactive")}</span></p>
+                    <p>{t("valid_until")}: <span className="font-medium">{currentSubscription.validUntil ? new Date(currentSubscription.validUntil).toLocaleDateString() : tc("unknown")}</span></p>
+                  </div>
+                </div>
+              )}
+              <div className="space-y-3">
+                <label htmlFor="license-key-mobile" className="text-sm font-medium text-slate-700">{t("enter_license_key")}</label>
+                <Input id="license-key-mobile" placeholder="XXXXX-XXXXX-XXXXX-XXXXX" value={licenseKey} onChange={(event: React.ChangeEvent<HTMLInputElement>) => setLicenseKey(event.target.value.toUpperCase())} disabled={isRedeeming} className="font-mono text-[12px]" />
+                {licenseError && <p className="text-sm text-red-600">{licenseError}</p>}
+                {licenseSuccess && <p className="text-sm text-green-600">{licenseSuccess}</p>}
+                <Button onClick={handleRedeemLicense} disabled={isRedeeming || !licenseKey.trim()} className="w-full">{isRedeeming ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />{t("redeeming")}</> : t("redeem_license")}</Button>
+              </div>
+            </div>
+          )}
+          {isSysAdmin && activeTab === "security" && (
+            <div className="p-4 text-center border-2 border-dashed border-slate-200 rounded-lg">
+              <ShieldCheck className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+              <h3 className="text-sm font-bold text-slate-700">SSO & RBAC Settings</h3>
+              <p className="text-[11px] text-slate-500 mt-1">Role Based Access Control is managed dynamically via Users Configuration.</p>
+            </div>
+          )}
+          {isSysAdmin && activeTab === "integrations" && (
+            <div className="space-y-4">
+              <div>
+                <h2 className="text-base font-bold text-slate-900">{t("integrations")}</h2>
+                <p className="text-[11px] text-slate-500">Manage HL7 pipelines, DICOM servers, and generic APIs.</p>
+              </div>
+              <Dhis2IntegrationSettings />
+              <div className="mt-2">
+                <h2 className="text-base font-bold text-slate-900">{t("payments.title")}</h2>
+                <p className="text-[11px] text-slate-500">{t("payments.description")}</p>
+              </div>
+              <MobileMoneySettings />
+            </div>
+          )}
+        </div>
+      </StandardMobileTemplate>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full space-y-4 max-w-5xl mx-auto w-full pb-8">

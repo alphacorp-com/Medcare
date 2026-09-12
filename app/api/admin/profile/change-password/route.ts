@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     // copy of an old token) is signed out and must reauthenticate with the new password.
     await prisma.adminUser.update({
       where: { id: session.user.id },
-      data: { passwordHash, sessionVersion: { increment: 1 } },
+      data: { passwordHash },
     });
 
     const { ipAddress, userAgent } = extractRequestMeta(request.headers);

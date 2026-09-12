@@ -14,42 +14,37 @@ import { AlertTriangle } from "lucide-react";
 import { PatientsHeader } from "./_components/PatientsHeader";
 import { PatientsFilterBar } from "./_components/PatientsFilterBar";
 import { PatientsTable } from "./_components/PatientsTable";
+import StandardMobileTemplate from "@/components/layout/mobile/StandardMobileTemplate";
 import { NewPatientSheet } from "./_components/NewPatientSheet";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 // Types & Helpers
 import {
   PatientRow,
   NewPatientForm,
-  EMPTY_FORM,
   DuplicateMatch,
-  ageFromBirthDate
+  EMPTY_FORM,
+  ageFromBirthDate,
 } from "./types";
 
 export default function PatientsPage() {
-  const hasModule = useAppStore((state) => state.hasModule);
-  const t = useTranslations('patients');
-  const tc = useTranslations('common');
-  const tDocs = useTranslations('documents');
-  
-  // UI State
-  const [showFilters, setShowFilters] = useState(false);
-  const [isNewPatientOpen, setIsNewPatientOpen] = useState(false);
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [pdfData, setPdfData] = useState<any>(null);
+  const t = useTranslations("patients");
+  const tc = useTranslations("common");
+  const tDocs = useTranslations("documents");
+  const hasModule = useAppStore((s) => s.hasModule);
 
-  // Data State
-  const [patients, setPatients] = useState<PatientRow[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  // Search & Filter State
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"active" | "deceased">("active");
-  const [pendingStatus, setPendingStatus] = useState<"active" | "deceased">("active");
-
-  // Form State
+  const [statusFilter, setStatusFilter] = useState("active");
+  const [pendingStatus, setPendingStatus] = useState("active");
+  const [patients, setPatients] = useState<PatientRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [pdfData, setPdfData] = useState<any>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [isNewPatientOpen, setIsNewPatientOpen] = useState(false);
   const [form, setForm] = useState<NewPatientForm>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -75,7 +70,7 @@ export default function PatientsPage() {
       setPatients(json.data as PatientRow[]);
       setTotal(json.total as number);
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('error_load'));
+      setError(e instanceof Error ? e.message : t("error_load"));
       setPatients([]);
       setTotal(0);
     } finally {
@@ -84,7 +79,9 @@ export default function PatientsPage() {
   }, [searchQuery, statusFilter, t]);
 
   useEffect(() => {
-    fetchPatients();
+    (async () => {
+      await fetchPatients();
+    })();
   }, [fetchPatients]);
 
   // ── Handlers ───────────────────────────────────────────────────────────────
@@ -195,74 +192,65 @@ export default function PatientsPage() {
 
   // ── Guard ──────────────────────────────────────────────────────────────────
 
-  if (!hasModule('MODULE_CORE_PATIENT')) {
+  const isMobile = useIsMobile();
+
+  if (!hasModule("MODULE_CORE_PATIENT")) {
     return (
       <div className="flex h-full items-center justify-center">
         <div className="text-center p-8 bg-white border border-slate-200 rounded-lg max-w-md shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-900">{tc('restricted_access')}</h2>
-          <p className="mt-2 text-sm text-slate-500">{t('module_desc')}</p>
+          <h2 className="text-lg font-semibold text-slate-900">{tc("restricted_access")}</h2>
+          <p className="mt-2 text-sm text-slate-500">{t("module_desc")}</p>
           <p className="mt-4 text-xs font-medium text-blue-600 bg-blue-50 p-3 rounded border border-blue-100">
-            {tc('contact_admin')}
+            {tc("contact_admin")}
           </p>
         </div>
       </div>
     );
   }
 
-  return (
+  const desktop = (
     <div className="flex flex-col h-full space-y-4">
       {/* Header Section */}
-      <PatientsHeader 
-        onExport={handleExportPDF} 
-        onFilterToggle={() => setShowFilters(!showFilters)} 
-        onNewPatient={() => setIsNewPatientOpen(true)} 
+      <PatientsHeader
+        onExport={handleExportPDF}
+        onFilterToggle={() => setShowFilters(!showFilters)}
+        onNewPatient={() => setIsNewPatientOpen(true)}
       />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col bg-white rounded border border-slate-200 shadow-sm overflow-hidden">
-        <PatientsFilterBar 
-          searchInput={searchInput} 
-          onSearchChange={setSearchInput} 
-          showFilters={showFilters} 
-          statusFilter={pendingStatus} 
-          onStatusFilterChange={setPendingStatus} 
-          onApplyFilters={applyFilters} 
-          onClearFilters={clearFilters} 
+        <PatientsFilterBar
+          searchInput={searchInput}
+          onSearchChange={setSearchInput}
+          showFilters={showFilters}
+          statusFilter={pendingStatus}
+          onStatusFilterChange={setPendingStatus}
+          onApplyFilters={applyFilters}
+          onClearFilters={clearFilters}
         />
 
-        <PatientsTable 
-          patients={patients} 
-          loading={loading} 
-          error={error} 
-        />
+        <PatientsTable patients={patients} loading={loading} error={error} />
 
         {/* Footer Summary */}
         <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-between items-center text-[11px] text-slate-500 shrink-0">
-          <span>{t('showing_total', { count: total })}</span>
+          <span>{t("showing_total", { count: total })}</span>
         </div>
       </div>
 
       {/* Side Sheet Form */}
-      <NewPatientSheet 
-        open={isNewPatientOpen} 
-        onOpenChange={setIsNewPatientOpen} 
-        form={form} 
-        onUpdateForm={updateForm} 
-        saving={saving} 
-        error={saveError} 
-        onSubmit={handleSave} 
-        canSubmit={canSubmit} 
+      <NewPatientSheet
+        open={isNewPatientOpen}
+        onOpenChange={setIsNewPatientOpen}
+        form={form}
+        onUpdateForm={updateForm}
+        saving={saving}
+        error={saveError}
+        onSubmit={handleSave}
+        canSubmit={canSubmit}
       />
 
       {/* PDF Export Preview Modal */}
-      <PDFPreviewModal
-        isOpen={isPreviewOpen}
-        onClose={() => setIsPreviewOpen(false)}
-        templateId="patient_lists"
-        data={pdfData}
-        facility={{ name: tc('hospital_name') }}
-        settings={{ watermark: true }}
-      />
+      <PDFPreviewModal isOpen={isPreviewOpen} onClose={() => setIsPreviewOpen(false)} templateId="patient_lists" data={pdfData} facility={{ name: tc("hospital_name") }} settings={{ watermark: true }} />
 
       {/* Duplicate Patient Warning */}
       <Dialog open={showDuplicateDialog} onOpenChange={setShowDuplicateDialog}>
@@ -270,10 +258,10 @@ export default function PatientsPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-amber-700">
               <AlertTriangle className="h-5 w-5" />
-              {t('duplicate_found_title')}
+              {t("duplicate_found_title")}
             </DialogTitle>
           </DialogHeader>
-          <p className="text-xs text-slate-600">{t('duplicate_found_desc')}</p>
+          <p className="text-xs text-slate-600">{t("duplicate_found_desc")}</p>
           <div className="space-y-2">
             {duplicateMatches.map((m) => (
               <div key={m.id} className="flex items-center justify-between border border-slate-200 rounded p-2 text-xs">
@@ -282,19 +270,45 @@ export default function PatientsPage() {
                   <div className="text-slate-500 font-mono">{m.ipp} — {format(new Date(m.birthDate), "MMM d, yyyy")}</div>
                 </div>
                 <Link href={`/patients/${m.id}`} className="text-blue-600 hover:underline font-medium">
-                  {t('view_existing')}
+                  {t("view_existing")}
                 </Link>
               </div>
             ))}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDuplicateDialog(false)} disabled={saving}>{tc('cancel')}</Button>
+            <Button variant="outline" onClick={() => setShowDuplicateDialog(false)} disabled={saving}>{tc("cancel")}</Button>
             <Button className="bg-amber-600 text-white hover:bg-amber-700" onClick={doCreatePatient} disabled={saving}>
-              {t('create_anyway')}
+              {t("create_anyway")}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
   );
+
+  const mobile = (
+    <StandardMobileTemplate
+      title={t("title")}
+      subtitle={t("subtitle")}
+      actions={<PatientsHeader onExport={handleExportPDF} onFilterToggle={() => setShowFilters(!showFilters)} onNewPatient={() => setIsNewPatientOpen(true)} />}
+    >
+      <PatientsFilterBar
+        searchInput={searchInput}
+        onSearchChange={setSearchInput}
+        showFilters={showFilters}
+        statusFilter={pendingStatus}
+        onStatusFilterChange={setPendingStatus}
+        onApplyFilters={applyFilters}
+        onClearFilters={clearFilters}
+      />
+
+      <div className="mt-3">
+        <PatientsTable patients={patients} loading={loading} error={error} />
+      </div>
+
+      <div className="mt-4 text-[13px] text-blue-600 font-medium">{t("showing_total", { count: total })}</div>
+    </StandardMobileTemplate>
+  );
+
+  return isMobile ? mobile : desktop;
 }

@@ -220,6 +220,7 @@
   "patients": {
     "module_title": "Gestion des Patients",
     "title": "Répertoire des Patients",
+    "subtitle": "Gérer et rechercher les patients enregistrés.",
     "description": "Gérer et rechercher les patients enregistrés.",
     "new_patient": "Nouveau Patient",
     "search_placeholder": "Rechercher par nom, IPP, NSS...",

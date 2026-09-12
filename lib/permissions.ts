@@ -46,6 +46,9 @@ function bilingual(en: string, fr: string): string {
   return `${en} / ${fr}`;
 }
 
+// Exporte la fonction bilingue pour les cas où d'autres modules l'importent.
+export { bilingual };
+
 const UNAUTHENTICATED = bilingual(
   "You must be signed in to perform this action.",
   "Vous devez être connecté(e) pour effectuer cette action."
@@ -134,6 +137,22 @@ export function requireSelfOrAdmin(
   }
   if (session.user.id !== targetUserId && !isAdminOrTenantAdmin(session)) {
     return { ok: false, status: 403, error: SELF_OR_ADMIN_REQUIRED };
+  }
+  return { ok: true };
+}
+
+// Vérifie si l'utilisateur courant est un super-admin (rôle `admin`).
+export function isSuperAdmin(session: Session | null | undefined): boolean {
+  return session?.user?.role === "admin";
+}
+
+// Pour les routes réservées strictement aux administrateurs de la plateforme.
+export function requireSuperAdmin(session: Session | null | undefined): PermissionCheck {
+  if (!session?.user) {
+    return { ok: false, status: 401, error: UNAUTHENTICATED };
+  }
+  if (!isSuperAdmin(session)) {
+    return { ok: false, status: 403, error: MUST_BE_ADMIN };
   }
   return { ok: true };
 }
