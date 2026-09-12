@@ -2,8 +2,7 @@ import type { Session } from "next-auth";
 import type { ModuleAction } from "@/types/next-auth";
 
 export function isAdminOrTenantAdmin(session: Session | null | undefined): boolean {
-  const role = session?.user?.role;
-  return role === "admin" || role === "tenant_admin";
+  return session?.user?.isSystemAdmin === true;
 }
 
 export function hasModulePermission(
@@ -62,11 +61,6 @@ const MUST_BE_TENANT_ADMIN = bilingual(
   "Cette action nécessite des privilèges d'administrateur de l'établissement."
 );
 
-const MUST_BE_SUPER_ADMIN = bilingual(
-  "This action requires MedCare super admin privileges.",
-  "Cette action nécessite des privilèges de super administrateur MedCare."
-);
-
 const SELF_OR_ADMIN_REQUIRED = bilingual(
   "You can only manage your own account, unless you have administrator privileges.",
   "Vous ne pouvez gérer que votre propre compte, sauf si vous disposez de privilèges d'administrateur."
@@ -106,7 +100,7 @@ export function requireModulePermission(
   return { ok: true };
 }
 
-// For routes gated to "admin" (platform) or "tenant_admin" — e.g. managing other users.
+// For routes gated to "tenant_admin" — e.g. managing other users.
 export function requireAdminOrTenantAdmin(session: Session | null | undefined): PermissionCheck {
   if (!session?.user) {
     return { ok: false, status: 401, error: UNAUTHENTICATED };
@@ -117,39 +111,19 @@ export function requireAdminOrTenantAdmin(session: Session | null | undefined): 
   return { ok: true };
 }
 
-// True only for a MedCare platform admin whose granular AdminUser.role is "superadmin" — the
-// other AdminRole values (sales/support/devops/finance) are plain "admin" sessions and don't
-// qualify, even though they share the same session.user.role === "admin".
-export function isSuperAdmin(session: Session | null | undefined): boolean {
-  return session?.user?.role === "admin" && session?.user?.adminRole === "superadmin";
-}
-
-// For routes gated to MedCare super admins only — managing admin accounts and cross-tenant
-// user administration. Stricter than requireAdminOrTenantAdmin: the other admin sub-roles
-// don't bypass this one.
-export function requireSuperAdmin(session: Session | null | undefined): PermissionCheck {
-  if (!session?.user) {
-    return { ok: false, status: 401, error: UNAUTHENTICATED };
-  }
-  if (!isSuperAdmin(session)) {
-    return { ok: false, status: 403, error: MUST_BE_SUPER_ADMIN };
-  }
-  return { ok: true };
-}
-
 // For routes gated strictly to "tenant_admin" (e.g. managing departments, schedules, DHIS2
-// settings) — stricter than requireAdminOrTenantAdmin, platform admins don't bypass this one.
+// settings).
 export function requireTenantAdmin(session: Session | null | undefined): PermissionCheck {
   if (!session?.user) {
     return { ok: false, status: 401, error: UNAUTHENTICATED };
   }
-  if (session.user.role !== "tenant_admin") {
+  if (!session.user.isSystemAdmin) {
     return { ok: false, status: 403, error: MUST_BE_TENANT_ADMIN };
   }
   return { ok: true };
 }
 
-// For routes where either the caller acting on their own account, or an admin/tenant_admin
+// For routes where either the caller acting on their own account, or a tenant_admin
 // acting on someone else's, is allowed (viewing/editing/deleting another user's record).
 export function requireSelfOrAdmin(
   session: Session | null | undefined,

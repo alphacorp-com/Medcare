@@ -4,7 +4,6 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import prisma from "@/lib/prisma";
 import { ModulePermission } from "./store/useAppStore";
-import { syncTenantStatus } from "./tenant-licensing";
 import { recordAuditEvent, extractAuthRequestMeta, SYSTEM_ACTOR_ID } from "./audit";
 import { getNextAuthSecret } from "./auth-secret";
 import { checkRateLimit } from "./rate-limit";
@@ -20,7 +19,7 @@ const LOGIN_MAX_ATTEMPTS_PER_IP = 30;
 const LOGIN_WINDOW_MS = 15 * 60_000;
 
 interface LoginRateLimitOptions {
-    provider: "tenant" | "admin";
+    provider: "tenant";
     email: string;
     ipAddress: string | null;
 }
@@ -54,9 +53,10 @@ function revokeToken(token: JWT): JWT {
         ...token,
         id: SYSTEM_ACTOR_ID,
         role: "revoked",
+        roleId: "",
+        isSystemAdmin: false,
         tenantId: null,
         modules: [],
-        adminRole: undefined,
     };
 }
 
@@ -97,6 +97,7 @@ export const authOptions: NextAuthOptions = {
 
                 const user = await prisma.tenantUser.findUnique({
                     where: { email: credentials.email },
+                    include: { role: { select: { id: true, name: true, isSystemAdmin: true } } },
                 });
 
                 if (!user || !user.isActive) {
@@ -129,10 +130,6 @@ export const authOptions: NextAuthOptions = {
                     throw new Error(INVALID_CREDENTIALS_MESSAGE);
                 }
 
-                if (user.tenantId) {
-                    await syncTenantStatus(user.tenantId);
-                }
-
                 try {
                     await prisma.tenantUser.update({
                         where: { id: user.id },
@@ -157,105 +154,12 @@ export const authOptions: NextAuthOptions = {
                     id: user.id,
                     email: user.email,
                     name: user.fullName,
-                    role: user.role as string,
+                    role: user.role.name,
+                    roleId: user.role.id,
+                    isSystemAdmin: user.role.isSystemAdmin,
                     tenantId: user.tenantId,
                     modules: (user.modules ?? []) as unknown as ModulePermission[],
                     sessionVersion: user.sessionVersion,
-                };
-            },
-        }),
-        CredentialsProvider({
-            id: "admin-credentials",
-            name: "Admin Credentials",
-            credentials: {
-                email: { label: "Email", type: "email" },
-                password: { label: "Password", type: "password" },
-            },
-            async authorize(credentials, req) {
-                if (!credentials?.email || !credentials?.password) {
-                    throw new Error("Missing credentials");
-                }
-
-                const { ipAddress, userAgent } = extractAuthRequestMeta(req?.headers);
-
-                const rateLimitError = checkLoginRateLimit({
-                    provider: "admin",
-                    email: credentials.email,
-                    ipAddress,
-                });
-                if (rateLimitError) {
-                    await recordAuditEvent({
-                        actorId: SYSTEM_ACTOR_ID,
-                        actorType: "system",
-                        action: "admin.login_rate_limited",
-                        payload: { email: credentials.email },
-                        ipAddress,
-                        userAgent,
-                    });
-                    throw new Error(rateLimitError);
-                }
-
-                const adminUser = await prisma.adminUser.findUnique({
-                    where: { email: credentials.email },
-                });
-
-                if (!adminUser || !adminUser.isActive) {
-                    await recordAuditEvent({
-                        actorId: SYSTEM_ACTOR_ID,
-                        actorType: "system",
-                        action: "admin.login_failed",
-                        payload: { email: credentials.email },
-                        ipAddress,
-                        userAgent,
-                    });
-                    throw new Error(INVALID_CREDENTIALS_MESSAGE);
-                }
-
-                const isValidPassword = await bcrypt.compare(
-                    credentials.password,
-                    adminUser.passwordHash
-                );
-
-                if (!isValidPassword) {
-                    await recordAuditEvent({
-                        actorId: SYSTEM_ACTOR_ID,
-                        actorType: "system",
-                        action: "admin.login_failed",
-                        payload: { email: credentials.email },
-                        ipAddress,
-                        userAgent,
-                    });
-                    throw new Error(INVALID_CREDENTIALS_MESSAGE);
-                }
-
-                try {
-                    await prisma.adminUser.update({
-                        where: { id: adminUser.id },
-                        data: { lastLoginAt: new Date() },
-                    });
-                } catch (error) {
-                    console.error("[auth] failed to update admin lastLoginAt", error);
-                }
-
-                await recordAuditEvent({
-                    actorId: adminUser.id,
-                    actorType: "admin",
-                    action: "admin.login",
-                    resourceType: "admin_user",
-                    resourceId: adminUser.id,
-                    ipAddress,
-                    userAgent,
-                });
-
-                return {
-                    id: adminUser.id,
-                    email: adminUser.email,
-                    name: adminUser.fullName,
-                    role: "admin",
-                    adminRole: adminUser.role as string,
-                    tenantId: null,
-                    modules: [],
-                    sessionVersion: adminUser.sessionVersion,
                 };
             },
         }),
@@ -265,9 +169,10 @@ export const authOptions: NextAuthOptions = {
             if (user) {
                 token.id = user.id;
                 token.role = user.role;
+                token.roleId = user.roleId;
+                token.isSystemAdmin = user.isSystemAdmin;
                 token.tenantId = user.tenantId;
                 token.modules = user.modules;
-                token.adminRole = user.adminRole;
                 token.sessionVersion = user.sessionVersion;
                 return token;
             }
@@ -277,15 +182,7 @@ export const authOptions: NextAuthOptions = {
             // every authenticated request. Confirms the account is still active and
             // that no password change/forced logout has invalidated this token since
             // it was issued, without waiting up to `maxAge` for it to naturally expire.
-            if (token.role === "admin") {
-                const admin = await prisma.adminUser.findUnique({
-                    where: { id: token.id },
-                    select: { isActive: true, sessionVersion: true },
-                });
-                if (!admin || !admin.isActive || admin.sessionVersion !== token.sessionVersion) {
-                    return revokeToken(token);
-                }
-            } else if (token.role !== "revoked") {
+            if (token.role !== "revoked") {
                 const tenantUser = await prisma.tenantUser.findUnique({
                     where: { id: token.id },
                     select: { isActive: true, sessionVersion: true },
@@ -301,9 +198,10 @@ export const authOptions: NextAuthOptions = {
             if (token && session.user) {
                 session.user.id = token.id;
                 session.user.role = token.role;
+                session.user.roleId = token.roleId;
+                session.user.isSystemAdmin = token.isSystemAdmin;
                 session.user.tenantId = token.tenantId;
                 session.user.modules = token.modules;
-                session.user.adminRole = token.adminRole;
             }
             return session;
         },

@@ -17,9 +17,11 @@ export async function GET() {
       isActive: true,
       id: { not: session.user.id },
     },
-    select: { id: true, fullName: true, email: true, role: true },
+    select: { id: true, fullName: true, email: true, role: { select: { name: true } } },
     orderBy: { fullName: "asc" },
   });
 
-  return NextResponse.json(colleagues);
+  return NextResponse.json(
+    colleagues.map(({ role, ...c }) => ({ ...c, role: role.name }))
+  );
 }

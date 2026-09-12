@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { resolveTenantAccess } from "@/lib/tenant-licensing";
+import { checkOnPremLicenseGuard } from "@/lib/onprem-license/guard";
 
 // GET /api/v1/conversations — current user's conversations, most recently active first.
 export async function GET() {
@@ -62,11 +62,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  if (session.user.tenantId) {
-    const access = await resolveTenantAccess(session.user.tenantId);
-    if (!access.isActive) {
-      return NextResponse.json({ error: "Tenant access is not active" }, { status: 403 });
-    }
+  const guard = await checkOnPremLicenseGuard();
+  if (guard.blocked) {
+    return NextResponse.json({ error: "Tenant access is not active" }, { status: 403 });
   }
 
   const body = await req.json();

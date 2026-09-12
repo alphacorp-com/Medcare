@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { requireSuperAdmin } from '@/lib/permissions';
+import { requireTenantAdmin } from '@/lib/permissions';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import path from 'path';
@@ -9,19 +9,17 @@ import fs from 'fs/promises';
 
 const execAsync = promisify(exec);
 
-// This is a full pg_dump of the entire shared database — every tenant's data in one
-// file, regardless of who triggers it, because this platform uses one shared Postgres
-// database with tenantId row-scoping, not a physically separate database per tenant.
-// It was previously gated by requireTenantAdmin, meaning any customer's tenant admin
-// could trigger and download a dump containing every OTHER tenant's data too — a
-// critical cross-tenant data exposure. This is a platform operations tool, not a
-// tenant self-service feature, so it's now restricted to MedCare super_admin only.
+// This is a full pg_dump of the database. Each MedCare deployment is now a single
+// isolated instance per client (own server/domain, or fully on-premise) rather than a
+// shared multi-tenant database — so a dump here only ever contains this deployment's
+// own client's data. That removes the cross-tenant exposure risk this endpoint used to
+// carry, so it's gated to this deployment's own tenant_admin as legitimate self-service.
 const BACKUP_DIR = path.join(process.cwd(), 'backups');
 
 export async function POST(request: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
-        const permCheck = requireSuperAdmin(session);
+        const permCheck = requireTenantAdmin(session);
         if (!permCheck.ok) {
             return NextResponse.json(
                 { error: permCheck.error },
@@ -94,7 +92,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
-        const permCheck = requireSuperAdmin(session);
+        const permCheck = requireTenantAdmin(session);
         if (!permCheck.ok) {
             return NextResponse.json(
                 { error: permCheck.error },
@@ -145,7 +143,7 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
-        const permCheck = requireSuperAdmin(session);
+        const permCheck = requireTenantAdmin(session);
         if (!permCheck.ok) {
             return NextResponse.json(
                 { error: permCheck.error },

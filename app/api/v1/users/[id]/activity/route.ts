@@ -16,12 +16,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     const isSelf = session.user.id === id;
-    const isPlatformAdmin = session.user.role === "admin";
 
-    if (!isSelf && !isPlatformAdmin) {
-      // A tenant_admin may only view activity for users in their OWN tenant — being
-      // "tenant_admin" alone doesn't imply access to another tenant's users.
-      if (session.user.role !== "tenant_admin") {
+    if (!isSelf) {
+      // An administrator may only view activity for users in their OWN tenant — being
+      // an admin alone doesn't imply access to another tenant's users.
+      if (!session.user.isSystemAdmin) {
         return NextResponse.json({ error: RESOURCE_ACCESS_DENIED }, { status: 403 });
       }
       const targetUser = await prisma.tenantUser.findUnique({
@@ -51,12 +50,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       where: { id: { in: actorIds } },
       select: { id: true, fullName: true, email: true },
     });
-    const adminActors = await prisma.adminUser.findMany({
-      where: { id: { in: actorIds } },
-      select: { id: true, fullName: true, email: true },
-    });
     const actorNames = new Map<string, string>();
-    for (const actor of [...tenantActors, ...adminActors]) {
+    for (const actor of tenantActors) {
       actorNames.set(actor.id, actor.fullName);
     }
 

@@ -17,7 +17,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
   const t = useTranslations("settings.nav");
   const pathname = usePathname();
   const currentUser = useAppStore((state) => state.currentUser);
-  const isSysAdmin = currentUser?.role === "tenant_admin";
+  const isSysAdmin = currentUser?.isSystemAdmin === true;
 
   const groups: NavGroup[] = [
     {

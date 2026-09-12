@@ -2,12 +2,22 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import prisma from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
+import { requireTenantAdmin } from "@/lib/permissions";
 
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // This feed spans every staff member's activity in the tenant (names, IP
+    // addresses, and full change payloads) — restricted to tenant_admin for
+    // the same reason users/[id]/activity restricts a user's own activity
+    // history to admins-or-self.
+    const permissionCheck = requireTenantAdmin(session);
+    if (!permissionCheck.ok) {
+      return NextResponse.json({ error: permissionCheck.error }, { status: permissionCheck.status });
     }
 
     // Get recent audit activities (last 24 hours), scoped to the caller's own tenant —
@@ -51,17 +61,10 @@ export async function GET() {
               email: true,
             },
           });
-        } else if (activity.actorType === 'admin') {
-          // Get admin user info
-          user = await prisma.adminUser.findUnique({
-            where: { id: activity.actorId },
-            select: {
-              id: true,
-              fullName: true,
-              email: true,
-            },
-          });
         }
+        // Note: actorType 'admin' can still appear on historical rows from the
+        // decommissioned cross-tenant admin console, but there's no longer any
+        // AdminUser table to resolve a name from — those fall through to "Unknown User".
 
         return {
           id: activity.id,

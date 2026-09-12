@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { BillingCycle, InvoiceStatus, LicenseKeyStatus, ModuleStatus, Prisma, SubscriptionStatus, TenantStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
-import { recordAuditEvent } from "@/lib/audit";
+import { recordAuditEvent, SYSTEM_ACTOR_ID } from "@/lib/audit";
 
 // Shown to the caller for every redemption failure (invalid key, wrong tenant,
 // revoked, already used) — deliberately identical in every case. Distinct messages
@@ -64,25 +64,19 @@ export function generateTemporaryPassword(): string {
 }
 
 // Resolves how many active user seats a tenant is currently entitled to, based on its
-// current trial/active Subscription's `seatsCount`, capped by the Plan's `maxUsers` if the
-// plan defines one. Returns null when the tenant has no trial/active subscription — in that
-// case seat count is not enforced (mirrors how module access has no meaning without a plan).
-export async function getTenantSeatLimit(tenantId: string): Promise<number | null> {
-  const subscription = await prisma.subscription.findFirst({
-    where: { tenantId, status: { in: [SubscriptionStatus.trial, SubscriptionStatus.active] } },
-    orderBy: { currentPeriodEnd: "desc" },
-    include: { plan: { select: { maxUsers: true } } },
-  });
+// current AlphaCorp on-prem license's `maxUsers` entitlement — the single per-install
+// seat cap in the on-prem deployment model (an install has exactly one tenant, one
+// license, no per-tenant Subscription). Returns null when no license is applied yet,
+// or the license doesn't cap seats — in that case seat count is not enforced.
+export async function getTenantSeatLimit(_tenantId: string): Promise<number | null> {
+  const license = await prisma.onPremLicense.findUnique({ where: { id: "current" } });
+  return license?.maxUsers ?? null;
+}
 
-  if (!subscription) {
-    return null;
-  }
-
-  if (subscription.plan.maxUsers != null) {
-    return Math.min(subscription.seatsCount, subscription.plan.maxUsers);
-  }
-
-  return subscription.seatsCount;
+// Same as getTenantSeatLimit, for the license's `maxBeds` entitlement.
+export async function getTenantBedLimit(_tenantId: string): Promise<number | null> {
+  const license = await prisma.onPremLicense.findUnique({ where: { id: "current" } });
+  return license?.maxBeds ?? null;
 }
 
 export async function resolveTenantAccess(tenantId: string): Promise<TenantAccessState> {
@@ -201,6 +195,37 @@ export async function resolveTenantModules(tenantId: string): Promise<ModulePerm
       moduleId: assignment.module.code,
       actions: ["read", "create", "update", "delete"],
     }));
+}
+
+// Called from applyLicenseToken() every time an AlphaCorp on-prem license is
+// activated or imported — makes the license's module list the actual source
+// of truth for TenantModule, which is what isModuleActiveForTenant()/
+// resolveTenantModules() consult. Without this, plannedModules chosen in
+// AlphaCorp's admin console had no effect on what MedCare actually enforces.
+export async function syncTenantModulesFromLicense(tenantId: string, licensedModuleCodes: string[]): Promise<void> {
+  const modules = await prisma.module.findMany({ select: { id: true, code: true } });
+  const licensedSet = new Set(licensedModuleCodes);
+  const now = new Date();
+
+  await prisma.$transaction(
+    modules.map((module) => {
+      const isLicensed = licensedSet.has(module.code);
+      return prisma.tenantModule.upsert({
+        where: { tenantId_moduleId: { tenantId, moduleId: module.id } },
+        create: {
+          tenantId,
+          moduleId: module.id,
+          status: isLicensed ? ModuleStatus.active : ModuleStatus.suspended,
+          activatedAt: isLicensed ? now : null,
+          activatedBy: SYSTEM_ACTOR_ID,
+        },
+        update: {
+          status: isLicensed ? ModuleStatus.active : ModuleStatus.suspended,
+          ...(isLicensed ? { activatedAt: now } : {}),
+        },
+      });
+    })
+  );
 }
 
 export async function syncTenantStatus(tenantId: string): Promise<TenantAccessState> {

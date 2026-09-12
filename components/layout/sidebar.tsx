@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/store/useAppStore";
+import type { LucideIcon } from "lucide-react";
 import {
   LayoutDashboard,
   Users,
@@ -23,17 +24,42 @@ import {
   Stethoscope
 } from "lucide-react";
 
-const navigation = [
+type NavGroup = "clinical" | "administrative";
+
+type NavItem = {
+  name: string;
+  href: string;
+  icon: LucideIcon;
+  module: string | null;
+  group?: NavGroup;
+  hideBadge?: boolean;
+};
+
+// Dashboard sits ungrouped at the top; everything clinical (patient-facing
+// care) is grouped together, everything administrative (scheduling, money)
+// after it. Messages and Settings are rendered separately below since
+// neither is gated by a module and Messages needs its own unread-count
+// badge instead of the active/disabled one every module item gets.
+const navigation: NavItem[] = [
   { name: "dashboard", href: "/", icon: LayoutDashboard, module: null, hideBadge: true },
-  { name: "patients", href: "/patients", icon: Users, module: "MODULE_CORE_PATIENT" },
-  { name: "appointments", href: "/appointments", icon: CalendarClock, module: "MODULE_APPOINTMENTS" },
-  { name: "stays", href: "/stays", icon: Bed, module: "MODULE_ADMISSION" },
-  { name: "consultations", href: "/consultations", icon: Stethoscope, module: "MODULE_ADMISSION" },
-  { name: "pharmacy", href: "/pharmacy", icon: Pill, module: "MODULE_PHARMACY" },
-  { name: "laboratory", href: "/laboratory", icon: Fingerprint, module: "MODULE_LAB" },
-  { name: "surgery", href: "/surgery", icon: Syringe, module: "MODULE_SURGERY" },
-  { name: "radiology", href: "/radiology", icon: Activity, module: "MODULE_RADIOLOGY" },
+  { name: "patients", href: "/patients", icon: Users, module: "MODULE_CORE_PATIENT", group: "clinical" },
+  { name: "appointments", href: "/appointments", icon: CalendarClock, module: "MODULE_APPOINTMENTS", group: "clinical" },
+  { name: "stays", href: "/stays", icon: Bed, module: "MODULE_ADMISSION", group: "clinical" },
+  { name: "consultations", href: "/consultations", icon: Stethoscope, module: "MODULE_ADMISSION", group: "clinical" },
+  { name: "maternity", href: "/maternity", icon: HeartPulse, module: "MODULE_MATERNITY", group: "clinical" },
+  { name: "disease_programs", href: "/disease-programs", icon: ShieldPlus, module: "MODULE_DISEASE_PROGRAMS", group: "clinical" },
+  { name: "pharmacy", href: "/pharmacy", icon: Pill, module: "MODULE_PHARMACY", group: "clinical" },
+  { name: "laboratory", href: "/laboratory", icon: Fingerprint, module: "MODULE_LAB", group: "clinical" },
+  { name: "surgery", href: "/surgery", icon: Syringe, module: "MODULE_SURGERY", group: "clinical" },
+  { name: "radiology", href: "/radiology", icon: Activity, module: "MODULE_RADIOLOGY", group: "clinical" },
+  { name: "billing", href: "/billing", icon: CreditCard, module: "MODULE_BILLING", group: "administrative" },
+  { name: "planning", href: "/planning", icon: CalendarDays, module: "MODULE_PLANNING", group: "administrative" },
 ];
+
+const GROUP_LABEL_KEY: Record<NavGroup, string> = {
+  clinical: "clinical_modules",
+  administrative: "administrative",
+};
 
 export function Sidebar() {
   const t = useTranslations('common');
@@ -62,6 +88,12 @@ export function Sidebar() {
     return () => window.clearInterval(interval);
   }, []);
 
+  const navigationWithHeaders = navigation.reduce<{ item: NavItem; showHeader: boolean }[]>((acc, item) => {
+    const previousGroup = acc[acc.length - 1]?.item.group;
+    acc.push({ item, showHeader: Boolean(item.group && item.group !== previousGroup) });
+    return acc;
+  }, []);
+
   return (
     <aside className={cn(
       "bg-slate-900 flex flex-col border-r border-slate-700 shrink-0 transition-all duration-200",
@@ -85,184 +117,61 @@ export function Sidebar() {
         </button>
       </div>
       <nav className="flex-1 py-4 overflow-y-auto">
-        {!collapsed && (
-          <div className="px-4 mb-2 text-[10px] uppercase tracking-widest text-slate-500 font-semibold">{t('clinical_modules')}</div>
-        )}
-        {navigation.map((item) => {
+        {navigationWithHeaders.map(({ item, showHeader }) => {
           const isEnabled = !item.module || hasModule(item.module);
           const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
 
-          if (!isEnabled) {
-            return (
-              <div
-                key={item.name}
-                className={cn(
-                  "flex items-center justify-between text-slate-400 opacity-50 cursor-not-allowed",
-                  collapsed ? "px-3 py-3 justify-center" : "px-4 py-2"
-                )}
-              >
-                <div className={cn("flex items-center", collapsed ? "justify-center" : "gap-3 truncate")}>
-                  <item.icon className="h-4 w-4 shrink-0" />
-                  {!collapsed && <span className="text-sm italic truncate">{t(item.name)}</span>}
-                </div>
-                {!collapsed && (
-                  <span className="shrink-0 ml-2 px-1.5 py-0.5 bg-slate-700 text-slate-500 text-[9px] rounded uppercase">{t('disabled')}</span>
-                )}
-              </div>
-            );
-          }
-
           return (
-            <Link
-              key={item.name}
-              href={item.href}
-              title={collapsed ? t(item.name) : undefined}
-              className={cn(
-                "flex items-center",
-                collapsed ? "justify-center px-3 py-3" : "justify-between px-4 py-2",
-                isActive
-                  ? "bg-slate-800 text-white border-l-4 border-blue-500 pl-3"
-                  : "text-slate-400 hover:text-white hover:bg-slate-800 border-l-4 border-transparent pl-3"
+            <div key={item.name}>
+              {showHeader && !collapsed && (
+                <div className="px-4 mt-6 mb-2 text-[10px] uppercase tracking-widest text-slate-500 font-semibold first:mt-0">
+                  {t(GROUP_LABEL_KEY[item.group as NavGroup])}
+                </div>
               )}
-            >
-              <div className={cn("flex items-center", collapsed ? "justify-center" : "gap-3 truncate")}>
-                <item.icon className="h-4 w-4 shrink-0" />
-                {!collapsed && <span className="text-sm truncate">{t(item.name)}</span>}
-              </div>
-              {!collapsed && !item.hideBadge && (
-                <span className="shrink-0 ml-2 px-1.5 py-0.5 bg-green-500/20 text-green-400 text-[9px] rounded uppercase">{t('active')}</span>
+
+              {!isEnabled ? (
+                <div
+                  className={cn(
+                    "flex items-center justify-between text-slate-400 opacity-50 cursor-not-allowed",
+                    collapsed ? "px-3 py-3 justify-center" : "px-4 py-2"
+                  )}
+                >
+                  <div className={cn("flex items-center", collapsed ? "justify-center" : "gap-3 truncate")}>
+                    <item.icon className="h-4 w-4 shrink-0" />
+                    {!collapsed && <span className="text-sm italic truncate">{t(item.name)}</span>}
+                  </div>
+                  {!collapsed && (
+                    <span className="shrink-0 ml-2 px-1.5 py-0.5 bg-slate-700 text-slate-500 text-[9px] rounded uppercase">{t('disabled')}</span>
+                  )}
+                </div>
+              ) : (
+                <Link
+                  href={item.href}
+                  title={collapsed ? t(item.name) : undefined}
+                  className={cn(
+                    "flex items-center",
+                    collapsed ? "justify-center px-3 py-3" : "justify-between px-4 py-2",
+                    isActive
+                      ? "bg-slate-800 text-white border-l-4 border-blue-500 pl-3"
+                      : "text-slate-400 hover:text-white hover:bg-slate-800 border-l-4 border-transparent pl-3"
+                  )}
+                >
+                  <div className={cn("flex items-center", collapsed ? "justify-center" : "gap-3 truncate")}>
+                    <item.icon className="h-4 w-4 shrink-0" />
+                    {!collapsed && <span className="text-sm truncate">{t(item.name)}</span>}
+                  </div>
+                  {!collapsed && !item.hideBadge && (
+                    <span className="shrink-0 ml-2 px-1.5 py-0.5 bg-green-500/20 text-green-400 text-[9px] rounded uppercase">{t('active')}</span>
+                  )}
+                </Link>
               )}
-            </Link>
+            </div>
           );
         })}
+
         {!collapsed && (
-          <div className="px-4 mt-6 mb-2 text-[10px] uppercase tracking-widest text-slate-500 font-semibold">{t('administrative')}</div>
+          <div className="px-4 mt-6 mb-2 text-[10px] uppercase tracking-widest text-slate-500 font-semibold">{t('communication')}</div>
         )}
-
-        {hasModule('MODULE_BILLING') ? (
-          <Link
-            href="/billing"
-            title={collapsed ? t('billing') : undefined}
-            className={cn(
-              "flex items-center",
-              collapsed ? "justify-center px-3 py-3" : "justify-between px-4 py-2",
-              pathname.startsWith('/billing') ? "bg-slate-800 text-white border-blue-500" : "text-slate-400 hover:text-white hover:bg-slate-800 border-transparent",
-              "border-l-4 pl-3"
-            )}
-          >
-            <div className={cn("flex items-center", collapsed ? "justify-center" : "gap-3 truncate")}>
-              <CreditCard className="h-4 w-4 shrink-0" />
-              {!collapsed && <span className="text-sm truncate">{t('billing')}</span>}
-            </div>
-            {!collapsed && (
-              <span className="shrink-0 ml-2 px-1.5 py-0.5 bg-green-500/20 text-green-400 text-[9px] rounded uppercase">{t('active')}</span>
-            )}
-          </Link>
-        ) : (
-          <div className={cn("flex items-center text-slate-400 opacity-50 cursor-not-allowed", collapsed ? "justify-center px-3 py-3" : "justify-between px-4 py-2")}>
-            <div className={cn("flex items-center", collapsed ? "justify-center" : "gap-3 truncate pl-3")}>
-              <CreditCard className="h-4 w-4 shrink-0" />
-              {!collapsed && <span className="text-sm italic truncate">{t('billing')}</span>}
-            </div>
-            {!collapsed && (
-              <span className="shrink-0 ml-2 px-1.5 py-0.5 bg-slate-700 text-slate-500 text-[9px] rounded uppercase">{t('disabled')}</span>
-            )}
-          </div>
-        )}
-
-        {hasModule('MODULE_PLANNING') ? (
-          <Link
-            href="/planning"
-            title={collapsed ? t('planning') : undefined}
-            className={cn(
-              "flex items-center",
-              collapsed ? "justify-center px-3 py-3" : "justify-between px-4 py-2",
-              pathname.startsWith('/planning') ? "bg-slate-800 text-white border-blue-500" : "text-slate-400 hover:text-white hover:bg-slate-800 border-transparent",
-              "border-l-4 pl-3"
-            )}
-          >
-            <div className={cn("flex items-center", collapsed ? "justify-center" : "gap-3 truncate")}>
-              <CalendarDays className="h-4 w-4 shrink-0" />
-              {!collapsed && <span className="text-sm truncate">{t('planning')}</span>}
-            </div>
-            {!collapsed && (
-              <span className="shrink-0 ml-2 px-1.5 py-0.5 bg-green-500/20 text-green-400 text-[9px] rounded uppercase">{t('active')}</span>
-            )}
-          </Link>
-        ) : (
-          <div className={cn("flex items-center text-slate-400 opacity-50 cursor-not-allowed", collapsed ? "justify-center px-3 py-3" : "justify-between px-4 py-2")}>
-            <div className={cn("flex items-center", collapsed ? "justify-center" : "gap-3 truncate pl-3")}>
-              <CalendarDays className="h-4 w-4 shrink-0" />
-              {!collapsed && <span className="text-sm italic truncate">{t('planning')}</span>}
-            </div>
-            {!collapsed && (
-              <span className="shrink-0 ml-2 px-1.5 py-0.5 bg-slate-700 text-slate-500 text-[9px] rounded uppercase">{t('disabled')}</span>
-            )}
-          </div>
-        )}
-
-        {hasModule('MODULE_MATERNITY') ? (
-          <Link
-            href="/maternity"
-            title={collapsed ? t('maternity') : undefined}
-            className={cn(
-              "flex items-center",
-              collapsed ? "justify-center px-3 py-3" : "justify-between px-4 py-2",
-              pathname.startsWith('/maternity') ? "bg-slate-800 text-white border-blue-500" : "text-slate-400 hover:text-white hover:bg-slate-800 border-transparent",
-              "border-l-4 pl-3"
-            )}
-          >
-            <div className={cn("flex items-center", collapsed ? "justify-center" : "gap-3 truncate")}>
-              <HeartPulse className="h-4 w-4 shrink-0" />
-              {!collapsed && <span className="text-sm truncate">{t('maternity')}</span>}
-            </div>
-            {!collapsed && (
-              <span className="shrink-0 ml-2 px-1.5 py-0.5 bg-green-500/20 text-green-400 text-[9px] rounded uppercase">{t('active')}</span>
-            )}
-          </Link>
-        ) : (
-          <div className={cn("flex items-center text-slate-400 opacity-50 cursor-not-allowed", collapsed ? "justify-center px-3 py-3" : "justify-between px-4 py-2")}>
-            <div className={cn("flex items-center", collapsed ? "justify-center" : "gap-3 truncate pl-3")}>
-              <HeartPulse className="h-4 w-4 shrink-0" />
-              {!collapsed && <span className="text-sm italic truncate">{t('maternity')}</span>}
-            </div>
-            {!collapsed && (
-              <span className="shrink-0 ml-2 px-1.5 py-0.5 bg-slate-700 text-slate-500 text-[9px] rounded uppercase">{t('disabled')}</span>
-            )}
-          </div>
-        )}
-
-        {hasModule('MODULE_DISEASE_PROGRAMS') ? (
-          <Link
-            href="/disease-programs"
-            title={collapsed ? t('disease_programs') : undefined}
-            className={cn(
-              "flex items-center",
-              collapsed ? "justify-center px-3 py-3" : "justify-between px-4 py-2",
-              pathname.startsWith('/disease-programs') ? "bg-slate-800 text-white border-blue-500" : "text-slate-400 hover:text-white hover:bg-slate-800 border-transparent",
-              "border-l-4 pl-3"
-            )}
-          >
-            <div className={cn("flex items-center", collapsed ? "justify-center" : "gap-3 truncate")}>
-              <ShieldPlus className="h-4 w-4 shrink-0" />
-              {!collapsed && <span className="text-sm truncate">{t('disease_programs')}</span>}
-            </div>
-            {!collapsed && (
-              <span className="shrink-0 ml-2 px-1.5 py-0.5 bg-green-500/20 text-green-400 text-[9px] rounded uppercase">{t('active')}</span>
-            )}
-          </Link>
-        ) : (
-          <div className={cn("flex items-center text-slate-400 opacity-50 cursor-not-allowed", collapsed ? "justify-center px-3 py-3" : "justify-between px-4 py-2")}>
-            <div className={cn("flex items-center", collapsed ? "justify-center" : "gap-3 truncate pl-3")}>
-              <ShieldPlus className="h-4 w-4 shrink-0" />
-              {!collapsed && <span className="text-sm italic truncate">{t('disease_programs')}</span>}
-            </div>
-            {!collapsed && (
-              <span className="shrink-0 ml-2 px-1.5 py-0.5 bg-slate-700 text-slate-500 text-[9px] rounded uppercase">{t('disabled')}</span>
-            )}
-          </div>
-        )}
-
         <Link
           href="/messages"
           title={collapsed ? t('messages') : undefined}
@@ -291,6 +200,8 @@ export function Sidebar() {
           )}
         </Link>
 
+        <div className={cn("border-t border-slate-800 my-3", collapsed ? "mx-3" : "mx-4")} />
+
         <Link
           href="/settings"
           title={collapsed ? t('settings') : undefined}
@@ -316,7 +227,6 @@ export function Sidebar() {
             </p>
           </a>
         </div>
-        {/* <div className="text-xs text-white font-medium truncate">{t('hospital_name')}</div> */}
       </div>
     </aside>
   );

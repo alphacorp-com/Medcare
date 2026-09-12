@@ -1,33 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "@/i18n/routing";
+import { useRouter, Link } from "@/i18n/routing";
 import { useTranslations } from "next-intl";
 import { signIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
-import { Building2, UserCircle2, ArrowRight, ShieldCheck, Mail, KeyRound } from "lucide-react";
-import { cn } from "@/lib/utils";
-
-// Pre-defined personas matching the seed script for easy testing
-const DEMO_PERSONAS = [
-  { id: "admin", role: "System Administrator", email: "admin@hospital.com", fullName: "Jane Admin" },
-  { id: "doctor", role: "Lead Physician", email: "doctor@hospital.com", fullName: "Dr. Gregory House" },
-  { id: "nurse", role: "Head Nurse", email: "nurse@hospital.com", fullName: "Carla Espinosa" },
-  { id: "pharm", role: "Pharmacist", email: "pharmacy@hospital.com", fullName: "John Mortar" },
-  { id: "lab", role: "Lab Technician", email: "lab@hospital.com", fullName: "Sarah Microscope" },
-  { id: "bill", role: "Billing Manager", email: "billing@hospital.com", fullName: "Amanda Ledger" },
-  { id: "hr", role: "HR Director", email: "hr@hospital.com", fullName: "David Resources" },
-];
+import { Building2, ArrowRight, ShieldCheck, Mail, KeyRound } from "lucide-react";
 
 export default function LoginPage() {
   const t = useTranslations('login');
   const commonT = useTranslations('common');
-  
-  const [email, setEmail] = useState(DEMO_PERSONAS[0].email);
-  const [password, setPassword] = useState("password123");
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [error, setError] = useState("");
   
@@ -90,7 +78,7 @@ export default function LoginPage() {
             </div>
           </div>
           
-          <div className="relative z-10 border border-slate-700 bg-slate-800/50 p-4 rounded-xl mt-12 backdrop-blur-sm">
+          {/* <div className="relative z-10 border border-slate-700 bg-slate-800/50 p-4 rounded-xl mt-12 backdrop-blur-sm">
             <div className="flex items-start gap-4">
               <ShieldCheck className="w-8 h-8 text-blue-400 shrink-0" />
               <div>
@@ -98,7 +86,7 @@ export default function LoginPage() {
                 <p className="text-xs text-slate-400 mt-1">{t('secure_sandbox_desc')}</p>
               </div>
             </div>
-          </div>
+          </div> */}
         </div>
 
         {/* Right Side - Login Form */}
@@ -155,43 +143,12 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <div className="mt-10 pt-8 border-t border-slate-100">
-            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">{t('personas')}</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[300px] overflow-y-auto pr-2 pb-2">
-              {DEMO_PERSONAS.map((mock) => (
-                <button
-                  key={mock.id}
-                  type="button"
-                  onClick={() => {
-                    setEmail(mock.email);
-                    setPassword("password123");
-                  }}
-                  className={cn(
-                    "flex flex-col items-start p-3 rounded-lg border text-left transition-all",
-                    email === mock.email 
-                      ? "bg-blue-50 border-blue-200 ring-1 ring-blue-500 shadow-sm" 
-                      : "bg-white border-slate-200 hover:border-blue-300 hover:bg-slate-50"
-                  )}
-                >
-                  <div className="flex w-full justify-between items-center">
-                    <span className={cn(
-                      "text-sm font-semibold truncate",
-                      email === mock.email ? "text-blue-900" : "text-slate-700"
-                    )}>
-                      {mock.role}
-                    </span>
-                  </div>
-                  <span className={cn(
-                    "text-xs truncate w-full mt-0.5",
-                    email === mock.email ? "text-blue-600" : "text-slate-500"
-                  )}>
-                    {mock.fullName}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-
+          <p className="mt-6 text-center text-sm text-slate-500">
+            First time here?{" "}
+            <Link href="/setup" className="font-medium text-blue-600 hover:text-blue-700">
+              Set up your organization
+            </Link>
+          </p>
         </div>
       </div>
     </div>

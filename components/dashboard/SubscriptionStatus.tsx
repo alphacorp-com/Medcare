@@ -6,7 +6,7 @@ import { Calendar, AlertTriangle, CheckCircle, Clock } from "lucide-react";
 
 interface SubscriptionStatus {
   isActive: boolean;
-  source: "license" | "subscription_invoice" | "none";
+  source: "onprem_license" | "none";
   reason: string;
   validUntil: string | null;
   activeModules: Array<{
@@ -82,16 +82,23 @@ export function SubscriptionStatus() {
     );
   }
 
+  // "Active" here means the on-prem guard hasn't blocked access yet — which
+  // includes the grace period after validUntil has already passed. Treating
+  // that as a plain green "Active" would contradict the fact that the raw
+  // license period is over, so it gets its own amber, clearly-labeled state
+  // instead of being silently folded into either "Active" or "Expired".
+  const isInGracePeriod = status.isActive && Boolean(timeRemaining?.expired);
+
   const getStatusIcon = () => {
     if (!status.isActive) return <AlertTriangle className="h-4 w-4 text-red-500" />;
-    if (timeRemaining?.expired) return <AlertTriangle className="h-4 w-4 text-red-500" />;
+    if (isInGracePeriod) return <AlertTriangle className="h-4 w-4 text-amber-500" />;
     if (timeRemaining && timeRemaining.days <= 7) return <Clock className="h-4 w-4 text-yellow-500" />;
     return <CheckCircle className="h-4 w-4 text-green-500" />;
   };
 
   const getStatusColor = () => {
     if (!status.isActive) return 'text-red-600 bg-red-50 border-red-200';
-    if (timeRemaining?.expired) return 'text-red-600 bg-red-50 border-red-200';
+    if (isInGracePeriod) return 'text-amber-700 bg-amber-50 border-amber-200';
     if (timeRemaining && timeRemaining.days <= 7) return 'text-yellow-600 bg-yellow-50 border-yellow-200';
     return 'text-green-600 bg-green-50 border-green-200';
   };
@@ -108,17 +115,15 @@ export function SubscriptionStatus() {
       <div className="space-y-2">
         <div className="text-xs">
           <span className="font-medium">{t('status')}:</span>{' '}
-          <span className={`font-semibold ${status.isActive ? 'text-green-600' : 'text-red-600'}`}>
-            {status.isActive ? tc('active') : tc('inactive')}
+          <span className={`font-semibold ${!status.isActive ? 'text-red-600' : isInGracePeriod ? 'text-amber-700' : 'text-green-600'}`}>
+            {!status.isActive ? tc('inactive') : isInGracePeriod ? t('grace_period') : tc('active')}
           </span>
         </div>
 
         {status.source !== 'none' && (
           <div className="text-xs">
             <span className="font-medium">{t('type')}:</span>{' '}
-            <span className="capitalize">
-              {status.source === 'license' ? t('license_key') : t('subscription')}
-            </span>
+            <span className="capitalize">{t('license_key')}</span>
           </div>
         )}
 
@@ -131,7 +136,11 @@ export function SubscriptionStatus() {
           </div>
         )}
 
-        {timeRemaining?.expired && (
+        {isInGracePeriod && (
+          <div className="text-xs text-amber-700">{t('grace_period_warning')}</div>
+        )}
+
+        {!status.isActive && timeRemaining?.expired && (
           <div className="text-xs">
             <span className="font-medium text-red-600">{t('expired')}</span>
           </div>

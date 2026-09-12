@@ -16,7 +16,9 @@ export default async function middleware(request: NextRequest) {
   const {pathname} = request.nextUrl;
 
   // Check if the page is public (login)
-  const isPublicPage = pathname.endsWith('/login') || pathname.includes('/login/');
+  const isPublicPage =
+    pathname.endsWith('/login') || pathname.includes('/login/') ||
+    pathname.endsWith('/setup') || pathname.includes('/setup/');
 
   const token = await getToken({
     req: request,
@@ -24,9 +26,9 @@ export default async function middleware(request: NextRequest) {
   });
 
   // A session only grants access to the tenant app if it belongs to a tenant
-  // user with a tenantId. Admin sessions (tenantId always null) and orphaned
-  // tenant accounts (missing tenantId) don't qualify, even though a session exists.
-  const isValidTenantSession = Boolean(token) && token?.role !== 'admin' && Boolean(token?.tenantId);
+  // user with a tenantId. Orphaned tenant accounts (missing tenantId) don't
+  // qualify, even though a session exists.
+  const isValidTenantSession = Boolean(token) && Boolean(token?.tenantId);
 
   // No valid tenant session and not on the login page: send to tenant login.
   if (!isPublicPage && !isValidTenantSession) {

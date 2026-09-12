@@ -12,6 +12,7 @@ export type CurrentUser = {
   fullName: string;
   email: string;
   role: string;
+  isSystemAdmin: boolean;
 } | null;
 
 interface AppState {

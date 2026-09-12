@@ -24,7 +24,8 @@ export async function GET(req: Request) {
         id: true,
         email: true,
         fullName: true,
-        role: true,
+        roleId: true,
+        role: { select: { name: true, isSystemAdmin: true } },
         modules: true,
         isActive: true,
         lastLoginAt: true,
@@ -35,8 +36,10 @@ export async function GET(req: Request) {
       },
     });
 
-    const mappedUsers = users.map(user => ({
+    const mappedUsers = users.map(({ role, ...user }) => ({
       ...user,
+      role: role.name,
+      isSystemAdmin: role.isSystemAdmin,
       status: user.isActive ? 'active' : 'inactive',
       lastActive: user.lastLoginAt?.toISOString(),
     }));
@@ -51,7 +54,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user) {
+    if (!session?.user?.tenantId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     const permCheck = requireAdminOrTenantAdmin(session);
@@ -60,10 +63,14 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { email, fullName, role, modules, status } = body;
+    const { email, fullName, roleId, modules, status, password } = body;
 
-    if (!email || !fullName || !role) {
+    if (!email || !fullName || !roleId) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    if (!password || password.length < 8) {
+      return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 });
     }
 
     const existingUser = await prisma.tenantUser.findUnique({
@@ -72,6 +79,13 @@ export async function POST(req: Request) {
 
     if (existingUser) {
       return NextResponse.json({ error: "User already exists" }, { status: 409 });
+    }
+
+    const role = await prisma.role.findFirst({
+      where: { id: roleId, tenantId: session.user.tenantId },
+    });
+    if (!role) {
+      return NextResponse.json({ error: "Role not found" }, { status: 400 });
     }
 
     if (session.user.tenantId) {
@@ -91,15 +105,13 @@ export async function POST(req: Request) {
       }
     }
 
-    // Hash a default password for newly created users from the dashboard
-    const defaultPassword = "password123";
-    const passwordHash = await bcrypt.hash(defaultPassword, 10);
+    const passwordHash = await bcrypt.hash(password, 10);
 
     const newUser = await prisma.tenantUser.create({
       data: {
         email,
         fullName,
-        role,
+        roleId: role.id,
         modules: modules || [],
         passwordHash,
         isActive: status === 'active',
@@ -111,11 +123,11 @@ export async function POST(req: Request) {
     await recordAuditEvent({
       tenantId: session.user.tenantId,
       actorId: session.user.id,
-      actorType: session.user.role === "admin" ? "admin" : "tenant_user",
+      actorType: "tenant_user",
       action: "user.create",
       resourceType: "tenant_user",
       resourceId: newUser.id,
-      payload: { email: newUser.email, role: newUser.role, modules: newUser.modules },
+      payload: { email: newUser.email, role: role.name, modules: newUser.modules },
       ipAddress,
       userAgent,
     });
@@ -124,7 +136,9 @@ export async function POST(req: Request) {
       id: newUser.id,
       email: newUser.email,
       fullName: newUser.fullName,
-      role: newUser.role,
+      roleId: role.id,
+      role: role.name,
+      isSystemAdmin: role.isSystemAdmin,
       modules: newUser.modules,
       status: newUser.isActive ? 'active' : 'inactive',
       lastActive: newUser.lastLoginAt?.toISOString(),

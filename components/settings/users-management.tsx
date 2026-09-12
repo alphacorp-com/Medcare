@@ -8,7 +8,6 @@ import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetFooter, SheetTitle } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PlusCircle, Search, Edit2, Activity, Trash2 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import { LastLoginBadge } from "@/components/settings/activity/last-login-badge";
 
@@ -21,7 +20,9 @@ export type ModulePermission = {
 
 export type SystemUser = {
   id: string;
+  roleId: string;
   role: string;
+  isSystemAdmin: boolean;
   email: string;
   fullName: string;
   modules: ModulePermission[];
@@ -29,10 +30,19 @@ export type SystemUser = {
   status: 'active' | 'inactive';
 };
 
+type RoleOption = {
+  id: string;
+  name: string;
+  isSystemAdmin: boolean;
+  defaultModules: ModulePermission[];
+  userCount: number;
+};
+
 export function UsersManagement() {
   const router = useRouter();
-  
+
   const [users, setUsers] = useState<SystemUser[]>([]);
+  const [roles, setRoles] = useState<RoleOption[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -52,7 +62,6 @@ export function UsersManagement() {
   const tplan = useTranslations('planning');
   const tmat = useTranslations('maternity');
   const tdp = useTranslations('diseasePrograms');
-  const tr = useTranslations('roles');
 
   const ALL_MODULES = [
     { id: "MODULE_CORE_PATIENT", name: tp('module_title') },
@@ -67,30 +76,23 @@ export function UsersManagement() {
     { id: "MODULE_DISEASE_PROGRAMS", name: tdp('module_title') }
   ];
 
-  const SYSTEM_ROLES = [
-    { id: "tenant_admin", name: tr('admin') },
-    { id: "doctor", name: tr('physician') },
-    { id: "nurse", name: tr('nurse') },
-    { id: "pharmacist", name: tr('pharmacist') },
-    { id: "lab_tech", name: tr('lab') },
-    { id: "radiologist", name: tr('radiologist') },
-    { id: "billing", name: tr('billing') },
-    { id: "hr", name: tr('hr') },
-    { id: "viewer", name: tr('viewer') }
-  ];
-
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         setIsLoading(true);
-        const res = await fetch("/api/v1/users");
-        if (res.ok && !cancelled) {
-          const data = await res.json();
-          setUsers(data);
+        const [usersRes, rolesRes] = await Promise.all([
+          fetch("/api/v1/users"),
+          fetch("/api/v1/roles"),
+        ]);
+        if (!cancelled && usersRes.ok) {
+          setUsers(await usersRes.json());
+        }
+        if (!cancelled && rolesRes.ok) {
+          setRoles(await rolesRes.json());
         }
       } catch (error) {
-        console.error("Failed to fetch users", error);
+        console.error("Failed to fetch users/roles", error);
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -98,21 +100,32 @@ export function UsersManagement() {
     return () => { cancelled = true; };
   }, []);
 
-  const filteredUsers = users.filter(u => 
+  const filteredUsers = users.filter(u =>
     u.fullName?.toLowerCase().includes(search.toLowerCase()) ||
     u.email?.toLowerCase().includes(search.toLowerCase()) ||
     u.role?.toLowerCase().includes(search.toLowerCase())
   );
 
-  const [selectedRole, setSelectedRole] = useState<string>(SYSTEM_ROLES[0].id);
+  const [selectedRoleId, setSelectedRoleId] = useState<string>("");
   const [selectedModules, setSelectedModules] = useState<Record<string, ModuleAction[]>>({
     MODULE_CORE_PATIENT: ['read'],
   });
 
+  const selectedRole = roles.find((r) => r.id === selectedRoleId);
+
+  const defaultModulesRecord = (role: RoleOption | undefined): Record<string, ModuleAction[]> => {
+    const record: Record<string, ModuleAction[]> = {};
+    for (const m of role?.defaultModules ?? []) {
+      record[m.moduleId] = m.actions;
+    }
+    if (!record.MODULE_CORE_PATIENT) record.MODULE_CORE_PATIENT = ['read'];
+    return record;
+  };
+
   const handleEdit = (user: SystemUser) => {
     setEditingUser(user);
     setFormError(null);
-    setSelectedRole(user.role);
+    setSelectedRoleId(user.roleId);
     setSelectedModules(
       user.modules?.reduce((acc, module) => {
         acc[module.moduleId] = module.actions;
@@ -165,8 +178,20 @@ export function UsersManagement() {
     const formData = new FormData(e.currentTarget);
     const fullName = formData.get("fullName") as string;
     const email = formData.get("email") as string;
-    const role = formData.get("role") as string;
+    const roleId = formData.get("roleId") as string;
     const status = formData.get("status") as 'active' | 'inactive';
+    const password = (formData.get("password") as string) || "";
+
+    if (password && password.length < 8) {
+      setFormError(tc('password_min_length'));
+      return;
+    }
+    if (!editingUser && !password) {
+      setFormError(tc('password_min_length'));
+      return;
+    }
+
+    const role = roles.find((r) => r.id === roleId);
 
     const modulePayload: ModulePermission[] = Object.entries(selectedModules)
       .filter(([moduleId, actions]) => actions.length > 0 || moduleId === 'MODULE_CORE_PATIENT')
@@ -176,10 +201,13 @@ export function UsersManagement() {
       modulePayload.push({ moduleId: 'MODULE_CORE_PATIENT', actions: ['read'] });
     }
 
-    const payload: { fullName: string; email: string; role: string; status: 'active' | 'inactive'; modules?: ModulePermission[] } =
-      { fullName, email, role, status };
-    if (role !== 'tenant_admin') {
+    const payload: { fullName: string; email: string; roleId: string; status: 'active' | 'inactive'; modules?: ModulePermission[]; password?: string } =
+      { fullName, email, roleId, status };
+    if (!role?.isSystemAdmin) {
       payload.modules = modulePayload;
+    }
+    if (password) {
+      payload.password = password;
     }
 
     setFormError(null);
@@ -227,13 +255,13 @@ export function UsersManagement() {
           <h2 className="text-lg font-bold text-slate-900">{t('users_roles')}</h2>
           <p className="text-xs text-slate-500">{t('users_roles_desc')}</p>
         </div>
-        
+
         <div>
-          <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white gap-2" onClick={() => {
+          <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white gap-2" disabled={roles.length === 0} onClick={() => {
             setEditingUser(null);
             setFormError(null);
-            setSelectedRole(SYSTEM_ROLES[0].id);
-            setSelectedModules({ MODULE_CORE_PATIENT: ['read'] });
+            setSelectedRoleId(roles[0]?.id ?? "");
+            setSelectedModules(defaultModulesRecord(roles[0]));
             setIsAddOpen(true);
           }}>
             <PlusCircle className="w-4 h-4" /> {t('add_personnel')}
@@ -245,7 +273,7 @@ export function UsersManagement() {
               setEditingUser(null);
               setFormError(null);
               setSelectedModules({ MODULE_CORE_PATIENT: ['read'] });
-              setSelectedRole(SYSTEM_ROLES[0].id);
+              setSelectedRoleId(roles[0]?.id ?? "");
             }
           }}>
             <SheetContent className="overflow-y-auto sm:max-w-2xl p-6 sm:p-8">
@@ -263,17 +291,33 @@ export function UsersManagement() {
                   <Input name="email" type="email" defaultValue={editingUser?.email} required placeholder="john.doe@hospital.com" />
                 </div>
                 <div className="space-y-2">
+                  <Label>{tc('password')}</Label>
+                  <Input
+                    name="password"
+                    type="password"
+                    required={!editingUser}
+                    minLength={8}
+                    autoComplete="new-password"
+                    placeholder={editingUser ? tc('password_leave_blank') : undefined}
+                  />
+                  {editingUser ? (
+                    <p className="text-xs text-slate-400">{tc('password_leave_blank')}</p>
+                  ) : null}
+                </div>
+                <div className="space-y-2">
                   <Label>{tc('role')}</Label>
-                  <select name="role" value={selectedRole} onChange={(e) => {
-                    const role = e.target.value;
-                    setSelectedRole(role);
-                    if (role === 'tenant_admin') {
+                  <select name="roleId" value={selectedRoleId} onChange={(e) => {
+                    const roleId = e.target.value;
+                    setSelectedRoleId(roleId);
+                    const role = roles.find((r) => r.id === roleId);
+                    if (role?.isSystemAdmin) {
                       setSelectedModules({});
                     } else if (!editingUser) {
-                      setSelectedModules({ MODULE_CORE_PATIENT: ['read'] });
+                      setSelectedModules(defaultModulesRecord(role));
                     }
                   }} required className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500">
-                    {SYSTEM_ROLES.map((role) => (
+                    {roles.length === 0 && <option value="">{t('no_roles_yet')}</option>}
+                    {roles.map((role) => (
                       <option key={role.id} value={role.id}>{role.name}</option>
                     ))}
                   </select>
@@ -289,10 +333,10 @@ export function UsersManagement() {
 
               <div className="pt-4 border-t border-slate-100">
                 <Label className="mb-3 block font-bold text-slate-700">{t('module_access_scopes')}</Label>
-                {selectedRole === 'tenant_admin' ? (
+                {selectedRole?.isSystemAdmin ? (
                   <div className="bg-blue-50 p-4 rounded-md border border-blue-100 text-center">
                     <p className="text-sm font-semibold text-blue-700">Full System Access</p>
-                    <p className="text-xs text-blue-600 mt-1">Tenant Administrators have implicit access to all modules and actions.</p>
+                    <p className="text-xs text-blue-600 mt-1">Administrators have implicit access to all modules and actions.</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -376,10 +420,10 @@ export function UsersManagement() {
       <div className="flex items-center gap-2 mb-4">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
-          <Input 
-            type="search" 
-            placeholder={tc('search')} 
-            className="pl-9 h-9" 
+          <Input
+            type="search"
+            placeholder={tc('search')}
+            className="pl-9 h-9"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -413,11 +457,13 @@ export function UsersManagement() {
                   <div className="text-xs text-slate-500">{user.email}</div>
                 </TableCell>
                 <TableCell>
-                  <div className="text-sm text-slate-700">{SYSTEM_ROLES.find(r => r.id === user.role)?.name || user.role}</div>
-                  <div className="text-[10px] text-slate-400 mt-0.5">{user.modules?.length || 0} modules accessed</div>
+                  <div className="text-sm text-slate-700">{user.role}</div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">
+                    {user.isSystemAdmin ? t('full_system_access') : `${user.modules?.length || 0} modules accessed`}
+                  </div>
                 </TableCell>
                 <TableCell>
-                  {user.status === 'active' 
+                  {user.status === 'active'
                     ? <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-800">{tc('active')}</span>
                     : <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-800">{tc('inactive')}</span>
                   }
