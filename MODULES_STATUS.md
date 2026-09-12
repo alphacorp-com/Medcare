@@ -1,6 +1,6 @@
 # État des modules — Medcare V2
 
-Ce document recense, module par module, ce qui est **réellement fonctionnel** (CRUD Prisma réel, pas de données fictives, permissions appliquées), ce qui est **à moitié fait** (UI présente mais logique cassée, désactivée ou fictive), et ce qui **manque complètement**. Il reflète l'état du code au 2026-08-06, vérifié en lisant les routes API et le code source — pas une estimation.
+Ce document recense, module par module, ce qui est **réellement fonctionnel** (CRUD Prisma réel, pas de données fictives, permissions appliquées), ce qui est **à moitié fait** (UI présente mais logique cassée, désactivée ou fictive), et ce qui **manque complètement**. Vérifié en lisant les routes API et le code source — pas une estimation. Dernière relecture complète : 2026-09-12 (mise à jour après le chantier de centralisation des licences côté AlphaCorp — voir [`LICENCE_ACTIVATION.md`](LICENCE_ACTIVATION.md)).
 
 Légende : ✅ Complet et réel · ⚠️ Partiel / à moitié fait · ❌ Manquant
 
@@ -8,19 +8,21 @@ Légende : ✅ Complet et réel · ⚠️ Partiel / à moitié fait · ❌ Manqu
 
 | Module | Statut global |
 |---|---|
-| Patients & Admissions | ✅ Complet |
+| Patients & Admissions (+ file de Consultations) | ✅ Complet |
+| Rendez-vous | ✅ Complet |
 | Laboratoire | ✅ Complet |
 | Radiologie | ✅ Complet |
 | Chirurgie | ✅ Complet |
 | Pharmacie | ⚠️ Partiel (alerte d'interaction médicamenteuse factice) |
 | Maternité / CPN | ✅ Complet (parcours grossesse → accouchement) |
+| Programmes de Santé | ⚠️ Partiel (registres réels mais isolés — pas de facturation, pas de DHIS2) |
 | Facturation & Paiements | ⚠️ Partiel (Mobile Money non testable in situ, pas d'export PDF) |
 | Planning | ✅ Complet |
 | Messagerie | ⚠️ Complet mais en polling (pas de temps réel) |
 | Paramètres (tenant) | ⚠️ Partiel (éditeur de modèles de documents non branché) |
 | Interopérabilité DHIS2 | ✅ Complet |
-| Backoffice SaaS (plateforme) | ⚠️ Partiel (onglet Paramètres = stub) |
-| Licences (Licensing) | ✅ Complet |
+| Licence on-prem (AlphaCorp) | ✅ Complet — voir [`LICENCE_ACTIVATION.md`](LICENCE_ACTIVATION.md) |
+| Rôles & permissions | ✅ Complet — détail dans *Paramètres (tenant)* |
 | Génération PDF / Modèles | ⚠️ Partiel (2 modèles réels sur 7) |
 
 ---
@@ -34,7 +36,38 @@ Légende : ✅ Complet et réel · ⚠️ Partiel / à moitié fait · ❌ Manqu
 - Bons de labo, prescriptions et constantes pendant le séjour écrivent dans les vraies tables (`ExamRequest`, `Prescription`, `VitalSigns`).
 - Fiche patient : onglets Admissions, Dossiers médicaux, Prescriptions, Labo, Imagerie, Constantes, **Chirurgie**, **Maternité** et Facturation — tous branchés sur de vraies routes API (les deux derniers ajoutés lors du chantier Facturation).
 
-⚠️ **Nuance, pas un bug** : il n'existe pas de modèle `Bed` dans le schéma — le champ "lit" (`bedId`) est un simple champ texte libre, pas un inventaire de lits avec capacité/statut. La "gestion des lits" se limite donc à une étiquette, pas un vrai système de disponibilité.
+✅ **Mise à jour** : un vrai modèle `Bed` existe désormais (`app/api/v1/settings/beds`) — code, service, type de chambre, statut, actif/inactif, CRUD réel. Le nombre de lits actifs pouvant être créés est plafonné par la licence AlphaCorp (`getTenantBedLimit`, voir *Licence on-prem*). Nuance restante : `Stay.bedId` pointe vers `Bed.id` par convention applicative, mais **sans clé étrangère Prisma déclarée** entre les deux modèles.
+
+**Consultations** : ce n'est pas un module séparé — il n'existe aucun modèle `Consultation` dans le
+schéma. C'est une file d'attente/triage réelle posée au-dessus de `Stay`/`MedicalRecord` déjà
+documentés ci-dessus : `Stay.consultationStatus` (`waiting`/`claimed`/`completed`),
+`GET /api/v1/consultations/queue` (triée par acuité de triage puis temps d'attente), et les actions
+« claimer » / « libérer » un patient (`POST /api/v1/stays/[id]/claim` et `/release`) avec
+verrouillage anti-double-claim réel (`updateMany` conditionnel). Autorisé via `MODULE_ADMISSION`
+(pas de module dédié). La clôture se fait via la signature d'une note médicale de type
+`consultation` (`POST /api/v1/patients/[id]/records`), qui bascule le statut à `completed` et
+génère une ligne de facture — déjà compté dans la section Facturation.
+
+---
+
+## Rendez-vous (Appointments)
+
+**Statut : ✅ Complet et réel**
+
+- CRUD réel sur `Appointment`, avec détection de conflit réelle (`findAppointmentConflicts`,
+  `findAvailabilityConflict`) et confirmation forcée possible, y compris pour les séries
+  récurrentes (`seriesId`).
+- Permissions cohérentes sur toutes les routes (liste, détail, annulation, no-show, check-in,
+  disponibilités) : `requireModulePermission(session, "MODULE_APPOINTMENTS", ...)`.
+- Le **check-in** crée un vrai `Stay` (`type: "scheduled"`) relié à `Appointment.stayId` — à partir
+  de là, le patient rentre dans la vraie file de consultation/triage/facturation ci-dessus, sans
+  logique dupliquée.
+- `DoctorAvailability` (créneaux hebdomadaires réels) alimente le calendrier de prise de
+  rendez-vous.
+
+⚠️ Pas de route « terminer » explicite pour un rendez-vous — le passage à `completed` n'est pas
+vérifié comme explicite dans les routes lues. Aucune facturation n'est générée par le rendez-vous
+lui-même : c'est la consultation qui suit (signature de note médicale) qui facture.
 
 ---
 
@@ -99,6 +132,29 @@ Légende : ✅ Complet et réel · ⚠️ Partiel / à moitié fait · ❌ Manqu
 
 ---
 
+## Programmes de Santé (Disease Programs)
+
+**Statut : ⚠️ Partiel — registres réels mais isolés**
+
+- Trois vrais modèles Prisma : `MalariaCase`, `TbCase` (+ `TbFollowUp`), `Immunization`, avec CRUD
+  réel côté patient et formulaires de saisie réels dans la fiche patient — pas de données fictives
+  constatées.
+- La page `disease-programs` est une **liste transversale en lecture seule** (onglets
+  Vaccination/Paludisme/Tuberculose) ; toute la saisie se fait depuis la fiche patient, pas depuis
+  cette page.
+- Permissions correctes partout (`requireModulePermission(..., "MODULE_DISEASE_PROGRAMS", ...)`).
+
+❌ **Aucune intégration facturation** : contrairement au Labo/Radio/Chirurgie/Maternité, aucune des
+routes de ce module ne génère de ligne de facture — enregistrer un cas de paludisme, une TB ou une
+vaccination reste gratuit dans le système, que le module Facturation soit actif ou non.
+❌ **Aucune intégration DHIS2** malgré l'intitulé « Disease Programs » : le catalogue d'indicateurs
+DHIS2 ne contient aucun indicateur dérivé de `MalariaCase`/`TbCase`/`Immunization`. Le seul champ
+lié à la malaria qui alimente DHIS2 (`malaria_prevention_doses_given`, le TPI en CPN) vient en
+réalité du module Maternité (`AntenatalVisit`), sans rapport avec le registre `MalariaCase` de ce
+module-ci.
+
+---
+
 ## Facturation & Paiements (+ Mobile Money)
 
 **Statut : ⚠️ Partiel** (le cœur fonctionne, deux limites honnêtes à connaître)
@@ -147,12 +203,13 @@ Légende : ✅ Complet et réel · ⚠️ Partiel / à moitié fait · ❌ Manqu
 **Statut : ⚠️ Partiel**
 
 ✅ Réel :
-- Gestion des utilisateurs (CRUD complet, hachage bcrypt, journal d'audit).
+- Gestion des utilisateurs (CRUD complet, mot de passe choisi par l'admin à la création, hachage bcrypt, journal d'audit).
+- **Rôles** (nouveau) : rôles entièrement personnalisés par tenant (plus d'enum figé) — CRUD réel (`/api/v1/roles`), flag `isSystemAdmin` (accès complet) et `isClinicalProvider` (apparaît comme médecin dans les sélecteurs de rendez-vous/prescripteur), jeu de permissions par défaut par module appliqué à la création d'un utilisateur. Garde-fous réels : impossible de supprimer un rôle assigné à des utilisateurs, impossible de retirer le dernier rôle administrateur actif.
 - Paramètres d'organisation (lecture/écriture réelle sur `Tenant`).
 - Profil utilisateur.
 - Intégration DHIS2 (voir doc dédiée `DHIS2_INTEGRATION_README.md`).
 - Intégration Mobile Money (Orange/MTN — voir section Facturation ci-dessus).
-- Configuration des modules : intentionnellement **lecture seule** pour l'admin du tenant (l'activation est contrôlée par la plateforme via le backoffice SaaS) — ce n'est pas un bug, c'est le design voulu.
+- **Licence** (nouveau) : activation en ligne ou hors-ligne de la licence AlphaCorp, statut/renouvellement — voir [`LICENCE_ACTIVATION.md`](LICENCE_ACTIVATION.md). Configuration des modules cliniques : synchronisée automatiquement depuis la licence appliquée (`syncTenantModulesFromLicense`), non modifiable manuellement côté tenant — ce n'est pas un bug, c'est le design voulu.
 
 ⚠️ Partiel :
 - **Modèles de documents** : les bascules de branding (logo/QR/signature/filigrane) sont réellement persistées, mais le bouton "Modifier le modèle" sur chaque carte de modèle **n'a aucun gestionnaire de clic** — aucun éditeur de modèle n'existe réellement, seul l'aperçu fonctionne.
@@ -165,25 +222,38 @@ Légende : ✅ Complet et réel · ⚠️ Partiel / à moitié fait · ❌ Manqu
 
 ---
 
-## Backoffice SaaS (administration plateforme)
+## ~~Backoffice SaaS (administration plateforme)~~ — supprimé
 
-**Statut : ⚠️ Partiel** — ce module est distinct du module Facturation clinique : c'est la couche où l'opérateur de la plateforme Medcare gère ses clients (hôpitaux) et leurs abonnements.
-
-✅ Réel :
-- Gestion des tenants, plans, abonnements, factures SaaS et catalogue de modules : CRUD complet contre de vraies routes `app/api/admin/**`.
-- Export PDF des factures SaaS (`InvoiceTemplate` rendu côté serveur avec de vraies données `Invoice`/`Tenant`) — seul export PDF réellement branché dans toute l'application.
-
-❌ Manquant :
-- L'onglet **Paramètres** du backoffice est un pur stub : affiche "Settings management coming soon..." et n'a ni état ni route API derrière — mais il est bien visible et cliquable dans la barre d'onglets.
+L'ancienne console cross-tenant (`app/api/admin/**`, comptes `AdminUser`, gestion de plusieurs
+hôpitaux depuis une seule instance MedCare) a été **entièrement retirée**. Le modèle réel de
+déploiement est une installation MedCare isolée par hôpital ; la gestion multi-client (licences,
+plans, facturation, modules) se fait désormais uniquement depuis la plateforme séparée **AlphaCorp**
+(autre repo), qui ne communique avec chaque installation MedCare que le temps d'une activation —
+voir *Licence on-prem* ci-dessous et [`LICENCE_ACTIVATION.md`](LICENCE_ACTIVATION.md).
 
 ---
 
-## Licences (Licensing)
+## Licence on-prem (AlphaCorp)
 
 **Statut : ✅ Complet**
 
-- `lib/tenant-licensing.ts` : résolution d'accès tenant, rédemption de licence, activation de module — tout est réel, transactionnel (`$transaction` Prisma), sans branche fictive.
-- Rédemption de licence câblée de bout en bout dans la page Paramètres pour les administrateurs système.
+- Système entièrement reconstruit cette session — remplace l'ancien `LicenseKey`/rédemption manuelle
+  (retiré) par une licence signée numériquement (Ed25519), délivrée par AlphaCorp, activable **en
+  ligne** (appel direct à l'API AlphaCorp) ou **hors ligne** (échange de 2 fichiers signés, aucun
+  réseau requis).
+- `lib/onprem-license/{apply,verify,guard,fingerprint}.ts` : vérification de signature, anti-rejeu
+  (refuse un jeton qui ferait régresser la date de fin de validité), anti-recul d'horloge, blocage
+  matériel après une période de grâce configurable — toutes ces vérifications sont réelles et
+  couvrent des cas limites vérifiés, pas juste le chemin nominal.
+- La licence pilote réellement l'application, pas juste de la métadonnée d'affichage :
+  `syncTenantModulesFromLicense` active/désactive les `TenantModule` à chaque application d'une
+  licence, `getTenantSeatLimit`/`getTenantBedLimit` plafonnent la création d'utilisateurs et de lits
+  en fonction de la licence en vigueur.
+- Autorisation basée sur `session.user.isSystemAdmin`, plus sur un nom de rôle en dur.
+
+⚠️ Point d'attention documenté dans `LICENCE_ACTIVATION.md` : l'activation en ligne exige un
+abonnement actif assigné côté AlphaCorp ; sans ça elle échoue avec un message explicite (l'émission
+manuelle/hors-ligne permet de contourner en saisissant une période de validité à la main).
 
 ---
 
@@ -194,12 +264,13 @@ Légende : ✅ Complet et réel · ⚠️ Partiel / à moitié fait · ❌ Manqu
 - `PDFPreviewModal` est un vrai composant `@react-pdf/renderer`, pas une façade — mais la plupart de ses 7 modèles retombent sur des **données fictives codées en dur** ("John Doe", "Dr. Gregory House", `INV-2024-001`...) dès qu'aucune donnée réelle n'est fournie, ce qui est exactement ce qui se passe dans l'aperçu de Paramètres → Modèles de documents.
 - Seuls **2 points d'intégration** passent de vraies données : la liste des patients et le dossier patient individuel (`patients/page.tsx`, `patients/[id]/page.tsx`).
 - Les 4 modèles Prescription / Résultat Labo / Rapport de Stock / Guide Médicament ne sont **jamais appelés** en dehors de l'aperçu Paramètres — aucune page Facturation, Pharmacie ou Laboratoire ne les utilise. En pratique, "imprimer une prescription" ou "imprimer un résultat labo" n'existe nulle part dans l'app malgré l'existence de ces composants.
-- Le modèle Facture (`InvoiceTemplate`) n'est branché sur de vraies données que pour les factures **SaaS** (backoffice admin) — le module Facturation clinique tenant n'a aucun export PDF.
+- **Mise à jour** : le modèle Facture (`InvoiceTemplate`) était branché sur de vraies données uniquement pour les factures SaaS du backoffice admin — celui-ci ayant été supprimé, `InvoiceTemplate` n'a désormais **plus aucun point d'intégration réel** ; il ne reste utilisé que par l'aperçu à données fictives de Paramètres → Modèles de documents. Le module Facturation clinique tenant n'a toujours aucun export PDF.
 
 ---
 
 ## Notes d'architecture transverses (pour contexte, pas un module)
 
-- **Multi-tenance** : schéma Postgres partagé (`tenant_template`), isolation par colonne `tenant_id` sur chaque table — appliquée de façon cohérente dans tous les modules audités ci-dessus (le bug DHIS2 corrigé récemment était la seule fuite trouvée).
-- **Permissions** : `requireModulePermission(session, moduleId, action)` côté API, `useAppStore().hasModule(...)` côté UI — pattern uniforme partout.
-- **Activation de module** : catalogue SaaS (`Module`/`PlanModule`/`TenantModule`, schéma public) contrôlé par la plateforme, distinct de `TenantUser.modules` qui accorde l'accès à un utilisateur donné au sein d'un tenant déjà activé.
+- **Déploiement** : une installation MedCare (application + base) par établissement — pas de multi-tenant partagé entre hôpitaux. Le schéma Postgres `tenant_template` reste techniquement multi-tenant (isolation par colonne `tenant_id`) mais n'héberge en pratique qu'un seul tenant réel par installation.
+- **Permissions** : `requireModulePermission(session, moduleId, action)` côté API, `useAppStore().hasModule(...)` côté UI — pattern uniforme partout. Le contournement par `isSystemAdmin` (accès total) a remplacé l'ancien test `role === "tenant_admin"` codé en dur — toute nouvelle route doit utiliser le flag, jamais une comparaison de nom de rôle.
+- **Rôles** : `TenantUser.roleId` référence un `Role` propre au tenant (nom libre, `isSystemAdmin`, `isClinicalProvider`, permissions par défaut) — remplace l'ancien enum `TenantUserRole` fixe (9 valeurs figées), entièrement retiré du schéma.
+- **Activation de module** : `TenantModule` (catalogue `Module`, toujours présent en base) est désormais synchronisé automatiquement à partir de la licence AlphaCorp appliquée (`syncTenantModulesFromLicense`, appelé à chaque activation/import de licence) — plus aucune UI d'administration ne permet de le modifier manuellement, par design. `TenantUser.modules` reste ce qui accorde l'accès à un utilisateur donné au sein d'un module déjà activé pour le tenant.
