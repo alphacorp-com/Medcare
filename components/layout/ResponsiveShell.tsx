@@ -3,21 +3,18 @@
 import React, { useEffect, useState } from "react";
 import DesktopLayout from "./desktop/DesktopLayout";
 import MobileLayout from "./mobile/MobileLayout";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export default function ResponsiveShell({ children }: { children: React.ReactNode }) {
-  const [isMobile, setIsMobile] = useState<boolean | null>(null);
+  const isMobile = useIsMobile();
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    function update() {
-      setIsMobile(window.innerWidth < 768);
-    }
-
-    update();
-    window.addEventListener("resize", update);
-    return () => window.removeEventListener("resize", update);
+    // avoid hydration mismatch by waiting for client mount
+    setMounted(true);
   }, []);
 
-  if (isMobile === null) return null;
+  if (!mounted) return null;
 
   return isMobile ? <MobileLayout>{children}</MobileLayout> : <DesktopLayout>{children}</DesktopLayout>;
 }
