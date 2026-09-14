@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "seed": "tsx prisma/seed.ts",
     "seed-settings": "tsx prisma/seed-reference-data.ts",
+    "seed-journeys": "tsx prisma/seed-patient-journeys.ts",
     "db:reset-data": "tsx prisma/reset-data.ts",
     "db:sync-fee-schedule": "tsx prisma/backfill-fee-schedule.ts",
     "clean": "next clean",
