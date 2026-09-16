@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import crypto from "crypto";
 import { authOptions } from "@/lib/auth";
-import { computeFingerprint } from "@/lib/onprem-license/fingerprint";
+import { computeFingerprint, fingerprintInstabilityReason } from "@/lib/onprem-license/fingerprint";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -20,6 +20,11 @@ export async function GET() {
       { error: "Offline activation is not configured for this install (missing ONPREM_LICENSE_CLIENT_ID/SECRET)." },
       { status: 500 }
     );
+  }
+
+  const instability = fingerprintInstabilityReason();
+  if (instability) {
+    return NextResponse.json({ error: instability }, { status: 500 });
   }
 
   const { raw: fingerprint } = computeFingerprint();

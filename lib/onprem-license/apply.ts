@@ -6,7 +6,7 @@ import prisma from "@/lib/prisma";
 import { recordAuditEvent, SYSTEM_ACTOR_ID } from "@/lib/audit";
 import { syncTenantModulesFromLicense } from "@/lib/tenant-licensing";
 import { verifyLicenseToken } from "./verify";
-import { computeFingerprint } from "./fingerprint";
+import { computeFingerprint, fingerprintInstabilityReason } from "./fingerprint";
 
 export class LicenseApplyError extends Error {}
 
@@ -27,6 +27,8 @@ export async function applyLicenseToken(
 
   const { raw: currentFingerprint } = computeFingerprint();
   if (payload.fingerprint && payload.fingerprint !== currentFingerprint) {
+    const instability = fingerprintInstabilityReason();
+    if (instability) throw new LicenseApplyError(instability);
     throw new LicenseApplyError("This license was issued for a different machine — it cannot be applied here.");
   }
 

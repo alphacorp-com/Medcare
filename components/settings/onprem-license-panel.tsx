@@ -28,6 +28,7 @@ type LicenseStatus = {
     clockSuspicious?: boolean;
   };
   fingerprint: string;
+  fingerprintWarning?: string | null;
 };
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -258,6 +259,12 @@ export function OnPremLicensePanel() {
             </div>
           )}
         </div>
+
+        {status?.fingerprintWarning && (
+          <div className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded p-3">
+            {status.fingerprintWarning}
+          </div>
+        )}
 
         {status?.fingerprint && (
           <div className="flex items-start gap-2 text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded p-3">

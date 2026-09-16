@@ -6,7 +6,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { checkRateLimit } from "@/lib/rate-limit";
-import { computeFingerprint } from "@/lib/onprem-license/fingerprint";
+import { computeFingerprint, fingerprintInstabilityReason } from "@/lib/onprem-license/fingerprint";
 import { applyLicenseToken, LicenseApplyError } from "@/lib/onprem-license/apply";
 
 export async function POST() {
@@ -31,6 +31,11 @@ export async function POST() {
       },
       { status: 500 }
     );
+  }
+
+  const instability = fingerprintInstabilityReason();
+  if (instability) {
+    return NextResponse.json({ error: instability }, { status: 500 });
   }
 
   const { raw: fingerprint } = computeFingerprint();

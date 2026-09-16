@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { checkOnPremLicenseGuard } from "@/lib/onprem-license/guard";
-import { computeFingerprint } from "@/lib/onprem-license/fingerprint";
+import { computeFingerprint, fingerprintInstabilityReason } from "@/lib/onprem-license/fingerprint";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -31,5 +31,6 @@ export async function GET() {
       : null,
     guard,
     fingerprint,
+    fingerprintWarning: fingerprintInstabilityReason(),
   });
 }

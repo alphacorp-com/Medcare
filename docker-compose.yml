@@ -28,6 +28,9 @@ services:
     environment:
       DATABASE_URL: postgresql://postgres:pliya@postgres:5432/medcarev2_db?schema=tenant_template
       NODE_ENV: production
+      # Keeps the license fingerprint stable across container recreates —
+      # set ONPREM_INSTALL_ID once in .env (see .env.example).
+      ONPREM_INSTALL_ID: ${ONPREM_INSTALL_ID:-}
     depends_on:
       postgres:
         condition: service_healthy
