@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { BillingCycle, InvoiceStatus, LicenseKeyStatus, ModuleStatus, Prisma, SubscriptionStatus, TenantStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { recordAuditEvent, SYSTEM_ACTOR_ID } from "@/lib/audit";
+import { ensureModuleCatalog } from "@/lib/module-catalog";
 
 // Shown to the caller for every redemption failure (invalid key, wrong tenant,
 // revoked, already used) — deliberately identical in every case. Distinct messages
@@ -203,6 +204,9 @@ export async function resolveTenantModules(tenantId: string): Promise<ModulePerm
 // resolveTenantModules() consult. Without this, plannedModules chosen in
 // AlphaCorp's admin console had no effect on what MedCare actually enforces.
 export async function syncTenantModulesFromLicense(tenantId: string, licensedModuleCodes: string[]): Promise<void> {
+  // A fresh install may never have run the seed script — without the catalog
+  // there is nothing to map the license's module codes onto.
+  await ensureModuleCatalog();
   const modules = await prisma.module.findMany({ select: { id: true, code: true } });
   const licensedSet = new Set(licensedModuleCodes);
   const now = new Date();
