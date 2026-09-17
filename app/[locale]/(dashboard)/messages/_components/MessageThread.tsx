@@ -83,7 +83,7 @@ export function MessageThread({ conversationId, onMessageSent }: MessageThreadPr
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0">
+    <div className="flex-1 flex flex-col min-h-0 h-full">
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {messages.map((message) => {
           const isSelf = message.senderId === currentUser?.id;
@@ -114,7 +114,7 @@ export function MessageThread({ conversationId, onMessageSent }: MessageThreadPr
           placeholder={t("type_message")}
           className="flex-1 h-10 px-3 rounded-md border border-slate-200 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500"
         />
-        <Button size="icon" onClick={handleSend} disabled={!draft.trim() || sending}>
+        <Button size="icon" className="bg-blue-600 hover:bg-blue-700 text-white" onClick={handleSend} disabled={!draft.trim() || sending}>
           <Send className="w-4 h-4" />
         </Button>
       </div>

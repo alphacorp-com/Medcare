@@ -148,3 +148,62 @@
   background-size: 200% 200%;
   animation: gradientShift 3s ease infinite;
 }
+
+@layer components {
+  /* Make tables stack into card-like list on small screens to avoid horizontal overflow */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  /* Mobile first: hide the header and render rows as stacked cards */
+  table thead {
+    display: none;
+  }
+
+  table tr {
+    display: block;
+    margin-bottom: 0.75rem;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  }
+
+  table td,
+  table th {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border);
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  table td:last-child,
+  table th:last-child {
+    border-bottom: none;
+  }
+
+  /* For larger screens restore normal table layout */
+  @screen sm {
+    table thead {
+      display: table-header-group;
+    }
+    table tr {
+      display: table-row;
+      margin-bottom: 0;
+      background: transparent;
+      border: none;
+      box-shadow: none;
+    }
+    table td,
+    table th {
+      display: table-cell;
+      padding: 0.5rem 0.75rem;
+      border-bottom: none;
+      white-space: nowrap;
+    }
+  }
+}

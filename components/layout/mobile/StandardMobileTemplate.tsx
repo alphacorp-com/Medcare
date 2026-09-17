@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { MobileHeader } from "./MobileHeader";
 import { MobileBottomNav } from "./MobileBottomNav";
-import { Link, useRouter } from "@/i18n/routing";
+import { Link, useRouter, usePathname } from "@/i18n/routing";
 import { useAppStore } from "@/lib/store/useAppStore";
 import { signOut } from "next-auth/react";
 
@@ -12,16 +12,21 @@ export default function StandardMobileTemplate({
   subtitle,
   actions,
   children,
+  showSearchSlot = true,
+  noRoundedContainer = false,
 }: {
   title: string;
   subtitle?: string;
   actions?: React.ReactNode;
   children: React.ReactNode;
+  showSearchSlot?: boolean;
+  noRoundedContainer?: boolean;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
   const currentUser = useAppStore((s) => s.currentUser);
 
   return (
@@ -32,24 +37,21 @@ export default function StandardMobileTemplate({
 
       <main className="flex-1 px-2 overflow-y-auto overflow-x-hidden">
         <div className="mx-auto w-full max-w-full min-w-0">
-          <div className="w-full max-w-full min-w-0 bg-white rounded-2xl shadow-sm p-3 min-h-[60vh] flex flex-col overflow-hidden">
-            <div className="flex items-center gap-3 mb-3 min-w-0">
-              <div className="w-11 h-11 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                <svg className="w-5 h-5 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                  <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM6 20v-1a4 4 0 014-4h4a4 4 0 014 4v1" />
-                </svg>
-              </div>
-              <div className="flex-1 min-w-0 text-center">
-                <div className="text-base font-semibold text-slate-900 truncate">{title}</div>
-                {subtitle && <div className="text-[12px] text-slate-500 truncate">{subtitle}</div>}
-              </div>
+          <div className={
+            `w-full max-w-full min-w-0 bg-white ${noRoundedContainer ? "p-0 min-h-[60vh] overflow-visible" : "rounded-2xl shadow-sm p-3 min-h-[60vh] overflow-hidden"} flex flex-col`
+          }>
+            <div className="mb-3 min-w-0 text-center">
+              <div className="text-base font-semibold text-slate-900 truncate">{title}</div>
+              {subtitle && <div className="text-[12px] text-slate-500 truncate">{subtitle}</div>}
             </div>
 
-            {actions && <div className="mb-3 overflow-x-auto overflow-y-hidden">{actions}</div>}
+            {actions && <div className="mb-3">{actions}</div>}
 
-            <div className="mb-3">
-              <div className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-400">Rechercher …</div>
-            </div>
+            {showSearchSlot && (
+              <div className="mb-3">
+                <div className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-400">Rechercher …</div>
+              </div>
+            )}
 
             <div className="flex-1 min-w-0 overflow-hidden">{children}</div>
           </div>
@@ -68,15 +70,31 @@ export default function StandardMobileTemplate({
       {menuOpen && (
         <div className="fixed inset-0 z-60">
           <div className="absolute inset-0 bg-black/40" onClick={() => setMenuOpen(false)} />
-          <aside className="absolute left-0 top-0 bottom-0 w-72 bg-white p-4 shadow-xl overflow-auto">
-            <button className="mb-4 text-sm text-slate-600" onClick={() => setMenuOpen(false)}>Fermer</button>
-            <nav className="flex flex-col gap-2">
-              <Link href="/">Tableau de bord</Link>
-              <Link href="/patients">Patients</Link>
-              <Link href="/appointments">Rendez-vous</Link>
-              <Link href="/stays">Admissions</Link>
-              <Link href="/pharmacy">Pharmacie</Link>
-              <Link href="/settings">Paramètres</Link>
+          <aside className="absolute left-0 top-0 bottom-0 w-72 bg-white p-4 shadow-xl overflow-auto border-r">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="text-sm font-semibold">Services</div>
+              <button className="text-sm text-slate-500" onClick={() => setMenuOpen(false)}>Fermer</button>
+            </div>
+            <nav className="flex flex-col gap-2 text-sm">
+              {(() => {
+                const makeClass = (path: string) =>
+                  `rounded-md px-2 py-2 flex items-center gap-3 hover:bg-slate-100 ${
+                    pathname && (path === "/" ? pathname === "/" : pathname.startsWith(path))
+                      ? "bg-blue-50 text-blue-700 border-l-4 border-blue-600"
+                      : "text-slate-700"
+                  }`;
+
+                return (
+                  <>
+                    <Link href="/" className={makeClass("/")}>Tableau de bord</Link>
+                    <Link href="/patients" className={makeClass("/patients")}>Patients</Link>
+                    <Link href="/appointments" className={makeClass("/appointments")}>Rendez-vous</Link>
+                    <Link href="/stays" className={makeClass("/stays")}>Admissions</Link>
+                    <Link href="/pharmacy" className={makeClass("/pharmacy")}>Pharmacie</Link>
+                    <Link href="/settings" className={makeClass("/settings")}>Paramètres</Link>
+                  </>
+                );
+              })()}
             </nav>
           </aside>
         </div>
@@ -92,9 +110,9 @@ export default function StandardMobileTemplate({
               <button className="text-slate-600" onClick={() => setMoreOpen(false)}>Fermer</button>
             </div>
             <div className="grid grid-cols-3 gap-3">
-              <Link href="/reports" className="text-center p-3 bg-slate-50 rounded">Rapports</Link>
-              <Link href="/messages" className="text-center p-3 bg-slate-50 rounded">Messages</Link>
-              <button onClick={() => router.push('/settings')} className="text-center p-3 bg-slate-50 rounded">Paramètres</button>
+              <Link href="/reports" className="text-center p-3 bg-white border border-slate-100 rounded shadow-sm hover:shadow-md">Rapports</Link>
+              <Link href="/messages" className="text-center p-3 bg-white border border-slate-100 rounded shadow-sm hover:shadow-md">Messages</Link>
+              <button onClick={() => router.push('/settings')} className="text-center p-3 bg-white border border-slate-100 rounded shadow-sm hover:shadow-md">Paramètres</button>
             </div>
           </div>
         </div>

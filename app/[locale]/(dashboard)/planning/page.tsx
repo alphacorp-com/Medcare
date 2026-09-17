@@ -123,12 +123,12 @@ export default function PlanningPage() {
 
   return (
     <div className="flex flex-col h-full space-y-4">
-      <div className="flex items-center justify-between shrink-0 bg-white p-4 rounded border border-slate-200 shadow-sm">
-        <div>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between shrink-0 bg-white p-4 rounded border border-slate-200 shadow-sm">
+        <div className="mb-3 sm:mb-0">
           <h1 className="text-lg font-bold text-slate-800">{t('title')}</h1>
           <p className="text-xs text-slate-500 mt-1">{t('description')}</p>
         </div>
-        <div className="flex bg-slate-100 p-1 rounded-md">
+        <div className="flex flex-wrap bg-slate-100 p-1 rounded-md">
           <button
             className={cn("px-4 py-1.5 rounded text-xs font-semibold flex items-center transition-colors", activeTab === "roster" ? "bg-white shadow-sm text-slate-800" : "text-slate-500 hover:text-slate-800")}
             onClick={() => setActiveTab("roster")}
@@ -146,67 +146,71 @@ export default function PlanningPage() {
 
       {activeTab === "roster" ? (
         <div className="flex-1 flex flex-col bg-white rounded border border-slate-200 shadow-sm overflow-hidden">
-          <div className="p-3 border-b border-slate-200 flex items-center justify-between bg-slate-50 flex-wrap gap-2">
-             <div className="flex items-center gap-4">
-               <div className="flex items-center gap-2">
-                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{t('department')}:</label>
-                 <select
-                   className="h-8 text-xs bg-white border border-slate-200 rounded px-3 py-1 font-semibold text-slate-700 focus:outline-none focus:border-blue-400"
-                   value={selectedDepartmentId}
-                   onChange={(e) => setSelectedDepartmentId(e.target.value)}
-                 >
-                   {activeDepartments.map(d => (
-                     <option key={d.id} value={d.id}>{d.name}</option>
-                   ))}
-                 </select>
-               </div>
-               <div className="flex items-center gap-2">
-                 <Button variant="outline" size="sm" className="h-8 px-2 text-slate-500" onClick={() => setWeekStart((prev) => subWeeks(prev, 1))}><ChevronLeft className="h-4 w-4" /></Button>
-                 <span className="text-sm font-bold text-slate-700">{t('week_of', { date: format(weekStart, "MMM dd, yyyy") })}</span>
-                 <Button variant="outline" size="sm" className="h-8 px-2 text-slate-500" onClick={() => setWeekStart((prev) => addWeeks(prev, 1))}><ChevronRight className="h-4 w-4" /></Button>
-               </div>
-             </div>
-             <div className="flex gap-2">
-                <Button variant="outline" size="sm" className="h-8 text-xs text-orange-600 border-orange-200 hover:bg-orange-50 hover:text-orange-700" onClick={() => setIsAbsenceOpen(true)}>
-                  <UserMinus className="h-3.5 w-3.5 mr-2" /> {t('declare_absence')}
-                </Button>
-                <Button size="sm" className="h-8 text-xs bg-blue-600 hover:bg-blue-700" onClick={() => setAssignRequest((prev) => ({ userId: "", date: "", nonce: (prev?.nonce ?? 0) + 1 }))}>
-                  <Plus className="h-3.5 w-3.5 mr-2" /> {t('assign_shift')}
-                </Button>
-             </div>
+          <div className="p-3 border-b border-slate-200 bg-slate-50 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+              <div className="flex items-center gap-2">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{t('department')}:</label>
+                <select
+                  className="h-8 text-xs bg-white border border-slate-200 rounded px-3 py-1 font-semibold text-slate-700 focus:outline-none focus:border-blue-400"
+                  value={selectedDepartmentId}
+                  onChange={(e) => setSelectedDepartmentId(e.target.value)}
+                >
+                  {activeDepartments.map(d => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" className="h-8 px-2 text-slate-500" onClick={() => setWeekStart((prev) => subWeeks(prev, 1))}><ChevronLeft className="h-4 w-4" /></Button>
+                <span className="text-sm font-bold text-slate-700">{t('week_of', { date: format(weekStart, "MMM dd, yyyy") })}</span>
+                <Button variant="outline" size="sm" className="h-8 px-2 text-slate-500" onClick={() => setWeekStart((prev) => addWeeks(prev, 1))}><ChevronRight className="h-4 w-4" /></Button>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:flex sm:items-center sm:gap-2 gap-2 w-full sm:w-auto">
+              <Button variant="outline" size="sm" className="h-8 text-xs text-orange-600 border-orange-200 hover:bg-orange-50 hover:text-orange-700 w-full sm:w-auto flex items-center justify-center" onClick={() => setIsAbsenceOpen(true)}>
+                <UserMinus className="h-3.5 w-3.5 mr-2" /> {t('declare_absence')}
+              </Button>
+              <Button size="sm" className="h-8 text-xs bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto flex items-center justify-center" onClick={() => setAssignRequest((prev) => ({ userId: "", date: "", nonce: (prev?.nonce ?? 0) + 1 }))}>
+                <Plus className="h-3.5 w-3.5 mr-2" /> {t('assign_shift')}
+              </Button>
+            </div>
           </div>
 
-          <RosterGrid
-            staff={departmentStaff}
-            weekDays={weekDays}
-            schedules={schedules}
-            onCellClick={(userId, date) => setAssignRequest((prev) => ({ userId, date: format(date, "yyyy-MM-dd"), nonce: (prev?.nonce ?? 0) + 1 }))}
-            onShiftClick={(schedule) => setSelectedSchedule(schedule)}
-          />
+          <div className="flex-1 overflow-auto">
+            <RosterGrid
+              staff={departmentStaff}
+              weekDays={weekDays}
+              schedules={schedules}
+              onCellClick={(userId, date) => setAssignRequest((prev) => ({ userId, date: format(date, "yyyy-MM-dd"), nonce: (prev?.nonce ?? 0) + 1 }))}
+              onShiftClick={(schedule) => setSelectedSchedule(schedule)}
+            />
+          </div>
         </div>
       ) : (
         <div className="flex-1 flex flex-col bg-white rounded border border-slate-200 shadow-sm overflow-hidden">
-           <div className="p-2 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
-              <div className="relative w-96 flex-1">
-                 <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-slate-400" />
-                 <Input
-                   type="search"
-                   placeholder={tc('search')}
-                   value={deptSearch}
-                   onChange={(e) => setDeptSearch(e.target.value)}
-                   className="pl-8 h-8 text-xs bg-white border-slate-200 focus:border-blue-400 max-w-sm"
-                 />
-               </div>
-               <Button size="sm" className="h-8 text-xs bg-slate-900 text-white hover:bg-slate-800 ml-4" onClick={() => setDeptFormRequest((prev) => ({ department: null, nonce: (prev?.nonce ?? 0) + 1 }))}>
-                 <Plus className="h-3.5 w-3.5 mr-2" /> {t('add_department')}
-               </Button>
-           </div>
-           <DepartmentsGrid
-             departments={filteredDepartments}
-             usersById={usersById}
-             onEdit={(dept) => setDeptFormRequest((prev) => ({ department: dept, nonce: (prev?.nonce ?? 0) + 1 }))}
-             onViewRoster={(dept) => { setSelectedDepartmentId(dept.id); setActiveTab("roster"); }}
-           />
+          <div className="p-2 border-b border-slate-200 bg-slate-50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="relative flex-1 min-w-0">
+              <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-slate-400" />
+              <Input
+                type="search"
+                placeholder={tc('search')}
+                value={deptSearch}
+                onChange={(e) => setDeptSearch(e.target.value)}
+                className="pl-8 h-8 text-xs bg-white border-slate-200 focus:border-blue-400 w-full"
+              />
+            </div>
+            <Button size="sm" className="h-8 text-xs bg-slate-900 text-white hover:bg-slate-800 w-full sm:w-auto flex items-center justify-center" onClick={() => setDeptFormRequest((prev) => ({ department: null, nonce: (prev?.nonce ?? 0) + 1 }))}>
+              <Plus className="h-3.5 w-3.5 mr-2" /> {t('add_department')}
+            </Button>
+          </div>
+          <div className="flex-1 overflow-auto">
+            <DepartmentsGrid
+              departments={filteredDepartments}
+              usersById={usersById}
+              onEdit={(dept) => setDeptFormRequest((prev) => ({ department: dept, nonce: (prev?.nonce ?? 0) + 1 }))}
+              onViewRoster={(dept) => { setSelectedDepartmentId(dept.id); setActiveTab("roster"); }}
+            />
+          </div>
         </div>
       )}
 

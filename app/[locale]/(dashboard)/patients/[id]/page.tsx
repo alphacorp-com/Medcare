@@ -19,6 +19,7 @@ import {
   NewAdmissionSheet,
   NewMedicalRecordSheet
 } from "./_components/PatientActionSheets";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   NewImmunizationSheet,
   NewMalariaCaseSheet,
@@ -59,6 +60,7 @@ export default function PatientDetailPage() {
   const params = useParams();
   const id = params.id as string;
   const { data: session } = useSession();
+  const isMobile = useIsMobile();
 
   // Data State
   const [patient, setPatient] = useState<PatientDetail | null>(null);
@@ -400,52 +402,55 @@ export default function PatientDetailPage() {
     </div>
   );
 
-  return (
-    <div className="flex flex-col h-full space-y-4">
-      {/* Header */}
-      <PatientDetailHeader 
-        patient={patient} 
-        onExport={handleExportFile} 
-        onEdit={() => {
-          setEditForm({
-            firstName: patient.firstName, lastName: patient.lastName, birthDate: patient.birthDate, gender: patient.gender,
-            nss: patient.nss || "", bloodGroup: patient.bloodGroup || "", phone: patient.phone || "", email: patient.email || "",
-            address: patient.address || "", emergencyName: patient.emergencyContact?.name || "",
-            emergencyRelation: patient.emergencyContact?.relation || "", emergencyPhone: patient.emergencyContact?.phone || "",
-            allergies: patient.allergies || [], chronicConditions: patient.chronicConditions || []
-          });
-          setIsEditOpen(true);
-        }} 
-        onNewAdmission={() => setIsStayOpen(true)} 
-      />
-
-      <div className="grid grid-cols-12 gap-4 flex-1 overflow-hidden">
-        {/* Left Profile */}
-        <PatientQuickProfile patient={patient} latestVitals={vitals[0] ?? null} />
-
-        {/* Right Tabs */}
-        <PatientTabs
-          stays={stays}
-          records={records}
-          prescriptions={prescriptions}
-          exams={exams}
-          billing={billing}
-          vitals={vitals}
-          surgeries={surgeries}
-          pregnancies={pregnancies}
-          immunizations={immunizations}
-          malariaCases={malariaCases}
-          tbCases={tbCases}
-          onAddRecord={() => {
-          const defaultAuthorId = session?.user?.id || "";
-          setRecordForm(prev => ({ ...prev, authorId: defaultAuthorId }));
-          setIsRecordOpen(true);
-        }}
-          onAddImmunization={() => setIsImmunizationOpen(true)}
-          onAddMalariaCase={() => setIsMalariaCaseOpen(true)}
-          onAddTbCase={() => setIsTbCaseOpen(true)}
-          onAddTbFollowUp={(tbCaseId) => { setActiveTbCaseId(tbCaseId); setIsTbFollowUpOpen(true); }}
+  const detailContent = (
+    <>
+      <div className="flex flex-col h-full space-y-4">
+        <PatientDetailHeader 
+          patient={patient} 
+          onExport={handleExportFile} 
+          onEdit={() => {
+            setEditForm({
+              firstName: patient.firstName, lastName: patient.lastName, birthDate: patient.birthDate, gender: patient.gender,
+              nss: patient.nss || "", bloodGroup: patient.bloodGroup || "", phone: patient.phone || "", email: patient.email || "",
+              address: patient.address || "", emergencyName: patient.emergencyContact?.name || "",
+              emergencyRelation: patient.emergencyContact?.relation || "", emergencyPhone: patient.emergencyContact?.phone || "",
+              allergies: patient.allergies || [], chronicConditions: patient.chronicConditions || []
+            });
+            setIsEditOpen(true);
+          }} 
+          onNewAdmission={() => setIsStayOpen(true)} 
         />
+
+        <div className={`grid gap-4 flex-1 ${isMobile ? "grid-cols-1" : "grid-cols-12 overflow-hidden"}`}>
+          <div className={isMobile ? "w-full" : "col-span-3 overflow-hidden"}>
+            <PatientQuickProfile patient={patient} latestVitals={vitals[0] ?? null} />
+          </div>
+
+          <div className={isMobile ? "w-full" : "col-span-9"}>
+            <PatientTabs
+              stays={stays}
+              records={records}
+              prescriptions={prescriptions}
+              exams={exams}
+              billing={billing}
+              vitals={vitals}
+              surgeries={surgeries}
+              pregnancies={pregnancies}
+              immunizations={immunizations}
+              malariaCases={malariaCases}
+              tbCases={tbCases}
+              onAddRecord={() => {
+                const defaultAuthorId = session?.user?.id || "";
+                setRecordForm(prev => ({ ...prev, authorId: defaultAuthorId }));
+                setIsRecordOpen(true);
+              }}
+              onAddImmunization={() => setIsImmunizationOpen(true)}
+              onAddMalariaCase={() => setIsMalariaCaseOpen(true)}
+              onAddTbCase={() => setIsTbCaseOpen(true)}
+              onAddTbFollowUp={(tbCaseId) => { setActiveTbCaseId(tbCaseId); setIsTbFollowUpOpen(true); }}
+            />
+          </div>
+        </div>
       </div>
 
       {/* Action Sheets */}
@@ -497,6 +502,8 @@ export default function PatientDetailPage() {
         templateId="patient_files" data={pdfData}
         facility={{ name: tc('hospital_name') }} settings={{ watermark: true }}
       />
-    </div>
+    </>
   );
+
+  return detailContent;
 }

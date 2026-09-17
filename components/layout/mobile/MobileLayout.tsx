@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { MobileHeader } from "./MobileHeader";
 import { MobileBottomNav } from "./MobileBottomNav";
-import { Link, useRouter } from "@/i18n/routing";
+import { Link, useRouter, usePathname } from "@/i18n/routing";
 import { useAppStore } from "@/lib/store/useAppStore";
 import { signOut } from "next-auth/react";
 
@@ -12,6 +12,7 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
   const [moreOpen, setMoreOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
   const currentUser = useAppStore((state) => state.currentUser);
 
   return (
@@ -39,21 +40,39 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
       {menuOpen && (
         <div className="fixed inset-0 z-60">
           <div className="absolute inset-0 bg-black/40" onClick={() => setMenuOpen(false)} />
-          <aside className="absolute left-0 top-0 bottom-0 w-72 bg-white p-4 shadow-xl overflow-auto">
-            <button className="mb-4 text-sm text-slate-600" onClick={() => setMenuOpen(false)}>
-              Fermer
-            </button>
-            <nav className="flex flex-col gap-2 text-sm text-slate-700">
-              <Link href="/" className="rounded-md px-2 py-2 hover:bg-slate-100">Tableau de bord</Link>
-              <Link href="/patients" className="rounded-md px-2 py-2 hover:bg-slate-100">Patients</Link>
-              <Link href="/stays" className="rounded-md px-2 py-2 hover:bg-slate-100">Admissions</Link>
-              <Link href="/pharmacy" className="rounded-md px-2 py-2 hover:bg-slate-100">Pharmacie</Link>
-              <Link href="/laboratory" className="rounded-md px-2 py-2 hover:bg-slate-100">Laboratoire</Link>
-              <Link href="/surgery" className="rounded-md px-2 py-2 hover:bg-slate-100">Chirurgie</Link>
-              <Link href="/radiology" className="rounded-md px-2 py-2 hover:bg-slate-100">Radiologie</Link>
-              <Link href="/planning" className="rounded-md px-2 py-2 hover:bg-slate-100">Planning</Link>
-              <Link href="/messages" className="rounded-md px-2 py-2 hover:bg-slate-100">Messages</Link>
-              <Link href="/settings" className="rounded-md px-2 py-2 hover:bg-slate-100">Paramètres</Link>
+          <aside className="absolute left-0 top-0 bottom-0 w-72 bg-white p-4 shadow-xl overflow-auto border-r">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="text-sm font-semibold">Services</div>
+              <button className="text-sm text-slate-500" onClick={() => setMenuOpen(false)}>
+                Fermer
+              </button>
+            </div>
+            <nav className="flex flex-col gap-2 text-sm">
+              {/* Use pathname to show active state */}
+              {/**/}
+              {(() => {
+                const makeClass = (path: string) =>
+                  `rounded-md px-2 py-2 flex items-center gap-3 hover:bg-slate-100 ${
+                    pathname && (path === "/" ? pathname === "/" : pathname.startsWith(path))
+                      ? "bg-blue-50 text-blue-700 border-l-4 border-blue-600"
+                      : "text-slate-700"
+                  }`;
+
+                return (
+                  <>
+                    <Link href="/" className={makeClass("/")}>Tableau de bord</Link>
+                    <Link href="/patients" className={makeClass("/patients")}>Patients</Link>
+                    <Link href="/stays" className={makeClass("/stays")}>Admissions</Link>
+                    <Link href="/pharmacy" className={makeClass("/pharmacy")}>Pharmacie</Link>
+                    <Link href="/laboratory" className={makeClass("/laboratory")}>Laboratoire</Link>
+                    <Link href="/surgery" className={makeClass("/surgery")}>Chirurgie</Link>
+                    <Link href="/radiology" className={makeClass("/radiology")}>Radiologie</Link>
+                    <Link href="/planning" className={makeClass("/planning")}>Planning</Link>
+                    <Link href="/messages" className={makeClass("/messages")}>Messages</Link>
+                    <Link href="/settings" className={makeClass("/settings")}>Paramètres</Link>
+                  </>
+                );
+              })()}
             </nav>
           </aside>
         </div>
@@ -70,9 +89,9 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
               </button>
             </div>
             <div className="grid grid-cols-3 gap-3 text-sm">
-              <Link href="/reports" className="rounded-lg bg-slate-50 p-3 text-center">Rapports</Link>
-              <Link href="/messages" className="rounded-lg bg-slate-50 p-3 text-center">Messages</Link>
-              <button onClick={() => { setMoreOpen(false); router.push("/settings"); }} className="rounded-lg bg-slate-50 p-3 text-center">
+              <Link href="/reports" className="rounded-lg p-3 text-center bg-white border border-slate-100 shadow-sm hover:shadow-md">Rapports</Link>
+              <Link href="/messages" className="rounded-lg p-3 text-center bg-white border border-slate-100 shadow-sm hover:shadow-md">Messages</Link>
+              <button onClick={() => { setMoreOpen(false); router.push("/settings"); }} className="rounded-lg p-3 text-center bg-white border border-slate-100 shadow-sm hover:shadow-md">
                 Paramètres
               </button>
             </div>

@@ -35,8 +35,8 @@ export default function PatientsPage() {
 
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("active");
-  const [pendingStatus, setPendingStatus] = useState("active");
+  const [statusFilter, setStatusFilter] = useState<"active" | "deceased">("active");
+  const [pendingStatus, setPendingStatus] = useState<"active" | "deceased">("active");
   const [patients, setPatients] = useState<PatientRow[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -237,18 +237,6 @@ export default function PatientsPage() {
         </div>
       </div>
 
-      {/* Side Sheet Form */}
-      <NewPatientSheet
-        open={isNewPatientOpen}
-        onOpenChange={setIsNewPatientOpen}
-        form={form}
-        onUpdateForm={updateForm}
-        saving={saving}
-        error={saveError}
-        onSubmit={handleSave}
-        canSubmit={canSubmit}
-      />
-
       {/* PDF Export Preview Modal */}
       <PDFPreviewModal isOpen={isPreviewOpen} onClose={() => setIsPreviewOpen(false)} templateId="patient_lists" data={pdfData} facility={{ name: tc("hospital_name") }} settings={{ watermark: true }} />
 
@@ -290,6 +278,7 @@ export default function PatientsPage() {
     <StandardMobileTemplate
       title={t("title")}
       subtitle={t("subtitle")}
+      showSearchSlot={false}
       actions={<PatientsHeader onExport={handleExportPDF} onFilterToggle={() => setShowFilters(!showFilters)} onNewPatient={() => setIsNewPatientOpen(true)} />}
     >
       <PatientsFilterBar
@@ -310,5 +299,20 @@ export default function PatientsPage() {
     </StandardMobileTemplate>
   );
 
-  return isMobile ? mobile : desktop;
+  return (
+    <>
+      <NewPatientSheet
+        open={isNewPatientOpen}
+        onOpenChange={setIsNewPatientOpen}
+        form={form}
+        onUpdateForm={updateForm}
+        saving={saving}
+        error={saveError}
+        onSubmit={handleSave}
+        canSubmit={canSubmit}
+      />
+
+      {isMobile ? mobile : desktop}
+    </>
+  );
 }
