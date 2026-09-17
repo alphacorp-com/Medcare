@@ -99,72 +99,77 @@ export default function LaboratoryPage() {
 
   return (
     <div className="flex flex-col h-full space-y-4">
-      <div className="flex items-center justify-between shrink-0 bg-white p-4 rounded border border-slate-200 shadow-sm">
-        <div>
-          <h1 className="text-lg font-bold text-slate-800">{t('title')}</h1>
-          <p className="text-xs text-slate-500 mt-1">{t('description')}</p>
-        </div>
-        <div className="flex gap-2">
-           <Button onClick={() => setIsPrescribeOpen(true)} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white h-8 text-xs">
-             <Plus className="mr-2 h-3.5 w-3.5" /> {t('prescribe_exam')}
-           </Button>
+      <div className="bg-white p-3 rounded border border-slate-200 shadow-sm shrink-0 sm:p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-lg font-bold text-slate-800">{t('title')}</h1>
+            <p className="text-xs text-slate-500 mt-1">{t('description')}</p>
+          </div>
+
+          <div className="mt-0 w-full lg:w-auto">
+            <div className="flex items-center justify-end gap-2">
+              <Button onClick={() => setIsPrescribeOpen(true)} size="sm" className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white h-8 text-xs">
+                <Plus className="mr-2 h-3.5 w-3.5" /> {t('prescribe_exam')}
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4 shrink-0">
-        <div className="bg-white p-4 rounded border border-slate-200 shadow-sm flex items-end justify-between hover:border-blue-300 transition-colors cursor-pointer" onClick={() => setFilter("pending_sample")}>
+      <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4 shrink-0">
+        <div className="bg-white p-3 rounded border border-slate-200 shadow-sm flex items-end justify-between hover:border-blue-300 transition-colors cursor-pointer sm:p-4" onClick={() => setFilter("pending_sample")}>
           <div>
-            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">{t('samples')}</div>
-            <div className="text-3xl font-bold text-slate-900">{count((s) => s === 'pending_sample')}</div>
+            <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1 sm:text-xs">{t('samples')}</div>
+            <div className="text-2xl font-bold text-slate-900 sm:text-3xl">{count((s) => s === 'pending_sample')}</div>
           </div>
         </div>
-        <div className="bg-white p-4 rounded border border-slate-200 shadow-sm flex items-end justify-between hover:border-blue-300 transition-colors cursor-pointer" onClick={() => setFilter("in_analysis")}>
+        <div className="bg-white p-3 rounded border border-slate-200 shadow-sm flex items-end justify-between hover:border-blue-300 transition-colors cursor-pointer sm:p-4" onClick={() => setFilter("in_analysis")}>
           <div>
-            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">{t('in_analysis')}</div>
-            <div className="text-3xl font-bold text-slate-900">{count((s) => s === 'in_analysis')}</div>
+            <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1 sm:text-xs">{t('in_analysis')}</div>
+            <div className="text-2xl font-bold text-slate-900 sm:text-3xl">{count((s) => s === 'in_analysis')}</div>
           </div>
         </div>
-        <div className="bg-white p-4 rounded border border-slate-200 shadow-sm flex items-end justify-between hover:border-blue-300 transition-colors cursor-pointer" onClick={() => setFilter("awaiting_validation")}>
+        <div className="bg-white p-3 rounded border border-slate-200 shadow-sm flex items-end justify-between hover:border-blue-300 transition-colors cursor-pointer sm:p-4" onClick={() => setFilter("awaiting_validation")}>
           <div>
-            <div className="text-xs font-semibold text-yellow-600 uppercase tracking-wider mb-1">{t('pending_results')}</div>
-            <div className="text-3xl font-bold text-yellow-600">{count((s) => s === 'awaiting_validation')}</div>
+            <div className="text-[10px] font-semibold text-yellow-600 uppercase tracking-wider mb-1 sm:text-xs">{t('pending_results')}</div>
+            <div className="text-2xl font-bold text-yellow-600 sm:text-3xl">{count((s) => s === 'awaiting_validation')}</div>
           </div>
         </div>
-        <div className="bg-red-50 p-4 rounded border border-red-200 shadow-sm flex items-end justify-between hover:border-red-300 transition-colors cursor-pointer" onClick={() => setFilter("critical")}>
+        <div className="bg-red-50 p-3 rounded border border-red-200 shadow-sm flex items-end justify-between hover:border-red-300 transition-colors cursor-pointer sm:p-4" onClick={() => setFilter("critical")}>
           <div>
-             <div className="text-xs font-semibold text-red-800 uppercase tracking-wider mb-1">{t('critical_results')}</div>
-             <div className="text-3xl font-bold text-red-700">{criticalCount}</div>
+             <div className="text-[10px] font-semibold text-red-800 uppercase tracking-wider mb-1 sm:text-xs">{t('critical_results')}</div>
+             <div className="text-2xl font-bold text-red-700 sm:text-3xl">{criticalCount}</div>
           </div>
-          <AlertTriangle className="h-8 w-8 text-red-200" />
+          <AlertTriangle className="h-7 w-7 text-red-200 sm:h-8 sm:w-8" />
         </div>
       </div>
 
       <div className="flex-1 flex flex-col bg-white rounded border border-slate-200 shadow-sm overflow-hidden">
-        <div className="p-2 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
-           <div className="relative w-96 flex-1">
+        <div className="p-2 border-b border-slate-200 bg-slate-50 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+           <div className="relative w-full sm:w-80">
               <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-slate-400" />
               <Input
                 type="search"
                 placeholder={tc('search')}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-8 h-8 text-xs bg-white border-slate-200 focus:border-blue-400 max-w-sm"
+                className="pl-8 h-8 text-xs bg-white border-slate-200 focus:border-blue-400"
               />
             </div>
-            <div className="flex bg-slate-200/50 p-1 rounded-md ml-4">
+            <div className="grid grid-cols-2 gap-1 rounded-md bg-slate-200/50 p-1 sm:flex sm:flex-wrap">
               {FILTERS.map((f) => (
                 <button
                   key={f}
                   onClick={() => setFilter(f)}
-                  className={cn("px-3 py-1 rounded text-[10px] uppercase font-bold", filter === f ? "bg-white shadow-sm text-slate-700" : "text-slate-500 hover:text-slate-700")}
+                  className={cn("px-2 py-1 rounded text-[10px] uppercase font-bold sm:px-3", filter === f ? "bg-white shadow-sm text-slate-700" : "text-slate-500 hover:text-slate-700")}
                 >
                   {f === "All" ? tc('all') : f === "critical" ? t('critical_results') : t(f)}
                 </button>
               ))}
             </div>
         </div>
-        <div className="flex-1 overflow-auto">
-          <table className="w-full text-left">
+        <div className="flex-1 overflow-x-auto">
+          <table className="min-w-[760px] w-full text-left">
             <thead>
               <tr className="bg-slate-50 text-[10px] text-slate-500 uppercase font-bold border-b border-slate-200 sticky top-0 z-10">
                 <th className="px-4 py-2">{t('exam_id')}</th>
