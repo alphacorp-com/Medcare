@@ -1,8 +1,6 @@
 {
   "common": {
     "app_name": "Medcare",
-    "desktop_only_title": "Desktop or Tablet Required",
-    "desktop_only_desc": "This application is optimized for larger screens and isn't available on phones. Please switch to a tablet, laptop, or desktop computer to continue.",
     "dashboard": "Dashboard",
     "patients": "Patient Management",
     "stays": "Admissions",
@@ -249,6 +247,7 @@
   "patients": {
     "module_title": "Patient Management",
     "title": "Patient Directory",
+    "subtitle": "Manage and search for registered patients.",
     "description": "Manage and search for registered patients.",
     "new_patient": "New Patient",
     "search_placeholder": "Search by name, IPP, SSN...",

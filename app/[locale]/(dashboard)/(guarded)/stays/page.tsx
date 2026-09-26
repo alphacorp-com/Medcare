@@ -3,6 +3,9 @@
 import { useState } from "react";
 import { useAppStore } from "@/lib/store/useAppStore";
 import { useTranslations } from "next-intl";
+import { Button } from "@/components/ui/button";
+import StandardMobileTemplate from "@/components/layout/mobile/StandardMobileTemplate";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 import { StaysHeader } from "./_components/StaysHeader";
 import { StaysFilterBar } from "./_components/StaysFilterBar";
@@ -14,6 +17,7 @@ export default function AdmissionsPage() {
   const t = useTranslations("admissions");
   const tc = useTranslations("common");
   const hasModule = useAppStore((state) => state.hasModule);
+  const isMobile = useIsMobile();
 
   const [showFilters, setShowFilters] = useState(false);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -56,7 +60,33 @@ export default function AdmissionsPage() {
 
   // ── Render ────────────────────────────────────────────────────────────────
 
-  return (
+  const mobile = (
+    <StandardMobileTemplate
+      title={t("title")}
+      subtitle={t("description")}
+      actions={
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" className="h-8 text-[11px]" onClick={() => setShowFilters((v) => !v)}>
+            {tc("filter")}
+          </Button>
+          <Button size="sm" className="h-8 text-[11px] bg-blue-600 hover:bg-blue-700" onClick={openSheet}>
+            {t("new_admission")}
+          </Button>
+        </div>
+      }
+    >
+      <div className="space-y-3">
+        <StaysFilterBar showFilters={showFilters} onFilterClose={() => setShowFilters(false)} />
+        <div className="overflow-x-auto">
+          <div className="min-w-[640px]">
+            <StaysTable stays={stays} loading={loading} error={error} view={view} />
+          </div>
+        </div>
+      </div>
+    </StandardMobileTemplate>
+  );
+
+  const desktop = (
     <div className="flex flex-col h-full space-y-4">
       <StaysHeader
         onFilterToggle={() => setShowFilters((v) => !v)}
@@ -98,4 +128,6 @@ export default function AdmissionsPage() {
       />
     </div>
   );
+
+  return isMobile ? mobile : desktop;
 }

@@ -18,7 +18,7 @@ export function StaysFilterBar({ showFilters, onFilterClose }: StaysFilterBarPro
   return (
     <div className="p-2 border-b border-slate-200 bg-slate-50 flex flex-col gap-2">
       <div className="flex items-center justify-between">
-        <div className="relative w-96">
+        <div className="relative w-full sm:w-96">
           <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-slate-400" />
           <Input
             type="search"

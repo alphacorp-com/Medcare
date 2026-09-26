@@ -28,35 +28,38 @@ export function PatientsFilterBar({
   const tc = useTranslations('common');
 
   return (
-    <div className="p-2 border-b border-slate-200 bg-slate-50 flex flex-col gap-2">
-      <div className="flex items-center">
-        <div className="relative w-96">
-          <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-slate-400" />
+    <div className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 shadow-sm">
+      <div className="flex items-center w-full">
+        <div className="relative w-full">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <Input
             type="search"
             value={searchInput}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder={t('search_placeholder')}
-            className="pl-8 h-8 text-xs bg-white border-slate-200 focus:border-blue-400"
+            className="h-11 w-full rounded-xl border-slate-200 bg-white pl-9 text-sm text-slate-700 shadow-inner focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
           />
         </div>
       </div>
 
       {showFilters && (
-        <div className="flex flex-wrap items-center gap-3 pt-2 mt-1 border-t border-slate-200/60 transition-all animate-in fade-in slide-in-from-top-1">
-          <div className="flex items-center gap-2">
-            <label className="text-[10px] font-bold text-slate-500 uppercase">{tc('status')}:</label>
+        <div className="mt-3 flex flex-col gap-2 border-t border-slate-200 pt-3">
+          <div className="flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2">
+            <label className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">{tc('status')}</label>
             <select
               value={statusFilter}
               onChange={(e) => onStatusFilterChange(e.target.value as "active" | "deceased")}
-              className="h-7 text-xs bg-white border border-slate-200 rounded px-2 outline-none focus:border-blue-400 text-slate-700"
+              className="h-9 min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-2 text-xs text-slate-700 outline-none focus:border-blue-400"
             >
               <option value="active">{tc('status_active')}</option>
               <option value="deceased">{t('status_deceased')}</option>
             </select>
           </div>
-          <Button size="sm" variant="secondary" className="h-7 text-xs ml-auto" onClick={onApplyFilters}>{t('apply_filters')}</Button>
-          <Button size="sm" variant="ghost" className="h-7 text-xs text-slate-500" onClick={onClearFilters}>{t('clear')}</Button>
+
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="secondary" className="h-9 flex-1 rounded-xl text-xs" onClick={onApplyFilters}>{t('apply_filters')}</Button>
+            <Button size="sm" variant="ghost" className="h-9 rounded-xl text-xs text-slate-500" onClick={onClearFilters}>{t('clear')}</Button>
+          </div>
         </div>
       )}
     </div>

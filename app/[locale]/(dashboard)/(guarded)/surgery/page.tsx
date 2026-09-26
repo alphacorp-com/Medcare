@@ -145,18 +145,18 @@ export default function SurgeryPage() {
 
   return (
     <div className="flex flex-col h-full space-y-4">
-      <div className="flex items-center justify-between shrink-0 bg-white p-4 rounded border border-slate-200 shadow-sm">
-        <div>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between shrink-0 bg-white p-4 rounded border border-slate-200 shadow-sm">
+        <div className="mb-3 sm:mb-0">
           <h1 className="text-lg font-bold text-slate-800">{t('title')}</h1>
           <p className="text-xs text-slate-500 mt-1">{t('description')}</p>
         </div>
-        <div className="flex gap-2">
-           <Button variant="outline" size="sm" className="h-8 text-xs" onClick={handlePrint}><Printer className="h-3.5 w-3.5 mr-2" /> {tc('print')}</Button>
-           <Button variant="outline" size="sm" className="h-8 text-xs" onClick={handleExportCSV}><Download className="h-3.5 w-3.5 mr-2" /> {tc('export')}</Button>
-           <a href={`mailto:?subject=Surgical Block Schedule&body=Please find the attached surgical schedule.%0A%0AOrganization: MedCore HMS%0A123 Health Ave, Medical City`} className="inline-flex items-center justify-center rounded-md text-xs font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-8 px-3">
+        <div className="grid grid-cols-2 sm:flex sm:items-center sm:gap-2 gap-2 w-full sm:w-auto">
+           <Button variant="outline" size="sm" className="h-8 text-xs w-full sm:w-auto flex items-center justify-center" onClick={handlePrint}><Printer className="h-3.5 w-3.5 mr-2" /> {tc('print')}</Button>
+           <Button variant="outline" size="sm" className="h-8 text-xs w-full sm:w-auto flex items-center justify-center" onClick={handleExportCSV}><Download className="h-3.5 w-3.5 mr-2" /> {tc('export')}</Button>
+           <a href={`mailto:?subject=Surgical Block Schedule&body=Please find the attached surgical schedule.%0A%0AOrganization: MedCore HMS%0A123 Health Ave, Medical City`} className="inline-flex items-center justify-center rounded-md text-xs font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-8 px-3 w-full sm:w-auto">
              <Mail className="h-3.5 w-3.5 mr-2" /> Email
            </a>
-           <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white h-8 text-xs" onClick={() => setIsScheduleOpen(true)}>
+           <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white h-8 text-xs w-full sm:w-auto flex items-center justify-center" onClick={() => setIsScheduleOpen(true)}>
              <Plus className="mr-2 h-3.5 w-3.5" /> {t('schedule_intervention')}
            </Button>
         </div>
@@ -187,18 +187,18 @@ export default function SurgeryPage() {
       </div>
 
       <div className="flex-1 flex flex-col bg-white rounded border border-slate-200 shadow-sm overflow-hidden">
-        <div className="p-2 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
-           <div className="relative w-96 flex-1">
+        <div className="p-2 border-b border-slate-200 bg-slate-50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+           <div className="relative flex-1 min-w-0">
               <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-slate-400" />
               <Input
                 type="search"
                 placeholder={tc('search')}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-8 h-8 text-xs bg-white border-slate-200 focus:border-blue-400 max-w-sm"
+                className="pl-8 h-8 text-xs bg-white border-slate-200 focus:border-blue-400 w-full"
               />
             </div>
-            <div className="flex bg-slate-200/50 p-1 rounded-md ml-4">
+            <div className="flex flex-wrap bg-slate-200/50 p-1 rounded-md mt-2 sm:mt-0 sm:ml-4">
               {STATUS_FILTERS.map((s) => (
                 <button
                   key={s}
@@ -220,7 +220,8 @@ export default function SurgeryPage() {
                {t('no_interventions')}
              </div>
           ) : (
-            <table className="w-full text-left">
+            <div className="overflow-x-auto">
+              <table className="min-w-[760px] w-full text-left">
               <thead>
                 <tr className="border-b border-slate-200/60 bg-slate-50/50 text-[10px] uppercase tracking-widest text-slate-500 font-semibold">
                   <th className="p-4 font-semibold w-32">{t('intervention_id')}</th>
@@ -314,7 +315,8 @@ export default function SurgeryPage() {
                 })}
               </tbody>
             </table>
-          )}
+          </div>
+        )}
         </div>
       </div>
 

@@ -5,11 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Building, User, ShieldCheck, LayoutTemplate, Link2, Users, UserCog, FileText, Loader2, ServerCog
+  Building, User, ShieldCheck, LayoutTemplate, Link2, Users, UserCog, FileText, Loader2, ServerCog, ArrowLeft
 } from "lucide-react";
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
+import StandardMobileTemplate from "@/components/layout/mobile/StandardMobileTemplate";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 // Modular Components
 import { UsersManagement } from "@/components/settings/users-management";
@@ -38,6 +40,8 @@ function SettingsPageContent() {
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(initialTab);
+  // Mobile shows the section list first; a `?tab=` deep link opens that section directly.
+  const [mobileSelected, setMobileSelected] = useState<string | null>(searchParams.get("tab"));
   const [profileError, setProfileError] = useState<string | null>(null);
   const [profileData, setProfileData] = useState({
     fullName: "",
@@ -67,6 +71,7 @@ function SettingsPageContent() {
   const t = useTranslations('settings');
   const tc = useTranslations('common');
   const tp = useTranslations('patients');
+  const isMobile = useIsMobile();
   const tadm = useTranslations('admissions');
   const tappt = useTranslations('appointments');
   const tph = useTranslations('pharmacy');
@@ -120,13 +125,17 @@ function SettingsPageContent() {
   }, [currentUser, isSysAdmin]);
 
   useEffect(() => {
-    if (currentUser) {
-      setProfileData(prev => ({
+    if (!currentUser) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setProfileData((prev) => ({
         ...prev,
         fullName: currentUser.fullName || "",
         email: currentUser.email || ""
       }));
-    }
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
   }, [currentUser]);
 
   const APP_MODULES = [
@@ -210,16 +219,105 @@ function SettingsPageContent() {
   };
 
 
+  if (isMobile) {
+    const options: { key: string; label: string; render: React.ReactNode }[] = [];
+
+    options.push({ key: "profile", label: t("user_profile"), render: (
+      <div className="space-y-4">
+        <ProfileSettings
+          currentUser={currentUser}
+          profileData={profileData}
+          setProfileData={setProfileData}
+          t={t}
+          tc={tc}
+          error={profileError}
+        />
+        <ChangePasswordCard t={t} tc={tc} />
+      </div>
+    ) });
+
+    if (isSysAdmin) {
+      options.push({ key: "users", label: t("users_roles"), render: <UsersManagement /> });
+      options.push({ key: "roles", label: t("roles_management"), render: <RolesManagement /> });
+      options.push({ key: "organization", label: t("organization"), render: <OrganizationSettings orgData={orgData} setOrgData={setOrgData} t={t} tc={tc} /> });
+      options.push({ key: "modules", label: t("clinical_modules"), render: <ModuleConfiguration appModules={APP_MODULES} activeModules={activeModules} t={t} readOnly showOnlyActive /> });
+      options.push({ key: "templates", label: ttpl("title"), render: <DocumentTemplates facility={orgData} templateSettings={templateSettings} setTemplateSettings={setTemplateSettings} ttpl={ttpl} /> });
+      options.push({ key: "onprem_license", label: t("onprem_license_management"), render: <OnPremLicensePanel /> });
+
+      options.push({ key: "security", label: t("security"), render: (
+        <div className="p-4 text-center border-2 border-dashed border-slate-200 rounded-lg">
+          <ShieldCheck className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+          <h3 className="text-sm font-bold text-slate-700">SSO & RBAC Settings</h3>
+          <p className="text-[11px] text-slate-500 mt-1">Role Based Access Control is managed dynamically via Users Configuration.</p>
+        </div>
+      ) });
+
+      options.push({ key: "integrations", label: t("integrations"), render: (
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-base font-bold text-slate-900">{t("integrations")}</h2>
+            <p className="text-[11px] text-slate-500">Manage HL7 pipelines, DICOM servers, and generic APIs.</p>
+          </div>
+          <Dhis2IntegrationSettings />
+          <div className="mt-2">
+            <h2 className="text-base font-bold text-slate-900">{t("payments.title")}</h2>
+            <p className="text-[11px] text-slate-500">{t("payments.description")}</p>
+          </div>
+          <MobileMoneySettings />
+        </div>
+      ) });
+    }
+
+    // Mobile: show list first; when an option is selected show its detail fullscreen
+    const selected = options.find((o) => o.key === mobileSelected);
+    if (!selected) {
+      return (
+        <StandardMobileTemplate title={t("title")} subtitle={t("description")} noRoundedContainer>
+          <div className="space-y-2">
+            {options.map((opt) => (
+              <button
+                key={opt.key}
+                onClick={() => { setMobileSelected(opt.key); setActiveTab(opt.key); }}
+                className="w-full text-left p-4 bg-white border border-slate-100 rounded-lg shadow-sm"
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </StandardMobileTemplate>
+      );
+    }
+
+    // handleSaveSettings only persists these sections; the others save through their own panels.
+    const isSavable = ["profile", "organization", "templates"].includes(selected.key);
+    return (
+      <StandardMobileTemplate title={selected.label} noRoundedContainer>
+        <div className="p-3 border-b border-slate-100 flex items-center gap-3">
+          <button type="button" onClick={() => setMobileSelected(null)} className="p-2 rounded bg-slate-100">
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+          <h2 className="text-sm font-semibold text-slate-900 truncate">{selected.label}</h2>
+        </div>
+        <div className="p-3 overflow-auto">{selected.render}</div>
+        {isSavable && (
+          <div className="p-3">
+            <Button onClick={handleSaveSettings} disabled={isSaving || isLoading} className="bg-blue-600 text-white hover:bg-blue-700 w-full">{isSaving ? tc("saving") : tc("save_changes")}</Button>
+          </div>
+        )}
+      </StandardMobileTemplate>
+    );
+  }
+
   return (
-    <div className="flex flex-col h-full space-y-4 max-w-5xl mx-auto w-full pb-8">
-      <div className="flex items-center justify-between shrink-0 bg-white p-4 rounded border border-slate-200 shadow-sm mt-4">
+    <div className="flex flex-col h-full space-y-4 w-full pb-8">
+      <div className="bg-white border-b border-slate-200 px-3 py-3 sm:px-4 shrink-0">
         <div>
           <h1 className="text-xl font-bold text-slate-800">{t('title')}</h1>
           <p className="text-xs text-slate-500 mt-1">{t('description')}</p>
         </div>
         <div className="flex gap-2">
           {isLoading && <Loader2 className="h-4 w-4 animate-spin text-slate-400 self-center mr-2" />}
-          <Button onClick={handleSaveSettings} disabled={isSaving || isLoading} className="bg-slate-900 text-white hover:bg-slate-800 text-xs h-8">
+          <Button onClick={handleSaveSettings} disabled={isSaving || isLoading} className="bg-blue-600 text-white hover:bg-blue-700 text-xs h-8">
             {isSaving ? tc('saving') : tc('save_changes')}
           </Button>
         </div>
@@ -263,7 +361,7 @@ function SettingsPageContent() {
             )}
           </TabsList>
 
-          <div className="flex-1 max-w-3xl min-w-0">
+          <div className="flex-1 min-w-0">
             <TabsContent value="profile" className="m-0 mt-0 focus-visible:outline-none space-y-6">
               <ProfileSettings
                 currentUser={currentUser}
