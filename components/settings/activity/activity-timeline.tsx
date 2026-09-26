@@ -1,6 +1,9 @@
+"use client";
+
 import { Calendar } from "lucide-react";
 import { format } from "date-fns";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export interface ActivityEntry {
   id: string;
@@ -19,6 +22,8 @@ interface ActivityTimelineProps {
 }
 
 export function ActivityTimeline({ activities, t, tc }: ActivityTimelineProps) {
+  const isMobile = useIsMobile();
+
   if (activities.length === 0) {
     return (
       <div className="p-12 text-center flex flex-col items-center justify-center text-slate-500">
@@ -26,6 +31,25 @@ export function ActivityTimeline({ activities, t, tc }: ActivityTimelineProps) {
         <p className="text-sm font-medium">{t('no_activity')}</p>
         <p className="text-xs mt-1 text-slate-400">{t('no_activity_desc')}</p>
       </div>
+    );
+  }
+
+  if (isMobile) {
+    return (
+      <ul className="divide-y divide-slate-100">
+        {activities.map((act) => (
+          <li key={act.id} className="p-3 space-y-1">
+            <div className="flex items-start justify-between gap-3">
+              <span className="min-w-0 break-words text-sm font-medium text-slate-800">{act.action}</span>
+              <span className="shrink-0 text-[11px] text-slate-400">
+                {format(new Date(act.timestamp), "MMM d, yyyy · h:mm a")}
+              </span>
+            </div>
+            <div className="text-xs text-slate-500">{act.isSelf ? tc('self') : act.actorName}</div>
+            {act.details && <div className="break-words text-xs text-slate-500">{act.details}</div>}
+          </li>
+        ))}
+      </ul>
     );
   }
 

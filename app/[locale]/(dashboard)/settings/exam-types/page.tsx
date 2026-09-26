@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Loader2, Plus, Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { SettingsPageHeader } from "@/components/settings/settings-ui";
 
 type ExamCatalogDomain = "laboratory" | "radiology";
 type ExamType = { id: string; domain: ExamCatalogDomain; code: string; nameFr: string; nameEn: string | null; order: number; isActive: boolean; _count: { entries: number } };
@@ -25,6 +27,8 @@ export default function ExamTypesPage() {
   const [domain, setDomain] = useState<ExamCatalogDomain>("laboratory");
   const [types, setTypes] = useState<ExamType[]>([]);
   const [selectedType, setSelectedType] = useState<ExamType | null>(null);
+  const entriesPanelRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
   const [entries, setEntries] = useState<ExamEntry[]>([]);
   const [imagingItems, setImagingItems] = useState<RefItem[]>([]);
   const [zoneItems, setZoneItems] = useState<RefItem[]>([]);
@@ -186,30 +190,33 @@ export default function ExamTypesPage() {
     fetchEntries(selectedType.id);
   };
 
+  // On mobile the entries panel stacks below the type list, so bring it into view.
+  const selectType = (type: ExamType) => {
+    setSelectedType(type);
+    if (isMobile) entriesPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-lg font-bold text-slate-800">{t("title")}</h1>
-        <p className="text-xs text-slate-500 mt-1">{t("description")}</p>
-      </div>
+      <SettingsPageHeader title={t("title")} description={t("description")} />
 
-      <div className="flex bg-slate-200/50 p-1 rounded-md w-fit">
+      <div className="grid grid-cols-2 md:flex bg-slate-200/50 p-1 rounded-xl md:rounded-md md:w-fit">
         {(["laboratory", "radiology"] as ExamCatalogDomain[]).map((d) => (
           <button
             key={d}
             onClick={() => setDomain(d)}
-            className={cn("px-3 py-1.5 rounded text-xs font-bold uppercase", domain === d ? "bg-white shadow-sm text-slate-700" : "text-slate-500 hover:text-slate-700")}
+            className={cn("px-3 py-2 md:py-1.5 rounded-lg md:rounded text-xs font-bold uppercase", domain === d ? "bg-white shadow-sm text-slate-700" : "text-slate-500 hover:text-slate-700")}
           >
             {t(`domain_${d}`)}
           </button>
         ))}
       </div>
 
-      <div className="grid grid-cols-12 gap-4">
-        <div className="col-span-4 bg-white rounded border border-slate-200 shadow-sm overflow-hidden">
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+        <div className="md:col-span-4 bg-white rounded-2xl md:rounded border border-slate-200 shadow-sm overflow-hidden">
           <div className="p-2 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
             <span className="text-[10px] font-bold text-slate-500 uppercase">{t("exam_types")}</span>
-            <Button size="sm" variant="ghost" className="h-6 text-[10px] text-blue-600" onClick={openCreateType}>
+            <Button size="sm" variant="ghost" className="h-8 md:h-6 text-[10px] text-blue-600" onClick={openCreateType}>
               <Plus className="h-3 w-3 mr-1" /> {t("new_type")}
             </Button>
           </div>
@@ -220,8 +227,8 @@ export default function ExamTypesPage() {
               {types.map((type) => (
                 <button
                   key={type.id}
-                  onClick={() => setSelectedType(type)}
-                  className={cn("w-full text-left px-3 py-2 text-xs hover:bg-blue-50/50", selectedType?.id === type.id && "bg-blue-50")}
+                  onClick={() => selectType(type)}
+                  className={cn("w-full text-left px-3 py-3 md:py-2 text-xs hover:bg-blue-50/50", selectedType?.id === type.id && "bg-blue-50")}
                 >
                   <div className="font-semibold text-slate-800">{type.nameFr}</div>
                   <div className="text-[10px] text-slate-400 font-mono">{type.code} — {t("entries_count", { count: type._count.entries })}</div>
@@ -232,13 +239,13 @@ export default function ExamTypesPage() {
           )}
         </div>
 
-        <div className="col-span-8 bg-white rounded border border-slate-200 shadow-sm overflow-hidden">
+        <div ref={entriesPanelRef} className="md:col-span-8 scroll-mt-20 bg-white rounded-2xl md:rounded border border-slate-200 shadow-sm overflow-hidden">
           <div className="p-2 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
             <span className="text-[10px] font-bold text-slate-500 uppercase">
               {selectedType ? t("exams_in_type", { name: selectedType.nameFr }) : t("select_type")}
             </span>
             {selectedType && (
-              <Button size="sm" variant="ghost" className="h-6 text-[10px] text-blue-600" onClick={openCreateEntry}>
+              <Button size="sm" variant="ghost" className="h-8 md:h-6 text-[10px] text-blue-600" onClick={openCreateEntry}>
                 <Plus className="h-3 w-3 mr-1" /> {t("new_exam")}
               </Button>
             )}
@@ -256,8 +263,8 @@ export default function ExamTypesPage() {
                     <div className="text-[10px] text-slate-400 font-mono">{entry.code}{entry.price ? ` — ${Number(entry.price).toLocaleString()} XAF` : ""}</div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button onClick={() => openEditEntry(entry)} className="text-slate-400 hover:text-blue-600"><Pencil className="h-3.5 w-3.5" /></button>
-                    <button onClick={() => handleDeleteEntry(entry)} className="text-slate-400 hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></button>
+                    <button onClick={() => openEditEntry(entry)} aria-label={tc("edit")} className="p-2 md:p-0 text-slate-400 hover:text-blue-600"><Pencil className="h-3.5 w-3.5" /></button>
+                    <button onClick={() => handleDeleteEntry(entry)} aria-label={tc("delete")} className="p-2 md:p-0 text-slate-400 hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></button>
                   </div>
                 </div>
               ))}

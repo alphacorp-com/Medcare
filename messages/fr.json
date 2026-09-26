@@ -583,6 +583,7 @@
     },
     "nav": {
       "general": "Général",
+      "all_settings": "Tous les paramètres",
       "groupClinical": "Clinique",
       "groupExams": "Examens & Diagnostics",
       "groupPharmacy": "Pharmacie",

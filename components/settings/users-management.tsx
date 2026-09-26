@@ -10,6 +10,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { PlusCircle, Search, Edit2, Activity, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { LastLoginBadge } from "@/components/settings/activity/last-login-badge";
+import { SettingsList, SettingsListItem, SettingsPageHeader, SettingsPill, settingsActionButtonClass } from "@/components/settings/settings-ui";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/lib/utils";
 
 export type ModuleAction = 'read' | 'create' | 'update' | 'delete';
 
@@ -40,6 +43,7 @@ type RoleOption = {
 
 export function UsersManagement() {
   const router = useRouter();
+  const isMobile = useIsMobile();
 
   const [users, setUsers] = useState<SystemUser[]>([]);
   const [roles, setRoles] = useState<RoleOption[]>([]);
@@ -249,15 +253,13 @@ export function UsersManagement() {
   };
 
   return (
-    <div className="bg-white rounded border border-slate-200 shadow-sm p-6 space-y-6">
-      <div className="flex justify-between items-start">
-        <div>
-          <h2 className="text-lg font-bold text-slate-900">{t('users_roles')}</h2>
-          <p className="text-xs text-slate-500">{t('users_roles_desc')}</p>
-        </div>
-
-        <div>
-          <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white gap-2" disabled={roles.length === 0} onClick={() => {
+    <div className="bg-white rounded-2xl md:rounded border border-slate-200 shadow-sm p-4 md:p-6 space-y-6">
+      <SettingsPageHeader
+        as="h2"
+        title={t('users_roles')}
+        description={t('users_roles_desc')}
+        actions={
+          <Button size="sm" className={cn("bg-blue-600 hover:bg-blue-700 text-white gap-2", settingsActionButtonClass)} disabled={roles.length === 0} onClick={() => {
             setEditingUser(null);
             setFormError(null);
             setSelectedRoleId(roles[0]?.id ?? "");
@@ -266,156 +268,156 @@ export function UsersManagement() {
           }}>
             <PlusCircle className="w-4 h-4" /> {t('add_personnel')}
           </Button>
+        }
+      />
 
-          <Sheet open={isAddOpen} onOpenChange={(v) => {
-            setIsAddOpen(v);
-            if(!v) {
-              setEditingUser(null);
-              setFormError(null);
-              setSelectedModules({ MODULE_CORE_PATIENT: ['read'] });
-              setSelectedRoleId(roles[0]?.id ?? "");
-            }
-          }}>
-            <SheetContent className="overflow-y-auto sm:max-w-2xl p-6 sm:p-8">
-              <SheetHeader>
-                <SheetTitle>{editingUser ? t('edit_user') : t('add_new_user')}</SheetTitle>
-              </SheetHeader>
-              <form key={editingUser ? editingUser.id : 'new-user'} onSubmit={handleCreateOrUpdate} className="space-y-6 mt-4">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                <div className="space-y-2">
-                  <Label>{tc('name')}</Label>
-                  <Input name="fullName" defaultValue={editingUser?.fullName} required placeholder="Dr. John Doe" />
-                </div>
-                <div className="space-y-2">
-                  <Label>{tc('email')}</Label>
-                  <Input name="email" type="email" defaultValue={editingUser?.email} required placeholder="john.doe@hospital.com" />
-                </div>
-                <div className="space-y-2">
-                  <Label>{tc('password')}</Label>
-                  <Input
-                    name="password"
-                    type="password"
-                    required={!editingUser}
-                    minLength={8}
-                    autoComplete="new-password"
-                    placeholder={editingUser ? tc('password_leave_blank') : undefined}
-                  />
-                  {editingUser ? (
-                    <p className="text-xs text-slate-400">{tc('password_leave_blank')}</p>
-                  ) : null}
-                </div>
-                <div className="space-y-2">
-                  <Label>{tc('role')}</Label>
-                  <select name="roleId" value={selectedRoleId} onChange={(e) => {
-                    const roleId = e.target.value;
-                    setSelectedRoleId(roleId);
-                    const role = roles.find((r) => r.id === roleId);
-                    if (role?.isSystemAdmin) {
-                      setSelectedModules({});
-                    } else if (!editingUser) {
-                      setSelectedModules(defaultModulesRecord(role));
-                    }
-                  }} required className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500">
-                    {roles.length === 0 && <option value="">{t('no_roles_yet')}</option>}
-                    {roles.map((role) => (
-                      <option key={role.id} value={role.id}>{role.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <Label>{tc('status')}</Label>
-                  <select name="status" defaultValue={editingUser?.status || 'active'} className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500">
-                    <option value="active">{tc('active')}</option>
-                    <option value="inactive">{tc('disabled')}</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-slate-100">
-                <Label className="mb-3 block font-bold text-slate-700">{t('module_access_scopes')}</Label>
-                {selectedRole?.isSystemAdmin ? (
-                  <div className="bg-blue-50 p-4 rounded-md border border-blue-100 text-center">
-                    <p className="text-sm font-semibold text-blue-700">Full System Access</p>
-                    <p className="text-xs text-blue-600 mt-1">Administrators have implicit access to all modules and actions.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {ALL_MODULES.map((mod) => {
-                      const currentActions = selectedModules[mod.id] ?? (mod.id === 'MODULE_CORE_PATIENT' ? ['read'] : []);
-                      const hasRead = currentActions.includes('read');
-                      const hasCreate = currentActions.includes('create');
-                      const hasUpdate = currentActions.includes('update');
-                      const hasDelete = currentActions.includes('delete');
-
-                      return (
-                        <div key={mod.id} className="flex flex-col gap-3 text-sm border border-slate-200 rounded-xl p-4 hover:border-blue-200 transition-colors">
-                          <div className="font-semibold text-slate-700 flex items-center justify-between">
-                            <span>{mod.name}</span>
-                            <span className="text-[11px] text-slate-500 uppercase tracking-[0.15em]">Actions</span>
-                          </div>
-                          <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
-                            <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 cursor-pointer text-xs text-slate-600 hover:border-blue-300">
-                              <input
-                                type="checkbox"
-                                checked={hasRead}
-                                disabled={mod.id === 'MODULE_CORE_PATIENT'}
-                                onChange={() => toggleModuleAction(mod.id, 'read')}
-                                className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                              />
-                              Read
-                            </label>
-                            <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 cursor-pointer text-xs text-slate-600 hover:border-blue-300">
-                              <input
-                                type="checkbox"
-                                checked={hasCreate}
-                                onChange={() => toggleModuleAction(mod.id, 'create')}
-                                className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                              />
-                              Create
-                            </label>
-                            <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 cursor-pointer text-xs text-slate-600 hover:border-blue-300">
-                              <input
-                                type="checkbox"
-                                checked={hasUpdate}
-                                onChange={() => toggleModuleAction(mod.id, 'update')}
-                                className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                              />
-                              Update
-                            </label>
-                            <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 cursor-pointer text-xs text-slate-600 hover:border-blue-300">
-                              <input
-                                type="checkbox"
-                                checked={hasDelete}
-                                onChange={() => toggleModuleAction(mod.id, 'delete')}
-                                className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                              />
-                              Delete
-                            </label>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {formError ? (
-                <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-md px-3 py-2">{formError}</p>
+      <Sheet open={isAddOpen} onOpenChange={(v) => {
+        setIsAddOpen(v);
+        if(!v) {
+          setEditingUser(null);
+          setFormError(null);
+          setSelectedModules({ MODULE_CORE_PATIENT: ['read'] });
+          setSelectedRoleId(roles[0]?.id ?? "");
+        }
+      }}>
+        <SheetContent className="overflow-y-auto sm:max-w-2xl p-6 sm:p-8">
+          <SheetHeader>
+            <SheetTitle>{editingUser ? t('edit_user') : t('add_new_user')}</SheetTitle>
+          </SheetHeader>
+          <form key={editingUser ? editingUser.id : 'new-user'} onSubmit={handleCreateOrUpdate} className="space-y-6 mt-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <div className="space-y-2">
+              <Label>{tc('name')}</Label>
+              <Input name="fullName" defaultValue={editingUser?.fullName} required placeholder="Dr. John Doe" />
+            </div>
+            <div className="space-y-2">
+              <Label>{tc('email')}</Label>
+              <Input name="email" type="email" defaultValue={editingUser?.email} required placeholder="john.doe@hospital.com" />
+            </div>
+            <div className="space-y-2">
+              <Label>{tc('password')}</Label>
+              <Input
+                name="password"
+                type="password"
+                required={!editingUser}
+                minLength={8}
+                autoComplete="new-password"
+                placeholder={editingUser ? tc('password_leave_blank') : undefined}
+              />
+              {editingUser ? (
+                <p className="text-xs text-slate-400">{tc('password_leave_blank')}</p>
               ) : null}
+            </div>
+            <div className="space-y-2">
+              <Label>{tc('role')}</Label>
+              <select name="roleId" value={selectedRoleId} onChange={(e) => {
+                const roleId = e.target.value;
+                setSelectedRoleId(roleId);
+                const role = roles.find((r) => r.id === roleId);
+                if (role?.isSystemAdmin) {
+                  setSelectedModules({});
+                } else if (!editingUser) {
+                  setSelectedModules(defaultModulesRecord(role));
+                }
+              }} required className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500">
+                {roles.length === 0 && <option value="">{t('no_roles_yet')}</option>}
+                {roles.map((role) => (
+                  <option key={role.id} value={role.id}>{role.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label>{tc('status')}</Label>
+              <select name="status" defaultValue={editingUser?.status || 'active'} className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500">
+                <option value="active">{tc('active')}</option>
+                <option value="inactive">{tc('disabled')}</option>
+              </select>
+            </div>
+          </div>
 
-              <SheetFooter className="border-t border-slate-100 pt-4">
-                <div className="flex justify-end gap-3 w-full">
-                  <Button type="button" variant="outline" onClick={() => setIsAddOpen(false)}>{tc('cancel')}</Button>
-                  <Button type="submit" className="bg-blue-600 hover:bg-blue-700" disabled={isSaving}>
-                    {isSaving ? tc('saving') : editingUser ? tc('save_changes') : t('create_user')}
-                  </Button>
-                </div>
-              </SheetFooter>
-            </form>
-          </SheetContent>
-        </Sheet>
-        </div>
-      </div>
+          <div className="pt-4 border-t border-slate-100">
+            <Label className="mb-3 block font-bold text-slate-700">{t('module_access_scopes')}</Label>
+            {selectedRole?.isSystemAdmin ? (
+              <div className="bg-blue-50 p-4 rounded-md border border-blue-100 text-center">
+                <p className="text-sm font-semibold text-blue-700">Full System Access</p>
+                <p className="text-xs text-blue-600 mt-1">Administrators have implicit access to all modules and actions.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {ALL_MODULES.map((mod) => {
+                  const currentActions = selectedModules[mod.id] ?? (mod.id === 'MODULE_CORE_PATIENT' ? ['read'] : []);
+                  const hasRead = currentActions.includes('read');
+                  const hasCreate = currentActions.includes('create');
+                  const hasUpdate = currentActions.includes('update');
+                  const hasDelete = currentActions.includes('delete');
+
+                  return (
+                    <div key={mod.id} className="flex flex-col gap-3 text-sm border border-slate-200 rounded-xl p-4 hover:border-blue-200 transition-colors">
+                      <div className="font-semibold text-slate-700 flex items-center justify-between">
+                        <span>{mod.name}</span>
+                        <span className="text-[11px] text-slate-500 uppercase tracking-[0.15em]">Actions</span>
+                      </div>
+                      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+                        <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 cursor-pointer text-xs text-slate-600 hover:border-blue-300">
+                          <input
+                            type="checkbox"
+                            checked={hasRead}
+                            disabled={mod.id === 'MODULE_CORE_PATIENT'}
+                            onChange={() => toggleModuleAction(mod.id, 'read')}
+                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          Read
+                        </label>
+                        <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 cursor-pointer text-xs text-slate-600 hover:border-blue-300">
+                          <input
+                            type="checkbox"
+                            checked={hasCreate}
+                            onChange={() => toggleModuleAction(mod.id, 'create')}
+                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          Create
+                        </label>
+                        <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 cursor-pointer text-xs text-slate-600 hover:border-blue-300">
+                          <input
+                            type="checkbox"
+                            checked={hasUpdate}
+                            onChange={() => toggleModuleAction(mod.id, 'update')}
+                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          Update
+                        </label>
+                        <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 cursor-pointer text-xs text-slate-600 hover:border-blue-300">
+                          <input
+                            type="checkbox"
+                            checked={hasDelete}
+                            onChange={() => toggleModuleAction(mod.id, 'delete')}
+                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          Delete
+                        </label>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {formError ? (
+            <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-md px-3 py-2">{formError}</p>
+          ) : null}
+
+          <SheetFooter className="border-t border-slate-100 pt-4">
+            <div className="flex justify-end gap-3 w-full">
+              <Button type="button" variant="outline" onClick={() => setIsAddOpen(false)}>{tc('cancel')}</Button>
+              <Button type="submit" className="bg-blue-600 hover:bg-blue-700" disabled={isSaving}>
+                {isSaving ? tc('saving') : editingUser ? tc('save_changes') : t('create_user')}
+              </Button>
+            </div>
+          </SheetFooter>
+          </form>
+        </SheetContent>
+      </Sheet>
 
       <div className="flex items-center gap-2 mb-4">
         <div className="relative flex-1 max-w-sm">
@@ -430,63 +432,89 @@ export function UsersManagement() {
         </div>
       </div>
 
-      <div className="border border-slate-200 rounded-md overflow-hidden">
-        <Table>
-          <TableHeader className="bg-slate-50">
-            <TableRow>
-              <TableHead>{t('personnel')}</TableHead>
-              <TableHead>{tc('role')}</TableHead>
-              <TableHead>{tc('status')}</TableHead>
-              <TableHead>{t('last_active')}</TableHead>
-              <TableHead className="text-right">{tc('actions')}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-slate-500 text-sm">Loading...</TableCell>
-              </TableRow>
-            ) : filteredUsers.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-slate-500 text-sm">{tc('no_data')}</TableCell>
-              </TableRow>
-            ) : filteredUsers.map((user) => (
-              <TableRow key={user.id}>
-                <TableCell>
-                  <div className="font-medium text-slate-900">{user.fullName}</div>
-                  <div className="text-xs text-slate-500">{user.email}</div>
-                </TableCell>
-                <TableCell>
-                  <div className="text-sm text-slate-700">{user.role}</div>
-                  <div className="text-[10px] text-slate-400 mt-0.5">
-                    {user.isSystemAdmin ? t('full_system_access') : `${user.modules?.length || 0} modules accessed`}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  {user.status === 'active'
-                    ? <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-800">{tc('active')}</span>
-                    : <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-800">{tc('inactive')}</span>
-                  }
-                </TableCell>
-                <TableCell className="text-sm text-slate-500">
+      {isMobile ? (
+        <SettingsList isLoading={isLoading} isEmpty={filteredUsers.length === 0} emptyLabel={tc('no_data')}>
+          {filteredUsers.map((user) => (
+            <SettingsListItem
+              key={user.id}
+              title={user.fullName}
+              meta={
+                <>
+                  <span className="w-full truncate">{user.email}</span>
+                  <SettingsPill tone={user.isSystemAdmin ? "blue" : "slate"}>{user.role}</SettingsPill>
+                  <SettingsPill tone={user.status === 'active' ? "green" : "slate"}>
+                    {user.status === 'active' ? tc('active') : tc('inactive')}
+                  </SettingsPill>
                   <LastLoginBadge lastActive={user.lastActive} neverLabel={t('never')} />
-                </TableCell>
-                <TableCell className="text-right space-x-2">
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-blue-600" onClick={() => router.push(`/settings/users/${user.id}/activity`)} title={t('view_activity')}>
-                    <Activity className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-blue-600" onClick={() => handleEdit(user)} title={t('edit_user')}>
-                    <Edit2 className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-red-600" onClick={() => handleDelete(user.id, user.fullName)} title={t('delete_user')}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </TableCell>
+                </>
+              }
+              actions={[
+                { label: t('view_activity'), icon: Activity, onClick: () => router.push(`/settings/users/${user.id}/activity`) },
+                { label: t('edit_user'), icon: Edit2, onClick: () => handleEdit(user) },
+                { label: t('delete_user'), icon: Trash2, tone: "danger", onClick: () => handleDelete(user.id, user.fullName) },
+              ]}
+            />
+          ))}
+        </SettingsList>
+      ) : (
+        <div className="border border-slate-200 rounded-md overflow-hidden">
+          <Table>
+            <TableHeader className="bg-slate-50">
+              <TableRow>
+                <TableHead>{t('personnel')}</TableHead>
+                <TableHead>{tc('role')}</TableHead>
+                <TableHead>{tc('status')}</TableHead>
+                <TableHead>{t('last_active')}</TableHead>
+                <TableHead className="text-right">{tc('actions')}</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-8 text-slate-500 text-sm">Loading...</TableCell>
+                </TableRow>
+              ) : filteredUsers.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-8 text-slate-500 text-sm">{tc('no_data')}</TableCell>
+                </TableRow>
+              ) : filteredUsers.map((user) => (
+                <TableRow key={user.id}>
+                  <TableCell>
+                    <div className="font-medium text-slate-900">{user.fullName}</div>
+                    <div className="text-xs text-slate-500">{user.email}</div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-sm text-slate-700">{user.role}</div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">
+                      {user.isSystemAdmin ? t('full_system_access') : `${user.modules?.length || 0} modules accessed`}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {user.status === 'active'
+                      ? <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-800">{tc('active')}</span>
+                      : <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-800">{tc('inactive')}</span>
+                    }
+                  </TableCell>
+                  <TableCell className="text-sm text-slate-500">
+                    <LastLoginBadge lastActive={user.lastActive} neverLabel={t('never')} />
+                  </TableCell>
+                  <TableCell className="text-right space-x-2">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-blue-600" onClick={() => router.push(`/settings/users/${user.id}/activity`)} title={t('view_activity')}>
+                      <Activity className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-blue-600" onClick={() => handleEdit(user)} title={t('edit_user')}>
+                      <Edit2 className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-red-600" onClick={() => handleDelete(user.id, user.fullName)} title={t('delete_user')}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
     </div>
   );
 }

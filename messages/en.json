@@ -565,6 +565,7 @@
     },
     "nav": {
       "general": "General",
+      "all_settings": "All settings",
       "groupClinical": "Clinical",
       "groupExams": "Exams & Diagnoses",
       "groupPharmacy": "Pharmacy",

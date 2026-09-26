@@ -136,7 +136,7 @@ export function OnPremLicensePanel() {
 
   if (isLoading) {
     return (
-      <div className="bg-white rounded border border-slate-200 shadow-sm p-6 flex items-center justify-center h-48">
+      <div className="bg-white rounded-2xl md:rounded border border-slate-200 shadow-sm p-4 md:p-6 flex items-center justify-center h-48">
         <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
       </div>
     );
@@ -144,7 +144,7 @@ export function OnPremLicensePanel() {
 
   if (statusError && !status) {
     return (
-      <div className="bg-white rounded border border-slate-200 shadow-sm p-6 space-y-4">
+      <div className="bg-white rounded-2xl md:rounded border border-slate-200 shadow-sm p-4 md:p-6 space-y-4">
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex gap-3">
           <ShieldAlert className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
           <div>
@@ -170,7 +170,7 @@ export function OnPremLicensePanel() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded border border-slate-200 shadow-sm p-6 space-y-6">
+      <div className="bg-white rounded-2xl md:rounded border border-slate-200 shadow-sm p-4 md:p-6 space-y-6">
         <div>
           <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
             <ServerCog className="h-5 w-5 text-slate-400" /> {t("onprem_license_management")}
@@ -208,7 +208,7 @@ export function OnPremLicensePanel() {
             <p className="text-sm text-slate-500">{t("onprem_no_license")}</p>
           ) : (
             <div className="bg-slate-50 rounded-lg p-4 border space-y-4">
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-sm">
                 <div>
                   <span className="text-slate-500">{t("onprem_tier")}:</span>
                   <span className="ml-2 font-medium text-slate-900">{license.tier}</span>
@@ -278,7 +278,7 @@ export function OnPremLicensePanel() {
         )}
       </div>
 
-      <div className="bg-white rounded border border-slate-200 shadow-sm p-6 space-y-4">
+      <div className="bg-white rounded-2xl md:rounded border border-slate-200 shadow-sm p-4 md:p-6 space-y-4">
         <div>
           <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
             <Wifi className="h-4 w-4 text-slate-400" /> {t("onprem_activate_online")}
@@ -303,7 +303,7 @@ export function OnPremLicensePanel() {
         </Button>
       </div>
 
-      <div className="bg-white rounded border border-slate-200 shadow-sm p-6 space-y-4">
+      <div className="bg-white rounded-2xl md:rounded border border-slate-200 shadow-sm p-4 md:p-6 space-y-4">
         <div>
           <h3 className="text-sm font-semibold text-slate-700">{t("onprem_download_request")}</h3>
           <p className="text-xs text-slate-500 mt-1">{t("onprem_download_request_desc")}</p>
@@ -313,7 +313,7 @@ export function OnPremLicensePanel() {
         </Button>
       </div>
 
-      <div className="bg-white rounded border border-slate-200 shadow-sm p-6 space-y-4">
+      <div className="bg-white rounded-2xl md:rounded border border-slate-200 shadow-sm p-4 md:p-6 space-y-4">
         <div>
           <h3 className="text-sm font-semibold text-slate-700">{t("onprem_import_title")}</h3>
           <p className="text-xs text-slate-500 mt-1">{t("onprem_import_desc")}</p>

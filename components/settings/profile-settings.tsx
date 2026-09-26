@@ -20,7 +20,7 @@ interface ProfileSettingsProps {
 
 export function ProfileSettings({ profileData, setProfileData, currentUser, t, tc, error }: ProfileSettingsProps) {
   return (
-    <div className="bg-white rounded border border-slate-200 shadow-sm p-6 space-y-6">
+    <div className="bg-white rounded-2xl md:rounded border border-slate-200 shadow-sm p-4 md:p-6 space-y-6">
       <div>
         <h2 className="text-lg font-bold text-slate-900">{t('personal_info')}</h2>
         <p className="text-xs text-slate-500">{t('personal_info_desc')}</p>

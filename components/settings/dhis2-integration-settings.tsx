@@ -215,8 +215,8 @@ export function Dhis2IntegrationSettings() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded border border-slate-200 shadow-sm p-6 space-y-6">
-        <div className="flex items-start justify-between">
+      <div className="bg-white rounded-2xl md:rounded border border-slate-200 shadow-sm p-4 md:p-6 space-y-6">
+        <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="text-lg font-bold text-slate-900">{t("dhis2.title")}</h2>
             <p className="text-xs text-slate-500">{t("dhis2.description")}</p>
@@ -314,7 +314,7 @@ export function Dhis2IntegrationSettings() {
         )}
       </div>
 
-      <div className="bg-white rounded border border-slate-200 shadow-sm p-6 space-y-4">
+      <div className="bg-white rounded-2xl md:rounded border border-slate-200 shadow-sm p-4 md:p-6 space-y-4">
         <div>
           <h3 className="text-sm font-bold text-slate-900">{t("dhis2.mapping_title")}</h3>
           <p className="text-xs text-slate-500">{t("dhis2.mapping_desc")}</p>
@@ -350,7 +350,7 @@ export function Dhis2IntegrationSettings() {
         </div>
       </div>
 
-      <div className="bg-white rounded border border-slate-200 shadow-sm p-6 space-y-4">
+      <div className="bg-white rounded-2xl md:rounded border border-slate-200 shadow-sm p-4 md:p-6 space-y-4">
         <div className="flex items-start justify-between flex-wrap gap-3">
           <div>
             <h3 className="text-sm font-bold text-slate-900">{t("dhis2.sync_title")}</h3>
@@ -370,8 +370,8 @@ export function Dhis2IntegrationSettings() {
         )}
       </div>
 
-      <div className="bg-white rounded border border-slate-200 shadow-sm overflow-hidden">
-        <div className="p-6 pb-4">
+      <div className="bg-white rounded-2xl md:rounded border border-slate-200 shadow-sm overflow-hidden">
+        <div className="p-4 md:p-6 pb-4 md:pb-4">
           <h3 className="text-sm font-bold text-slate-900">{t("dhis2.history_title")}</h3>
           <p className="text-xs text-slate-500">{t("dhis2.history_desc")}</p>
         </div>
@@ -380,64 +380,66 @@ export function Dhis2IntegrationSettings() {
             <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
           </div>
         ) : (
-          <table className="w-full text-left">
-            <thead>
-              <tr className="bg-slate-50 text-[10px] text-slate-500 uppercase font-bold border-b border-slate-200">
-                <th className="px-6 py-2">{t("dhis2.history_period")}</th>
-                <th className="px-6 py-2">{t("dhis2.history_status")}</th>
-                <th className="px-6 py-2 text-right">{t("dhis2.history_values")}</th>
-                <th className="px-6 py-2">{t("dhis2.history_detail")}</th>
-                <th className="px-6 py-2 text-right">{t("dhis2.history_action")}</th>
-              </tr>
-            </thead>
-            <tbody className="text-xs divide-y divide-slate-100">
-              {history.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-slate-400 italic">{t("dhis2.no_history")}</td>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] text-left">
+              <thead>
+                <tr className="bg-slate-50 text-[10px] text-slate-500 uppercase font-bold border-b border-slate-200">
+                  <th className="px-6 py-2">{t("dhis2.history_period")}</th>
+                  <th className="px-6 py-2">{t("dhis2.history_status")}</th>
+                  <th className="px-6 py-2 text-right">{t("dhis2.history_values")}</th>
+                  <th className="px-6 py-2">{t("dhis2.history_detail")}</th>
+                  <th className="px-6 py-2 text-right">{t("dhis2.history_action")}</th>
                 </tr>
-              )}
-              {history.map((entry) => (
-                <tr key={entry.id}>
-                  <td className="px-6 py-3 font-mono text-slate-700">{entry.period}</td>
-                  <td className="px-6 py-3">
-                    <span
-                      className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold ${
-                        entry.status === "success"
-                          ? "bg-green-100 text-green-700"
-                          : entry.status === "skipped"
-                          ? "bg-slate-100 text-slate-500"
-                          : "bg-red-100 text-red-700"
-                      }`}
-                    >
-                      {historyStatusLabel(entry.status)}
-                    </span>
-                  </td>
-                  <td className="px-6 py-3 text-right font-mono">{entry.dataValueCount ?? "—"}</td>
-                  <td className="px-6 py-3 text-slate-500 max-w-xs truncate" title={entry.error || entry.unmappedMetrics?.join(", ")}>
-                    {entry.error || (entry.unmappedMetrics?.length ? `${t("dhis2.unmapped")}: ${entry.unmappedMetrics.join(", ")}` : "—")}
-                  </td>
-                  <td className="px-6 py-3 text-right">
-                    {(entry.status === "failed" || entry.status === "skipped") && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-7 text-[10px]"
-                        disabled={retryingPeriod === entry.period}
-                        onClick={() => handleSyncNow(entry.period)}
+              </thead>
+              <tbody className="text-xs divide-y divide-slate-100">
+                {history.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-8 text-center text-slate-400 italic">{t("dhis2.no_history")}</td>
+                  </tr>
+                )}
+                {history.map((entry) => (
+                  <tr key={entry.id}>
+                    <td className="px-6 py-3 font-mono text-slate-700">{entry.period}</td>
+                    <td className="px-6 py-3">
+                      <span
+                        className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold ${
+                          entry.status === "success"
+                            ? "bg-green-100 text-green-700"
+                            : entry.status === "skipped"
+                            ? "bg-slate-100 text-slate-500"
+                            : "bg-red-100 text-red-700"
+                        }`}
                       >
-                        {retryingPeriod === entry.period ? (
-                          <Loader2 className="h-3 w-3 animate-spin mr-1.5" />
-                        ) : (
-                          <RotateCw className="h-3 w-3 mr-1.5" />
-                        )}
-                        {t("dhis2.retry")}
-                      </Button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                        {historyStatusLabel(entry.status)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-3 text-right font-mono">{entry.dataValueCount ?? "—"}</td>
+                    <td className="px-6 py-3 text-slate-500 max-w-xs truncate" title={entry.error || entry.unmappedMetrics?.join(", ")}>
+                      {entry.error || (entry.unmappedMetrics?.length ? `${t("dhis2.unmapped")}: ${entry.unmappedMetrics.join(", ")}` : "—")}
+                    </td>
+                    <td className="px-6 py-3 text-right">
+                      {(entry.status === "failed" || entry.status === "skipped") && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-[10px]"
+                          disabled={retryingPeriod === entry.period}
+                          onClick={() => handleSyncNow(entry.period)}
+                        >
+                          {retryingPeriod === entry.period ? (
+                            <Loader2 className="h-3 w-3 animate-spin mr-1.5" />
+                          ) : (
+                            <RotateCw className="h-3 w-3 mr-1.5" />
+                          )}
+                          {t("dhis2.retry")}
+                        </Button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>

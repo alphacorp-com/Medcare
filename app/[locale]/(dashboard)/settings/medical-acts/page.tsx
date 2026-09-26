@@ -8,6 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Loader2, Plus, Pencil, Trash2, Upload } from "lucide-react";
 import { CsvImportDialog } from "@/components/settings/csv-import-dialog";
+import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { SettingsCode, SettingsList, SettingsListItem, SettingsPageHeader, settingsActionButtonClass } from "@/components/settings/settings-ui";
 
 type Category = { id: string; nameFr: string; color: string | null };
 type MedicalAct = {
@@ -32,6 +35,7 @@ const EMPTY_FORM = {
 export default function MedicalActsPage() {
   const t = useTranslations("settings.medicalActs");
   const tc = useTranslations("common");
+  const isMobile = useIsMobile();
 
   const [items, setItems] = useState<MedicalAct[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -147,74 +151,119 @@ export default function MedicalActsPage() {
     return item.nameFr.toLowerCase().includes(q) || item.code.toLowerCase().includes(q);
   });
 
+  const searchInput = (
+    <Input
+      type="search"
+      placeholder={tc("search")}
+      value={search}
+      onChange={(e) => setSearch(e.target.value)}
+      className="h-10 md:h-8 text-sm md:text-xs bg-white border-slate-200 md:max-w-sm"
+    />
+  );
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-bold text-slate-800">{t("title")}</h1>
-          <p className="text-xs text-slate-500 mt-1">{t("description")}</p>
-        </div>
-        <div className="flex gap-2">
-          <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setIsImportOpen(true)}>
-            <Upload className="h-3.5 w-3.5 mr-2" /> {tc("import_csv")}
-          </Button>
-          <Button size="sm" className="h-8 text-xs bg-blue-600 hover:bg-blue-700" onClick={openCreate} disabled={categories.length === 0}>
-            <Plus className="h-3.5 w-3.5 mr-2" /> {t("new_item")}
-          </Button>
-        </div>
-      </div>
+      <SettingsPageHeader
+        title={t("title")}
+        description={t("description")}
+        actions={
+          <>
+            <Button size="sm" variant="outline" className={cn("h-8 text-xs", settingsActionButtonClass)} onClick={() => setIsImportOpen(true)}>
+              <Upload className="h-3.5 w-3.5 mr-2" /> {tc("import_csv")}
+            </Button>
+            <Button
+              size="sm"
+              className={cn("h-8 text-xs bg-blue-600 hover:bg-blue-700", settingsActionButtonClass)}
+              onClick={openCreate}
+              disabled={categories.length === 0}
+            >
+              <Plus className="h-3.5 w-3.5 mr-2" /> {t("new_item")}
+            </Button>
+          </>
+        }
+      />
 
-      <div className="bg-white rounded border border-slate-200 shadow-sm overflow-hidden">
-        <div className="p-2 border-b border-slate-200 bg-slate-50">
-          <Input type="search" placeholder={tc("search")} value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs bg-white border-slate-200 max-w-sm" />
-        </div>
-        {isLoading ? (
-          <div className="flex items-center justify-center py-16"><Loader2 className="h-5 w-5 animate-spin text-slate-400" /></div>
-        ) : (
-          <table className="w-full text-left">
-            <thead>
-              <tr className="bg-slate-50 text-[10px] text-slate-500 uppercase font-bold border-b border-slate-200">
-                <th className="px-4 py-2">{t("category")}</th>
-                <th className="px-4 py-2">{t("name_fr")}</th>
-                <th className="px-4 py-2">{t("code")}</th>
-                <th className="px-4 py-2 text-right">{t("base_price")}</th>
-                <th className="px-4 py-2 text-right">{t("pec_coverage")}</th>
-                <th className="px-4 py-2 text-right">{tc("status")}</th>
-                <th className="px-4 py-2 w-16" />
-              </tr>
-            </thead>
-            <tbody className="text-xs divide-y divide-slate-100">
-              {filtered.map((item) => (
-                <tr key={item.id} className="hover:bg-blue-50/50">
-                  <td className="px-4 py-2">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold text-white" style={{ backgroundColor: item.category.color || "#64748b" }}>
-                      {item.category.nameFr}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2 text-slate-800 font-medium">{item.nameFr}</td>
-                  <td className="px-4 py-2 font-mono text-slate-500">{item.code}</td>
-                  <td className="px-4 py-2 text-right font-mono">{Number(item.basePrice).toLocaleString()} XAF</td>
-                  <td className="px-4 py-2 text-right font-mono">{item.defaultPecCoveragePercent}%</td>
-                  <td className="px-4 py-2 text-right">
-                    <button onClick={() => toggleActive(item)} className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold ${item.isActive ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"}`}>
-                      {item.isActive ? tc("active") : tc("inactive")}
-                    </button>
-                  </td>
-                  <td className="px-4 py-2">
-                    <div className="flex items-center gap-2 justify-end">
-                      <button onClick={() => openEdit(item)} className="text-slate-400 hover:text-blue-600"><Pencil className="h-3.5 w-3.5" /></button>
-                      <button onClick={() => handleDelete(item)} className="text-slate-400 hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></button>
-                    </div>
-                  </td>
+      {isMobile ? (
+        <SettingsList toolbar={searchInput} isLoading={isLoading} isEmpty={filtered.length === 0} emptyLabel={t("no_items")}>
+          {filtered.map((item) => (
+            <SettingsListItem
+              key={item.id}
+              title={item.nameFr}
+              meta={
+                <>
+                  <span
+                    className="rounded-full px-2 py-0.5 text-[10px] font-bold text-white"
+                    style={{ backgroundColor: item.category.color || "#64748b" }}
+                  >
+                    {item.category.nameFr}
+                  </span>
+                  <SettingsCode>{item.code}</SettingsCode>
+                  <span className="w-full font-mono text-slate-700">
+                    {Number(item.basePrice).toLocaleString()} XAF · {t("pec_coverage")} {item.defaultPecCoveragePercent}%
+                  </span>
+                </>
+              }
+              active={{ value: item.isActive, onToggle: () => toggleActive(item) }}
+              actions={[
+                { label: tc("edit"), icon: Pencil, onClick: () => openEdit(item) },
+                { label: tc("delete"), icon: Trash2, tone: "danger", onClick: () => handleDelete(item) },
+              ]}
+            />
+          ))}
+        </SettingsList>
+      ) : (
+        <div className="bg-white rounded border border-slate-200 shadow-sm overflow-hidden">
+          <div className="p-2 border-b border-slate-200 bg-slate-50">
+            {searchInput}
+          </div>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-16"><Loader2 className="h-5 w-5 animate-spin text-slate-400" /></div>
+          ) : (
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-slate-50 text-[10px] text-slate-500 uppercase font-bold border-b border-slate-200">
+                  <th className="px-4 py-2">{t("category")}</th>
+                  <th className="px-4 py-2">{t("name_fr")}</th>
+                  <th className="px-4 py-2">{t("code")}</th>
+                  <th className="px-4 py-2 text-right">{t("base_price")}</th>
+                  <th className="px-4 py-2 text-right">{t("pec_coverage")}</th>
+                  <th className="px-4 py-2 text-right">{tc("status")}</th>
+                  <th className="px-4 py-2 w-16" />
                 </tr>
-              ))}
-              {filtered.length === 0 && (
-                <tr><td colSpan={7} className="text-center py-10 text-slate-400 italic text-xs">{t("no_items")}</td></tr>
-              )}
-            </tbody>
-          </table>
-        )}
-      </div>
+              </thead>
+              <tbody className="text-xs divide-y divide-slate-100">
+                {filtered.map((item) => (
+                  <tr key={item.id} className="hover:bg-blue-50/50">
+                    <td className="px-4 py-2">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold text-white" style={{ backgroundColor: item.category.color || "#64748b" }}>
+                        {item.category.nameFr}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2 text-slate-800 font-medium">{item.nameFr}</td>
+                    <td className="px-4 py-2 font-mono text-slate-500">{item.code}</td>
+                    <td className="px-4 py-2 text-right font-mono">{Number(item.basePrice).toLocaleString()} XAF</td>
+                    <td className="px-4 py-2 text-right font-mono">{item.defaultPecCoveragePercent}%</td>
+                    <td className="px-4 py-2 text-right">
+                      <button onClick={() => toggleActive(item)} className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold ${item.isActive ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"}`}>
+                        {item.isActive ? tc("active") : tc("inactive")}
+                      </button>
+                    </td>
+                    <td className="px-4 py-2">
+                      <div className="flex items-center gap-2 justify-end">
+                        <button onClick={() => openEdit(item)} className="text-slate-400 hover:text-blue-600"><Pencil className="h-3.5 w-3.5" /></button>
+                        <button onClick={() => handleDelete(item)} className="text-slate-400 hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {filtered.length === 0 && (
+                  <tr><td colSpan={7} className="text-center py-10 text-slate-400 italic text-xs">{t("no_items")}</td></tr>
+                )}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
 
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <DialogContent className="sm:max-w-md">

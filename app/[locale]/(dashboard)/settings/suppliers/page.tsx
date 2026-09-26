@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Loader2, Plus, Pencil, Trash2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { SettingsCode, SettingsList, SettingsListItem, SettingsPageHeader, settingsActionButtonClass } from "@/components/settings/settings-ui";
 
 type Supplier = { id: string; code: string; name: string; contactName: string | null; phone: string | null; email: string | null; address: string | null; isActive: boolean };
 const EMPTY = { code: "", name: "", contactName: "", phone: "", email: "", address: "" };
@@ -89,45 +91,37 @@ export default function SuppliersPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-bold text-slate-800">{t("title")}</h1>
-          <p className="text-xs text-slate-500 mt-1">{t("description")}</p>
-        </div>
-        <Button size="sm" className="h-8 text-xs bg-blue-600 hover:bg-blue-700" onClick={openCreate}>
-          <Plus className="h-3.5 w-3.5 mr-2" /> {t("new_item")}
-        </Button>
-      </div>
+      <SettingsPageHeader
+        title={t("title")}
+        description={t("description")}
+        actions={
+          <Button size="sm" className={cn("h-8 text-xs bg-blue-600 hover:bg-blue-700", settingsActionButtonClass)} onClick={openCreate}>
+            <Plus className="h-3.5 w-3.5 mr-2" /> {t("new_item")}
+          </Button>
+        }
+      />
 
-      <div className="bg-white rounded border border-slate-200 shadow-sm overflow-hidden">
-        {isLoading ? (
-          <div className="flex items-center justify-center py-16"><Loader2 className="h-5 w-5 animate-spin text-slate-400" /></div>
-        ) : (
-          <div className="divide-y divide-slate-100">
-            {items.map((item) => (
-              <div key={item.id} className="flex items-center justify-between px-4 py-3">
-                <div>
-                  <div className="text-xs font-semibold text-slate-800">{item.name}</div>
-                  <div className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-2 flex-wrap">
-                    <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded">{item.code}</span>
-                    {item.contactName && <span>{item.contactName}</span>}
-                    {item.phone && <span>{item.phone}</span>}
-                    {item.email && <span>{item.email}</span>}
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <button onClick={() => toggleActive(item)} className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold ${item.isActive ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"}`}>
-                    {item.isActive ? tc("active") : tc("inactive")}
-                  </button>
-                  <button onClick={() => openEdit(item)} className="text-slate-400 hover:text-blue-600"><Pencil className="h-3.5 w-3.5" /></button>
-                  <button onClick={() => handleDelete(item)} className="text-slate-400 hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></button>
-                </div>
-              </div>
-            ))}
-            {items.length === 0 && <div className="text-center py-10 text-slate-400 italic text-xs">{t("no_items")}</div>}
-          </div>
-        )}
-      </div>
+      <SettingsList isLoading={isLoading} isEmpty={items.length === 0} emptyLabel={t("no_items")}>
+        {items.map((item) => (
+          <SettingsListItem
+            key={item.id}
+            title={item.name}
+            meta={
+              <>
+                <SettingsCode>{item.code}</SettingsCode>
+                {item.contactName && <span>{item.contactName}</span>}
+                {item.phone && <span>{item.phone}</span>}
+                {item.email && <span className="break-all">{item.email}</span>}
+              </>
+            }
+            active={{ value: item.isActive, onToggle: () => toggleActive(item) }}
+            actions={[
+              { label: tc("edit"), icon: Pencil, onClick: () => openEdit(item) },
+              { label: tc("delete"), icon: Trash2, tone: "danger", onClick: () => handleDelete(item) },
+            ]}
+          />
+        ))}
+      </SettingsList>
 
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <DialogContent className="sm:max-w-sm">

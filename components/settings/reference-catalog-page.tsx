@@ -11,6 +11,10 @@ import {
   BedDouble, HeartPulse, Baby, Users, Siren, Scissors, Ban, Stethoscope,
 } from "lucide-react";
 import { CsvImportDialog } from "./csv-import-dialog";
+import {
+  SettingsCode, SettingsList, SettingsListItem, SettingsPageHeader, SettingsSwatch, settingsActionButtonClass,
+} from "./settings-ui";
+import { cn } from "@/lib/utils";
 
 const ICON_OPTIONS: Record<string, React.ComponentType<{ className?: string }>> = {
   BedDouble, HeartPulse, Baby, Users, Siren, Scissors, Ban, Stethoscope,
@@ -173,81 +177,57 @@ export function ReferenceCatalogPage({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-bold text-slate-800">{t("title")}</h1>
-          <p className="text-xs text-slate-500 mt-1">{t("description")}</p>
-        </div>
-        <div className="flex gap-2">
-          {allowCsvImport && (
-            <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setIsImportOpen(true)}>
-              <Upload className="h-3.5 w-3.5 mr-2" /> {tc("import_csv")}
+      <SettingsPageHeader
+        title={t("title")}
+        description={t("description")}
+        actions={
+          <>
+            {allowCsvImport && (
+              <Button size="sm" variant="outline" className={cn("h-8 text-xs", settingsActionButtonClass)} onClick={() => setIsImportOpen(true)}>
+                <Upload className="h-3.5 w-3.5 mr-2" /> {tc("import_csv")}
+              </Button>
+            )}
+            <Button size="sm" className={cn("h-8 text-xs bg-blue-600 hover:bg-blue-700", settingsActionButtonClass)} onClick={openCreate}>
+              <Plus className="h-3.5 w-3.5 mr-2" /> {t("new_item")}
             </Button>
-          )}
-          <Button size="sm" className="h-8 text-xs bg-blue-600 hover:bg-blue-700" onClick={openCreate}>
-            <Plus className="h-3.5 w-3.5 mr-2" /> {t("new_item")}
-          </Button>
-        </div>
-      </div>
+          </>
+        }
+      />
 
-      <div className="bg-white rounded border border-slate-200 shadow-sm overflow-hidden">
-        <div className="p-2 border-b border-slate-200 bg-slate-50">
+      <SettingsList
+        toolbar={
           <Input
             type="search"
             placeholder={tc("search")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="h-8 text-xs bg-white border-slate-200 max-w-sm"
+            className="h-10 md:h-8 text-sm md:text-xs bg-white border-slate-200 md:max-w-sm"
           />
-        </div>
-
-        {isLoading ? (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
-          </div>
-        ) : (
-          <div className="divide-y divide-slate-100">
-            {filtered.map((item) => {
-              const IconComponent = item.icon ? ICON_OPTIONS[item.icon] : null;
-              return (
-                <div key={item.id} className="flex items-center justify-between px-4 py-3">
-                  <div className="flex items-center gap-3">
-                    <span
-                      className="px-2.5 py-1 rounded text-[11px] font-bold text-white flex items-center gap-1.5"
-                      style={{ backgroundColor: item.color || "#64748b" }}
-                    >
-                      {IconComponent && <IconComponent className="h-3.5 w-3.5" />}
-                      {item.nameFr}
-                    </span>
-                    <div className="text-xs text-slate-500">
-                      {item.nameFr}{item.nameEn ? ` / ${item.nameEn}` : ""}
-                      {item.group && <span className="ml-2 text-slate-400">({item.group})</span>}
-                      <span className="ml-2 font-mono text-[10px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500">{item.code}</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => toggleActive(item)}
-                      className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold ${item.isActive ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"}`}
-                    >
-                      {item.isActive ? tc("active") : tc("inactive")}
-                    </button>
-                    <button onClick={() => openEdit(item)} className="text-slate-400 hover:text-blue-600">
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                    <button onClick={() => handleDelete(item)} className="text-slate-400 hover:text-red-600">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-            {filtered.length === 0 && (
-              <div className="text-center py-10 text-slate-400 italic text-xs">{t("no_items")}</div>
-            )}
-          </div>
-        )}
-      </div>
+        }
+        isLoading={isLoading}
+        isEmpty={filtered.length === 0}
+        emptyLabel={t("no_items")}
+      >
+        {filtered.map((item) => (
+          <SettingsListItem
+            key={item.id}
+            leading={<SettingsSwatch color={item.color} icon={item.icon ? ICON_OPTIONS[item.icon] : null} />}
+            title={item.nameFr}
+            meta={
+              <>
+                {item.nameEn && <span>{item.nameEn}</span>}
+                {item.group && <span>({item.group})</span>}
+                <SettingsCode>{item.code}</SettingsCode>
+              </>
+            }
+            active={{ value: item.isActive, onToggle: () => toggleActive(item) }}
+            actions={[
+              { label: tc("edit"), icon: Pencil, onClick: () => openEdit(item) },
+              { label: tc("delete"), icon: Trash2, tone: "danger", onClick: () => handleDelete(item) },
+            ]}
+          />
+        ))}
+      </SettingsList>
 
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <DialogContent className="sm:max-w-md">
