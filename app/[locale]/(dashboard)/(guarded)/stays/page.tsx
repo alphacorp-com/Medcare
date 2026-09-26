@@ -78,7 +78,7 @@ export default function AdmissionsPage() {
       <div className="space-y-3">
         <StaysFilterBar showFilters={showFilters} onFilterClose={() => setShowFilters(false)} />
         <div className="overflow-x-auto">
-          <div className="min-w-[640px]">
+          <div className="sm:min-w-[640px]">
             <StaysTable stays={stays} loading={loading} error={error} view={view} />
           </div>
         </div>

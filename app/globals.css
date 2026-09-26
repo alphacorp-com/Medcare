@@ -176,61 +176,57 @@
 }
 
 @layer components {
-  /* Make tables stack into card-like list on small screens to avoid horizontal overflow */
   table {
     width: 100%;
     border-collapse: collapse;
   }
 
-  /* Mobile first: hide the header and render rows as stacked cards */
-  table thead {
-    display: none;
-  }
-
-  table tr {
-    display: block;
-    margin-bottom: 0.75rem;
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 0.5rem;
-    overflow: hidden;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
-  }
-
-  table td,
-  table th {
-    display: flex;
-    justify-content: space-between;
-    padding: 0.75rem 1rem;
-    border-bottom: 1px solid var(--border);
-    white-space: normal;
-    word-break: break-word;
-  }
-
-  table td:last-child,
-  table th:last-child {
-    border-bottom: none;
-  }
-
-  /* For larger screens restore normal table layout */
-  /* Tailwind v4 dropped @screen; 40rem is the `sm` breakpoint. */
-  @media (width >= 40rem) {
+  /* Below the sm breakpoint, tables render as a stack of cards: one card per row, one line
+     per cell, each prefixed with its column name. The names come from the data-label
+     attribute that <TableCardLabels /> copies from the table headers. */
+  @media (width < 40rem) {
     table thead {
-      display: table-header-group;
+      display: none;
     }
+
     table tr {
-      display: table-row;
-      margin-bottom: 0;
-      background: transparent;
-      border: none;
-      box-shadow: none;
+      display: block;
+      margin-bottom: 0.75rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      overflow: hidden;
+      box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
     }
+
     table td,
     table th {
-      display: table-cell;
-      padding: 0.5rem 0.75rem;
+      display: block;
+      padding: 0.625rem 0.875rem;
+      border-bottom: 1px solid var(--border);
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+
+    table td:last-child,
+    table th:last-child {
       border-bottom: none;
-      white-space: nowrap;
+    }
+
+    table td[data-label]::before {
+      content: attr(data-label);
+      display: block;
+      margin-bottom: 0.125rem;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--muted-foreground);
+    }
+
+    /* Full-width rows (empty states, loaders) stay centred without a label. */
+    table td[colspan] {
+      text-align: center;
     }
   }
 }

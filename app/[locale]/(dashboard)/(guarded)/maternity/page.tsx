@@ -144,7 +144,7 @@ export default function MaternityPage() {
 
         <div className="flex-1 overflow-auto">
           <div className="overflow-x-auto">
-            <table className="min-w-[760px] w-full text-left">
+            <table className="sm:min-w-[760px] w-full text-left">
               <thead>
                 <tr className="border-b border-slate-200/60 bg-slate-50/50 text-[10px] uppercase tracking-widest text-slate-500 font-semibold">
                   <th className="p-4 font-semibold w-48">{t('patient')}</th>
