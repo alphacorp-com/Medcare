@@ -1,5 +1,7 @@
 {
   "common": {
+    "close": "Fermer",
+    "total": "Total",
     "app_name": "Medcare",
     "dashboard": "Tableau de Bord",
     "patients": "Gestion des Patients",
@@ -162,6 +164,8 @@
     "secure_sandbox_desc": "Sélectionnez un persona dans la liste pour découvrir la plateforme sous différents angles départementaux."
   },
   "dashboard": {
+    "increasing": "En hausse",
+    "unknown_error": "Erreur inconnue",
     "active_consultations": "Consultations Actives",
     "er_wait_time": "Temps d'attente Urgences",
     "lab_processing": "Traitement Labo",
@@ -245,6 +249,7 @@
     "already_claimed": "Ce patient a déjà été pris en charge par un autre médecin"
   },
   "patients": {
+    "pending": "En attente",
     "module_title": "Gestion des Patients",
     "title": "Répertoire des Patients",
     "subtitle": "Gérer et rechercher les patients enregistrés.",
@@ -979,6 +984,7 @@
     "authorized": "Modules Autorisés"
   },
   "surgery": {
+    "postpone": "Reporter",
     "title": "Chirurgie & Planning Bloc",
     "description": "Gérer les programmes opératoires, check-lists HAS/OMS et comptes-rendus opératoires.",
     "schedule_intervention": "Programmer une Intervention",
@@ -1141,6 +1147,7 @@
     }
   },
   "maternity": {
+    "vitals_bp": "Tension artérielle",
     "title": "Maternité & Suivi Prénatal",
     "description": "Suivre les grossesses, les consultations prénatales, le travail et les accouchements.",
     "module_desc": "Le module Maternité n'est pas actif pour votre rôle ou a été désactivé dans tout l'environnement.",
@@ -1633,6 +1640,7 @@
     "cancelled": "Annulé"
   },
   "admissions": {
+    "stays_total": "séjours au total",
     "title": "File d'attente des consultations",
     "description": "Gérer les admissions, les affectations de lits et les sorties des patients.",
     "stay_number": "N° de séjour",

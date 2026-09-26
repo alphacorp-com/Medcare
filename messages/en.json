@@ -1,5 +1,7 @@
 {
   "common": {
+    "close": "Close",
+    "total": "Total",
     "app_name": "Medcare",
     "dashboard": "Dashboard",
     "patients": "Patient Management",
@@ -162,6 +164,9 @@
     "secure_sandbox_desc": "Select a mock persona from the list to experience the platform from different departmental perspectives."
   },
   "dashboard": {
+    "increasing": "Increasing",
+    "unknown_error": "Unknown error",
+    "status": "Status",
     "active_consultations": "Active Consultations",
     "er_wait_time": "ER Wait Time",
     "lab_processing": "Lab Processing",
@@ -245,6 +250,7 @@
     "already_claimed": "This patient has already been claimed by another doctor"
   },
   "patients": {
+    "pending": "Pending",
     "module_title": "Patient Management",
     "title": "Patient Directory",
     "subtitle": "Manage and search for registered patients.",
@@ -352,6 +358,18 @@
     "save_record": "Save Record"
   },
   "pharmacy": {
+    "dispensed_tab": "Dispensing History",
+    "export_inventory": "Export Stock",
+    "export_prescriptions": "Export Prescriptions",
+    "in_stock": "In Stock",
+    "inventory_value": "Total Stock Value",
+    "not_in_inventory": "Not in Inventory",
+    "out_of_stock_label": "Out of Stock",
+    "patient": "Patient",
+    "stock_filter_all": "All Stock",
+    "stock_filter_low": "Low Stock",
+    "stock_filter_out": "Out of Stock",
+    "total_cost": "Total Cost",
     "title": "Pharmacy & Stock",
     "description": "Manage prescriptions (Medication Circuit) and inventory.",
     "queue_tab": "Prescription Queue",
@@ -961,6 +979,7 @@
     "authorized": "Modules Authorized"
   },
   "surgery": {
+    "postpone": "Postpone",
     "title": "Surgical Block Planning",
     "description": "Manage operating room schedules, WHO checklists, and surgical reports.",
     "schedule_intervention": "Schedule Intervention",
@@ -1123,6 +1142,7 @@
     }
   },
   "maternity": {
+    "vitals_bp": "Blood pressure",
     "title": "Maternity & Antenatal Care",
     "description": "Track pregnancies, antenatal visits, labour and birth records.",
     "module_desc": "The Maternity module is not active for your role, or has been disabled across the environment.",
@@ -1615,6 +1635,8 @@
     "cancelled": "Cancelled"
   },
   "admissions": {
+    "stays_total": "stays in total",
+    "create": "Create",
     "title": "Current Consultation Queue",
     "description": "Manage patient admissions, bed assignments, and discharges.",
     "stay_number": "Stay Number",
