@@ -78,7 +78,7 @@ export function AuditActivity() {
 
   return (
     <div className="flex flex-col bg-white rounded border border-slate-200 shadow-sm h-full overflow-hidden">
-      <div className="p-4 border-b border-slate-200 flex justify-between items-center">
+      <div className="p-3 lg:p-4 border-b border-slate-200 flex justify-between items-center gap-3">
         <h2 className="text-sm font-bold text-slate-800">
           {t('audit_activity')}
           <span className="ml-2 px-2 py-0.5 bg-slate-100 text-slate-500 text-[10px] rounded-full font-normal italic">

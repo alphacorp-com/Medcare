@@ -13,7 +13,7 @@ export default async function SetupPage({ params }: { params: Promise<{ locale: 
 
   return (
     <div className="min-h-screen w-full bg-slate-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-xl">
+      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 sm:p-8 shadow-xl">
         {existing > 0 ? (
           <>
             <h1 className="text-lg font-semibold text-slate-900">Setup already completed</h1>
