@@ -83,10 +83,10 @@ export default function UserActivityPage() {
   }
 
   return (
-    <div className="flex flex-col h-full space-y-6 max-w-7xl mx-auto w-full pb-12 pt-4 px-4 sm:px-6">
+    <div className="flex flex-col h-full space-y-6 max-w-7xl mx-auto w-full pb-12 md:pt-4 md:px-6">
 
-      <div className="flex items-center justify-between shrink-0">
-        <Button variant="ghost" size="sm" onClick={() => router.push('/settings')} className="text-slate-500 hover:text-slate-900 -ml-2 print:hidden">
+      <div className="flex items-center justify-end md:justify-between shrink-0">
+        <Button variant="ghost" size="sm" onClick={() => router.push('/settings')} className="max-md:hidden text-slate-500 hover:text-slate-900 -ml-2 print:hidden">
           <ArrowLeft className="w-4 h-4 mr-2" /> {t('back_to_users')}
         </Button>
         <ActivityExportActions user={user} activities={activities} t={t} tc={tc} />
@@ -94,7 +94,7 @@ export default function UserActivityPage() {
 
       <UserIdentityCard user={user} t={t} tc={tc} tr={tr} />
 
-      <div className="flex items-center gap-3 pb-2 border-b border-slate-200 mt-8">
+      <div className="flex items-center gap-3 pb-2 border-b border-slate-200 md:mt-8">
         <div className="p-2 bg-slate-100 rounded-lg">
           <Activity className="w-5 h-5 text-blue-600" />
         </div>

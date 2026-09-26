@@ -6,7 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetFooter, SheetTitle } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { PlusCircle, Edit2, Trash2, ShieldCheck, Stethoscope } from "lucide-react";
+import { PlusCircle, Edit2, Trash2, ShieldCheck, Stethoscope, Users } from "lucide-react";
+import { SettingsList, SettingsListItem, SettingsPageHeader, SettingsPill, settingsActionButtonClass } from "@/components/settings/settings-ui";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 
 export type ModuleAction = 'read' | 'create' | 'update' | 'delete';
@@ -26,6 +29,7 @@ export type SystemRole = {
 };
 
 export function RolesManagement() {
+  const isMobile = useIsMobile();
   const [roles, setRoles] = useState<SystemRole[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
@@ -180,195 +184,221 @@ export function RolesManagement() {
   };
 
   return (
-    <div className="bg-white rounded border border-slate-200 shadow-sm p-6 space-y-6">
-      <div className="flex justify-between items-start">
-        <div>
-          <h2 className="text-lg font-bold text-slate-900">{t('roles_management')}</h2>
-          <p className="text-xs text-slate-500">{t('roles_management_desc')}</p>
-        </div>
-
-        <div>
-          <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white gap-2" onClick={handleAdd}>
+    <div className="bg-white rounded-2xl md:rounded border border-slate-200 shadow-sm p-4 md:p-6 space-y-6">
+      <SettingsPageHeader
+        as="h2"
+        title={t('roles_management')}
+        description={t('roles_management_desc')}
+        actions={
+          <Button size="sm" className={cn("bg-blue-600 hover:bg-blue-700 text-white gap-2", settingsActionButtonClass)} onClick={handleAdd}>
             <PlusCircle className="w-4 h-4" /> {t('add_role')}
           </Button>
+        }
+      />
 
-          <Sheet open={isOpen} onOpenChange={(v) => { setIsOpen(v); if (!v) resetForm(); }}>
-            <SheetContent className="overflow-y-auto sm:max-w-2xl p-6 sm:p-8">
-              <SheetHeader>
-                <SheetTitle>{editingRole ? t('edit_role') : t('add_role')}</SheetTitle>
-              </SheetHeader>
-              <form key={editingRole ? editingRole.id : 'new-role'} onSubmit={handleSubmit} className="space-y-6 mt-4">
-                <div className="space-y-2">
-                  <Label>{t('role_name')}</Label>
-                  <Input name="name" defaultValue={editingRole?.name} required placeholder="Médecin, Infirmier, ..." />
+      <Sheet open={isOpen} onOpenChange={(v) => { setIsOpen(v); if (!v) resetForm(); }}>
+        <SheetContent className="overflow-y-auto sm:max-w-2xl p-6 sm:p-8">
+          <SheetHeader>
+            <SheetTitle>{editingRole ? t('edit_role') : t('add_role')}</SheetTitle>
+          </SheetHeader>
+          <form key={editingRole ? editingRole.id : 'new-role'} onSubmit={handleSubmit} className="space-y-6 mt-4">
+            <div className="space-y-2">
+              <Label>{t('role_name')}</Label>
+              <Input name="name" defaultValue={editingRole?.name} required placeholder="Médecin, Infirmier, ..." />
+            </div>
+
+            <label className="flex items-start gap-3 rounded-xl border border-slate-200 p-4 cursor-pointer hover:border-blue-200">
+              <input
+                type="checkbox"
+                checked={isAdminRole}
+                onChange={(e) => setIsAdminRole(e.target.checked)}
+                className="mt-0.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+              />
+              <span>
+                <span className="flex items-center gap-1.5 text-sm font-semibold text-slate-700">
+                  <ShieldCheck className="h-4 w-4 text-blue-600" /> {t('is_system_admin_label')}
+                </span>
+                <span className="block text-xs text-slate-500 mt-0.5">{t('is_system_admin_hint')}</span>
+              </span>
+            </label>
+
+            <label className="flex items-start gap-3 rounded-xl border border-slate-200 p-4 cursor-pointer hover:border-blue-200">
+              <input
+                type="checkbox"
+                checked={isClinicalProviderRole}
+                onChange={(e) => setIsClinicalProviderRole(e.target.checked)}
+                className="mt-0.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+              />
+              <span>
+                <span className="flex items-center gap-1.5 text-sm font-semibold text-slate-700">
+                  <Stethoscope className="h-4 w-4 text-blue-600" /> {t('is_clinical_provider_label')}
+                </span>
+                <span className="block text-xs text-slate-500 mt-0.5">{t('is_clinical_provider_hint')}</span>
+              </span>
+            </label>
+
+            {!isAdminRole && (
+              <div className="pt-2 border-t border-slate-100">
+                <Label className="mb-1 block font-bold text-slate-700">{t('default_module_permissions')}</Label>
+                <p className="text-xs text-slate-500 mb-3">{t('default_module_permissions_desc')}</p>
+                <div className="space-y-3">
+                  {ALL_MODULES.map((mod) => {
+                    const currentActions = selectedModules[mod.id] ?? (mod.id === 'MODULE_CORE_PATIENT' ? ['read'] : []);
+                    const hasRead = currentActions.includes('read');
+                    const hasCreate = currentActions.includes('create');
+                    const hasUpdate = currentActions.includes('update');
+                    const hasDelete = currentActions.includes('delete');
+
+                    return (
+                      <div key={mod.id} className="flex flex-col gap-3 text-sm border border-slate-200 rounded-xl p-4 hover:border-blue-200 transition-colors">
+                        <div className="font-semibold text-slate-700 flex items-center justify-between">
+                          <span>{mod.name}</span>
+                          <span className="text-[11px] text-slate-500 uppercase tracking-[0.15em]">Actions</span>
+                        </div>
+                        <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+                          <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 cursor-pointer text-xs text-slate-600 hover:border-blue-300">
+                            <input
+                              type="checkbox"
+                              checked={hasRead}
+                              disabled={mod.id === 'MODULE_CORE_PATIENT'}
+                              onChange={() => toggleModuleAction(mod.id, 'read')}
+                              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            Read
+                          </label>
+                          <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 cursor-pointer text-xs text-slate-600 hover:border-blue-300">
+                            <input
+                              type="checkbox"
+                              checked={hasCreate}
+                              onChange={() => toggleModuleAction(mod.id, 'create')}
+                              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            Create
+                          </label>
+                          <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 cursor-pointer text-xs text-slate-600 hover:border-blue-300">
+                            <input
+                              type="checkbox"
+                              checked={hasUpdate}
+                              onChange={() => toggleModuleAction(mod.id, 'update')}
+                              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            Update
+                          </label>
+                          <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 cursor-pointer text-xs text-slate-600 hover:border-blue-300">
+                            <input
+                              type="checkbox"
+                              checked={hasDelete}
+                              onChange={() => toggleModuleAction(mod.id, 'delete')}
+                              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            Delete
+                          </label>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
+              </div>
+            )}
 
-                <label className="flex items-start gap-3 rounded-xl border border-slate-200 p-4 cursor-pointer hover:border-blue-200">
-                  <input
-                    type="checkbox"
-                    checked={isAdminRole}
-                    onChange={(e) => setIsAdminRole(e.target.checked)}
-                    className="mt-0.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span>
-                    <span className="flex items-center gap-1.5 text-sm font-semibold text-slate-700">
-                      <ShieldCheck className="h-4 w-4 text-blue-600" /> {t('is_system_admin_label')}
-                    </span>
-                    <span className="block text-xs text-slate-500 mt-0.5">{t('is_system_admin_hint')}</span>
-                  </span>
-                </label>
+            {formError ? (
+              <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-md px-3 py-2">{formError}</p>
+            ) : null}
 
-                <label className="flex items-start gap-3 rounded-xl border border-slate-200 p-4 cursor-pointer hover:border-blue-200">
-                  <input
-                    type="checkbox"
-                    checked={isClinicalProviderRole}
-                    onChange={(e) => setIsClinicalProviderRole(e.target.checked)}
-                    className="mt-0.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span>
-                    <span className="flex items-center gap-1.5 text-sm font-semibold text-slate-700">
-                      <Stethoscope className="h-4 w-4 text-blue-600" /> {t('is_clinical_provider_label')}
-                    </span>
-                    <span className="block text-xs text-slate-500 mt-0.5">{t('is_clinical_provider_hint')}</span>
-                  </span>
-                </label>
+            <SheetFooter className="border-t border-slate-100 pt-4">
+              <div className="flex justify-end gap-3 w-full">
+                <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>{tc('cancel')}</Button>
+                <Button type="submit" className="bg-blue-600 hover:bg-blue-700" disabled={isSaving}>
+                  {isSaving ? tc('saving') : editingRole ? tc('save_changes') : t('create_role')}
+                </Button>
+              </div>
+            </SheetFooter>
+          </form>
+        </SheetContent>
+      </Sheet>
 
-                {!isAdminRole && (
-                  <div className="pt-2 border-t border-slate-100">
-                    <Label className="mb-1 block font-bold text-slate-700">{t('default_module_permissions')}</Label>
-                    <p className="text-xs text-slate-500 mb-3">{t('default_module_permissions_desc')}</p>
-                    <div className="space-y-3">
-                      {ALL_MODULES.map((mod) => {
-                        const currentActions = selectedModules[mod.id] ?? (mod.id === 'MODULE_CORE_PATIENT' ? ['read'] : []);
-                        const hasRead = currentActions.includes('read');
-                        const hasCreate = currentActions.includes('create');
-                        const hasUpdate = currentActions.includes('update');
-                        const hasDelete = currentActions.includes('delete');
-
-                        return (
-                          <div key={mod.id} className="flex flex-col gap-3 text-sm border border-slate-200 rounded-xl p-4 hover:border-blue-200 transition-colors">
-                            <div className="font-semibold text-slate-700 flex items-center justify-between">
-                              <span>{mod.name}</span>
-                              <span className="text-[11px] text-slate-500 uppercase tracking-[0.15em]">Actions</span>
-                            </div>
-                            <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
-                              <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 cursor-pointer text-xs text-slate-600 hover:border-blue-300">
-                                <input
-                                  type="checkbox"
-                                  checked={hasRead}
-                                  disabled={mod.id === 'MODULE_CORE_PATIENT'}
-                                  onChange={() => toggleModuleAction(mod.id, 'read')}
-                                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                                />
-                                Read
-                              </label>
-                              <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 cursor-pointer text-xs text-slate-600 hover:border-blue-300">
-                                <input
-                                  type="checkbox"
-                                  checked={hasCreate}
-                                  onChange={() => toggleModuleAction(mod.id, 'create')}
-                                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                                />
-                                Create
-                              </label>
-                              <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 cursor-pointer text-xs text-slate-600 hover:border-blue-300">
-                                <input
-                                  type="checkbox"
-                                  checked={hasUpdate}
-                                  onChange={() => toggleModuleAction(mod.id, 'update')}
-                                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                                />
-                                Update
-                              </label>
-                              <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 cursor-pointer text-xs text-slate-600 hover:border-blue-300">
-                                <input
-                                  type="checkbox"
-                                  checked={hasDelete}
-                                  onChange={() => toggleModuleAction(mod.id, 'delete')}
-                                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                                />
-                                Delete
-                              </label>
-                            </div>
-                          </div>
-                        );
-                      })}
+      {isMobile ? (
+        <SettingsList isLoading={isLoading} isEmpty={roles.length === 0} emptyLabel={tc('no_data')}>
+          {roles.map((role) => (
+            <SettingsListItem
+              key={role.id}
+              title={role.name}
+              meta={
+                <>
+                  {role.isSystemAdmin ? (
+                    <SettingsPill tone="blue"><ShieldCheck className="h-3 w-3" /> {t('full_system_access')}</SettingsPill>
+                  ) : (
+                    <SettingsPill>{role.defaultModules.length} modules</SettingsPill>
+                  )}
+                  {role.isClinicalProvider && (
+                    <SettingsPill tone="emerald"><Stethoscope className="h-3 w-3" /> {t('is_clinical_provider_label')}</SettingsPill>
+                  )}
+                  <span className="inline-flex items-center gap-1"><Users className="h-3 w-3" /> {role.userCount}</span>
+                </>
+              }
+              actions={[
+                { label: tc('edit'), icon: Edit2, onClick: () => handleEdit(role) },
+                { label: tc('delete'), icon: Trash2, tone: "danger", onClick: () => handleDelete(role) },
+              ]}
+            />
+          ))}
+        </SettingsList>
+      ) : (
+        <div className="border border-slate-200 rounded-md overflow-hidden">
+          <Table>
+            <TableHeader className="bg-slate-50">
+              <TableRow>
+                <TableHead>{t('role_name')}</TableHead>
+                <TableHead>{tc('status')}</TableHead>
+                <TableHead>{t('personnel')}</TableHead>
+                <TableHead className="text-right">{tc('actions')}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center py-8 text-slate-500 text-sm">Loading...</TableCell>
+                </TableRow>
+              ) : roles.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center py-8 text-slate-500 text-sm">{tc('no_data')}</TableCell>
+                </TableRow>
+              ) : roles.map((role) => (
+                <TableRow key={role.id}>
+                  <TableCell className="font-medium text-slate-900">{role.name}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1">
+                      {role.isSystemAdmin ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-800">
+                          <ShieldCheck className="h-3 w-3" /> {t('full_system_access')}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-800">
+                          {role.defaultModules.length} modules
+                        </span>
+                      )}
+                      {role.isClinicalProvider && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-100 text-emerald-800">
+                          <Stethoscope className="h-3 w-3" /> {t('is_clinical_provider_label')}
+                        </span>
+                      )}
                     </div>
-                  </div>
-                )}
-
-                {formError ? (
-                  <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-md px-3 py-2">{formError}</p>
-                ) : null}
-
-                <SheetFooter className="border-t border-slate-100 pt-4">
-                  <div className="flex justify-end gap-3 w-full">
-                    <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>{tc('cancel')}</Button>
-                    <Button type="submit" className="bg-blue-600 hover:bg-blue-700" disabled={isSaving}>
-                      {isSaving ? tc('saving') : editingRole ? tc('save_changes') : t('create_role')}
+                  </TableCell>
+                  <TableCell className="text-sm text-slate-500">{role.userCount}</TableCell>
+                  <TableCell className="text-right space-x-2">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-blue-600" onClick={() => handleEdit(role)} title={t('edit_role')}>
+                      <Edit2 className="h-4 w-4" />
                     </Button>
-                  </div>
-                </SheetFooter>
-              </form>
-            </SheetContent>
-          </Sheet>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-red-600" onClick={() => handleDelete(role)} title={t('delete_role')}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
-      </div>
-
-      <div className="border border-slate-200 rounded-md overflow-hidden">
-        <Table>
-          <TableHeader className="bg-slate-50">
-            <TableRow>
-              <TableHead>{t('role_name')}</TableHead>
-              <TableHead>{tc('status')}</TableHead>
-              <TableHead>{t('personnel')}</TableHead>
-              <TableHead className="text-right">{tc('actions')}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center py-8 text-slate-500 text-sm">Loading...</TableCell>
-              </TableRow>
-            ) : roles.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center py-8 text-slate-500 text-sm">{tc('no_data')}</TableCell>
-              </TableRow>
-            ) : roles.map((role) => (
-              <TableRow key={role.id}>
-                <TableCell className="font-medium text-slate-900">{role.name}</TableCell>
-                <TableCell>
-                  <div className="flex flex-wrap gap-1">
-                    {role.isSystemAdmin ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-800">
-                        <ShieldCheck className="h-3 w-3" /> {t('full_system_access')}
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-800">
-                        {role.defaultModules.length} modules
-                      </span>
-                    )}
-                    {role.isClinicalProvider && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-100 text-emerald-800">
-                        <Stethoscope className="h-3 w-3" /> {t('is_clinical_provider_label')}
-                      </span>
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell className="text-sm text-slate-500">{role.userCount}</TableCell>
-                <TableCell className="text-right space-x-2">
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-blue-600" onClick={() => handleEdit(role)} title={t('edit_role')}>
-                    <Edit2 className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-red-600" onClick={() => handleDelete(role)} title={t('delete_role')}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+      )}
     </div>
   );
 }

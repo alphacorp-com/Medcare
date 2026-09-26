@@ -4,70 +4,46 @@ import { Link, usePathname } from "@/i18n/routing";
 import { useTranslations } from "next-intl";
 import { useAppStore } from "@/lib/store/useAppStore";
 import { cn } from "@/lib/utils";
+import { Settings } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
+import StandardMobileTemplate from "@/components/layout/mobile/StandardMobileTemplate";
+import { SettingsMobileBackButton } from "@/components/settings/settings-ui";
 import {
-  Settings, BedDouble, BedSingle, CalendarDays, DoorOpen, ShieldCheck,
-  FolderTree, Stethoscope, FlaskConical, BookOpen,
-  Beaker, Warehouse, Truck, ScanLine, PersonStanding, Syringe, FileText, Clock,
-} from "lucide-react";
-
-type NavItem = { href: string; label: string; icon: React.ComponentType<{ className?: string }> };
-type NavGroup = { label: string; items: NavItem[] };
+  useSettingsNavGroups,
+  isSettingsNavItemActive,
+  findSettingsNavGroup,
+} from "@/components/settings/settings-nav";
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
   const t = useTranslations("settings.nav");
+  const ts = useTranslations("settings");
   const pathname = usePathname();
+  const isMobile = useIsMobile();
   const currentUser = useAppStore((state) => state.currentUser);
   const isSysAdmin = currentUser?.isSystemAdmin === true;
+  const groups = useSettingsNavGroups();
 
-  const groups: NavGroup[] = [
-    {
-      label: t("groupClinical"),
-      items: [
-        { href: "/settings/admission-types", label: t("admissionTypes"), icon: BedDouble },
-        { href: "/settings/appointment-types", label: t("appointmentTypes"), icon: CalendarDays },
-        { href: "/settings/doctor-availability", label: t("doctorAvailability"), icon: Clock },
-        { href: "/settings/room-types", label: t("roomTypes"), icon: DoorOpen },
-        { href: "/settings/insurance-types", label: t("insuranceTypes"), icon: ShieldCheck },
-        { href: "/settings/beds", label: t("beds"), icon: BedSingle },
-      ],
-    },
-    {
-      label: t("groupExams"),
-      items: [
-        { href: "/settings/act-categories", label: t("actCategories"), icon: FolderTree },
-        { href: "/settings/medical-acts", label: t("medicalActs"), icon: Stethoscope },
-        { href: "/settings/exam-types", label: t("examTypes"), icon: FlaskConical },
-        { href: "/settings/icd10", label: t("icd10"), icon: BookOpen },
-      ],
-    },
-    {
-      label: t("groupPharmacy"),
-      items: [
-        { href: "/settings/pharmaceutical-units", label: t("pharmaceuticalUnits"), icon: Beaker },
-        { href: "/settings/storage-locations", label: t("storageLocations"), icon: Warehouse },
-        { href: "/settings/suppliers", label: t("suppliers"), icon: Truck },
-      ],
-    },
-    {
-      label: t("groupImaging"),
-      items: [
-        { href: "/settings/imaging-types", label: t("imagingTypes"), icon: ScanLine },
-        { href: "/settings/anatomical-zones", label: t("anatomicalZones"), icon: PersonStanding },
-      ],
-    },
-    {
-      label: t("groupDiseasePrograms"),
-      items: [
-        { href: "/settings/vaccine-antigens", label: t("vaccineAntigens"), icon: Syringe },
-      ],
-    },
-    {
-      label: t("groupReports"),
-      items: [
-        { href: "/settings/reports", label: t("rma3Report"), icon: FileText },
-      ],
-    },
-  ];
+  if (isMobile) {
+    // The settings home renders its own mobile menu (which replaces this sidebar).
+    if (pathname === "/settings") return <>{children}</>;
+
+    // A user's activity log is reached from the Personnel section, so it returns there.
+    const isUserActivity = pathname.startsWith("/settings/users/");
+    const backHref = isUserActivity ? "/settings?tab=users" : "/settings";
+    const backLabel = isUserActivity ? ts("users_roles") : t("all_settings");
+    const subtitle = isUserActivity ? ts("users_roles") : findSettingsNavGroup(groups, pathname)?.label;
+
+    return (
+      <StandardMobileTemplate
+        title={ts("title")}
+        subtitle={subtitle}
+        showSearchSlot={false}
+        actions={<SettingsMobileBackButton href={backHref} label={backLabel} />}
+      >
+        {children}
+      </StandardMobileTemplate>
+    );
+  }
 
   // The "General" tab (profile, password, etc.) stays available to every user —
   // only the tenant-configuration groups below it are admin-only, mirroring how
@@ -93,24 +69,21 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
             <div className="px-4 mb-1 text-[10px] uppercase tracking-widest text-slate-400 font-semibold">
               {group.label}
             </div>
-            {group.items.map((item) => {
-              const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    "flex items-center gap-2 px-4 py-2 text-xs font-medium border-l-4",
-                    isActive
-                      ? "bg-blue-50 text-blue-700 border-blue-500"
-                      : "text-slate-600 hover:bg-slate-50 border-transparent"
-                  )}
-                >
-                  <item.icon className="h-3.5 w-3.5 shrink-0" />
-                  {item.label}
-                </Link>
-              );
-            })}
+            {group.items.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2 text-xs font-medium border-l-4",
+                  isSettingsNavItemActive(item, pathname)
+                    ? "bg-blue-50 text-blue-700 border-blue-500"
+                    : "text-slate-600 hover:bg-slate-50 border-transparent"
+                )}
+              >
+                <item.icon className="h-3.5 w-3.5 shrink-0" />
+                {item.label}
+              </Link>
+            ))}
           </div>
         ))}
       </nav>

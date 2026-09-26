@@ -113,6 +113,13 @@ export default function AdmissionsPage() {
           </div>
         </div>
       </div>
+    </div>
+  );
+
+  // The sheet lives outside both layouts so the mobile "new admission" button can open it too.
+  return (
+    <>
+      {isMobile ? mobile : desktop}
 
       <NewAdmissionSheet
         open={isSheetOpen}
@@ -126,8 +133,6 @@ export default function AdmissionsPage() {
         error={stayError}
         onSubmit={handleSubmit}
       />
-    </div>
+    </>
   );
-
-  return isMobile ? mobile : desktop;
 }

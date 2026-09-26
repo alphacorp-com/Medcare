@@ -35,7 +35,7 @@ export function OrganizationSettings({ orgData, setOrgData, t, tc }: Organizatio
   };
 
   return (
-    <div className="bg-white rounded border border-slate-200 shadow-sm p-6 space-y-6">
+    <div className="bg-white rounded-2xl md:rounded border border-slate-200 shadow-sm p-4 md:p-6 space-y-6">
       <div>
         <h2 className="text-lg font-bold text-slate-900">{t('facility_config')}</h2>
         <p className="text-xs text-slate-500">{t('facility_config_desc')}</p>
@@ -44,7 +44,7 @@ export function OrganizationSettings({ orgData, setOrgData, t, tc }: Organizatio
       <div className="space-y-6">
         <div>
           <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Facility Logo</label>
-          <div className="flex gap-6 items-center">
+          <div className="flex gap-4 md:gap-6 items-center">
             <div className="h-20 w-20 flex-shrink-0 bg-slate-50 border border-slate-200 rounded flex items-center justify-center p-2 shadow-sm overflow-hidden">
               {orgData.logoUrl ? (
                 <img src={orgData.logoUrl} alt="Logo" className="h-full w-full object-contain" />

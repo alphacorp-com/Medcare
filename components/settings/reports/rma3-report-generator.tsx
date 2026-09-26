@@ -60,7 +60,7 @@ export function Rma3ReportGenerator() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded border border-slate-200 shadow-sm p-6 space-y-4">
+      <div className="bg-white rounded-2xl md:rounded border border-slate-200 shadow-sm p-4 md:p-6 space-y-4">
         <div className="flex items-start gap-3">
           <FileText className="h-6 w-6 text-blue-600 shrink-0 mt-0.5" />
           <div>
@@ -96,7 +96,7 @@ export function Rma3ReportGenerator() {
         {error && <p className="text-xs text-red-600">{error}</p>}
       </div>
 
-      <div className="bg-white rounded border border-slate-200 shadow-sm p-6 space-y-2">
+      <div className="bg-white rounded-2xl md:rounded border border-slate-200 shadow-sm p-4 md:p-6 space-y-2">
         <h3 className="text-sm font-bold text-slate-900">{t("coverage_title")}</h3>
         <p className="text-xs text-slate-600">{t("coverage_included")}</p>
         <p className="text-xs text-slate-500">{t("coverage_excluded")}</p>

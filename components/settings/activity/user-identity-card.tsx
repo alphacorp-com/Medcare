@@ -23,15 +23,15 @@ export function UserIdentityCard({ user, t, tc }: UserIdentityCardProps) {
   const roleLabel = user.role;
 
   return (
-    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-6 md:items-center items-start">
+    <div className="bg-white p-4 md:p-6 rounded-2xl md:rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 md:gap-6 md:items-center items-start">
       <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-2xl font-bold shrink-0">
         {user.fullName.charAt(0)}
       </div>
       <div className="flex-1">
-        <h1 className="text-2xl font-bold text-slate-900">{user.fullName}</h1>
+        <h1 className="text-xl md:text-2xl font-bold text-slate-900 break-words">{user.fullName}</h1>
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mt-2 text-sm text-slate-500">
           <span className="flex items-center gap-1.5"><Building2 className="w-4 h-4 text-slate-400" /> {roleLabel}</span>
-          <span className="flex items-center gap-1.5"><Mail className="w-4 h-4 text-slate-400" /> {user.email}</span>
+          <span className="flex min-w-0 items-center gap-1.5 break-all"><Mail className="w-4 h-4 shrink-0 text-slate-400" /> {user.email}</span>
           <span className="flex items-center gap-1.5"><ShieldCheck className="w-4 h-4 text-slate-400" /> {user.modules?.length || 0} {t('authorized')}</span>
         </div>
       </div>

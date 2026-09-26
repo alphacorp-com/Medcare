@@ -33,7 +33,7 @@ export function DocumentTemplates({ facility, templateSettings, setTemplateSetti
   ];
 
   return (
-    <div className="bg-white rounded border border-slate-200 shadow-sm p-6 space-y-6">
+    <div className="bg-white rounded-2xl md:rounded border border-slate-200 shadow-sm p-4 md:p-6 space-y-6">
       <div>
         <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
           <FileText className="h-5 w-5 text-blue-600" /> {ttpl('title')}

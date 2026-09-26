@@ -161,8 +161,8 @@ export function MobileMoneySettings() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded border border-slate-200 shadow-sm p-6 space-y-6">
-        <div className="flex items-start justify-between">
+      <div className="bg-white rounded-2xl md:rounded border border-slate-200 shadow-sm p-4 md:p-6 space-y-6">
+        <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="text-lg font-bold text-slate-900">{t("payments.orange_title")}</h2>
             <p className="text-xs text-slate-500">{t("payments.orange_description")}</p>
@@ -219,8 +219,8 @@ export function MobileMoneySettings() {
         <p className="text-[11px] text-slate-400">{t("payments.orange_note")}</p>
       </div>
 
-      <div className="bg-white rounded border border-slate-200 shadow-sm p-6 space-y-6">
-        <div className="flex items-start justify-between">
+      <div className="bg-white rounded-2xl md:rounded border border-slate-200 shadow-sm p-4 md:p-6 space-y-6">
+        <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="text-lg font-bold text-slate-900">{t("payments.mtn_title")}</h2>
             <p className="text-xs text-slate-500">{t("payments.mtn_description")}</p>

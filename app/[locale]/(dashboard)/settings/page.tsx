@@ -2,16 +2,18 @@
 
 import { useAppStore } from "@/lib/store/useAppStore";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Building, User, ShieldCheck, LayoutTemplate, Link2, Users, UserCog, FileText, Loader2, ServerCog, ArrowLeft
+  Building, User, ShieldCheck, LayoutTemplate, Link2, Users, UserCog, FileText, Loader2, ServerCog, ChevronRight,
+  type LucideIcon,
 } from "lucide-react";
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, Fragment } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import StandardMobileTemplate from "@/components/layout/mobile/StandardMobileTemplate";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { SettingsMobileBackButton, SettingsMobileMenu } from "@/components/settings/settings-ui";
+import { useSettingsNavGroups } from "@/components/settings/settings-nav";
 
 // Modular Components
 import { UsersManagement } from "@/components/settings/users-management";
@@ -24,6 +26,18 @@ import { DocumentTemplates } from "@/components/settings/document-templates";
 import { Dhis2IntegrationSettings } from "@/components/settings/dhis2-integration-settings";
 import { MobileMoneySettings } from "@/components/settings/mobile-money-settings";
 import { OnPremLicensePanel } from "@/components/settings/onprem-license-panel";
+
+// One entry per "General" settings section — drives both the desktop tabs and the mobile menu.
+type SettingsSection = {
+  key: string;
+  label: string;
+  icon: LucideIcon;
+  content: React.ReactNode;
+  adminOnly?: boolean;
+  // Persisted by the page-level save button (handleSaveSettings); other sections save themselves.
+  savable?: boolean;
+  separatorBefore?: boolean;
+};
 
 export default function SettingsPage() {
   return (
@@ -83,6 +97,8 @@ function SettingsPageContent() {
   const tmat = useTranslations('maternity');
   const tdp = useTranslations('diseasePrograms');
   const ttpl = useTranslations('templates');
+  const tnav = useTranslations('settings.nav');
+  const navGroups = useSettingsNavGroups();
 
   const isSysAdmin = currentUser?.isSystemAdmin === true;
 
@@ -218,95 +234,195 @@ function SettingsPageContent() {
     }
   };
 
-
-  if (isMobile) {
-    const options: { key: string; label: string; render: React.ReactNode }[] = [];
-
-    options.push({ key: "profile", label: t("user_profile"), render: (
-      <div className="space-y-4">
-        <ProfileSettings
-          currentUser={currentUser}
-          profileData={profileData}
-          setProfileData={setProfileData}
-          t={t}
-          tc={tc}
-          error={profileError}
-        />
-        <ChangePasswordCard t={t} tc={tc} />
-      </div>
-    ) });
-
-    if (isSysAdmin) {
-      options.push({ key: "users", label: t("users_roles"), render: <UsersManagement /> });
-      options.push({ key: "roles", label: t("roles_management"), render: <RolesManagement /> });
-      options.push({ key: "organization", label: t("organization"), render: <OrganizationSettings orgData={orgData} setOrgData={setOrgData} t={t} tc={tc} /> });
-      options.push({ key: "modules", label: t("clinical_modules"), render: <ModuleConfiguration appModules={APP_MODULES} activeModules={activeModules} t={t} readOnly showOnlyActive /> });
-      options.push({ key: "templates", label: ttpl("title"), render: <DocumentTemplates facility={orgData} templateSettings={templateSettings} setTemplateSettings={setTemplateSettings} ttpl={ttpl} /> });
-      options.push({ key: "onprem_license", label: t("onprem_license_management"), render: <OnPremLicensePanel /> });
-
-      options.push({ key: "security", label: t("security"), render: (
-        <div className="p-4 text-center border-2 border-dashed border-slate-200 rounded-lg">
-          <ShieldCheck className="h-8 w-8 text-slate-300 mx-auto mb-2" />
-          <h3 className="text-sm font-bold text-slate-700">SSO & RBAC Settings</h3>
-          <p className="text-[11px] text-slate-500 mt-1">Role Based Access Control is managed dynamically via Users Configuration.</p>
+  const sections: SettingsSection[] = [
+    {
+      key: "profile",
+      label: t("user_profile"),
+      icon: User,
+      savable: true,
+      content: (
+        <div className="space-y-6">
+          <ProfileSettings
+            currentUser={currentUser}
+            profileData={profileData}
+            setProfileData={setProfileData}
+            t={t}
+            tc={tc}
+            error={profileError}
+          />
+          <ChangePasswordCard t={t} tc={tc} />
         </div>
-      ) });
-
-      options.push({ key: "integrations", label: t("integrations"), render: (
-        <div className="space-y-4">
+      ),
+    },
+    { key: "users", label: t("users_roles"), icon: Users, adminOnly: true, content: <UsersManagement /> },
+    { key: "roles", label: t("roles_management"), icon: UserCog, adminOnly: true, content: <RolesManagement /> },
+    {
+      key: "organization",
+      label: t("organization"),
+      icon: Building,
+      adminOnly: true,
+      savable: true,
+      content: <OrganizationSettings orgData={orgData} setOrgData={setOrgData} t={t} tc={tc} />,
+    },
+    {
+      key: "modules",
+      label: t("clinical_modules"),
+      icon: LayoutTemplate,
+      adminOnly: true,
+      content: <ModuleConfiguration appModules={APP_MODULES} activeModules={activeModules} t={t} readOnly showOnlyActive />,
+    },
+    {
+      key: "templates",
+      label: ttpl("title"),
+      icon: FileText,
+      adminOnly: true,
+      savable: true,
+      content: (
+        <DocumentTemplates
+          facility={orgData}
+          templateSettings={templateSettings}
+          setTemplateSettings={setTemplateSettings}
+          ttpl={ttpl}
+        />
+      ),
+    },
+    { key: "onprem_license", label: t("onprem_license_management"), icon: ServerCog, adminOnly: true, content: <OnPremLicensePanel /> },
+    {
+      key: "security",
+      label: t("security"),
+      icon: ShieldCheck,
+      adminOnly: true,
+      separatorBefore: true,
+      content: (
+        <div className="bg-white rounded-2xl md:rounded border border-slate-200 shadow-sm p-4 md:p-6 space-y-6">
           <div>
-            <h2 className="text-base font-bold text-slate-900">{t("integrations")}</h2>
-            <p className="text-[11px] text-slate-500">Manage HL7 pipelines, DICOM servers, and generic APIs.</p>
+            <h2 className="text-lg font-bold text-slate-900">{t("security")}</h2>
+            <p className="text-xs text-slate-500">Configure global authentication mechanisms.</p>
+          </div>
+          <div className="p-6 md:p-8 text-center border-2 border-dashed border-slate-200 rounded-lg">
+            <ShieldCheck className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+            <h3 className="text-sm font-bold text-slate-700">SSO & RBAC Settings</h3>
+            <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">Role Based Access Control is managed dynamically via Users Configuration.</p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "integrations",
+      label: t("integrations"),
+      icon: Link2,
+      adminOnly: true,
+      content: (
+        <>
+          <div className="mb-4">
+            <h2 className="text-lg font-bold text-slate-900">{t("integrations")}</h2>
+            <p className="text-xs text-slate-500">Manage HL7 pipelines, DICOM servers, and generic APIs.</p>
           </div>
           <Dhis2IntegrationSettings />
-          <div className="mt-2">
-            <h2 className="text-base font-bold text-slate-900">{t("payments.title")}</h2>
-            <p className="text-[11px] text-slate-500">{t("payments.description")}</p>
+          <div className="mt-8 mb-4">
+            <h2 className="text-lg font-bold text-slate-900">{t("payments.title")}</h2>
+            <p className="text-xs text-slate-500">{t("payments.description")}</p>
           </div>
           <MobileMoneySettings />
-        </div>
-      ) });
-    }
+        </>
+      ),
+    },
+  ].filter((section) => !section.adminOnly || isSysAdmin);
 
-    // Mobile: show list first; when an option is selected show its detail fullscreen
-    const selected = options.find((o) => o.key === mobileSelected);
-    if (!selected) {
+  if (isMobile) {
+    const openSection = (key: string) => {
+      setMobileSelected(key);
+      setActiveTab(key);
+      window.scrollTo({ top: 0 });
+    };
+    const closeSection = () => {
+      setMobileSelected(null);
+      window.scrollTo({ top: 0 });
+    };
+
+    const selected = sections.find((section) => section.key === mobileSelected);
+
+    if (selected) {
       return (
-        <StandardMobileTemplate title={t("title")} subtitle={t("description")} noRoundedContainer>
-          <div className="space-y-2">
-            {options.map((opt) => (
-              <button
-                key={opt.key}
-                onClick={() => { setMobileSelected(opt.key); setActiveTab(opt.key); }}
-                className="w-full text-left p-4 bg-white border border-slate-100 rounded-lg shadow-sm"
+        <StandardMobileTemplate
+          title={t("title")}
+          subtitle={selected.label}
+          showSearchSlot={false}
+          actions={<SettingsMobileBackButton label={tnav("all_settings")} onClick={closeSection} />}
+        >
+          <div className="space-y-4">
+            {selected.content}
+            {/* handleSaveSettings persists only these sections; the others save through their own panels. */}
+            {selected.savable && (
+              <Button
+                onClick={handleSaveSettings}
+                disabled={isSaving || isLoading}
+                className="h-11 w-full rounded-xl bg-blue-600 text-sm font-semibold text-white hover:bg-blue-700"
               >
-                {opt.label}
-              </button>
-            ))}
+                {isSaving ? tc("saving") : tc("save_changes")}
+              </Button>
+            )}
           </div>
         </StandardMobileTemplate>
       );
     }
 
-    // handleSaveSettings only persists these sections; the others save through their own panels.
-    const isSavable = ["profile", "organization", "templates"].includes(selected.key);
+    const initials = (currentUser?.fullName ?? "")
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0].toUpperCase())
+      .join("");
+
     return (
-      <StandardMobileTemplate title={selected.label} noRoundedContainer>
-        <div className="p-3 border-b border-slate-100 flex items-center gap-3">
-          <button type="button" onClick={() => setMobileSelected(null)} className="p-2 rounded bg-slate-100">
-            <ArrowLeft className="w-4 h-4" />
+      <StandardMobileTemplate title={t("title")} subtitle={t("description")} showSearchSlot={false}>
+        <div className="space-y-5">
+          <button
+            type="button"
+            onClick={() => openSection("profile")}
+            className="flex w-full items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/80 p-3 text-left shadow-sm transition hover:bg-slate-100"
+          >
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-semibold text-white">
+              {initials || <User className="h-5 w-5" />}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-semibold text-slate-900">{currentUser?.fullName ?? t("user_profile")}</span>
+              <span className="block truncate text-xs text-slate-500">{currentUser?.email}</span>
+              {currentUser?.role && (
+                <span className="mt-1 inline-block rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700">{currentUser.role}</span>
+              )}
+            </span>
+            <ChevronRight className="h-4 w-4 shrink-0 text-slate-300" />
           </button>
-          <h2 className="text-sm font-semibold text-slate-900 truncate">{selected.label}</h2>
+
+          <SettingsMobileMenu
+            sections={[
+              {
+                label: tnav("general"),
+                entries: sections
+                  .filter((section) => section.key !== "profile")
+                  .map((section) => ({
+                    key: section.key,
+                    label: section.label,
+                    icon: section.icon,
+                    onSelect: () => openSection(section.key),
+                  })),
+              },
+              ...(isSysAdmin
+                ? navGroups.map((group) => ({
+                    label: group.label,
+                    entries: group.items.map((item) => ({ key: item.href, label: item.label, icon: item.icon, href: item.href })),
+                  }))
+                : []),
+            ]}
+          />
         </div>
-        <div className="p-3 overflow-auto">{selected.render}</div>
-        {isSavable && (
-          <div className="p-3">
-            <Button onClick={handleSaveSettings} disabled={isSaving || isLoading} className="bg-blue-600 text-white hover:bg-blue-700 w-full">{isSaving ? tc("saving") : tc("save_changes")}</Button>
-          </div>
-        )}
       </StandardMobileTemplate>
     );
   }
+
+  const tabTriggerClass =
+    "justify-start px-4 py-2.5 text-sm rounded-md text-slate-600 transition-all data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:font-semibold data-[state=active]:shadow-none hover:bg-slate-100";
 
   return (
     <div className="flex flex-col h-full space-y-4 w-full pb-8">
@@ -326,118 +442,22 @@ function SettingsPageContent() {
       <div className="flex flex-col md:flex-row gap-6 flex-1 items-start">
         <Tabs defaultValue={initialTab} onValueChange={setActiveTab} orientation="vertical" className="flex-1 w-full flex flex-col md:flex-row gap-8">
           <TabsList className="flex flex-col justify-start h-auto bg-transparent items-stretch space-y-1 md:w-64 shrink-0 p-0">
-            <TabsTrigger value="profile" className="justify-start px-4 py-2.5 text-sm rounded-md text-slate-600 transition-all data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:font-semibold data-[state=active]:shadow-none hover:bg-slate-100">
-              <User className="h-4 w-4 mr-3" /> {t('user_profile')}
-            </TabsTrigger>
-
-            {isSysAdmin && (
-              <>
-                <TabsTrigger value="users" className="justify-start px-4 py-2.5 text-sm rounded-md text-slate-600 transition-all data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:font-semibold data-[state=active]:shadow-none hover:bg-slate-100">
-                  <Users className="h-4 w-4 mr-3" /> {t('users_roles')}
+            {sections.map((section) => (
+              <Fragment key={section.key}>
+                {section.separatorBefore && <div className="h-px bg-slate-200 my-4 mx-2"></div>}
+                <TabsTrigger value={section.key} className={tabTriggerClass}>
+                  <section.icon className="h-4 w-4 mr-3" /> {section.label}
                 </TabsTrigger>
-                <TabsTrigger value="roles" className="justify-start px-4 py-2.5 text-sm rounded-md text-slate-600 transition-all data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:font-semibold data-[state=active]:shadow-none hover:bg-slate-100">
-                  <UserCog className="h-4 w-4 mr-3" /> {t('roles_management')}
-                </TabsTrigger>
-                <TabsTrigger value="organization" className="justify-start px-4 py-2.5 text-sm rounded-md text-slate-600 transition-all data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:font-semibold data-[state=active]:shadow-none hover:bg-slate-100">
-                  <Building className="h-4 w-4 mr-3" /> {t('organization')}
-                </TabsTrigger>
-                <TabsTrigger value="modules" className="justify-start px-4 py-2.5 text-sm rounded-md text-slate-600 transition-all data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:font-semibold data-[state=active]:shadow-none hover:bg-slate-100">
-                  <LayoutTemplate className="h-4 w-4 mr-3" /> {t('clinical_modules')}
-                </TabsTrigger>
-                <TabsTrigger value="templates" className="justify-start px-4 py-2.5 text-sm rounded-md text-slate-600 transition-all data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:font-semibold data-[state=active]:shadow-none hover:bg-slate-100">
-                  <FileText className="h-4 w-4 mr-3" /> {ttpl('title')}
-                </TabsTrigger>
-                <TabsTrigger value="onprem_license" className="justify-start px-4 py-2.5 text-sm rounded-md text-slate-600 transition-all data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:font-semibold data-[state=active]:shadow-none hover:bg-slate-100">
-                  <ServerCog className="h-4 w-4 mr-3" /> {t('onprem_license_management')}
-                </TabsTrigger>
-                <div className="h-px bg-slate-200 my-4 mx-2"></div>
-                <TabsTrigger value="security" className="justify-start px-4 py-2.5 text-sm rounded-md text-slate-600 transition-all data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:font-semibold data-[state=active]:shadow-none hover:bg-slate-100">
-                  <ShieldCheck className="h-4 w-4 mr-3" /> {t('security')}
-                </TabsTrigger>
-                <TabsTrigger value="integrations" className="justify-start px-4 py-2.5 text-sm rounded-md text-slate-600 transition-all data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:font-semibold data-[state=active]:shadow-none hover:bg-slate-100">
-                  <Link2 className="h-4 w-4 mr-3" /> {t('integrations')}
-                </TabsTrigger>
-              </>
-            )}
+              </Fragment>
+            ))}
           </TabsList>
 
           <div className="flex-1 min-w-0">
-            <TabsContent value="profile" className="m-0 mt-0 focus-visible:outline-none space-y-6">
-              <ProfileSettings
-                currentUser={currentUser}
-                profileData={profileData}
-                setProfileData={setProfileData}
-                t={t}
-                tc={tc}
-                error={profileError}
-              />
-              <ChangePasswordCard t={t} tc={tc} />
-            </TabsContent>
-
-            {isSysAdmin && (
-              <>
-                <TabsContent value="users" className="m-0 mt-0 focus-visible:outline-none">
-                  <UsersManagement />
-                </TabsContent>
-
-                <TabsContent value="roles" className="m-0 mt-0 focus-visible:outline-none">
-                  <RolesManagement />
-                </TabsContent>
-
-                <TabsContent value="organization" className="m-0 mt-0 focus-visible:outline-none">
-                  <OrganizationSettings orgData={orgData} setOrgData={setOrgData} t={t} tc={tc} />
-                </TabsContent>
-
-                <TabsContent value="modules" className="m-0 mt-0 focus-visible:outline-none">
-                  <ModuleConfiguration
-                    appModules={APP_MODULES}
-                    activeModules={activeModules}
-                    t={t}
-                    readOnly
-                    showOnlyActive
-                  />
-                </TabsContent>
-
-                <TabsContent value="templates" className="m-0 mt-0 focus-visible:outline-none">
-                  <DocumentTemplates 
-                    facility={orgData}
-                    templateSettings={templateSettings} 
-                    setTemplateSettings={setTemplateSettings} 
-                    ttpl={ttpl} 
-                  />
-                </TabsContent>
-
-                <TabsContent value="onprem_license" className="m-0 mt-0 focus-visible:outline-none">
-                  <OnPremLicensePanel />
-                </TabsContent>
-
-                <TabsContent value="security" className="m-0 mt-0 focus-visible:outline-none">
-                  <div className="bg-white rounded border border-slate-200 shadow-sm p-6 space-y-6">
-                    <div>
-                      <h2 className="text-lg font-bold text-slate-900">{t('security')}</h2>
-                      <p className="text-xs text-slate-500">Configure global authentication mechanisms.</p>
-                    </div>
-                    <div className="p-8 text-center border-2 border-dashed border-slate-200 rounded-lg">
-                      <ShieldCheck className="h-10 w-10 text-slate-300 mx-auto mb-3" />
-                      <h3 className="text-sm font-bold text-slate-700">SSO & RBAC Settings</h3>
-                      <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">Role Based Access Control is managed dynamically via Users Configuration.</p>
-                    </div>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="integrations" className="m-0 mt-0 focus-visible:outline-none">
-                  <div className="mb-4">
-                    <h2 className="text-lg font-bold text-slate-900">{t('integrations')}</h2>
-                    <p className="text-xs text-slate-500">Manage HL7 pipelines, DICOM servers, and generic APIs.</p>
-                  </div>
-                  <Dhis2IntegrationSettings />
-                  <div className="mt-8 mb-4">
-                    <h2 className="text-lg font-bold text-slate-900">{t('payments.title')}</h2>
-                    <p className="text-xs text-slate-500">{t('payments.description')}</p>
-                  </div>
-                  <MobileMoneySettings />
-                </TabsContent>
-              </>)}
+            {sections.map((section) => (
+              <TabsContent key={section.key} value={section.key} className="m-0 mt-0 focus-visible:outline-none">
+                {section.content}
+              </TabsContent>
+            ))}
           </div>
         </Tabs>
       </div>

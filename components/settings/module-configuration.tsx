@@ -42,8 +42,8 @@ export function ModuleConfiguration({
   );
 
   return (
-    <div className="bg-white rounded border border-slate-200 shadow-sm p-0 overflow-hidden">
-      <div className="p-6 pb-4 border-b border-slate-100 bg-slate-50/50">
+    <div className="bg-white rounded-2xl md:rounded border border-slate-200 shadow-sm p-0 overflow-hidden">
+      <div className="p-4 md:p-6 pb-4 md:pb-4 border-b border-slate-100 bg-slate-50/50">
         <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
           <LayoutTemplate className="h-5 w-5 text-blue-600" /> {t("module_config")}
         </h2>
@@ -70,7 +70,7 @@ export function ModuleConfiguration({
               <div
                 key={mod.id}
                 className={cn(
-                  "p-5 flex items-start gap-4 transition-colors",
+                  "p-4 md:p-5 flex items-start gap-4 transition-colors",
                   isActive ? "bg-white" : "bg-slate-50/50"
                 )}
               >
@@ -97,7 +97,7 @@ export function ModuleConfiguration({
                   </button>
                 </div>
                 <div className="flex-1">
-                  <div className="flex justify-between items-start">
+                  <div className="flex justify-between items-start gap-3">
                     <h3 className={cn("text-sm font-bold", isActive ? "text-slate-900" : "text-slate-500")}>
                       {mod.name}
                       {mod.required && (
@@ -111,7 +111,7 @@ export function ModuleConfiguration({
                         </span>
                       )}
                     </h3>
-                    <span className="text-[10px] font-mono text-slate-400">{mod.id}</span>
+                    <span className="hidden md:inline text-[10px] font-mono text-slate-400">{mod.id}</span>
                   </div>
                   <p className={cn("text-xs mt-1 leading-relaxed max-w-lg", isActive ? "text-slate-600" : "text-slate-400")}>
                     {mod.desc}

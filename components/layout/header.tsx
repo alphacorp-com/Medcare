@@ -3,7 +3,7 @@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuGroup } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Languages } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useOrganizationInfo } from "./use-layout-data";
 import { useAppStore } from "@/lib/store/useAppStore";
 import { useRouter, usePathname } from "@/i18n/routing";
 import { useTranslations, useLocale } from "next-intl";
@@ -30,11 +30,7 @@ export function Header() {
     router.push(pathname, { locale: newLocale });
   };
 
-  const [orgInfo, setOrgInfo] = useState({
-    name: '',
-    address: '',
-    logoUrl: ''
-  });
+  const orgInfo = useOrganizationInfo() ?? { name: '', address: '', logoUrl: '' };
 
   const roleTranslations: Record<string, string> = {
     "System Administrator": tr('admin'),
@@ -46,25 +42,6 @@ export function Header() {
     "Billing Manager": tr('billing'),
     "HR Director": tr('hr')
   };
-
-  useEffect(() => {
-    const fetchOrg = async () => {
-      try {
-        const response = await fetch('/api/v1/settings/organization');
-        if (!response.ok) return;
-        const data = await response.json();
-        setOrgInfo({
-          name: data.name || '',
-          address: data.address || '',
-          logoUrl: data.logoUrl || ''
-        });
-      } catch (error) {
-        console.error('Failed to load organization info', error);
-      }
-    };
-
-    fetchOrg();
-  }, []);
 
   return (
     <header className="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0">

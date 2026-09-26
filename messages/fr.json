@@ -583,6 +583,7 @@
     },
     "nav": {
       "general": "Général",
+      "all_settings": "Tous les paramètres",
       "groupClinical": "Clinique",
       "groupExams": "Examens & Diagnostics",
       "groupPharmacy": "Pharmacie",
@@ -1890,6 +1891,26 @@
     "start_conversation": "Démarrer la Conversation",
     "no_conversations": "Aucune conversation pour le moment",
     "select_conversation": "Sélectionnez une conversation pour commencer",
-    "type_message": "Écrivez un message..."
+    "type_message": "Écrivez un message...",
+    "send": "Envoyer",
+    "back_to_list": "Retour aux conversations",
+    "search_conversations": "Rechercher une conversation",
+    "no_results": "Aucune conversation trouvée",
+    "today": "Aujourd'hui",
+    "yesterday": "Hier"
+  },
+  "mobileNav": {
+    "home": "Accueil",
+    "patients": "Patients",
+    "stays": "Admissions",
+    "messages": "Messages",
+    "more": "Plus",
+    "open_menu": "Ouvrir le menu",
+    "open_profile": "Ouvrir mon compte",
+    "more_title": "Tous les services",
+    "account": "Mon compte",
+    "language": "Langue",
+    "settings": "Paramètres",
+    "logout": "Se déconnecter"
   }
 }
