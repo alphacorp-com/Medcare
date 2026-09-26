@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
+import { MedcareLogo, PoweredByAlphaCorp } from "@/components/brand/logos";
 import { Building2, ArrowRight, ShieldCheck, Mail, KeyRound } from "lucide-react";
 
 export default function LoginPage() {
@@ -58,14 +59,7 @@ export default function LoginPage() {
           <div className="absolute left-0 right-0 top-0 -mt-20 h-96 w-full bg-blue-600/20 blur-3xl rounded-full"></div>
           
           <div className="relative z-10">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center shrink-0 shadow-lg shadow-blue-500/20">
-                <div className="w-5 h-5 border-[2.5px] border-white rounded-full"></div>
-              </div>
-              <span className="text-white font-bold tracking-tight text-2xl truncate">
-                {commonT('app_name')}
-              </span>
-            </div>
+            <MedcareLogo tone="dark" className="h-9" />
             
             <div className="mt-16 space-y-6">
               <h1 className="text-4xl font-extrabold tracking-tight leading-tight">
@@ -87,10 +81,14 @@ export default function LoginPage() {
               </div>
             </div>
           </div> */}
+
+          <PoweredByAlphaCorp tone="dark" label={commonT('powered_by')} className="relative z-10 mt-12" />
         </div>
 
         {/* Right Side - Login Form */}
-        <div className="p-8 md:p-12 flex flex-col justify-center">
+        <div className="p-6 sm:p-8 md:p-12 flex flex-col justify-center">
+          {/* The brand panel is hidden on phones, so the logo moves above the form. */}
+          <MedcareLogo className="h-9 mb-8 self-start md:hidden" />
           <div className="mb-8">
             <h2 className="text-2xl font-bold text-slate-900 tracking-tight">{t('sign_in')}</h2>
             <p className="text-sm text-slate-500 mt-1">{t('credentials')}</p>
@@ -149,6 +147,10 @@ export default function LoginPage() {
               Set up your organization
             </Link>
           </p>
+
+          <div className="mt-8 flex justify-center border-t border-slate-100 pt-6 md:hidden">
+            <PoweredByAlphaCorp label={commonT('powered_by')} />
+          </div>
         </div>
       </div>
     </div>
