@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Plus, Search } from "lucide-react";
+import { MessageSquarePlus, Plus, Search } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -24,9 +24,11 @@ interface Colleague {
 
 interface NewConversationDialogProps {
   onCreated: (conversationId: string) => void;
+  // "fab" renders the floating round button used by the mobile conversation list.
+  variant?: "button" | "fab";
 }
 
-export function NewConversationDialog({ onCreated }: NewConversationDialogProps) {
+export function NewConversationDialog({ onCreated, variant = "button" }: NewConversationDialogProps) {
   const t = useTranslations("messages");
   const [open, setOpen] = useState(false);
   const [colleagues, setColleagues] = useState<Colleague[]>([]);
@@ -76,9 +78,18 @@ export function NewConversationDialog({ onCreated }: NewConversationDialogProps)
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button size="sm" className="gap-1.5" />}>
-        <Plus className="w-4 h-4" /> {t("new_conversation")}
-      </DialogTrigger>
+      {variant === "fab" ? (
+        <DialogTrigger
+          aria-label={t("new_conversation")}
+          className="fixed right-4 bottom-20 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-white shadow-lg transition hover:bg-blue-700 active:scale-95"
+        >
+          <MessageSquarePlus className="h-6 w-6" />
+        </DialogTrigger>
+      ) : (
+        <DialogTrigger render={<Button size="sm" className="gap-1.5" />}>
+          <Plus className="w-4 h-4" /> {t("new_conversation")}
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{t("new_conversation")}</DialogTitle>
@@ -94,7 +105,7 @@ export function NewConversationDialog({ onCreated }: NewConversationDialogProps)
           />
         </div>
 
-        <div className="max-h-64 overflow-y-auto border border-slate-200 rounded-md divide-y divide-slate-100">
+        <div className="max-h-[50vh] md:max-h-64 overflow-y-auto border border-slate-200 rounded-md divide-y divide-slate-100">
           {loading ? (
             <div className="p-4 text-center text-xs text-slate-400">…</div>
           ) : filtered.length === 0 ? (
@@ -108,7 +119,7 @@ export function NewConversationDialog({ onCreated }: NewConversationDialogProps)
                   type="button"
                   onClick={() => toggle(colleague.id)}
                   className={cn(
-                    "w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-slate-50",
+                    "w-full flex items-center gap-2.5 px-3 py-3 md:py-2 text-left hover:bg-slate-50",
                     checked && "bg-blue-50"
                   )}
                 >

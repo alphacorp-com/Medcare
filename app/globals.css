@@ -132,21 +132,47 @@
   }
 }
 
-@keyframes gradientShift {
-  0% {
-    background-position: 0% 50%;
+/* AlphaCorp ∞ mark: a slow "breathing" float with a purple glow, plus a light sweep
+   clipped to the mark's own shape through a mask of the same image. */
+@keyframes alphacorp-float {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+    filter: drop-shadow(0 0 0 rgb(168 85 247 / 0));
   }
   50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
+    transform: translateY(-2px) scale(1.06);
+    filter: drop-shadow(0 0 6px rgb(168 85 247 / 0.55));
   }
 }
 
-.animate-gradient {
-  background-size: 200% 200%;
-  animation: gradientShift 3s ease infinite;
+@keyframes alphacorp-shine {
+  0% { background-position: 150% 0; }
+  60%, 100% { background-position: -50% 0; }
+}
+
+.alphacorp-mark {
+  position: relative;
+  display: inline-block;
+  animation: alphacorp-float 3.2s ease-in-out infinite;
+}
+
+.alphacorp-mark::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 35%, rgb(255 255 255 / 0.85) 50%, transparent 65%);
+  background-size: 250% 100%;
+  -webkit-mask: url("/brand/alphacorp-mark.png") center / contain no-repeat;
+  mask: url("/brand/alphacorp-mark.png") center / contain no-repeat;
+  animation: alphacorp-shine 2.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alphacorp-mark,
+  .alphacorp-mark::after {
+    animation: none;
+  }
 }
 
 @layer components {
@@ -187,7 +213,8 @@
   }
 
   /* For larger screens restore normal table layout */
-  @screen sm {
+  /* Tailwind v4 dropped @screen; 40rem is the `sm` breakpoint. */
+  @media (width >= 40rem) {
     table thead {
       display: table-header-group;
     }
