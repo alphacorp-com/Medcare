@@ -169,7 +169,7 @@ export default function LaboratoryPage() {
             </div>
         </div>
         <div className="flex-1 overflow-x-auto">
-          <table className="min-w-[760px] w-full text-left">
+          <table className="sm:min-w-[760px] w-full text-left">
             <thead>
               <tr className="bg-slate-50 text-[10px] text-slate-500 uppercase font-bold border-b border-slate-200 sticky top-0 z-10">
                 <th className="px-4 py-2">{t('exam_id')}</th>

@@ -127,7 +127,7 @@ export function PrescriptionSheet({
                             required={index === 0}
                           />
                         </div>
-                        <div className="grid grid-cols-3 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                           <div className="space-y-2">
                             <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-tight ml-1">{t('dosage')}</Label>
                             <Input 

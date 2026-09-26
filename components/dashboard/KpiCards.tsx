@@ -51,9 +51,9 @@ export function KpiCards() {
 
   if (loading) {
     return (
-      <div className="flex flex-col gap-4 h-full">
+      <div className="grid grid-cols-2 gap-3 lg:flex lg:flex-col lg:gap-4 lg:h-full">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="bg-white p-4 rounded border border-slate-200 shadow-sm animate-pulse">
+          <div key={i} className="bg-white p-3 lg:p-4 rounded border border-slate-200 shadow-sm animate-pulse">
             <div className="h-4 bg-slate-200 rounded w-3/4 mb-2"></div>
             <div className="h-6 bg-slate-200 rounded w-1/2"></div>
           </div>
@@ -64,8 +64,8 @@ export function KpiCards() {
 
   if (error || !data) {
     return (
-      <div className="flex flex-col gap-4 h-full">
-        <div className="bg-white p-4 rounded border border-slate-200 shadow-sm">
+      <div className="grid grid-cols-2 gap-3 lg:flex lg:flex-col lg:gap-4 lg:h-full">
+        <div className="bg-white p-3 lg:p-4 rounded border border-slate-200 shadow-sm">
           <div className="text-xs text-red-600">{t('failed_load_dashboard')}</div>
         </div>
       </div>
@@ -73,41 +73,41 @@ export function KpiCards() {
   }
 
   return (
-    <div className="flex flex-col gap-4 h-full">
-      <div className="bg-white p-4 rounded border border-slate-200 shadow-sm">
-        <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">{t('active_consultations')}</div>
-        <div className="flex items-end justify-between">
-          <span className="text-3xl font-bold text-slate-900">{data.activeConsultations}</span>
+    <div className="grid grid-cols-2 gap-3 lg:flex lg:flex-col lg:gap-4 lg:h-full">
+      <div className="bg-white p-3 lg:p-4 rounded border border-slate-200 shadow-sm">
+        <div className="text-[10px] lg:text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 truncate">{t('active_consultations')}</div>
+        <div className="flex flex-wrap items-end justify-between gap-x-2">
+          <span className="text-2xl lg:text-3xl font-bold text-slate-900">{data.activeConsultations}</span>
           <span className={`text-xs font-medium mb-1 ${data.consultationChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
             {data.consultationChange >= 0 ? '+' : ''}{data.consultationChange}% {t('vs_yesterday')}
           </span>
         </div>
       </div>
 
-      <div className="bg-white p-4 rounded border border-slate-200 shadow-sm">
-        <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">{t('er_wait_time')}</div>
-        <div className="flex items-end justify-between">
-          <span className="text-3xl font-bold text-slate-900">{data.avgWaitTime}<span className="text-sm text-slate-400">{t('minutes_short')}</span></span>
+      <div className="bg-white p-3 lg:p-4 rounded border border-slate-200 shadow-sm">
+        <div className="text-[10px] lg:text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 truncate">{t('er_wait_time')}</div>
+        <div className="flex flex-wrap items-end justify-between gap-x-2">
+          <span className="text-2xl lg:text-3xl font-bold text-slate-900">{data.avgWaitTime}<span className="text-sm text-slate-400">{t('minutes_short')}</span></span>
           <span className={`text-xs font-medium mb-1 ${data.avgWaitTime > 15 ? 'text-red-600' : 'text-green-600'}`}>
             {data.avgWaitTime > 15 ? t('increasing') : t('normal')}
           </span>
         </div>
       </div>
 
-      <div className="bg-white p-4 rounded border border-slate-200 shadow-sm">
-        <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">{t('lab_processing')}</div>
-        <div className="flex items-end justify-between">
-          <span className="text-3xl font-bold text-slate-900">{data.pendingLabs}</span>
+      <div className="bg-white p-3 lg:p-4 rounded border border-slate-200 shadow-sm">
+        <div className="text-[10px] lg:text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 truncate">{t('lab_processing')}</div>
+        <div className="flex flex-wrap items-end justify-between gap-x-2">
+          <span className="text-2xl lg:text-3xl font-bold text-slate-900">{data.pendingLabs}</span>
           <span className="text-xs text-blue-600 font-medium mb-1">
             {data.pendingLabs > 10 ? `${Math.floor(data.pendingLabs / 10) * 10}+` : data.pendingLabs} {t('pending')}
           </span>
         </div>
       </div>
 
-      <div className="bg-white p-4 rounded border border-slate-200 shadow-sm">
-        <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">{t('bed_occupancy')}</div>
-        <div className="flex items-end justify-between">
-          <span className="text-3xl font-bold text-slate-900">
+      <div className="bg-white p-3 lg:p-4 rounded border border-slate-200 shadow-sm">
+        <div className="text-[10px] lg:text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 truncate">{t('bed_occupancy')}</div>
+        <div className="flex flex-wrap items-end justify-between gap-x-2">
+          <span className="text-2xl lg:text-3xl font-bold text-slate-900">
             {data.bedOccupancy.occupied}<span className="text-sm text-slate-400">/{data.bedOccupancy.total}</span>
           </span>
           <span className={`text-xs font-medium mb-1 ${data.bedOccupancy.total > 0 && data.bedOccupancy.occupied / data.bedOccupancy.total > 0.9 ? 'text-red-600' : 'text-blue-600'}`}>
@@ -116,7 +116,7 @@ export function KpiCards() {
         </div>
       </div>
 
-      <div className="flex-1 bg-white p-4 rounded border border-slate-200 shadow-sm flex flex-col">
+      <div className="col-span-2 lg:col-span-1 flex-1 bg-white p-3 lg:p-4 rounded border border-slate-200 shadow-sm flex flex-col">
         <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4 border-b pb-2">{t('system_monitor')}</div>
         <div className="space-y-3">
           <div className="flex items-center justify-between text-xs">

@@ -1,9 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Plus } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { ScheduleEntry, StaffMember } from "../types";
 
 const ACTIVE_STATUSES = new Set(["planned", "confirmed", "modified"]);
@@ -17,6 +19,8 @@ function shiftCellClass(schedule: ScheduleEntry) {
   if (schedule.shiftType === "night") return "bg-slate-800 text-slate-100 border-slate-700 hover:bg-slate-700";
   return "bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100";
 }
+
+const dayKey = (date: Date) => format(date, "yyyy-MM-dd");
 
 export function RosterGrid({
   staff,
@@ -34,12 +38,95 @@ export function RosterGrid({
   const t = useTranslations("planning");
   const tc = useTranslations("common");
   const tr = useTranslations("roles");
+  const isMobile = useIsMobile();
+  const todayIndex = weekDays.findIndex((date) => dayKey(date) === dayKey(new Date()));
+  const [selectedDay, setSelectedDay] = useState(Math.max(todayIndex, 0));
 
   const schedulesFor = (userId: string, date: Date) =>
-    schedules.filter((s) => s.userId === userId && format(new Date(s.date), "yyyy-MM-dd") === format(date, "yyyy-MM-dd"));
+    schedules.filter((s) => s.userId === userId && format(new Date(s.date), "yyyy-MM-dd") === dayKey(date));
 
   const headcount = (date: Date) =>
-    schedules.filter((s) => ACTIVE_STATUSES.has(s.status) && format(new Date(s.date), "yyyy-MM-dd") === format(date, "yyyy-MM-dd")).length;
+    schedules.filter((s) => ACTIVE_STATUSES.has(s.status) && format(new Date(s.date), "yyyy-MM-dd") === dayKey(date)).length;
+
+  const renderShift = (entry: ScheduleEntry) => (
+    <div key={entry.id} className={cn("rounded border px-1.5 py-1 w-full", shiftCellClass(entry))}>
+      {entry.status === "absent" ? (
+        <span className="flex items-center justify-center"><AlertCircle className="h-3 w-3 mr-1" /> {t("status.absent")}</span>
+      ) : (
+        <>
+          <div>{t(`shift_types.${entry.shiftType}`)}</div>
+          {entry.status === "replaced" && <div className="font-normal opacity-70">{t("status.replaced")}</div>}
+        </>
+      )}
+    </div>
+  );
+
+  if (isMobile) {
+    // Day view: the week becomes a row of selectable days, then one card per staff member.
+    const date = weekDays[Math.min(selectedDay, weekDays.length - 1)];
+
+    return (
+      <div className="flex-1 overflow-auto">
+        <div className="sticky top-0 z-10 grid grid-cols-7 gap-1 border-b border-slate-200 bg-white p-2">
+          {weekDays.map((day, index) => {
+            const selected = index === selectedDay;
+            const isToday = index === todayIndex;
+            return (
+              <button
+                key={dayKey(day)}
+                type="button"
+                onClick={() => setSelectedDay(index)}
+                className={cn(
+                  "flex flex-col items-center rounded-xl py-1.5 transition-colors",
+                  selected ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-100"
+                )}
+              >
+                <span className={cn("text-[10px] uppercase", selected ? "text-blue-100" : "text-slate-400")}>{format(day, "EEE")}</span>
+                <span className={cn("text-sm font-bold", !selected && isToday && "text-blue-600")}>{format(day, "dd")}</span>
+                <span className={cn("text-[9px] font-semibold", selected ? "text-blue-100" : "text-slate-400")}>{headcount(day)}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="space-y-2 p-3">
+          {staff.length === 0 ? (
+            <p className="py-8 text-center text-xs text-slate-400">{tc("no_data")}</p>
+          ) : (
+            staff.map((member) => {
+              const entries = schedulesFor(member.id, date);
+              return (
+                <div key={member.id} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-slate-900">{member.fullName}</p>
+                    <p className="truncate text-[11px] text-slate-500">{tr(member.role)}</p>
+                  </div>
+                  {entries.length === 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => onCellClick(member.id, date)}
+                      aria-label={t("assign_shift")}
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-dashed border-slate-300 text-slate-400 hover:bg-slate-50"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => onShiftClick(entries[0])}
+                      className="flex w-28 shrink-0 flex-col gap-1 text-center text-[11px] font-bold"
+                    >
+                      {entries.map(renderShift)}
+                    </button>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 overflow-auto">
@@ -80,22 +167,7 @@ export function RosterGrid({
                       )}
                       onClick={() => (entries.length > 0 ? onShiftClick(entries[0]) : onCellClick(member.id, date))}
                     >
-                      {entries.length === 0 ? (
-                        "+"
-                      ) : (
-                        entries.map((entry) => (
-                          <div key={entry.id} className={cn("rounded border px-1.5 py-1 w-full", shiftCellClass(entry))}>
-                            {entry.status === "absent" ? (
-                              <span className="flex items-center justify-center"><AlertCircle className="h-3 w-3 mr-1" /> {t("status.absent")}</span>
-                            ) : (
-                              <>
-                                <div>{t(`shift_types.${entry.shiftType}`)}</div>
-                                {entry.status === "replaced" && <div className="font-normal opacity-70">{t("status.replaced")}</div>}
-                              </>
-                            )}
-                          </div>
-                        ))
-                      )}
+                      {entries.length === 0 ? "+" : entries.map(renderShift)}
                     </div>
                   </td>
                 );

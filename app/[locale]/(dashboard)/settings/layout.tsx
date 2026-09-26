@@ -37,7 +37,6 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
       <StandardMobileTemplate
         title={ts("title")}
         subtitle={subtitle}
-        showSearchSlot={false}
         actions={<SettingsMobileBackButton href={backHref} label={backLabel} />}
       >
         {children}

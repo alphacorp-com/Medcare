@@ -290,7 +290,6 @@ export default function PatientsPage() {
     <StandardMobileTemplate
       title={t("title")}
       subtitle={t("subtitle")}
-      showSearchSlot={false}
       actions={<PatientsHeader onExport={handleExportPDF} onFilterToggle={() => setShowFilters(!showFilters)} onNewPatient={() => setIsNewPatientOpen(true)} />}
     >
       <PatientsFilterBar

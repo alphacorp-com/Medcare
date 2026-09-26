@@ -151,7 +151,7 @@ export default function PlanningPage() {
               <div className="flex items-center gap-2">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{t('department')}:</label>
                 <select
-                  className="h-8 text-xs bg-white border border-slate-200 rounded px-3 py-1 font-semibold text-slate-700 focus:outline-none focus:border-blue-400"
+                  className="h-8 min-w-0 flex-1 sm:flex-none text-xs bg-white border border-slate-200 rounded px-3 py-1 font-semibold text-slate-700 focus:outline-none focus:border-blue-400"
                   value={selectedDepartmentId}
                   onChange={(e) => setSelectedDepartmentId(e.target.value)}
                 >

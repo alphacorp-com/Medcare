@@ -9,14 +9,12 @@ export default function StandardMobileTemplate({
   subtitle,
   actions,
   children,
-  showSearchSlot = true,
   noRoundedContainer = false,
 }: {
   title: string;
   subtitle?: string;
   actions?: React.ReactNode;
   children: React.ReactNode;
-  showSearchSlot?: boolean;
   noRoundedContainer?: boolean;
 }) {
   return (
@@ -36,12 +34,6 @@ export default function StandardMobileTemplate({
             </div>
 
             {actions && <div className="mb-3">{actions}</div>}
-
-            {showSearchSlot && (
-              <div className="mb-3">
-                <div className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-400">Rechercher …</div>
-              </div>
-            )}
 
             <div className="flex-1 min-w-0 overflow-hidden">{children}</div>
           </div>

@@ -318,7 +318,7 @@ export default function AdmissionDetailPage() {
       />
 
       {/* Main Content Section */}
-      <div className="grid grid-cols-12 gap-4 flex-1 overflow-hidden pb-4">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1 lg:overflow-hidden pb-4">
         <AdmissionInfo
           stay={stay}
           departments={departments}
