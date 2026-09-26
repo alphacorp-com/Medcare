@@ -189,6 +189,12 @@
       display: none;
     }
 
+    /* Keeps the cards off the edges of the panel that holds the table. */
+    table tbody {
+      display: block;
+      padding: 0.5rem;
+    }
+
     table tr {
       display: block;
       margin-bottom: 0.75rem;
