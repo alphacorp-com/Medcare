@@ -29,13 +29,13 @@ export function StayHeader({ stay, onTransferOpen, onDischargeOpen, onVitalsOpen
   const tc = useTranslations('common');
 
   return (
-    <div className="flex items-center justify-between shrink-0 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-      <div className="flex items-center gap-4">
+    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between shrink-0 bg-white p-3 md:p-4 rounded-xl border border-slate-200 shadow-sm">
+      <div className="flex items-start md:items-center gap-3 md:gap-4 min-w-0">
         <Link href="/stays" className="p-2 hover:bg-slate-100 rounded-lg border border-transparent hover:border-slate-200 text-slate-500 transition-all active:scale-95">
           <ArrowLeft className="h-4 w-4" />
         </Link>
         <div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 md:gap-3">
             <h1 className="text-xl font-bold text-slate-900 tracking-tight">{stay.stayNumber}</h1>
             <span className={cn(
                 "px-2.5 py-0.5 text-[10px] rounded-full uppercase font-bold tracking-wider",
@@ -57,32 +57,32 @@ export function StayHeader({ stay, onTransferOpen, onDischargeOpen, onVitalsOpen
               <TriageBadge acuity={stay.triageAcuity} className="rounded-full ring-1 ring-black/5" />
             )}
           </div>
-          <div className="text-xs text-slate-500 mt-1 flex items-center gap-3">
+          <div className="text-xs text-slate-500 mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
             <span className="font-semibold text-slate-700 flex items-center gap-1.5"><User className="h-3 w-3" /> {stay.patient.firstName} {stay.patient.lastName}</span>
-            <span className="text-slate-300">|</span>
+            <span className="hidden md:inline text-slate-300">|</span>
             <span>{tc('date')}: {format(new Date(stay.admissionDate), "MMM d, yyyy HH:mm")}</span>
           </div>
         </div>
       </div>
-      <div className="flex gap-2">
+      <div className="grid grid-cols-2 gap-2 md:flex">
          {stay.status !== 'discharged' && (
-           <Button variant="outline" size="sm" className="text-xs h-9 rounded-lg px-4 border-slate-200 hover:bg-slate-50 transition-colors" onClick={onVitalsOpen}>
+           <Button variant="outline" size="sm" className="text-xs h-10 md:h-9 w-full md:w-auto rounded-lg px-3 md:px-4 border-slate-200 hover:bg-slate-50 transition-colors" onClick={onVitalsOpen}>
              <Activity className="mr-2 h-3.5 w-3.5 text-slate-500" />
              {t('add_vitals')}
            </Button>
          )}
          {stay.type === 'emergency' && stay.status === 'in_progress' && (
-           <Button variant="outline" size="sm" className="text-xs h-9 rounded-lg px-4 border-slate-200 hover:bg-slate-50 transition-colors" onClick={onRetriageOpen}>
+           <Button variant="outline" size="sm" className="text-xs h-10 md:h-9 w-full md:w-auto rounded-lg px-3 md:px-4 border-slate-200 hover:bg-slate-50 transition-colors" onClick={onRetriageOpen}>
              <Siren className="mr-2 h-3.5 w-3.5 text-slate-500" />
              {t('retriage')}
            </Button>
          )}
-         <Button variant="outline" size="sm" className="text-xs h-9 rounded-lg px-4 border-slate-200 hover:bg-slate-50 transition-colors" onClick={onTransferOpen}>
+         <Button variant="outline" size="sm" className="text-xs h-10 md:h-9 w-full md:w-auto rounded-lg px-3 md:px-4 border-slate-200 hover:bg-slate-50 transition-colors" onClick={onTransferOpen}>
            <ArrowRightLeft className="mr-2 h-3.5 w-3.5 text-slate-500" />
            {t('transfer_bed')}
          </Button>
          {stay.status !== 'discharged' && (
-           <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white h-9 rounded-lg px-4 shadow-sm transition-all active:scale-95" onClick={onDischargeOpen}>
+           <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white h-10 md:h-9 w-full md:w-auto rounded-lg px-4 shadow-sm transition-all active:scale-95 max-md:col-span-2" onClick={onDischargeOpen}>
              <LogOut className="mr-2 h-3.5 w-3.5" />
              {t('discharge_patient')}
            </Button>

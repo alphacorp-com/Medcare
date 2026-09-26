@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { NewAppointmentSheet } from "./_components/NewAppointmentSheet";
 import { AppointmentDetailSheet } from "./_components/AppointmentDetailSheet";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Appointment, Doctor } from "./types";
 
 function dayBounds(date: Date) {
@@ -24,6 +25,7 @@ function dayBounds(date: Date) {
 export default function AppointmentsPage() {
   const t = useTranslations("appointments");
   const tc = useTranslations("common");
+  const isMobile = useIsMobile();
   const hasModule = useAppStore((state) => state.hasModule);
 
   const [selectedDate, setSelectedDate] = useState(() => new Date());
@@ -144,57 +146,57 @@ export default function AppointmentsPage() {
 
   return (
     <div className="flex flex-col h-full space-y-4">
-      <div className="flex items-center justify-between shrink-0 bg-white p-4 rounded border border-slate-200 shadow-sm">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between shrink-0 bg-white p-3 md:p-4 rounded border border-slate-200 shadow-sm">
         <div>
           <h1 className="text-lg font-bold text-slate-800">{t("title")}</h1>
           <p className="text-xs text-slate-500 mt-1">{t("description")}</p>
         </div>
-        <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white h-8 text-xs" onClick={() => setIsNewOpen(true)}>
+        <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white h-10 md:h-8 w-full md:w-auto rounded-xl md:rounded-md text-xs" onClick={() => setIsNewOpen(true)}>
           <Plus className="mr-2 h-3.5 w-3.5" /> {t("new_appointment")}
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4 shrink-0">
-        <div className="bg-white p-4 rounded border border-slate-200 shadow-sm flex items-end justify-between">
-          <div>
-            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">{t("waiting")}</div>
-            <div className="text-3xl font-bold text-slate-900">{waitingCount}</div>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4 shrink-0">
+        <div className="bg-white p-3 md:p-4 rounded border border-slate-200 shadow-sm flex items-end justify-between">
+          <div className="min-w-0">
+            <div className="text-[10px] md:text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 truncate">{t("waiting")}</div>
+            <div className="text-2xl md:text-3xl font-bold text-slate-900">{waitingCount}</div>
           </div>
-          <Clock className="h-8 w-8 text-slate-200" />
+          <Clock className="h-6 w-6 md:h-8 md:w-8 shrink-0 text-slate-200" />
         </div>
-        <div className="bg-white p-4 rounded border border-slate-200 shadow-sm flex items-end justify-between">
-          <div>
-            <div className="text-xs font-semibold text-green-600 uppercase tracking-wider mb-1">{t("checked_in")}</div>
-            <div className="text-3xl font-bold text-green-600">{checkedInCount}</div>
+        <div className="bg-white p-3 md:p-4 rounded border border-slate-200 shadow-sm flex items-end justify-between">
+          <div className="min-w-0">
+            <div className="text-[10px] md:text-xs font-semibold text-green-600 uppercase tracking-wider mb-1 truncate">{t("checked_in")}</div>
+            <div className="text-2xl md:text-3xl font-bold text-green-600">{checkedInCount}</div>
           </div>
-          <CheckCircle2 className="h-8 w-8 text-green-100" />
+          <CheckCircle2 className="h-6 w-6 md:h-8 md:w-8 shrink-0 text-green-100" />
         </div>
-        <div className="bg-white p-4 rounded border border-slate-200 shadow-sm flex items-end justify-between">
-          <div>
-            <div className="text-xs font-semibold text-amber-600 uppercase tracking-wider mb-1">{t("no_show")}</div>
-            <div className="text-3xl font-bold text-amber-600">{noShowCount}</div>
+        <div className="bg-white p-3 md:p-4 rounded border border-slate-200 shadow-sm flex items-end justify-between">
+          <div className="min-w-0">
+            <div className="text-[10px] md:text-xs font-semibold text-amber-600 uppercase tracking-wider mb-1 truncate">{t("no_show")}</div>
+            <div className="text-2xl md:text-3xl font-bold text-amber-600">{noShowCount}</div>
           </div>
-          <UserX className="h-8 w-8 text-amber-100" />
+          <UserX className="h-6 w-6 md:h-8 md:w-8 shrink-0 text-amber-100" />
         </div>
         <button
-          className="bg-white p-4 rounded border border-slate-200 shadow-sm flex items-end justify-between hover:border-blue-300 transition-colors text-left"
+          className="bg-white p-3 md:p-4 rounded border border-slate-200 shadow-sm flex items-end justify-between hover:border-blue-300 transition-colors text-left"
           onClick={() => setSelectedDate(new Date(selectedDate.getTime() + 24 * 60 * 60 * 1000))}
         >
-          <div>
-            <div className="text-xs font-semibold text-purple-600 uppercase tracking-wider mb-1">{t("tomorrow_to_confirm")}</div>
-            <div className="text-3xl font-bold text-purple-600">{tomorrowCount}</div>
+          <div className="min-w-0">
+            <div className="text-[10px] md:text-xs font-semibold text-purple-600 uppercase tracking-wider mb-1 truncate">{t("tomorrow_to_confirm")}</div>
+            <div className="text-2xl md:text-3xl font-bold text-purple-600">{tomorrowCount}</div>
           </div>
-          <CalendarClock className="h-8 w-8 text-purple-100" />
+          <CalendarClock className="h-6 w-6 md:h-8 md:w-8 shrink-0 text-purple-100" />
         </button>
       </div>
 
       <div className="flex-1 flex flex-col bg-white rounded border border-slate-200 shadow-sm overflow-hidden">
-        <div className="p-2 border-b border-slate-200 bg-slate-50 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
+        <div className="p-2 border-b border-slate-200 bg-slate-50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
+          <div className="flex items-center justify-between sm:justify-start gap-2">
             <Button variant="outline" size="icon-sm" onClick={() => setSelectedDate(new Date(selectedDate.getTime() - 24 * 60 * 60 * 1000))}>
               <ChevronLeft className="h-3.5 w-3.5" />
             </Button>
-            <div className="text-sm font-semibold text-slate-700 min-w-[10rem] text-center">
+            <div className="text-sm font-semibold text-slate-700 flex-1 sm:flex-none sm:min-w-[10rem] text-center">
               {isToday ? t("today") : format(selectedDate, "MMM d, yyyy")}
             </div>
             <Button variant="outline" size="icon-sm" onClick={() => setSelectedDate(new Date(selectedDate.getTime() + 24 * 60 * 60 * 1000))}>
@@ -209,7 +211,7 @@ export default function AppointmentsPage() {
           <select
             value={doctorFilter}
             onChange={(e) => setDoctorFilter(e.target.value)}
-            className="h-8 text-xs bg-white border border-slate-200 rounded px-2 outline-none focus:border-blue-400 text-slate-700"
+            className="h-10 sm:h-8 w-full sm:w-auto text-sm sm:text-xs bg-white border border-slate-200 rounded px-2 outline-none focus:border-blue-400 text-slate-700"
           >
             <option value="">{tc("all")}</option>
             {doctors.map((d) => (
@@ -225,6 +227,38 @@ export default function AppointmentsPage() {
             <div className="flex items-center justify-center h-full text-slate-400 text-sm flex-col">
               <CalendarClock className="h-8 w-8 mb-2 opacity-50" />
               {t("no_appointments")}
+            </div>
+          ) : isMobile ? (
+            // Agenda view: the time sits in a left rail, the appointment in a card beside it.
+            <div className="space-y-3 p-3">
+              {appointments.map((appt) => (
+                <div key={appt.id} className="flex gap-3">
+                  <div className="w-12 shrink-0 pt-3 text-right font-mono text-sm font-semibold text-slate-700">
+                    {format(new Date(appt.scheduledAt), "HH:mm")}
+                  </div>
+                  <div className="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-slate-900">{appt.patient.firstName} {appt.patient.lastName}</p>
+                        <p className="font-mono text-[11px] text-slate-500">IPP: {appt.patient.ipp}</p>
+                      </div>
+                      <span className={cn(statusBadgeClass(appt.status), "shrink-0")}>{t(`status_${appt.status}`)}</span>
+                    </div>
+                    <p className="mt-2 truncate text-xs text-slate-600">{doctorName(appt.doctorId)}</p>
+                    {appt.reasonForVisit && <p className="mt-0.5 line-clamp-2 text-xs text-slate-500">{appt.reasonForVisit}</p>}
+                    <div className="mt-3 flex gap-2">
+                      {(appt.status === "booked" || appt.status === "confirmed") && (
+                        <Button size="sm" className="h-9 flex-1 rounded-xl text-xs bg-green-600 text-white hover:bg-green-700" onClick={() => quickCheckIn(appt)}>
+                          <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> {t("check_in")}
+                        </Button>
+                      )}
+                      <Button variant="outline" size="sm" className="h-9 flex-1 rounded-xl text-xs" onClick={() => setDetailAppointment(appt)}>
+                        {tc("view")}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           ) : (
             <table className="w-full text-left">

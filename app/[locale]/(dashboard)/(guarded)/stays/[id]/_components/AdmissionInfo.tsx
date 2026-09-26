@@ -20,8 +20,8 @@ export function AdmissionInfo({ stay, departments, beds, doctorName }: Admission
   const t = useTranslations('admissions');
 
   return (
-    <div className="col-span-3 flex flex-col gap-4 overflow-y-auto">
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+    <div className="lg:col-span-3 flex flex-col gap-4 lg:overflow-y-auto">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 md:p-5">
         <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center justify-between">
           <span>{t('admission_details')}</span>
           <Building2 className="h-3 w-3" />

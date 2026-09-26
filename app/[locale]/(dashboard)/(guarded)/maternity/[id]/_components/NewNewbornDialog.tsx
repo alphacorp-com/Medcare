@@ -103,7 +103,7 @@ export function NewNewbornDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <Input type="number" placeholder={t("birth_weight_g")} value={birthWeightGrams} onChange={(e) => setBirthWeightGrams(e.target.value)} className="h-9 text-xs" />
             <Input type="number" placeholder={t("apgar_1min")} value={apgarScore1Min} onChange={(e) => setApgarScore1Min(e.target.value)} className="h-9 text-xs" />
             <Input type="number" placeholder={t("apgar_5min")} value={apgarScore5Min} onChange={(e) => setApgarScore5Min(e.target.value)} className="h-9 text-xs" />

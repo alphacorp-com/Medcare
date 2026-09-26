@@ -3,6 +3,7 @@
 import React from "react";
 import { MobileHeader } from "./MobileHeader";
 import { MobileBottomNav } from "./MobileBottomNav";
+import { TableCardLabels } from "./TableCardLabels";
 
 export default function MobileLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -21,6 +22,7 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
       </main>
 
       <MobileBottomNav />
+      <TableCardLabels />
     </div>
   );
 }

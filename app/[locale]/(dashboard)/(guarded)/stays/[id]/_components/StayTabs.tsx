@@ -33,38 +33,38 @@ export function StayTabs({ stay, onPrescriptionOpen, onOrderOpen, onCompleteOrde
   const tc = useTranslations('common');
 
   return (
-    <div className="col-span-9 flex flex-col bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+    <div className="lg:col-span-9 flex flex-col bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
       <Tabs defaultValue="timeline" className="w-full flex-1 flex flex-col">
-        <div className="px-4 pt-4 border-b border-slate-100 bg-white shrink-0 flex items-center justify-between">
-          <TabsList className="h-10 bg-slate-100/50 p-1 rounded-lg gap-1 border border-slate-200/50">
+        <div className="px-3 md:px-4 pt-3 md:pt-4 border-b border-slate-100 bg-white shrink-0 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <TabsList className="h-10 w-full md:w-auto justify-start overflow-x-auto bg-slate-100/50 p-1 rounded-lg gap-1 border border-slate-200/50">
             <TabsTrigger 
               value="timeline" 
-              className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200/50 rounded-md h-full text-xs transition-all px-4 font-medium"
+              className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200/50 rounded-md h-full shrink-0 text-xs transition-all px-3 md:px-4 font-medium"
             >
               <History className="h-3.5 w-3.5 mr-2 opacity-70" /> {t('stay_timeline')}
             </TabsTrigger>
             <TabsTrigger 
               value="medications" 
-              className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200/50 rounded-md h-full text-xs transition-all px-4 font-medium"
+              className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200/50 rounded-md h-full shrink-0 text-xs transition-all px-3 md:px-4 font-medium"
             >
               <Pill className="h-3.5 w-3.5 mr-2 opacity-70" /> {t('meds_administered')}
             </TabsTrigger>
             <TabsTrigger 
               value="orders" 
-              className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200/50 rounded-md h-full text-xs transition-all px-4 font-medium"
+              className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200/50 rounded-md h-full shrink-0 text-xs transition-all px-3 md:px-4 font-medium"
             >
               <Stethoscope className="h-3.5 w-3.5 mr-2 opacity-70" /> {t('doctor_orders')}
             </TabsTrigger>
           </TabsList>
 
-          <div className="pb-4">
+          <div className="pb-3 md:pb-4">
             <TabsContent value="medications" className="m-0 border-none outline-none">
-              <Button size="sm" variant="default" className="h-8 text-[11px] px-4 rounded-lg bg-slate-900 hover:bg-slate-800 shadow-sm" onClick={onPrescriptionOpen}>
+              <Button size="sm" variant="default" className="h-10 md:h-8 w-full md:w-auto text-xs md:text-[11px] px-4 rounded-lg bg-slate-900 hover:bg-slate-800 shadow-sm" onClick={onPrescriptionOpen}>
                 <Plus className="h-3.5 w-3.5 mr-2" /> {t('new_prescription')}
               </Button>
             </TabsContent>
             <TabsContent value="orders" className="m-0 border-none outline-none">
-              <Button size="sm" variant="default" className="h-8 text-[11px] px-4 rounded-lg bg-slate-900 hover:bg-slate-800 shadow-sm" onClick={onOrderOpen}>
+              <Button size="sm" variant="default" className="h-10 md:h-8 w-full md:w-auto text-xs md:text-[11px] px-4 rounded-lg bg-slate-900 hover:bg-slate-800 shadow-sm" onClick={onOrderOpen}>
                 <Plus className="h-3.5 w-3.5 mr-2" /> {t('new_order')}
               </Button>
             </TabsContent>
