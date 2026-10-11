@@ -110,7 +110,7 @@ export default function PatientDetailPage() {
   const [editError, setEditError] = useState<string | null>(null);
 
   const [stayForm, setStayForm] = useState<NewStayForm>({
-    type: "emergency", admissionReason: "", departmentId: "", bedId: "", attendingDoctorId: "", triageAcuity: "", vitals: EMPTY_VITALS
+    type: "emergency", admissionReason: "", departmentId: "", bedId: "", attendingDoctorId: "", triageAcuity: "", medicalActCode: "", vitals: EMPTY_VITALS
   });
   const [savingStay, setSavingStay] = useState(false);
   const [stayError, setStayError] = useState<string | null>(null);
@@ -280,9 +280,12 @@ export default function PatientDetailPage() {
       const res = await fetch(`/api/v1/patients/${id}/stays`, {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(stayForm)
       });
-      if (res.ok) {
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        setStayError(json?.error ?? "Failed to create stay");
+      } else {
         setIsStayOpen(false);
-        setStayForm((prev) => ({ ...prev, vitals: EMPTY_VITALS }));
+        setStayForm((prev) => ({ ...prev, medicalActCode: "", vitals: EMPTY_VITALS }));
         const [sRes, vitRes] = await Promise.all([
           fetch(`/api/v1/patients/${id}/stays`),
           fetch(`/api/v1/patients/${id}/vitals`),

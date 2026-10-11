@@ -30,6 +30,19 @@ export type StayMedicalRecord = {
   content: string;
   createdAt: string;
   authorId: string;
+  isSigned: boolean;
+};
+
+export type StayVitals = {
+  id: string;
+  recordedAt: string;
+  bloodPressureSystolic: number | null;
+  bloodPressureDiastolic: number | null;
+  pulse: number | null;
+  temperature: string | null;
+  weight: string | null;
+  height: string | null;
+  spo2: number | null;
 };
 
 export type StayDetail = {
@@ -48,6 +61,9 @@ export type StayDetail = {
   triageAcuity: "resuscitation" | "emergent" | "urgent" | "less_urgent" | "non_urgent" | null;
   pmsiCode: string | null;
   pmsiValidated: boolean;
+  consultationStatus: "awaiting_payment" | "waiting" | "claimed" | "completed";
+  medicalAct: { code: string; label: string; price: number } | null;
+  vitalSigns: StayVitals[];
   patient: {
     id: string;
     firstName: string;

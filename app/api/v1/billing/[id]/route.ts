@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { requireModulePermission } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
+import { releaseIfSettled } from "@/lib/billing/release";
 
 // GET /api/v1/billing/[id] — invoice detail: patient, stay, lines, payments
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -70,6 +71,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         status: status === "cancelled" ? "cancelled" : undefined,
       },
     });
+    // Raising the insured share can leave the patient's own part already covered.
+    await releaseIfSettled(id);
 
     return NextResponse.json(updated);
   } catch (error) {

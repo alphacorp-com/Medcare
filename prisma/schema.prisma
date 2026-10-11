@@ -169,7 +169,11 @@ enum TriageAcuity {
 // Tracks a Stay's progress through the doctor's consultation queue, independent of
 // StayStatus (which stays "in_progress" the whole time) — so adding this never changes
 // what any existing `status: "in_progress"` filter across admissions/KPIs/dashboard sees.
+// awaiting_payment: the admission's medical act is billed but not yet settled — the
+// patient only reaches "waiting" (and the doctor's queue) once the cashier records it
+// (see lib/billing/paymentGate.ts).
 enum ConsultationStatus {
+  awaiting_payment
   waiting
   claimed
   completed
@@ -230,7 +234,10 @@ enum ExamUrgency {
   @@schema("tenant_template")
 }
 
+// awaiting_payment: a lab/radiology exam billed at prescription whose invoice is not yet
+// settled — the lab/radiology workflow (collect, schedule…) only starts at "requested".
 enum ExamRequestStatus {
+  awaiting_payment
   requested
   scheduled
   in_progress
@@ -756,6 +763,9 @@ model Stay {
   bedId              String?            @map("bed_id") @db.Uuid
   attendingDoctorId  String?            @map("attending_doctor_id") @db.Uuid
   admissionReason    String?            @map("admission_reason")
+  // MedicalAct.code chosen at admission and billed right away (sourceType "consultation",
+  // sourceId = this stay's id). Null for stays created before this existed or without an act.
+  medicalActCode     String?            @map("medical_act_code") @db.VarChar(40)
   dischargeSummary   String?            @map("discharge_summary")
   pmsiCode           String?            @map("pmsi_code") @db.VarChar(20)
   pmsiValidated      Boolean            @default(false) @map("pmsi_validated")

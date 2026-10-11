@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { requireModulePermission } from "@/lib/permissions";
+import { removeUnpaidExamCharge } from "@/lib/billing/paymentGate";
 
 // PATCH /api/v1/laboratory/[id]/cancel
 // Body: { reason }
@@ -27,7 +28,7 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
     const exam = await prisma.examRequest.findFirst({ where: { id, tenantId: session.user.tenantId } });
     if (!exam) return NextResponse.json({ error: "Exam not found" }, { status: 404 });
 
-    if (exam.status !== "requested" && exam.status !== "in_progress") {
+    if (exam.status !== "awaiting_payment" && exam.status !== "requested" && exam.status !== "in_progress") {
       return NextResponse.json({ error: `Cannot cancel an exam with status "${exam.status}"` }, { status: 400 });
     }
 
@@ -38,6 +39,7 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
         notes: exam.notes ? `${exam.notes}\n[Cancelled: ${reason}]` : `[Cancelled: ${reason}]`,
       },
     });
+    await removeUnpaidExamCharge(id);
 
     return NextResponse.json(updated);
   } catch (error) {

@@ -6,7 +6,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
-import { AlertTriangle, Check, FileSignature, FlaskConical, Loader2, Printer, X, XCircle, BellRing } from "lucide-react";
+import { AlertTriangle, Check, FileSignature, FlaskConical, Loader2, Printer, Wallet, X, XCircle, BellRing } from "lucide-react";
 import { deriveWorkflowState, LabExam, UserRef } from "../types";
 import { ResultEntryDialog } from "./ResultEntryDialog";
 import { RejectExamDialog } from "./RejectExamDialog";
@@ -83,6 +83,7 @@ export function ExamDetailSheet({
 
   const statusBadgeClass = cn(
     "px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider",
+    state === "awaiting_payment" ? "bg-amber-100 text-amber-700" :
     state === "pending_sample" ? "bg-slate-100 text-slate-700" :
     state === "in_analysis" ? "bg-blue-100 text-blue-700" :
     state === "awaiting_validation" ? "bg-yellow-100 text-yellow-700 border border-yellow-200" :
@@ -150,6 +151,14 @@ export function ExamDetailSheet({
                     {t("notify_critical")}
                   </Button>
                 )}
+              </div>
+            )}
+
+            {state === "awaiting_payment" && (
+              <div className="bg-amber-50 p-4 rounded border border-amber-200 shadow-sm text-center py-10">
+                <Wallet className="h-10 w-10 text-amber-400 mx-auto mb-3" />
+                <h3 className="text-sm font-bold text-amber-800">{t("awaiting_payment")}</h3>
+                <p className="text-xs text-amber-700 mt-1 max-w-sm mx-auto">{t("awaiting_payment_desc")}</p>
               </div>
             )}
 
@@ -228,7 +237,7 @@ export function ExamDetailSheet({
               <Button variant="ghost" size="sm" className="text-xs text-slate-600 hover:text-slate-900 w-full sm:w-auto justify-center" onClick={() => setIsPrintOpen(true)}>
                 <Printer className="mr-2 h-4 w-4" /> {t("print_detail")}
               </Button>
-              {(state === "pending_sample" || state === "in_analysis" || state === "awaiting_validation") && (
+              {(state === "awaiting_payment" || state === "pending_sample" || state === "in_analysis" || state === "awaiting_validation") && (
                 <Button variant="ghost" size="sm" className="text-xs text-red-600 hover:text-red-800 w-full sm:w-auto justify-center" onClick={() => setIsCancelOpen(true)}>
                   <X className="mr-2 h-4 w-4" /> {t("cancel_exam")}
                 </Button>

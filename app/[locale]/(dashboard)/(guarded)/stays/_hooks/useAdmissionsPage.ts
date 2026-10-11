@@ -9,6 +9,7 @@ const EMPTY_FORM: NewStayForm = {
   bedId: "",
   attendingDoctorId: "",
   triageAcuity: "",
+  medicalActCode: "",
   vitals: EMPTY_VITALS,
 };
 
@@ -111,6 +112,7 @@ export function useAdmissionsPage() {
           bedId: stayForm.bedId || null,
           attendingDoctorId: stayForm.attendingDoctorId || null,
           triageAcuity: stayForm.triageAcuity || undefined,
+          medicalActCode: stayForm.medicalActCode || undefined,
           vitals: stayForm.vitals,
         }),
       });

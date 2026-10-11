@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { requireModulePermission } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
 import type { StayStatus, TriageAcuity } from "@prisma/client";
+import { isVitalEmergency } from "@/lib/billing/paymentGate";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const toUuid = (v: unknown): string | null =>
@@ -57,6 +58,10 @@ export async function GET(
         examRequests: {
           orderBy: { requestedAt: "desc" },
         },
+        vitalSigns: {
+          orderBy: { recordedAt: "desc" },
+          take: 1,
+        },
       },
     });
 
@@ -67,7 +72,20 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({ data: stay, success: true });
+    const medicalAct = stay.medicalActCode
+      ? await prisma.medicalAct.findFirst({
+          where: { tenantId: session.user.tenantId, code: stay.medicalActCode },
+          select: { code: true, nameFr: true, basePrice: true },
+        })
+      : null;
+
+    return NextResponse.json({
+      data: {
+        ...stay,
+        medicalAct: medicalAct ? { code: medicalAct.code, label: medicalAct.nameFr, price: Number(medicalAct.basePrice) } : null,
+      },
+      success: true,
+    });
   } catch (error) {
     console.error("[GET /api/v1/stays/:id]", error);
     return NextResponse.json(
@@ -112,7 +130,7 @@ export async function PATCH(
 
     const existingStay = await prisma.stay.findFirst({
       where: { id, tenantId: session.user.tenantId },
-      select: { id: true, bedId: true, departmentId: true, status: true, triagedAt: true },
+      select: { id: true, bedId: true, departmentId: true, status: true, triagedAt: true, type: true, consultationStatus: true },
     });
 
     if (!existingStay) {
@@ -151,6 +169,13 @@ export async function PATCH(
       }
     }
 
+    // A patient re-triaged as a vital emergency while still waiting at the cashier goes
+    // straight to the doctor — payment is collected afterwards (lib/billing/paymentGate.ts).
+    const releaseForEmergency =
+      existingStay.consultationStatus === "awaiting_payment" &&
+      triageAcuity &&
+      isVitalEmergency({ type: existingStay.type, triageAcuity: triageAcuity as TriageAcuity });
+
     const stay = await prisma.$transaction(async (tx) => {
       const updated = await tx.stay.update({
         where: { id },
@@ -165,6 +190,7 @@ export async function PATCH(
           // Marks the start of the wait-for-doctor clock the first time acuity is known —
           // a later re-triage adjusts the acuity but must not reset this timestamp.
           ...(triageAcuity && !existingStay.triagedAt && { triagedAt: new Date() }),
+          ...(releaseForEmergency && { consultationStatus: "waiting" }),
         },
         include: {
           patient: {

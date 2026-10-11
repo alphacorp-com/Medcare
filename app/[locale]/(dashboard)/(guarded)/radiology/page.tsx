@@ -13,7 +13,7 @@ import { ExamDetailSheet } from "./_components/ExamDetailSheet";
 import { deriveWorkflowState, RadiologyExam, RadiologyWorkflowState, UserRef } from "./types";
 
 const FILTERS: (RadiologyWorkflowState | "All" | "critical")[] = [
-  "All", "pending_schedule", "scheduled", "in_progress", "awaiting_report", "critical",
+  "All", "awaiting_payment", "pending_schedule", "scheduled", "in_progress", "awaiting_report", "critical",
 ];
 
 export default function RadiologyPage() {
@@ -220,6 +220,7 @@ export default function RadiologyPage() {
                       <td className="p-4">
                         <span className={cn(
                           "inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider",
+                          state === 'awaiting_payment' ? "bg-amber-100 text-amber-700" :
                           state === 'pending_schedule' ? "bg-slate-100 text-slate-700" :
                           state === 'scheduled' ? "bg-purple-100 text-purple-700" :
                           state === 'in_progress' ? "bg-blue-100 text-blue-700" :

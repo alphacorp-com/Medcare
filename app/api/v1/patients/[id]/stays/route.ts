@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { requireModulePermission } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
 import type { StayStatus, StayType, TriageAcuity } from "@prisma/client";
+import { chargeAdmissionAct, isPaymentGateActive, isVitalEmergency } from "@/lib/billing/paymentGate";
 
 // Only accept valid UUIDs for FK fields; treat anything else as null
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -101,6 +102,8 @@ export async function GET(
 //   departmentId   – UUID
 //   bedId          – UUID
 //   attendingDoctorId – UUID
+//   medicalActCode – MedicalAct.code billed at admission; required while billing is active,
+//                    since that charge is what the patient pays before seeing the doctor
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -132,6 +135,7 @@ export async function POST(
       attendingDoctorId,
       triageAcuity,
       vitals,
+      medicalActCode,
     } = body;
 
     // ── Validate required fields ───────────────────────────────────────────
@@ -159,6 +163,28 @@ export async function POST(
       status && STAY_STATUSES.includes(status as StayStatus)
         ? (status as StayStatus)
         : "in_progress";
+
+    // ── Resolve the medical act — what the patient pays for before consultation ──
+    const gateActive = await isPaymentGateActive(session.user.tenantId);
+    const act = medicalActCode
+      ? await prisma.medicalAct.findFirst({
+          where: { tenantId: session.user.tenantId, code: String(medicalActCode), isActive: true },
+        })
+      : null;
+    if (medicalActCode && !act) {
+      return NextResponse.json(
+        { error: `Medical act "${medicalActCode}" was not found or is inactive`, success: false },
+        { status: 404 }
+      );
+    }
+    const vitalEmergency = isVitalEmergency({ type: type as StayType, triageAcuity: resolvedTriageAcuity });
+    if (gateActive && !act && !vitalEmergency) {
+      return NextResponse.json(
+        { error: "medicalActCode is required to admit a patient", success: false },
+        { status: 400 }
+      );
+    }
+    const awaitingPayment = gateActive && Boolean(act) && !vitalEmergency;
 
     // ── Verify parent patient belongs to this tenant ────────────────────────
     const patient = await prisma.patient.findFirst({
@@ -237,6 +263,8 @@ export async function POST(
           status: resolvedStatus,
           admissionDate: admissionDate ? new Date(admissionDate) : new Date(),
           admissionReason: admissionReason || null,
+          medicalActCode: act?.code ?? null,
+          consultationStatus: awaitingPayment ? "awaiting_payment" : "waiting",
           dischargeDate: dischargeDate ? new Date(dischargeDate) : null,
           dischargeSummary: dischargeSummary || null,
           pmsiCode: pmsiCode || null,
@@ -280,7 +308,21 @@ export async function POST(
       return created;
     });
 
-    return NextResponse.json({ data: stay, success: true }, { status: 201 });
+    const billing = act
+      ? await chargeAdmissionAct({
+          tenantId: session.user.tenantId,
+          patientId: id,
+          stayId: stay.id,
+          act,
+          performedById: session.user.id,
+        })
+      : null;
+
+    // Billing may already have moved the stay on (a zero-priced act, or a billing failure),
+    // so return its current consultationStatus rather than the one it was created with.
+    const current = await prisma.stay.findUnique({ where: { id: stay.id } });
+
+    return NextResponse.json({ data: current ?? stay, billing, success: true }, { status: 201 });
   } catch (error) {
     if (error instanceof Error && error.message === "BED_CONFLICT") {
       return NextResponse.json({ error: "Bed was just taken by another admission", success: false }, { status: 409 });

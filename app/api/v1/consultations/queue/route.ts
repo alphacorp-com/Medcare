@@ -9,6 +9,8 @@ import prisma from "@/lib/prisma";
 // triage acuity ascending (untriaged/scheduled stays sort last, per TriageAcuity's
 // declaration order), then time since triage (or admission, for stays never triaged)
 // ascending — oldest wait first within the same acuity bucket.
+// Stays still "awaiting_payment" are listed too (the doctor sees who is coming) but can't
+// be claimed until the cashier records the payment — see lib/billing/paymentGate.ts.
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
@@ -24,7 +26,7 @@ export async function GET() {
       where: {
         tenantId: session.user.tenantId,
         status: "in_progress",
-        consultationStatus: { in: ["waiting", "claimed"] },
+        consultationStatus: { in: ["awaiting_payment", "waiting", "claimed"] },
       },
       include: {
         patient: {
@@ -60,6 +62,7 @@ export async function GET() {
         name: `${stay.patient.lastName} ${stay.patient.firstName}`,
         type: stay.type,
         triageAcuity: stay.triageAcuity,
+        admissionReason: stay.admissionReason,
         consultationStatus: stay.consultationStatus,
         waitingMinutes: Math.floor((now - waitSince.getTime()) / (1000 * 60)),
         // Only meaningful once actually claimed through this queue — a pre-existing
@@ -72,6 +75,12 @@ export async function GET() {
         isMine: stay.consultationStatus === "claimed" && stay.attendingDoctorId === session.user.id,
       };
     });
+
+    // Patients the doctor can actually see first; unpaid ones trail, keeping their own order.
+    queue.sort(
+      (a, b) =>
+        Number(a.consultationStatus === "awaiting_payment") - Number(b.consultationStatus === "awaiting_payment")
+    );
 
     return NextResponse.json({ data: queue, total: queue.length, success: true });
   } catch (error) {

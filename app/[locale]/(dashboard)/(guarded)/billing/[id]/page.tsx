@@ -7,10 +7,11 @@ import { format } from "date-fns";
 import { Link } from "@/i18n/routing";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { ArrowLeft, Loader2, Plus, CreditCard, Pencil, Printer } from "lucide-react";
+import { ArrowLeft, Loader2, Plus, CreditCard, Pencil, Printer, ShieldCheck } from "lucide-react";
 import { RecordPaymentDialog } from "./_components/RecordPaymentDialog";
 import { AddLineDialog } from "./_components/AddLineDialog";
 import { EditLineDialog } from "./_components/EditLineDialog";
+import { WaivePaymentDialog } from "./_components/WaivePaymentDialog";
 import { InvoiceDetail, InvoiceLine, Payment } from "../types";
 import { PDFPreviewModal } from "@/components/templates/PDFPreviewModal";
 import { usePdfBranding } from "@/components/templates/usePdfBranding";
@@ -26,6 +27,7 @@ export default function InvoiceDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [isAddLineOpen, setIsAddLineOpen] = useState(false);
+  const [isWaiveOpen, setIsWaiveOpen] = useState(false);
   const [editingLine, setEditingLine] = useState<InvoiceLine | null>(null);
   const [isInvoicePreviewOpen, setIsInvoicePreviewOpen] = useState(false);
   const [receiptPreview, setReceiptPreview] = useState<Payment | null>(null);
@@ -153,6 +155,11 @@ export default function InvoiceDetailPage() {
           {canPay && (
             <Button size="sm" className="h-10 md:h-8 w-full md:w-auto text-xs bg-blue-600 hover:bg-blue-700" onClick={() => setIsPaymentOpen(true)}>
               <CreditCard className="h-3.5 w-3.5 mr-2" /> {t("record_payment")}
+            </Button>
+          )}
+          {canPay && (
+            <Button variant="outline" size="sm" className="h-10 md:h-8 w-full md:w-auto text-xs text-amber-700 border-amber-200 hover:bg-amber-50" onClick={() => setIsWaiveOpen(true)}>
+              <ShieldCheck className="h-3.5 w-3.5 mr-2" /> {t("waive_payment")}
             </Button>
           )}
         </div>
@@ -306,6 +313,7 @@ export default function InvoiceDetailPage() {
         currency={invoice.currency}
         onSaved={fetchInvoice}
       />
+      <WaivePaymentDialog open={isWaiveOpen} onOpenChange={setIsWaiveOpen} invoiceId={invoice.id} onSaved={fetchInvoice} />
       <AddLineDialog open={isAddLineOpen} onOpenChange={setIsAddLineOpen} invoiceId={invoice.id} onSaved={fetchInvoice} />
       <EditLineDialog
         key={editingLine?.id ?? "none"}

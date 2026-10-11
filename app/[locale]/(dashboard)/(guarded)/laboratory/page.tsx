@@ -13,7 +13,7 @@ import { ExamDetailSheet } from "./_components/ExamDetailSheet";
 import { deriveWorkflowState, LabExam, LabWorkflowState, UserRef } from "./types";
 
 const FILTERS: (LabWorkflowState | "All" | "critical")[] = [
-  "All", "pending_sample", "in_analysis", "awaiting_validation", "critical",
+  "All", "awaiting_payment", "pending_sample", "in_analysis", "awaiting_validation", "critical",
 ];
 
 export default function LaboratoryPage() {
@@ -213,6 +213,7 @@ export default function LaboratoryPage() {
                   <td className="px-4 py-2">
                     <span className={cn(
                        "px-2 py-0.5 rounded text-[10px] uppercase font-bold",
+                       state === 'awaiting_payment' ? "bg-amber-100 text-amber-700" :
                        state === 'pending_sample' ? "bg-slate-100 text-slate-700" :
                        state === 'in_analysis' ? "bg-blue-100 text-blue-700" :
                        state === 'awaiting_validation' ? "bg-yellow-100 text-yellow-700 border border-yellow-200" :

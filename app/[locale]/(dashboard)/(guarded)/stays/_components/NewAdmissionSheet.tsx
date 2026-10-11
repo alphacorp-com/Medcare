@@ -14,6 +14,7 @@ import {
 import { PatientSearchAutocomplete } from "@/components/shared/patient-search-autocomplete";
 import { VitalsFields } from "@/components/shared/vitals-fields";
 import { TRIAGE_ACUITIES } from "@/components/shared/triage-badge";
+import { MedicalActSelect, useMedicalActs, isVitalEmergencyTriage } from "@/components/shared/medical-act-select";
 import { Department, Doctor, Bed, NewStayForm } from "../types";
 
 interface NewAdmissionSheetProps {
@@ -45,6 +46,9 @@ export function NewAdmissionSheet({
   const tc = useTranslations("common");
   const tp = useTranslations("patients");
   const router = useRouter();
+  const { acts } = useMedicalActs();
+  const actOptional = isVitalEmergencyTriage(form.type, form.triageAcuity);
+  const actMissing = !actOptional && acts.length > 0 && !form.medicalActCode;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -127,6 +131,14 @@ export function NewAdmissionSheet({
               </div>
             </div>
           )}
+
+          {/* Medical act — billed now, paid at the cashier before consultation */}
+          <MedicalActSelect
+            acts={acts}
+            value={form.medicalActCode}
+            onChange={(code) => onUpdateForm("medicalActCode", code)}
+            optional={actOptional}
+          />
 
           {/* Chief complaint */}
           <div className="space-y-1">
@@ -214,7 +226,7 @@ export function NewAdmissionSheet({
           <Button
             className="text-xs h-8 bg-blue-600 hover:bg-blue-700"
             onClick={onSubmit}
-            disabled={saving || !form.patientId || (form.type === "emergency" && !form.triageAcuity)}
+            disabled={saving || !form.patientId || actMissing || (form.type === "emergency" && !form.triageAcuity)}
           >
             {saving ? "Creating..." : t("create")}
           </Button>

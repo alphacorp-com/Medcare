@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { requireModulePermission } from "@/lib/permissions";
+import { removeUnpaidExamCharge } from "@/lib/billing/paymentGate";
 
 // PATCH /api/v1/radiology/[id]/cancel
 // Body: { reason }
@@ -38,6 +39,7 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
         notes: exam.notes ? `${exam.notes}\n[Cancelled: ${reason}]` : `[Cancelled: ${reason}]`,
       },
     });
+    await removeUnpaidExamCharge(id);
 
     return NextResponse.json(updated);
   } catch (error) {

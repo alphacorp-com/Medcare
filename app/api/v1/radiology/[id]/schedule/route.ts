@@ -28,6 +28,12 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
     const exam = await prisma.examRequest.findFirst({ where: { id, tenantId: session.user.tenantId } });
     if (!exam) return NextResponse.json({ error: "Exam not found" }, { status: 404 });
 
+    if (exam.status === "awaiting_payment") {
+      return NextResponse.json(
+        { error: "This exam has not been paid yet — the patient must settle it at the cashier first / Cet examen n'est pas encore payé — le patient doit d'abord le régler à la caisse" },
+        { status: 402 }
+      );
+    }
     if (exam.status !== "requested") {
       return NextResponse.json({ error: `Cannot schedule an exam with status "${exam.status}"` }, { status: 400 });
     }

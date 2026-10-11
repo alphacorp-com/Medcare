@@ -6,7 +6,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
-import { AlertTriangle, BellRing, Check, ExternalLink, FileSignature, Loader2, PlayCircle, ScanLine, X, XCircle } from "lucide-react";
+import { AlertTriangle, BellRing, Check, ExternalLink, FileSignature, Loader2, PlayCircle, ScanLine, Wallet, X, XCircle } from "lucide-react";
 import { deriveWorkflowState, RadiologyExam, UserRef } from "../types";
 import { ScheduleExamDialog } from "./ScheduleExamDialog";
 import { ReportEntryDialog } from "./ReportEntryDialog";
@@ -66,6 +66,7 @@ export function ExamDetailSheet({
 
   const statusBadgeClass = cn(
     "px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider",
+    state === "awaiting_payment" ? "bg-amber-100 text-amber-700" :
     state === "pending_schedule" ? "bg-slate-100 text-slate-700" :
     state === "scheduled" ? "bg-purple-100 text-purple-700" :
     state === "in_progress" ? "bg-blue-100 text-blue-700" :
@@ -138,6 +139,14 @@ export function ExamDetailSheet({
                     <BellRing className="h-3.5 w-3.5 mr-1.5" /> {t("notify_critical")}
                   </Button>
                 )}
+              </div>
+            )}
+
+            {state === "awaiting_payment" && (
+              <div className="bg-amber-50 p-4 rounded border border-amber-200 shadow-sm text-center py-10">
+                <Wallet className="h-10 w-10 text-amber-400 mx-auto mb-3" />
+                <h3 className="text-sm font-bold text-amber-800">{t("awaiting_payment")}</h3>
+                <p className="text-xs text-amber-700 mt-1 max-w-sm mx-auto">{t("awaiting_payment_desc")}</p>
               </div>
             )}
 
@@ -216,7 +225,7 @@ export function ExamDetailSheet({
 
           <SheetFooter className="p-4 border-t border-slate-200 bg-slate-100 shrink-0 justify-between items-center flex-row">
             <div className="flex gap-2">
-              {(state === "pending_schedule" || state === "scheduled" || state === "in_progress" || state === "awaiting_report") && (
+              {(state === "awaiting_payment" || state === "pending_schedule" || state === "scheduled" || state === "in_progress" || state === "awaiting_report") && (
                 <Button variant="ghost" size="sm" className="text-xs text-red-600 hover:text-red-800" onClick={() => setIsCancelOpen(true)}>
                   <X className="mr-2 h-4 w-4" /> {t("cancel_exam")}
                 </Button>

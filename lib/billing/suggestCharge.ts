@@ -1,6 +1,7 @@
 import { Prisma, BillingSourceType } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { isModuleActiveForTenant } from "@/lib/tenant-licensing";
+import { releaseIfSettled } from "@/lib/billing/release";
 
 export type SuggestChargeParams = {
   tenantId: string;
@@ -12,6 +13,9 @@ export type SuggestChargeParams = {
   quantity?: number;
   feeCode: string;
   performedById: string;
+  // Overrides the FeeSchedule lookup — for an admission's medical act, whose price lives on
+  // MedicalAct.basePrice rather than under the "consultation" FeeSchedule.
+  unitPrice?: number;
 };
 
 export type ChargeLineInput = {
@@ -83,9 +87,22 @@ export async function recalculateInvoiceTotals(invoiceId: string) {
       ? "paid"
       : "partially_paid";
 
-  return prisma.patientInvoice.update({
+  const updated = await prisma.patientInvoice.update({
     where: { id: invoiceId },
     data: { subtotal, patientAmount, status },
+  });
+  // A zero-priced act (or a fully insured one) is settled the moment it's billed.
+  await releaseIfSettled(invoiceId);
+  return updated;
+}
+
+// The line already billed for this source act, if any. Checked before opening an invoice
+// so that billing the same act twice (e.g. an exam billed at prescription, then again by
+// the lab's validate route) never leaves an empty invoice behind.
+function findExistingLine(sourceType: BillingSourceType, sourceId: string) {
+  return prisma.patientInvoiceLine.findFirst({
+    where: { sourceType, sourceId },
+    include: { invoice: { select: { currency: true } } },
   });
 }
 
@@ -119,7 +136,7 @@ async function createLineIdempotent(tenantId: string, invoiceId: string, line: C
   }
 }
 
-async function lookupUnitPrice(tenantId: string, sourceType: BillingSourceType, feeCode: string): Promise<number> {
+export async function lookupUnitPrice(tenantId: string, sourceType: BillingSourceType, feeCode: string): Promise<number> {
   const feeSchedule = await prisma.feeSchedule.findFirst({
     where: { tenantId, sourceType, code: feeCode, isActive: true },
   });
@@ -137,7 +154,17 @@ export async function suggestInvoiceLine(params: SuggestChargeParams): Promise<S
     const billingActive = await isModuleActiveForTenant(tenantId, "MODULE_BILLING");
     if (!billingActive) return null;
 
-    const unitPrice = await lookupUnitPrice(tenantId, params.sourceType, params.feeCode);
+    const existing = await findExistingLine(params.sourceType, params.sourceId);
+    if (existing) {
+      return {
+        invoiceId: existing.invoiceId,
+        invoiceLineId: existing.id,
+        amount: Number(existing.amount),
+        currency: existing.invoice.currency,
+      };
+    }
+
+    const unitPrice = params.unitPrice ?? (await lookupUnitPrice(tenantId, params.sourceType, params.feeCode));
     const invoice = await findOrCreateOpenInvoice(tenantId, patientId, stayId, performedById);
     const line = await createLineIdempotent(tenantId, invoice.id, params, unitPrice);
     await recalculateInvoiceTotals(invoice.id);
@@ -166,10 +193,18 @@ export async function suggestInvoiceLines(
     const billingActive = await isModuleActiveForTenant(tenantId, "MODULE_BILLING");
     if (!billingActive) return [];
 
+    const existingLines = await prisma.patientInvoiceLine.findMany({
+      where: { OR: lines.map((line) => ({ sourceType: line.sourceType, sourceId: line.sourceId })) },
+      select: { sourceType: true, sourceId: true },
+    });
+    const alreadyBilled = new Set(existingLines.map((line) => `${line.sourceType}:${line.sourceId}`));
+    const newLines = lines.filter((line) => !alreadyBilled.has(`${line.sourceType}:${line.sourceId}`));
+    if (newLines.length === 0) return [];
+
     const invoice = await findOrCreateOpenInvoice(tenantId, patientId, stayId, performedById);
 
     const results: SuggestChargeResult[] = [];
-    for (const line of lines) {
+    for (const line of newLines) {
       const unitPrice = await unitPriceForLine(line);
       const created = await createLineIdempotent(tenantId, invoice.id, line, unitPrice);
       results.push({

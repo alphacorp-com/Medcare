@@ -1,6 +1,6 @@
 import { RadiologyReportData } from "@/lib/radiology/report";
 
-export type ExamRequestStatus = "requested" | "scheduled" | "in_progress" | "completed" | "cancelled";
+export type ExamRequestStatus = "awaiting_payment" | "requested" | "scheduled" | "in_progress" | "completed" | "cancelled";
 export type ExamUrgency = "routine" | "urgent" | "stat";
 
 export type RadiologyResult = {
@@ -40,11 +40,12 @@ export type RadiologyExam = {
 };
 
 /** Derived UI-facing state — "awaiting report" isn't a stored status. */
-export type RadiologyWorkflowState = "pending_schedule" | "scheduled" | "in_progress" | "awaiting_report" | "completed" | "cancelled";
+export type RadiologyWorkflowState = "awaiting_payment" | "pending_schedule" | "scheduled" | "in_progress" | "awaiting_report" | "completed" | "cancelled";
 
 export function deriveWorkflowState(exam: RadiologyExam): RadiologyWorkflowState {
   if (exam.status === "cancelled") return "cancelled";
   if (exam.status === "completed") return "completed";
+  if (exam.status === "awaiting_payment") return "awaiting_payment";
   if (exam.status === "requested") return "pending_schedule";
   if (exam.status === "scheduled") return "scheduled";
   const latest = exam.results[0];

@@ -4,12 +4,15 @@ import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { requireModulePermission } from "@/lib/permissions";
 import { recordAuditEvent, extractRequestMeta } from "@/lib/audit";
+import { chargeAdmissionAct, isPaymentGateActive } from "@/lib/billing/paymentGate";
 
 // POST /api/v1/appointments/[id]/check-in
 // The bridge into the existing clinical pipeline: creates a real Stay (type
 // "scheduled", already in the consultation queue via consultationStatus "waiting") and
 // links it back to the appointment. Everything downstream — triage, the consultation
 // queue, billing — already understands Stay and needs no appointment-specific code.
+// Body (optional): { medicalActCode } — billed right away, and the stay waits for payment
+// before reaching the consultation queue, same as a front-desk admission.
 export async function POST(req: Request, context: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
@@ -39,6 +42,17 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
       );
     }
 
+    const body = (await req.json().catch(() => ({}))) as { medicalActCode?: string };
+    const act = body.medicalActCode
+      ? await prisma.medicalAct.findFirst({
+          where: { tenantId: session.user.tenantId, code: body.medicalActCode, isActive: true },
+        })
+      : null;
+    if (body.medicalActCode && !act) {
+      return NextResponse.json({ error: `Medical act "${body.medicalActCode}" was not found or is inactive` }, { status: 404 });
+    }
+    const awaitingPayment = Boolean(act) && (await isPaymentGateActive(session.user.tenantId));
+
     const count = await prisma.stay.count({ where: { tenantId: session.user.tenantId } });
     const stayNumber = `STAY${String(count + 1).padStart(6, "0")}`;
 
@@ -50,7 +64,8 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
           stayNumber,
           type: "scheduled",
           status: "in_progress",
-          consultationStatus: "waiting",
+          consultationStatus: awaitingPayment ? "awaiting_payment" : "waiting",
+          medicalActCode: act?.code ?? null,
           departmentId: appointment.departmentId,
           attendingDoctorId: appointment.doctorId,
           admissionReason: appointment.reasonForVisit,
@@ -65,6 +80,16 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
       return { stay, updated };
     });
 
+    const billing = act
+      ? await chargeAdmissionAct({
+          tenantId: session.user.tenantId,
+          patientId: appointment.patientId,
+          stayId: stay.id,
+          act,
+          performedById: session.user.id,
+        })
+      : null;
+
     const { ipAddress, userAgent } = extractRequestMeta(req.headers);
     await recordAuditEvent({
       tenantId: session.user.tenantId,
@@ -78,7 +103,7 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
       userAgent,
     });
 
-    return NextResponse.json({ data: updated, stay, success: true });
+    return NextResponse.json({ data: updated, stay, billing, success: true });
   } catch (error) {
     console.error("Error checking in appointment:", error);
     return NextResponse.json({ error: "Failed to check in" }, { status: 500 });
