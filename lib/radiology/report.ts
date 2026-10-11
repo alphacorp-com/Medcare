@@ -1,3 +1,5 @@
+import type { ResultParameter } from "@/lib/laboratory/results";
+
 export interface CriticalCommunication {
   notifiedTo: string;
   method: string;
@@ -10,5 +12,8 @@ export interface RadiologyReportData {
   findings: string;
   impression: string;
   priorStudyIds?: string[];
+  // Structured findings read against the exam's catalog parameters (organ by organ),
+  // entered by the radiographer and signed off by the radiologist with the report.
+  parameters?: ResultParameter[];
   criticalCommunication?: CriticalCommunication;
 }

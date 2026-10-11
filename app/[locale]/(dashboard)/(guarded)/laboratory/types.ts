@@ -32,6 +32,7 @@ export type LabExam = {
     firstName: string;
     lastName: string;
     ipp: string;
+    gender?: string | null;
   };
   results: LabResult[];
 };

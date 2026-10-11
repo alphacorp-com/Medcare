@@ -12,6 +12,7 @@ import { StaysFilterBar } from "./_components/StaysFilterBar";
 import { StaysTable } from "./_components/StaysTable";
 import { NewAdmissionSheet } from "./_components/NewAdmissionSheet";
 import { useAdmissionsPage } from "./_hooks/useAdmissionsPage";
+import { PaginationBar } from "@/components/shared/pagination-bar";
 
 export default function AdmissionsPage() {
   const t = useTranslations("admissions");
@@ -25,6 +26,8 @@ export default function AdmissionsPage() {
   const {
     stays, departments, doctors, beds, loading, error,
     view, setView,
+    total, page, setPage, pageSize, setPageSize,
+    searchInput, setSearchInput, filters, setFilters,
     stayForm, updateStayForm, resetForm,
     savingStay, stayError,
     handleSaveStay,
@@ -76,12 +79,20 @@ export default function AdmissionsPage() {
       }
     >
       <div className="space-y-3">
-        <StaysFilterBar showFilters={showFilters} onFilterClose={() => setShowFilters(false)} />
+        <StaysFilterBar
+          showFilters={showFilters}
+          onFilterClose={() => setShowFilters(false)}
+          searchInput={searchInput}
+          onSearchChange={setSearchInput}
+          filters={filters}
+          onApplyFilters={setFilters}
+        />
         <div className="overflow-x-auto">
           <div className="sm:min-w-[640px]">
             <StaysTable stays={stays} loading={loading} error={error} view={view} />
           </div>
         </div>
+        <PaginationBar className="rounded-xl border" page={page} pageSize={pageSize} total={total} onPageChange={setPage} onPageSizeChange={setPageSize} />
       </div>
     </StandardMobileTemplate>
   );
@@ -99,19 +110,17 @@ export default function AdmissionsPage() {
         <StaysFilterBar
           showFilters={showFilters}
           onFilterClose={() => setShowFilters(false)}
+          searchInput={searchInput}
+          onSearchChange={setSearchInput}
+          filters={filters}
+          onApplyFilters={setFilters}
         />
 
-        <StaysTable stays={stays} loading={loading} error={error} view={view} />
-
-        <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-between items-center text-[11px] text-slate-500 shrink-0">
-          <span>{stays.length} {t("stays_total")}</span>
-          <div className="flex gap-4">
-            <span className="text-blue-600 font-semibold cursor-pointer">
-              {tc("view")} {tc("all")}
-            </span>
-            <span className="text-blue-600 font-semibold cursor-pointer">{tc("print")}</span>
-          </div>
+        <div className="flex-1 overflow-auto">
+          <StaysTable stays={stays} loading={loading} error={error} view={view} />
         </div>
+
+        <PaginationBar className="shrink-0" page={page} pageSize={pageSize} total={total} onPageChange={setPage} onPageSizeChange={setPageSize} />
       </div>
     </div>
   );

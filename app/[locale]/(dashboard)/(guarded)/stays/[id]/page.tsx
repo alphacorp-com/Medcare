@@ -16,6 +16,12 @@ import { DischargeSheet } from "./_components/DischargeSheet";
 import { PrescriptionSheet } from "./_components/PrescriptionSheet";
 import { MedicalOrderSheet } from "./_components/MedicalOrderSheet";
 import { VitalsSheet } from "./_components/VitalsSheet";
+import { HospitalizationSheet } from "./_components/HospitalizationSheet";
+import { ComplementaryNoteSheet } from "./_components/ComplementaryNoteSheet";
+import { buildMedicalRecord } from "./_components/buildMedicalRecord";
+import { PDFPreviewModal } from "@/components/templates/PDFPreviewModal";
+import { usePdfBranding } from "@/components/templates/usePdfBranding";
+import type { MedicalRecordData } from "@/components/templates/MedicalRecordTemplate";
 import { EMPTY_VITALS, VitalsForm } from "@/components/shared/vitals-fields";
 import { notifyBillingGenerated } from "@/lib/billing/client";
 
@@ -26,6 +32,8 @@ import type { TriageAcuity } from "@/components/shared/triage-badge";
 export default function AdmissionDetailPage() {
   const t = useTranslations('admissions');
   const tc = useTranslations('common');
+  const tm = useTranslations('documents.medicalRecord');
+  const { facility: pdfFacility, settings: pdfSettings } = usePdfBranding();
   const params = useParams();
   const id = params.id as string;
   
@@ -51,6 +59,9 @@ export default function AdmissionDetailPage() {
   const [prescriptionOpen, setPrescriptionOpen] = useState(false);
   const [orderOpen, setOrderOpen] = useState(false);
   const [vitalsOpen, setVitalsOpen] = useState(false);
+  const [hospitalizeOpen, setHospitalizeOpen] = useState(false);
+  const [noteOpen, setNoteOpen] = useState(false);
+  const [recordPdf, setRecordPdf] = useState<MedicalRecordData | null>(null);
   const [vitalsForm, setVitalsForm] = useState<VitalsForm>(EMPTY_VITALS);
   const [rxItems, setRxItems] = useState([{ drug: "", dosage: "", frequency: "", duration: "" }]);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([{ source: "laboratory", code: "", urgency: "routine" }]);
@@ -286,6 +297,32 @@ export default function AdmissionDetailPage() {
     }
   };
 
+  const handleCancelHospitalization = async () => {
+    if (!window.confirm(t('confirm_cancel_hospitalization'))) return;
+    try {
+      const res = await fetch(`/api/v1/stays/${id}/hospitalization`, { method: "DELETE" });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error ?? t('error_save'));
+      toast.success(t('hospitalization_cancelled'));
+      fetchStay();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t('error_save'));
+    }
+  };
+
+  // Re-fetches first so the printout reflects results validated since the page loaded.
+  const handlePrint = async () => {
+    try {
+      const res = await fetch(`/api/v1/stays/${id}`);
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error ?? "Failed to fetch stay");
+      setStay(json.data as StayDetail);
+      setRecordPdf(buildMedicalRecord(json.data as StayDetail, t, tm));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t('error_save'));
+    }
+  };
+
   const getDoctorName = (doctorId: string) => {
     return doctors.find(d => d.id === doctorId)?.fullName || doctorId;
   };
@@ -315,6 +352,10 @@ export default function AdmissionDetailPage() {
         onDischargeOpen={() => setDischargeOpen(true)}
         onVitalsOpen={() => setVitalsOpen(true)}
         onRetriageOpen={() => setRetriageOpen(true)}
+        onHospitalizeOpen={() => setHospitalizeOpen(true)}
+        onCancelHospitalization={handleCancelHospitalization}
+        onNoteOpen={() => setNoteOpen(true)}
+        onPrint={handlePrint}
       />
 
       {/* Main Content Section */}
@@ -386,6 +427,35 @@ export default function AdmissionDetailPage() {
         setOrderItems={setOrderItems}
         submitting={submitting}
         onSubmit={handleOrder}
+      />
+
+      <HospitalizationSheet
+        open={hospitalizeOpen}
+        onOpenChange={setHospitalizeOpen}
+        stayId={id}
+        departments={departments}
+        beds={beds}
+        onDone={() => {
+          fetchStay();
+          fetchData();
+        }}
+      />
+
+      <ComplementaryNoteSheet
+        open={noteOpen}
+        onOpenChange={setNoteOpen}
+        patientId={stay.patientId}
+        stayId={id}
+        onDone={fetchStay}
+      />
+
+      <PDFPreviewModal
+        isOpen={Boolean(recordPdf)}
+        onClose={() => setRecordPdf(null)}
+        templateId="medical_record"
+        data={recordPdf}
+        facility={pdfFacility}
+        settings={pdfSettings}
       />
 
       <VitalsSheet

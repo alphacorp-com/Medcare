@@ -63,6 +63,15 @@ verrouillage anti-double-claim réel (`updateMany` conditionnel). Autorisé via 
 - **Dérogation** : `POST /api/v1/billing/[id]/waive` (bouton « Autoriser sans paiement » sur la
   facture), motif obligatoire, tracé dans le journal d'audit (`billing.payment_waived`) et dans les
   notes de la facture. La facture reste due.
+- **Hospitalisation** (`POST/DELETE /api/v1/stays/[id]/hospitalization`) : après signature de la
+  consultation, le bouton « Hospitaliser » de la fiche d'admission fait choisir service → salle (type
+  de chambre du lit) → lit libre, un acte d'hospitalisation et une durée prévue. Le lit passe en
+  `reserved`, l'acte (prix × jours) est facturé (ligne `hospitalization`) ; au paiement, le lit passe
+  `occupied` et devient le lit du séjour. Annulable tant que non payé ; une sortie avant paiement
+  libère le lit réservé. Urgence vitale : hospitalisation immédiate.
+- **Dossier médical imprimable** (fiche d'admission → « Imprimer le dossier ») : identification,
+  admission, notes, médicaments, examens avec résultats validés. **Note complémentaire** : note
+  signée de type `complementary_note`, visible dans la chronologie du séjour et à l'écran de consultation.
 - ⚠️ Le check-in d'un rendez-vous accepte `medicalActCode` côté API, mais l'écran de check-in ne
   propose pas encore le choix de l'acte : un patient sur rendez-vous arrive donc directement en file.
 
@@ -95,6 +104,12 @@ lui-même : c'est la consultation qui suit (signature de note médicale) qui fac
 
 - Catalogue de panels réel (`lib/laboratory/panels.ts`), workflow complet : prélèvement en attente → en analyse → en attente de validation → terminé.
 - Résultats critiques avec notification au prescripteur, historique des résultats.
+- **Paramètres d'examen** : chaque entrée du catalogue porte sa fiche de résultats
+  (`lib/exam-catalog/standard-parameters.ts` — références OMS / usuelles, unités SI, valeurs
+  critiques, réponses qualitatives). Saisie par le technicien avec indicateur calculé
+  automatiquement ; appliquée aux bases existantes par `npm run db:sync-exam-parameters`.
+- **Validation réservée** à l'action `validate` (rôles : cocher « Valider » sur Laboratoire /
+  Radiologie — médecin biologiste / radiologue) ; le technicien saisit, le médecin valide ou rejette.
 - Facturation à la **prescription** (examen créé en `awaiting_payment`, prélèvement possible seulement après paiement — voir *Parcours « payer d'abord »* plus haut). La validation du résultat ne refacture pas un examen déjà facturé.
 - Intégration Maternité : les tests VIH/Syphilis prescrits depuis une grossesse (PTME) passent par ce module (pas de système de résultats dupliqué).
 

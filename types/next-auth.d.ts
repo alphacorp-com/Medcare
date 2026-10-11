@@ -1,6 +1,8 @@
 import NextAuth, { DefaultSession, DefaultUser } from "next-auth";
 
-export type ModuleAction = "create" | "read" | "update" | "delete";
+// "validate" is only meaningful for MODULE_LAB / MODULE_RADIOLOGY: signing off results
+// (médecin biologiste / radiologue), distinct from entering them ("update").
+export type ModuleAction = "create" | "read" | "update" | "delete" | "validate";
 
 export interface ModulePermission {
   moduleId: string;

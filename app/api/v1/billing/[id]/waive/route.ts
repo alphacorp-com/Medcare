@@ -38,7 +38,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
 
     const released = await releaseInvoiceLines(invoice.tenantId, invoice.lines);
-    if (released.stays === 0 && released.exams === 0) {
+    if (released.stays === 0 && released.exams === 0 && released.hospitalizations === 0) {
       return NextResponse.json({ error: "Nothing on this invoice is waiting for payment" }, { status: 400 });
     }
 
@@ -56,7 +56,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       action: "billing.payment_waived",
       resourceType: "patient_invoice",
       resourceId: id,
-      payload: { reason: reason.trim(), releasedStays: released.stays, releasedExams: released.exams },
+      payload: {
+        reason: reason.trim(),
+        releasedStays: released.stays,
+        releasedExams: released.exams,
+        releasedHospitalizations: released.hospitalizations,
+      },
       ipAddress,
       userAgent,
     });

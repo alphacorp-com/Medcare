@@ -12,6 +12,8 @@ import { ResultEntryDialog } from "./ResultEntryDialog";
 import { RejectExamDialog } from "./RejectExamDialog";
 import { CancelExamDialog } from "./CancelExamDialog";
 import { notifyBillingGenerated } from "@/lib/billing/client";
+import { useAppStore } from "@/lib/store/useAppStore";
+import { ExamParametersTable } from "@/components/shared/exam-parameters-editor";
 import { PDFPreviewModal } from "@/components/templates/PDFPreviewModal";
 import { usePdfBranding } from "@/components/templates/usePdfBranding";
 
@@ -30,6 +32,7 @@ export function ExamDetailSheet({
 }) {
   const t = useTranslations("lab");
   const tc = useTranslations("common");
+  const canValidate = useAppStore((store) => store.hasPermission("MODULE_LAB", "validate"));
 
   const [isResultEntryOpen, setIsResultEntryOpen] = useState(false);
   const [isRejectOpen, setIsRejectOpen] = useState(false);
@@ -184,43 +187,11 @@ export function ExamDetailSheet({
                     </Button>
                   )}
                 </div>
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50/50 text-[10px] text-slate-500">
-                    <tr>
-                      <th className="px-4 py-2 font-semibold">{t("marker")}</th>
-                      <th className="px-4 py-2 font-semibold">{t("value")}</th>
-                      <th className="px-4 py-2 font-semibold">{t("unit")}</th>
-                      <th className="px-4 py-2 font-semibold">{t("ref_range")}</th>
-                      <th className="px-4 py-2 font-semibold">{t("flag")}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {latestResult ? (
-                      latestResult.resultData.parameters.map((p, i) => (
-                        <tr key={i}>
-                          <td className="px-4 py-3 font-medium text-slate-900">{p.name}</td>
-                          <td className={cn("px-4 py-3 font-bold text-sm", p.flag === "critical" ? "text-red-600" : p.flag === "normal" ? "text-slate-700" : "text-orange-600")}>{p.value}</td>
-                          <td className="px-4 py-3 text-slate-500">{p.unit}</td>
-                          <td className="px-4 py-3 text-slate-500">{p.referenceRange}</td>
-                          <td className="px-4 py-3">
-                            <span className={cn(
-                              "px-1.5 py-0.5 rounded font-bold uppercase text-[9px] tracking-wider",
-                              p.flag === "critical" ? "bg-red-100 text-red-700" :
-                              p.flag === "high" || p.flag === "low" ? "bg-orange-100 text-orange-700" :
-                              "bg-slate-100 text-slate-600"
-                            )}>
-                              {t(`flags.${p.flag}`)}
-                            </span>
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={5} className="px-4 py-6 text-center text-slate-400 italic">{t("no_results_logged")}</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+                {latestResult ? (
+                  <ExamParametersTable parameters={latestResult.resultData.parameters} />
+                ) : (
+                  <p className="px-4 py-6 text-center text-xs text-slate-400 italic">{t("no_results_logged")}</p>
+                )}
               </div>
             )}
 
@@ -245,7 +216,10 @@ export function ExamDetailSheet({
             </div>
 
             <div className="flex flex-wrap gap-2 w-full sm:w-auto sm:justify-end">
-              {state === "awaiting_validation" && (
+              {state === "awaiting_validation" && !canValidate && (
+                <span className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-1.5">{t("awaiting_validation_by_doctor")}</span>
+              )}
+              {state === "awaiting_validation" && canValidate && (
                 <>
                   <Button variant="outline" className="text-xs h-8 border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800 w-full sm:w-auto justify-center" onClick={() => setIsRejectOpen(true)}>
                     <X className="mr-2 h-3.5 w-3.5" /> {t("reject_results")}

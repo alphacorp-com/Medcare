@@ -47,6 +47,10 @@ export async function GET(
             lastName: true,
             ipp: true,
             birthDate: true,
+            gender: true,
+            bloodGroup: true,
+            allergies: true,
+            chronicConditions: true,
           },
         },
         medicalRecords: {
@@ -57,6 +61,7 @@ export async function GET(
         },
         examRequests: {
           orderBy: { requestedAt: "desc" },
+          include: { results: { orderBy: { createdAt: "desc" }, take: 1 } },
         },
         vitalSigns: {
           orderBy: { recordedAt: "desc" },
@@ -72,17 +77,52 @@ export async function GET(
       );
     }
 
-    const medicalAct = stay.medicalActCode
-      ? await prisma.medicalAct.findFirst({
-          where: { tenantId: session.user.tenantId, code: stay.medicalActCode },
-          select: { code: true, nameFr: true, basePrice: true },
-        })
-      : null;
+    const tenantId = session.user.tenantId;
+    const [medicalAct, hospitalizationAct, hospitalizationBed, hospitalizationDepartment, authors] = await Promise.all([
+      stay.medicalActCode
+        ? prisma.medicalAct.findFirst({ where: { tenantId, code: stay.medicalActCode }, select: { code: true, nameFr: true, basePrice: true } })
+        : null,
+      stay.hospitalizationActCode
+        ? prisma.medicalAct.findFirst({ where: { tenantId, code: stay.hospitalizationActCode }, select: { nameFr: true } })
+        : null,
+      stay.hospitalizationBedId
+        ? prisma.bed.findFirst({ where: { tenantId, id: stay.hospitalizationBedId }, select: { code: true, label: true } })
+        : null,
+      stay.hospitalizationDepartmentId
+        ? prisma.department.findFirst({ where: { tenantId, id: stay.hospitalizationDepartmentId }, select: { name: true } })
+        : null,
+      // Names for whoever wrote notes, prescribed, or performed/validated exams on this stay.
+      prisma.tenantUser.findMany({
+        where: {
+          tenantId,
+          id: {
+            in: Array.from(new Set([
+              ...stay.medicalRecords.map((record) => record.authorId),
+              ...stay.prescriptions.map((rx) => rx.prescriberId),
+              ...stay.examRequests.flatMap((exam) => [exam.prescriberId, exam.results[0]?.performerId, exam.results[0]?.validatedBy]),
+              stay.attendingDoctorId,
+            ].filter((userId): userId is string => Boolean(userId)))),
+          },
+        },
+        select: { id: true, fullName: true },
+      }),
+    ]);
 
     return NextResponse.json({
       data: {
         ...stay,
         medicalAct: medicalAct ? { code: medicalAct.code, label: medicalAct.nameFr, price: Number(medicalAct.basePrice) } : null,
+        hospitalization: stay.hospitalizationStatus
+          ? {
+              status: stay.hospitalizationStatus,
+              actLabel: hospitalizationAct?.nameFr ?? stay.hospitalizationActCode,
+              bedLabel: hospitalizationBed?.label ?? null,
+              departmentName: hospitalizationDepartment?.name ?? null,
+              requestedAt: stay.hospitalizationRequestedAt,
+              hospitalizedAt: stay.hospitalizedAt,
+            }
+          : null,
+        userNames: Object.fromEntries(authors.map((user) => [user.id, user.fullName])),
       },
       success: true,
     });
@@ -130,7 +170,10 @@ export async function PATCH(
 
     const existingStay = await prisma.stay.findFirst({
       where: { id, tenantId: session.user.tenantId },
-      select: { id: true, bedId: true, departmentId: true, status: true, triagedAt: true, type: true, consultationStatus: true },
+      select: {
+        id: true, bedId: true, departmentId: true, status: true, triagedAt: true, type: true, consultationStatus: true,
+        hospitalizationStatus: true, hospitalizationBedId: true,
+      },
     });
 
     if (!existingStay) {
@@ -191,6 +234,12 @@ export async function PATCH(
           // a later re-triage adjusts the acuity but must not reset this timestamp.
           ...(triageAcuity && !existingStay.triagedAt && { triagedAt: new Date() }),
           ...(releaseForEmergency && { consultationStatus: "waiting" }),
+          // Leaving before the hospitalisation was paid: drop the pending request.
+          ...(isEnding && existingStay.hospitalizationStatus === "awaiting_payment" && {
+            hospitalizationStatus: null,
+            hospitalizationBedId: null,
+            hospitalizationDepartmentId: null,
+          }),
         },
         include: {
           patient: {
@@ -203,6 +252,13 @@ export async function PATCH(
           },
         },
       });
+
+      if (isEnding && existingStay.hospitalizationStatus === "awaiting_payment" && existingStay.hospitalizationBedId) {
+        await tx.bed.updateMany({
+          where: { id: existingStay.hospitalizationBedId, currentStayId: id, status: "reserved" },
+          data: { status: "available", currentStayId: null },
+        });
+      }
 
       if (bedChanged) {
         if (existingStay.bedId) {

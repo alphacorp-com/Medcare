@@ -181,6 +181,16 @@ enum ConsultationStatus {
   @@schema("tenant_template")
 }
 
+// Hospitalisation decided after the consultation: the bed is reserved while the
+// hospitalisation act is awaiting payment, and occupied once it's paid (see
+// lib/billing/paymentGate.ts).
+enum HospitalizationStatus {
+  awaiting_payment
+  admitted
+
+  @@schema("tenant_template")
+}
+
 enum AppointmentStatus {
   booked
   confirmed
@@ -194,6 +204,8 @@ enum AppointmentStatus {
 
 enum MedicalRecordType {
   consultation
+  // Added after the consultation note is signed (e.g. once exam results come back).
+  complementary_note
   observation
   surgery_report
   discharge_letter
@@ -288,6 +300,7 @@ enum ScheduleStatus {
 
 enum BillingSourceType {
   consultation
+  hospitalization
   exam
   surgery
   pharmacy_dispensation
@@ -773,6 +786,14 @@ model Stay {
   triageAcuity       TriageAcuity?      @map("triage_acuity")
   triagedAt          DateTime?          @map("triaged_at") @db.Timestamptz
   consultationStatus ConsultationStatus @default(waiting) @map("consultation_status")
+  // Pending until paid: the chosen bed is held as "reserved" and only becomes the stay's
+  // bedId/departmentId once the hospitalisation act is settled.
+  hospitalizationStatus       HospitalizationStatus? @map("hospitalization_status")
+  hospitalizationActCode      String?                @map("hospitalization_act_code") @db.VarChar(40)
+  hospitalizationDepartmentId String?                @map("hospitalization_department_id") @db.Uuid
+  hospitalizationBedId        String?                @map("hospitalization_bed_id") @db.Uuid
+  hospitalizationRequestedAt  DateTime?              @map("hospitalization_requested_at") @db.Timestamptz
+  hospitalizedAt              DateTime?              @map("hospitalized_at") @db.Timestamptz
   createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz
   updatedAt          DateTime           @updatedAt @map("updated_at") @db.Timestamptz
 

@@ -1,7 +1,8 @@
 import prisma from "@/lib/prisma";
 import { isModuleActiveForTenant } from "@/lib/tenant-licensing";
 import { lookupUnitPrice, recalculateInvoiceTotals, suggestInvoiceLine, suggestInvoiceLines } from "@/lib/billing/suggestCharge";
-import type { ExamRequest, ExamUrgency, Prisma, StayType, TriageAcuity } from "@prisma/client";
+import { admitHospitalization } from "@/lib/billing/release";
+import type { BillingSourceType, ExamRequest, ExamUrgency, Prisma, StayType, TriageAcuity } from "@prisma/client";
 
 // "Pay first, then care": an admission's medical act is billed at admission and the patient
 // only reaches the doctor's queue once it's paid; a lab/radiology exam is billed when the
@@ -92,13 +93,42 @@ export async function chargePrescribedExams(params: {
   return billing;
 }
 
-// An exam cancelled before anything was paid on its invoice shouldn't stay on the patient's
-// bill. Once a payment exists the line is left alone — refunding is the cashier's call.
-// Never throws: the cancellation itself has already succeeded.
-export async function removeUnpaidExamCharge(examId: string): Promise<void> {
+// Bills a hospitalisation (act price × planned days) onto the stay's invoice; the reserved
+// bed is taken once it's paid. If billing fails, the patient is admitted anyway rather than
+// left in the corridor with no invoice to pay.
+export async function chargeHospitalization(params: {
+  tenantId: string | null;
+  patientId: string;
+  stayId: string;
+  act: { code: string; nameFr: string; basePrice: Prisma.Decimal | number };
+  days: number;
+  performedById: string;
+}) {
+  const { tenantId, patientId, stayId, act, days, performedById } = params;
+  const billing = !tenantId ? null : await suggestInvoiceLine({
+    tenantId,
+    patientId,
+    stayId,
+    sourceType: "hospitalization",
+    sourceId: stayId,
+    description: `${act.nameFr} (${days} j)`,
+    feeCode: act.code,
+    quantity: days,
+    unitPrice: Number(act.basePrice),
+    performedById,
+  });
+
+  if (!billing) await admitHospitalization(stayId);
+  return billing;
+}
+
+// A charge whose act was cancelled before anything was paid on its invoice shouldn't stay
+// on the patient's bill. Once a payment exists the line is left alone — refunding is the
+// cashier's call. Never throws: the cancellation itself has already succeeded.
+export async function removeUnpaidCharge(sourceType: BillingSourceType, sourceId: string): Promise<void> {
   try {
     const line = await prisma.patientInvoiceLine.findFirst({
-      where: { sourceType: "exam", sourceId: examId },
+      where: { sourceType, sourceId },
       include: { invoice: { select: { id: true, status: true, paidAmount: true } } },
     });
     if (!line || line.invoice.status === "cancelled" || Number(line.invoice.paidAmount) > 0) return;
@@ -114,6 +144,6 @@ export async function removeUnpaidExamCharge(examId: string): Promise<void> {
       await recalculateInvoiceTotals(line.invoice.id);
     }
   } catch (error) {
-    console.error("[removeUnpaidExamCharge] Failed to remove exam charge:", error);
+    console.error("[removeUnpaidCharge] Failed to remove charge:", error);
   }
 }

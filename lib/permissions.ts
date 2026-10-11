@@ -37,6 +37,7 @@ const ACTION_PHRASES: Record<ModuleAction, { en: string; fr: string }> = {
   create: { en: "create records", fr: "créer des enregistrements" },
   update: { en: "edit records", fr: "modifier des enregistrements" },
   delete: { en: "delete records", fr: "supprimer des enregistrements" },
+  validate: { en: "validate results", fr: "valider les résultats" },
 };
 
 // Joins an English and French sentence into a single bilingual message. Kept as one string

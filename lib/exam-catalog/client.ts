@@ -1,7 +1,9 @@
+import type { ExamParameterDefinition } from "@/lib/exam-catalog/parameters";
+
 export type ExamCatalogItem = {
   code: string;
   label: string;
-  parameters: { name: string; unit: string; referenceRange: string }[];
+  parameters: ExamParameterDefinition[];
   modality: string;
   requiresContrast: boolean;
   price: number | null;

@@ -6,7 +6,7 @@ import { requireModulePermission } from "@/lib/permissions";
 import type { ExamRequestStatus, ExamUrgency } from "@prisma/client";
 import { chargePrescribedExams, examNeedsPrepayment, isPaymentGateActive } from "@/lib/billing/paymentGate";
 
-const PATIENT_SELECT = { id: true, firstName: true, lastName: true, ipp: true } as const;
+const PATIENT_SELECT = { id: true, firstName: true, lastName: true, ipp: true, gender: true } as const;
 
 // ── GET /api/v1/laboratory ──────────────────────────────────────────────────
 // Query params: status, urgency, critical ("true"), search (patient name/ipp/examLabel)

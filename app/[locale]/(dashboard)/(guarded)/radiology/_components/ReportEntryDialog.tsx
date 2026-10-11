@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ClipboardList, Loader2 } from "lucide-react";
 import { RadiologyExam } from "../types";
+import { fetchExamCatalog } from "@/lib/exam-catalog/client";
+import { ExamParametersEditor, ParameterRow, rowsFromDefinitions, toResultParameters } from "@/components/shared/exam-parameters-editor";
 
 export function ReportEntryDialog({
   open,
@@ -29,6 +31,7 @@ export function ReportEntryDialog({
   const [impression, setImpression] = useState("");
   const [reportUrl, setReportUrl] = useState("");
   const [isCritical, setIsCritical] = useState(false);
+  const [rows, setRows] = useState<ParameterRow[]>([]);
   const [priorStudies, setPriorStudies] = useState<{ id: string; examLabel: string; requestedAt: string }[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,6 +49,13 @@ export function ReportEntryDialog({
       } catch (err) {
         console.error("Failed to fetch prior studies", err);
       }
+      // Pre-fill the structured findings from the exam's catalog entry, unless the
+      // radiographer already started typing.
+      const catalog = await fetchExamCatalog("radiology");
+      const entry = catalog.find((item) => item.code === exam.examCode);
+      if (!cancelled && entry?.parameters.length) {
+        setRows((current) => (current.some((row) => row.value.trim()) ? current : rowsFromDefinitions(entry.parameters, exam.patient.gender)));
+      }
     })();
     return () => { cancelled = true; };
   }, [open, exam]);
@@ -53,7 +63,8 @@ export function ReportEntryDialog({
   if (!exam) return null;
 
   const handleSave = async () => {
-    if (!findings.trim() || !impression.trim()) {
+    const parameters = toResultParameters(rows);
+    if (!impression.trim() || (!findings.trim() && parameters.length === 0)) {
       setError(t("findings_impression_required"));
       return;
     }
@@ -63,7 +74,7 @@ export function ReportEntryDialog({
       const res = await fetch(`/api/v1/radiology/${exam.id}/report`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ technique, findings, impression, isCritical, reportUrl: reportUrl || undefined }),
+        body: JSON.stringify({ technique, findings, impression, parameters, isCritical, reportUrl: reportUrl || undefined }),
       });
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));
@@ -75,6 +86,7 @@ export function ReportEntryDialog({
       setImpression("");
       setReportUrl("");
       setIsCritical(false);
+      setRows([]);
       onSaved();
       onOpenChange(false);
     } catch (err) {
@@ -86,7 +98,7 @@ export function ReportEntryDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl p-0 overflow-hidden flex flex-col gap-0 border-0 outline-none">
+      <DialogContent className="sm:max-w-4xl p-0 overflow-hidden flex flex-col gap-0 border-0 outline-none">
         <DialogHeader className="p-4 border-b border-slate-200 flex flex-row justify-between items-center bg-slate-50 space-y-0">
           <DialogTitle className="text-sm font-bold text-slate-800 flex items-center gap-2">
             <ClipboardList className="h-4 w-4 text-blue-600" /> {t("enter_report")}
@@ -122,8 +134,16 @@ export function ReportEntryDialog({
               placeholder={t("technique_placeholder")}
             />
           </div>
+          {rows.length > 0 && (
+            <div>
+              <Label>{t("structured_findings")}</Label>
+              <div className="mt-2">
+                <ExamParametersEditor rows={rows} onChange={setRows} gender={exam.patient.gender} />
+              </div>
+            </div>
+          )}
           <div>
-            <Label>{t("findings")}</Label>
+            <Label>{rows.length > 0 ? t("additional_findings") : t("findings")}</Label>
             <textarea
               value={findings}
               onChange={(e) => setFindings(e.target.value)}

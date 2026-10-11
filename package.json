@@ -13,6 +13,7 @@
     "seed-journeys": "tsx prisma/seed-patient-journeys.ts",
     "db:reset-data": "tsx prisma/reset-data.ts",
     "db:sync-fee-schedule": "tsx prisma/backfill-fee-schedule.ts",
+    "db:sync-exam-parameters": "tsx prisma/sync-exam-parameters.ts",
     "clean": "next clean",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",

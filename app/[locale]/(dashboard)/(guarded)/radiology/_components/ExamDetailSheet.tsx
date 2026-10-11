@@ -14,6 +14,8 @@ import { RejectReportDialog } from "./RejectReportDialog";
 import { CancelExamDialog } from "./CancelExamDialog";
 import { NotifyCriticalDialog } from "./NotifyCriticalDialog";
 import { notifyBillingGenerated } from "@/lib/billing/client";
+import { useAppStore } from "@/lib/store/useAppStore";
+import { ExamParametersTable } from "@/components/shared/exam-parameters-editor";
 
 export function ExamDetailSheet({
   open,
@@ -30,6 +32,7 @@ export function ExamDetailSheet({
 }) {
   const t = useTranslations("radiology");
   const tc = useTranslations("common");
+  const canValidate = useAppStore((store) => store.hasPermission("MODULE_RADIOLOGY", "validate"));
 
   const [isScheduleOpen, setIsScheduleOpen] = useState(false);
   const [isReportOpen, setIsReportOpen] = useState(false);
@@ -190,10 +193,17 @@ export function ExamDetailSheet({
                         <p className="text-slate-700 whitespace-pre-wrap">{latestResult.resultData.technique}</p>
                       </div>
                     )}
-                    <div>
-                      <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">{t("findings")}</div>
-                      <p className="text-slate-700 whitespace-pre-wrap">{latestResult.resultData.findings}</p>
-                    </div>
+                    {latestResult.resultData.parameters?.length ? (
+                      <div className="-mx-4 border-y border-slate-100">
+                        <ExamParametersTable parameters={latestResult.resultData.parameters} />
+                      </div>
+                    ) : null}
+                    {latestResult.resultData.findings && (
+                      <div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">{t("findings")}</div>
+                        <p className="text-slate-700 whitespace-pre-wrap">{latestResult.resultData.findings}</p>
+                      </div>
+                    )}
                     <div>
                       <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">{t("impression")}</div>
                       <p className="text-slate-900 font-medium whitespace-pre-wrap">{latestResult.resultData.impression}</p>
@@ -233,7 +243,10 @@ export function ExamDetailSheet({
             </div>
 
             <div className="flex gap-2">
-              {state === "awaiting_report" && (
+              {state === "awaiting_report" && !canValidate && (
+                <span className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-1.5">{t("awaiting_validation_by_doctor")}</span>
+              )}
+              {state === "awaiting_report" && canValidate && (
                 <>
                   <Button variant="outline" className="text-xs h-8 border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800" onClick={() => setIsRejectOpen(true)}>
                     <X className="mr-2 h-3.5 w-3.5" /> {t("reject_report")}

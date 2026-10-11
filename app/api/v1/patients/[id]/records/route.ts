@@ -13,6 +13,7 @@ const toUuid = (v: unknown): string | null =>
 
 const RECORD_TYPES: MedicalRecordType[] = [
   "consultation",
+  "complementary_note",
   "observation",
   "surgery_report",
   "discharge_letter",

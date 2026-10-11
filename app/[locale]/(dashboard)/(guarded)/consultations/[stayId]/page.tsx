@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { TriageBadge } from "@/components/shared/triage-badge";
 import { cn } from "@/lib/utils";
 import { notifyBillingGeneratedMany } from "@/lib/billing/client";
+import { ExamParametersTable } from "@/components/shared/exam-parameters-editor";
 import { PrescriptionSheet } from "../../stays/[id]/_components/PrescriptionSheet";
 import { MedicalOrderSheet } from "../../stays/[id]/_components/MedicalOrderSheet";
 import type {
@@ -241,7 +242,7 @@ export default function ConsultationWorkspacePage() {
   const vitals = stay.vitalSigns?.[0];
   const labRadioExams = stay.examRequests.filter((exam) => exam.type === "biology" || exam.type === "radiology");
   const otherOrders = stay.examRequests.filter((exam) => exam.type !== "biology" && exam.type !== "radiology");
-  const signedNotes = stay.medicalRecords.filter((record) => record.type === "consultation");
+  const signedNotes = stay.medicalRecords.filter((record) => record.type === "consultation" || record.type === "complementary_note");
 
   return (
     <div className="flex flex-col gap-4 h-full overflow-auto pb-6">
@@ -328,7 +329,7 @@ export default function ConsultationWorkspacePage() {
             ) : (
               <ul className="space-y-2">
                 {[...labRadioExams, ...otherOrders].map((exam) => (
-                  <li key={exam.id} className="flex items-start justify-between gap-2 text-xs">
+                  <li key={exam.id} className="flex flex-wrap items-start justify-between gap-2 text-xs">
                     <div className="min-w-0">
                       <p className="font-medium text-slate-800 truncate">{exam.examLabel}</p>
                       <p className="text-slate-400">
@@ -336,6 +337,19 @@ export default function ConsultationWorkspacePage() {
                       </p>
                     </div>
                     <ExamStatusChip status={exam.status} label={ta(`exam_status_${exam.status}`)} />
+                    {exam.results?.[0]?.validatedAt && (
+                      <details className="basis-full mt-1">
+                        <summary className="cursor-pointer text-[11px] font-medium text-blue-700">{t("view_result")}</summary>
+                        <div className="mt-1 rounded border border-slate-100 overflow-x-auto">
+                          {exam.results[0].resultData.parameters?.length ? (
+                            <ExamParametersTable parameters={exam.results[0].resultData.parameters} />
+                          ) : null}
+                          {exam.results[0].resultData.impression && (
+                            <p className="p-2 text-xs text-slate-700"><span className="font-semibold">{t("impression")} : </span>{exam.results[0].resultData.impression}</p>
+                          )}
+                        </div>
+                      </details>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -417,7 +431,10 @@ export default function ConsultationWorkspacePage() {
               <ul className="space-y-4">
                 {signedNotes.map((record) => (
                   <li key={record.id} className="text-sm">
-                    <p className="text-xs text-slate-400">{format(new Date(record.createdAt), "dd/MM/yyyy HH:mm")}</p>
+                    <p className="text-xs text-slate-400">
+                      {format(new Date(record.createdAt), "dd/MM/yyyy HH:mm")}
+                      {record.type === "complementary_note" && <span className="ml-2 rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700">{t("complementary_note")}</span>}
+                    </p>
                     {record.title && <p className="font-medium text-slate-800">{record.title}</p>}
                     <p className="text-slate-700 whitespace-pre-wrap">{record.content}</p>
                   </li>

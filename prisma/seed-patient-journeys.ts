@@ -260,7 +260,7 @@ async function ensureStaff(tenantId: string, departments: Record<string, { id: s
     isClinicalProvider: true,
     defaultModules: [
       { moduleId: 'MODULE_CORE_PATIENT', actions: ['read'] },
-      { moduleId: 'MODULE_RADIOLOGY', actions: ['read', 'create', 'update', 'delete'] },
+      { moduleId: 'MODULE_RADIOLOGY', actions: ['read', 'create', 'update', 'delete', 'validate'] },
     ],
   });
   const billingRole = await ensureRole(tenantId, 'Facturation', {

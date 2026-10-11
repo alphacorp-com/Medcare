@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useEffect, useMemo, useState } from "react";
+import { DEFAULT_PAGE_SIZE, paginate, PaginationBar } from "@/components/shared/pagination-bar";
 import { Search, AlertTriangle, Plus, ScanLine } from "lucide-react";
 import { PrescribeExamSheet } from "./_components/PrescribeExamSheet";
 import { ExamDetailSheet } from "./_components/ExamDetailSheet";
@@ -23,6 +24,8 @@ export default function RadiologyPage() {
 
   const [filter, setFilter] = useState<RadiologyWorkflowState | "All" | "critical">("All");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [exams, setExams] = useState<RadiologyExam[]>([]);
   const [users, setUsers] = useState<UserRef[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -86,6 +89,16 @@ export default function RadiologyPage() {
     if (search && !patientName.includes(search.toLowerCase()) && !exam.examCode.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
+  // Newest prescriptions first (the API orders by requestedAt desc), one page at a time.
+  const pageItems = paginate(filtered, page, pageSize);
+  const changeFilter = (next: typeof filter) => {
+    setFilter(next);
+    setPage(1);
+  };
+  const changePageSize = (size: number) => {
+    setPageSize(size);
+    setPage(1);
+  };
 
   const count = (predicate: (s: RadiologyWorkflowState) => boolean) => withState.filter((w) => predicate(w.state)).length;
   const criticalCount = withState.filter((w) => w.critical).length;
@@ -117,25 +130,25 @@ export default function RadiologyPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-4 shrink-0">
-        <div className="bg-white p-4 rounded border border-slate-200 shadow-sm flex items-end justify-between hover:border-blue-300 transition-colors cursor-pointer" onClick={() => setFilter("pending_schedule")}>
+        <div className="bg-white p-4 rounded border border-slate-200 shadow-sm flex items-end justify-between hover:border-blue-300 transition-colors cursor-pointer" onClick={() => changeFilter("pending_schedule")}>
           <div>
             <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">{t('waiting_list')}</div>
             <div className="text-3xl font-bold text-slate-900">{count((s) => s === 'pending_schedule')}</div>
           </div>
         </div>
-        <div className="bg-white p-4 rounded border border-slate-200 shadow-sm flex items-end justify-between hover:border-blue-300 transition-colors cursor-pointer" onClick={() => setFilter("scheduled")}>
+        <div className="bg-white p-4 rounded border border-slate-200 shadow-sm flex items-end justify-between hover:border-blue-300 transition-colors cursor-pointer" onClick={() => changeFilter("scheduled")}>
           <div>
             <div className="text-xs font-semibold text-purple-600 uppercase tracking-wider mb-1">{t('appointments')}</div>
             <div className="text-3xl font-bold text-purple-600">{count((s) => s === 'scheduled')}</div>
           </div>
         </div>
-        <div className="bg-white p-4 rounded border border-slate-200 shadow-sm flex items-end justify-between hover:border-blue-300 transition-colors cursor-pointer" onClick={() => setFilter("awaiting_report")}>
+        <div className="bg-white p-4 rounded border border-slate-200 shadow-sm flex items-end justify-between hover:border-blue-300 transition-colors cursor-pointer" onClick={() => changeFilter("awaiting_report")}>
           <div>
             <div className="text-xs font-semibold text-yellow-600 uppercase tracking-wider mb-1">{t('reported')}</div>
             <div className="text-3xl font-bold text-yellow-600">{count((s) => s === 'awaiting_report')}</div>
           </div>
         </div>
-        <div className="bg-red-50 p-4 rounded border border-red-200 shadow-sm flex items-end justify-between hover:border-red-300 transition-colors cursor-pointer" onClick={() => setFilter("critical")}>
+        <div className="bg-red-50 p-4 rounded border border-red-200 shadow-sm flex items-end justify-between hover:border-red-300 transition-colors cursor-pointer" onClick={() => changeFilter("critical")}>
           <div>
              <div className="text-xs font-semibold text-red-800 uppercase tracking-wider mb-1">{t('critical_findings')}</div>
              <div className="text-3xl font-bold text-red-700">{criticalCount}</div>
@@ -152,7 +165,7 @@ export default function RadiologyPage() {
               type="search"
               placeholder={tc('search')}
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
               className="pl-8 h-8 text-xs bg-white border-slate-200 focus:border-blue-400 w-full"
             />
           </div>
@@ -160,7 +173,7 @@ export default function RadiologyPage() {
             {FILTERS.map((f) => (
               <button
                 key={f}
-                onClick={() => setFilter(f)}
+                onClick={() => changeFilter(f)}
                 className={cn("px-3 py-1 rounded text-[10px] font-semibold transition-colors", filter === f ? "bg-white shadow-sm text-slate-800" : "text-slate-500 hover:text-slate-800")}
               >
                 {f === "All" ? tc('all') : f === "critical" ? t('critical_findings') : t(f)}
@@ -191,7 +204,7 @@ export default function RadiologyPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100/80">
-                  {filtered.map(({ exam, state, critical }) => (
+                  {pageItems.map(({ exam, state, critical }) => (
                     <tr key={exam.id} className="hover:bg-slate-50/50 transition-colors group" onClick={() => setSelectedExam(exam)}>
                       <td className="p-4">
                         <div className="font-mono text-xs font-medium text-slate-700">{exam.examCode}</div>
@@ -255,6 +268,7 @@ export default function RadiologyPage() {
             </div>
           )}
         </div>
+        <PaginationBar page={page} pageSize={pageSize} total={filtered.length} onPageChange={setPage} onPageSizeChange={changePageSize} />
       </div>
 
       <PrescribeExamSheet

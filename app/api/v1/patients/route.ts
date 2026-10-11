@@ -10,7 +10,8 @@ import { Prisma } from "@prisma/client";
 //   q       – full-text search across lastName, firstName, ipp, nss
 //   status  – "active" | "deceased" (default: active)
 //   page    – pagination page (default: 1)
-//   limit   – results per page (default: 50)
+//   limit   – results per page (default: 50, max 200)
+//   sort    – "recent" (default: most recently registered first) | "name" (alphabetical)
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -25,8 +26,9 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const q = searchParams.get("q")?.trim() ?? "";
     const status = searchParams.get("status") ?? "active";
-    const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
-    const limit = Math.min(200, parseInt(searchParams.get("limit") ?? "50", 10));
+    const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
+    const limit = Math.min(200, Math.max(1, parseInt(searchParams.get("limit") ?? "50", 10) || 50));
+    const sort = searchParams.get("sort") === "name" ? "name" : "recent";
 
     const isDeceased = status === "deceased";
 
@@ -66,7 +68,12 @@ export async function GET(request: Request) {
             select: { status: true, admissionDate: true },
           },
         },
-        orderBy: { lastName: "asc" },
+        // Newest registration first, so a patient just created at the front desk is at the
+        // top of the list; id breaks ties so pages never overlap or skip rows.
+        orderBy:
+          sort === "name"
+            ? [{ lastName: "asc" }, { firstName: "asc" }, { id: "asc" }]
+            : [{ createdAt: "desc" }, { id: "desc" }],
         skip: (page - 1) * limit,
         take: limit,
       }),

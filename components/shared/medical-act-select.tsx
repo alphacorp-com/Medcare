@@ -40,12 +40,17 @@ export function MedicalActSelect({
   value,
   onChange,
   optional,
+  label,
+  hint,
 }: {
   acts: MedicalActOption[];
   value: string;
   onChange: (code: string) => void;
   // Vital emergencies may be admitted before the act is known.
   optional?: boolean;
+  // Defaults to the admission wording; overridden e.g. for the hospitalisation act.
+  label?: string;
+  hint?: string;
 }) {
   const t = useTranslations("admissions");
 
@@ -57,7 +62,7 @@ export function MedicalActSelect({
   return (
     <div className="space-y-1">
       <label className="text-[10px] font-bold text-slate-500 uppercase">
-        {t("medical_act")} {!optional && <span className="text-red-500">*</span>}
+        {label ?? t("medical_act")} {!optional && <span className="text-red-500">*</span>}
       </label>
       <select
         value={value}
@@ -76,7 +81,7 @@ export function MedicalActSelect({
           </optgroup>
         ))}
       </select>
-      <p className="text-[10px] text-slate-500">{optional ? t("medical_act_hint_emergency") : t("medical_act_hint")}</p>
+      <p className="text-[10px] text-slate-500">{hint ?? (optional ? t("medical_act_hint_emergency") : t("medical_act_hint"))}</p>
     </div>
   );
 }

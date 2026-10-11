@@ -1,3 +1,6 @@
+import type { ResultParameter } from "@/lib/laboratory/results";
+import type { RadiologyReportData } from "@/lib/radiology/report";
+
 export type StayPrescriptionItem = {
   drug: string;
   dosage: string;
@@ -21,6 +24,17 @@ export type StayExamRequest = {
   examCode: string;
   urgency: string;
   status: string;
+  prescriberId: string;
+  completedAt: string | null;
+  // Latest result: lab parameters, or a radiology report (which may also carry parameters).
+  results?: {
+    id: string;
+    performerId: string;
+    validatedAt: string | null;
+    validatedBy: string | null;
+    isCritical: boolean;
+    resultData: { parameters?: ResultParameter[] } & Partial<RadiologyReportData>;
+  }[];
 };
 
 export type StayMedicalRecord = {
@@ -63,6 +77,15 @@ export type StayDetail = {
   pmsiValidated: boolean;
   consultationStatus: "awaiting_payment" | "waiting" | "claimed" | "completed";
   medicalAct: { code: string; label: string; price: number } | null;
+  hospitalization: {
+    status: "awaiting_payment" | "admitted";
+    actLabel: string | null;
+    bedLabel: string | null;
+    departmentName: string | null;
+    requestedAt: string | null;
+    hospitalizedAt: string | null;
+  } | null;
+  userNames: Record<string, string>;
   vitalSigns: StayVitals[];
   patient: {
     id: string;
@@ -70,6 +93,10 @@ export type StayDetail = {
     lastName: string;
     ipp: string;
     birthDate: string;
+    gender: string;
+    bloodGroup: string | null;
+    allergies: unknown;
+    chronicConditions: unknown;
   };
   medicalRecords: StayMedicalRecord[];
   prescriptions: StayPrescription[];
@@ -98,6 +125,7 @@ export type Bed = {
   code: string;
   label: string;
   departmentId: string;
+  roomTypeId?: string | null;
   status: "available" | "occupied" | "maintenance" | "reserved";
 };
 

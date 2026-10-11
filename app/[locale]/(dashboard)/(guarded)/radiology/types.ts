@@ -35,6 +35,7 @@ export type RadiologyExam = {
     lastName: string;
     ipp: string;
     allergies: unknown;
+    gender?: string | null;
   };
   results: RadiologyResult[];
 };
