@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -10,12 +11,14 @@ import {
   Plus,
   User,
   Check,
-  X
+  X,
+  Eye
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { StayDetail } from "../types";
+import { StayDetail, StayExamRequest } from "../types";
+import { ExamResultSheet, getValidatedResult } from "./ExamResultSheet";
 
 interface StayTabsProps {
   stay: StayDetail;
@@ -60,6 +63,7 @@ function buildTimeline(stay: StayDetail, t: (key: string, values?: Record<string
 export function StayTabs({ stay, onPrescriptionOpen, onOrderOpen, onCompleteOrder, onCancelOrder, getDoctorName }: StayTabsProps) {
   const t = useTranslations('admissions');
   const tc = useTranslations('common');
+  const [viewedOrder, setViewedOrder] = useState<StayExamRequest | null>(null);
 
   return (
     <div className="lg:col-span-9 flex flex-col bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -218,8 +222,13 @@ export function StayTabs({ stay, onPrescriptionOpen, onOrderOpen, onCompleteOrde
                   ) : (
                     stay.examRequests?.map((order) => {
                       const isMedicalAct = !LAB_RADIO_TYPES.includes(order.type);
+                      const hasResult = getValidatedResult(order) !== null;
                       return (
-                      <tr key={order.id} className="hover:bg-slate-50/50 transition-colors group">
+                      <tr
+                        key={order.id}
+                        className={cn("hover:bg-slate-50/50 transition-colors group", hasResult && "cursor-pointer")}
+                        onClick={hasResult ? () => setViewedOrder(order) : undefined}
+                      >
                         <td className="px-6 py-5 font-mono text-[10px] text-slate-400 group-hover:text-slate-600">{format(new Date(order.requestedAt), "MMM d, yyyy HH:mm")}</td>
                         <td className="px-6 py-5">
                           <span className="px-3 py-1 rounded-lg bg-slate-100 text-slate-700 font-bold text-[10px] uppercase tracking-tight">
@@ -275,6 +284,21 @@ export function StayTabs({ stay, onPrescriptionOpen, onOrderOpen, onCompleteOrde
                                 <X className="h-3.5 w-3.5" />
                               </Button>
                             </div>
+                          ) : hasResult ? (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 rounded-full bg-blue-100 text-blue-600 hover:bg-blue-200"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setViewedOrder(order);
+                              }}
+                              title={t('view_result')}
+                              aria-label={t('view_result')}
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                            </Button>
                           ) : null}
                         </td>
                       </tr>
@@ -287,6 +311,12 @@ export function StayTabs({ stay, onPrescriptionOpen, onOrderOpen, onCompleteOrde
           </TabsContent>
         </div>
       </Tabs>
+
+      <ExamResultSheet
+        order={viewedOrder}
+        onOpenChange={(open) => !open && setViewedOrder(null)}
+        userNames={stay.userNames}
+      />
     </div>
   );
 }
