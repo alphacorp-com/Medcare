@@ -162,7 +162,7 @@ export function HospitalizationSheet({
             </select>
           </div>
 
-          <MedicalActSelect acts={acts} value={actCode} onChange={setActCode} label={t("hospitalization_act")} hint={t("hospitalization_act_hint")} />
+          {/* <MedicalActSelect acts={acts} value={actCode} onChange={setActCode} label={t("hospitalization_act")} hint={t("hospitalization_act_hint")} /> */}
 
           <div className="space-y-1">
             <label className="text-[10px] font-bold text-slate-500 uppercase">{t("planned_days")}</label>
