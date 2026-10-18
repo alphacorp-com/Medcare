@@ -9,8 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useRouter } from "@/i18n/routing";
-import { Search, Plus, FileClock, Banknote, CheckCircle2, Receipt } from "lucide-react";
-import { NewInvoiceSheet } from "./_components/NewInvoiceSheet";
+import { Search, FileClock, Banknote, CheckCircle2, Receipt } from "lucide-react";
 import { FeeScheduleTab } from "./_components/FeeScheduleTab";
 import { InvoiceListItem, BillingInvoiceStatus } from "./types";
 
@@ -26,7 +25,6 @@ export default function BillingPage() {
   const [search, setSearch] = useState("");
   const [invoices, setInvoices] = useState<InvoiceListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isNewOpen, setIsNewOpen] = useState(false);
 
   const fetchInvoices = async () => {
     try {
@@ -83,15 +81,6 @@ export default function BillingPage() {
         <div className="mb-3 sm:mb-0">
           <h1 className="text-lg font-bold text-slate-800">{t("title")}</h1>
           <p className="text-xs text-slate-500 mt-1">{t("description")}</p>
-        </div>
-        <div className="grid grid-cols-1 sm:flex sm:items-center sm:gap-2 gap-2 w-full sm:w-auto">
-          <Button
-            size="sm"
-            className="h-8 text-xs bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto flex items-center justify-center"
-            onClick={() => setIsNewOpen(true)}
-          >
-            <Plus className="h-3.5 w-3.5 mr-2" /> {t("new_invoice")}
-          </Button>
         </div>
       </div>
 
@@ -218,12 +207,6 @@ export default function BillingPage() {
           </TabsContent>
         </div>
       </Tabs>
-
-      <NewInvoiceSheet
-        open={isNewOpen}
-        onOpenChange={setIsNewOpen}
-        onCreated={(invoiceId) => router.push(`/billing/${invoiceId}`)}
-      />
     </div>
   );
 }
