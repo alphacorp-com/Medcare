@@ -14,7 +14,7 @@ import { SettingsList, SettingsListItem, SettingsPageHeader, SettingsPill, setti
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
-export type ModuleAction = 'read' | 'create' | 'update' | 'delete';
+export type ModuleAction = 'read' | 'create' | 'update' | 'delete' | 'validate';
 
 export type ModulePermission = {
   moduleId: string;
@@ -395,6 +395,17 @@ export function UsersManagement() {
                           />
                           Delete
                         </label>
+                        {(mod.id === 'MODULE_LAB' || mod.id === 'MODULE_RADIOLOGY') && (
+                          <label className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50/50 px-3 py-2 cursor-pointer text-xs text-amber-800 hover:border-amber-300" title={t('validate_permission_hint')}>
+                            <input
+                              type="checkbox"
+                              checked={currentActions.includes('validate')}
+                              onChange={() => toggleModuleAction(mod.id, 'validate')}
+                              className="rounded border-slate-300 text-amber-600 focus:ring-amber-500"
+                            />
+                            {t('validate_permission')}
+                          </label>
+                        )}
                       </div>
                     </div>
                   );

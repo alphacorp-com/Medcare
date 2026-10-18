@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { PrismaClient, Prisma, ReferenceCatalogType, ExamCatalogDomain } from '@prisma/client';
 import prismaClient from '../lib/prisma';
+import { LAB_PARAMETERS, RADIOLOGY_PARAMETERS } from '../lib/exam-catalog/standard-parameters';
 
 // Seeds every new tenant-configurable reference-data catalog introduced alongside the
 // Settings "reference data" pages: the 7 generic ReferenceCatalogItem lists, Medical Act
@@ -189,6 +190,7 @@ const MEDICAL_ACT_CATEGORIES = [
   { code: 'NURSING_CARE', nameFr: 'Soins infirmiers', nameEn: 'Nursing care', color: '#2e7d32', order: 4 },
   { code: 'FUNCTIONAL_EXPLORATION', nameFr: 'Explorations fonctionnelles', nameEn: 'Functional explorations', color: '#ef6c00', order: 5 },
   { code: 'MATERNITY_CARE', nameFr: "Actes de maternité", nameEn: 'Maternity procedures', color: '#ad1457', order: 6 },
+  { code: 'HOSPITALIZATION', nameFr: 'Hospitalisation', nameEn: 'Hospitalisation', color: '#5d4037', order: 7 },
 ];
 
 const MEDICAL_ACTS: { code: string; categoryCode: string; nameFr: string; nameEn?: string; basePrice: number; unit?: string; defaultPecCoveragePercent?: number; allowsUrgencySurcharge?: boolean; requiresLabValidation?: boolean }[] = [
@@ -209,6 +211,10 @@ const MEDICAL_ACTS: { code: string; categoryCode: string; nameFr: string; nameEn
   { code: 'SPIROMETRIE', categoryCode: 'FUNCTIONAL_EXPLORATION', nameFr: 'Spirométrie', basePrice: 8000, unit: 'acte' },
   { code: 'CPN_ACTE', categoryCode: 'MATERNITY_CARE', nameFr: 'Consultation prénatale (CPN)', basePrice: 3000, unit: 'acte' },
   { code: 'ACCOUCHEMENT_VOIE_BASSE', categoryCode: 'MATERNITY_CARE', nameFr: 'Accouchement par voie basse', basePrice: 30000, unit: 'acte', requiresLabValidation: true },
+  // Billed per day: the hospitalisation form multiplies the price by the planned length of stay.
+  { code: 'HOSP_SALLE_COMMUNE', categoryCode: 'HOSPITALIZATION', nameFr: 'Hospitalisation — salle commune (par jour)', basePrice: 5000, unit: 'jour' },
+  { code: 'HOSP_CHAMBRE_DOUBLE', categoryCode: 'HOSPITALIZATION', nameFr: 'Hospitalisation — chambre à 2 lits (par jour)', basePrice: 10000, unit: 'jour' },
+  { code: 'HOSP_CHAMBRE_INDIV', categoryCode: 'HOSPITALIZATION', nameFr: 'Hospitalisation — chambre individuelle (par jour)', basePrice: 20000, unit: 'jour' },
   { code: 'ACCOUCHEMENT_CESARIENNE', categoryCode: 'MATERNITY_CARE', nameFr: 'Accouchement par césarienne', basePrice: 150000, unit: 'acte', requiresLabValidation: true, allowsUrgencySurcharge: true },
 ];
 
@@ -266,72 +272,40 @@ const LAB_EXAM_TYPES = [
   { code: 'BACTERIOLOGY', nameFr: 'Bactériologie', nameEn: 'Bacteriology', order: 7 },
 ];
 
-const LAB_EXAMS: { code: string; typeCode: string; nameFr: string; nameEn: string; parameters: { name: string; unit: string; referenceRange: string }[] }[] = [
+// Result sheets (parameters, references) live in lib/exam-catalog/standard-parameters.ts.
+const LAB_EXAMS: { code: string; typeCode: string; nameFr: string; nameEn: string }[] = [
   {
     code: 'CBC', typeCode: 'HEMATOLOGY', nameFr: 'Numération formule sanguine (NFS)', nameEn: 'Complete Blood Count (CBC)',
-    parameters: [
-      { name: 'WBC', unit: '10^9/L', referenceRange: '4.0-11.0' },
-      { name: 'RBC', unit: '10^12/L', referenceRange: '4.2-5.9' },
-      { name: 'Hemoglobin', unit: 'g/dL', referenceRange: '13.0-17.0' },
-      { name: 'Hematocrit', unit: '%', referenceRange: '38-50' },
-      { name: 'Platelets', unit: '10^9/L', referenceRange: '150-400' },
-    ],
   },
   {
     code: 'CMP', typeCode: 'BIOCHEMISTRY', nameFr: 'Bilan métabolique complet', nameEn: 'Comprehensive Metabolic Panel (CMP)',
-    parameters: [
-      { name: 'Glucose', unit: 'mg/dL', referenceRange: '70-100' },
-      { name: 'Sodium', unit: 'mmol/L', referenceRange: '135-145' },
-      { name: 'Potassium', unit: 'mmol/L', referenceRange: '3.5-5.0' },
-      { name: 'Creatinine', unit: 'mg/dL', referenceRange: '0.6-1.2' },
-      { name: 'BUN', unit: 'mg/dL', referenceRange: '7-20' },
-    ],
   },
   {
     code: 'LIPID', typeCode: 'BIOCHEMISTRY', nameFr: 'Bilan lipidique', nameEn: 'Lipid Panel',
-    parameters: [
-      { name: 'Total Cholesterol', unit: 'mg/dL', referenceRange: '< 200' },
-      { name: 'LDL', unit: 'mg/dL', referenceRange: '< 100' },
-      { name: 'HDL', unit: 'mg/dL', referenceRange: '> 40' },
-      { name: 'Triglycerides', unit: 'mg/dL', referenceRange: '< 150' },
-    ],
   },
   {
     code: 'TROP-I', typeCode: 'CARDIOLOGY_BIO', nameFr: 'Troponine I', nameEn: 'Troponin I',
-    parameters: [{ name: 'Troponin I', unit: 'ng/mL', referenceRange: '< 0.04' }],
   },
   {
-    code: 'UA', typeCode: 'UROLOGY_BIO', nameFr: "Analyse d'urine (ECBU)", nameEn: 'Urinalysis',
-    parameters: [
-      { name: 'pH', unit: '', referenceRange: '4.5-8' },
-      { name: 'Protein', unit: 'mg/dL', referenceRange: 'Negative' },
-      { name: 'Glucose', unit: 'mg/dL', referenceRange: 'Negative' },
-      { name: 'Leukocytes', unit: '', referenceRange: 'Negative' },
-    ],
+    code: 'UA', typeCode: 'UROLOGY_BIO', nameFr: 'Examen cytobactériologique des urines (ECBU)', nameEn: 'Urinalysis and urine culture',
   },
   {
     code: 'HIV', typeCode: 'SEROLOGY', nameFr: 'Test rapide VIH', nameEn: 'HIV Rapid Test',
-    parameters: [{ name: 'HIV', unit: '', referenceRange: 'Non-reactive' }],
   },
   {
     code: 'SYPH', typeCode: 'SEROLOGY', nameFr: 'Syphilis (RPR/TPHA)', nameEn: 'Syphilis (RPR/TPHA)',
-    parameters: [{ name: 'Syphilis', unit: '', referenceRange: 'Non-reactive' }],
   },
   {
     code: 'MALARIA-TDR', typeCode: 'PARASITOLOGY', nameFr: 'Paludisme (TDR)', nameEn: 'Malaria (RDT)',
-    parameters: [{ name: 'Paludisme (TDR)', unit: '', referenceRange: 'Négatif' }],
   },
   {
     code: 'MALARIA-GE', typeCode: 'PARASITOLOGY', nameFr: 'Paludisme (Goutte Épaisse)', nameEn: 'Malaria (thick blood smear)',
-    parameters: [{ name: 'Goutte Épaisse', unit: 'parasites/µL', referenceRange: 'Négatif' }],
   },
   {
     code: 'TB-GENEXPERT', typeCode: 'BACTERIOLOGY', nameFr: 'Tuberculose (GeneXpert MTB/RIF)', nameEn: 'TB (GeneXpert MTB/RIF)',
-    parameters: [{ name: 'MTB détecté', unit: '', referenceRange: 'Non détecté' }, { name: 'Résistance Rifampicine', unit: '', referenceRange: 'Non détectée' }],
   },
   {
     code: 'TB-MICROSCOPY', typeCode: 'BACTERIOLOGY', nameFr: 'Tuberculose (Microscopie BAAR)', nameEn: 'TB (Ziehl-Neelsen microscopy)',
-    parameters: [{ name: 'BAAR', unit: '', referenceRange: 'Négatif' }],
   },
 ];
 
@@ -372,10 +346,11 @@ async function seedExamCatalog(prisma: PrismaClient, tenantId: string) {
     labTypeIds[type.code] = record.id;
   }
   for (const exam of LAB_EXAMS) {
+    const parameters = (LAB_PARAMETERS[exam.code] ?? []) as unknown as Prisma.InputJsonValue;
     await prisma.examCatalogEntry.upsert({
       where: { tenantId_code: { tenantId, code: exam.code } },
-      update: { examTypeId: labTypeIds[exam.typeCode], nameFr: exam.nameFr, nameEn: exam.nameEn, parameters: exam.parameters as unknown as Prisma.InputJsonValue },
-      create: { tenantId, examTypeId: labTypeIds[exam.typeCode], code: exam.code, nameFr: exam.nameFr, nameEn: exam.nameEn, parameters: exam.parameters as unknown as Prisma.InputJsonValue },
+      update: { examTypeId: labTypeIds[exam.typeCode], nameFr: exam.nameFr, nameEn: exam.nameEn, parameters },
+      create: { tenantId, examTypeId: labTypeIds[exam.typeCode], code: exam.code, nameFr: exam.nameFr, nameEn: exam.nameEn, parameters },
     });
   }
 
@@ -399,6 +374,7 @@ async function seedExamCatalog(prisma: PrismaClient, tenantId: string) {
         imagingCatalogItemId: imagingByCode.get(typeSeed.imagingCode) ?? null,
         anatomicalZoneId: exam.zoneCode ? zoneByCode.get(exam.zoneCode) ?? null : null,
         requiresContrast: exam.requiresContrast,
+        parameters: (RADIOLOGY_PARAMETERS[exam.code] ?? []) as unknown as Prisma.InputJsonValue,
       },
       create: {
         tenantId,
@@ -409,6 +385,7 @@ async function seedExamCatalog(prisma: PrismaClient, tenantId: string) {
         imagingCatalogItemId: imagingByCode.get(typeSeed.imagingCode) ?? null,
         anatomicalZoneId: exam.zoneCode ? zoneByCode.get(exam.zoneCode) ?? null : null,
         requiresContrast: exam.requiresContrast,
+        parameters: (RADIOLOGY_PARAMETERS[exam.code] ?? []) as unknown as Prisma.InputJsonValue,
       },
     });
   }

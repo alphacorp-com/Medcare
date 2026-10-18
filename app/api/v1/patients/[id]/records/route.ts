@@ -13,6 +13,7 @@ const toUuid = (v: unknown): string | null =>
 
 const RECORD_TYPES: MedicalRecordType[] = [
   "consultation",
+  "complementary_note",
   "observation",
   "surgery_report",
   "discharge_letter",
@@ -176,14 +177,16 @@ export async function POST(
     // date back via the `include: { stay }` below, or (once signed) trigger an
     // unscoped consultationStatus update against it further down. ────────────
     const resolvedStayId = toUuid(stayId);
+    let stayActBilledAtAdmission = false;
     if (resolvedStayId) {
       const stay = await prisma.stay.findFirst({
         where: { id: resolvedStayId, tenantId: session.user.tenantId, patientId: id },
-        select: { id: true },
+        select: { id: true, medicalActCode: true },
       });
       if (!stay) {
         return NextResponse.json({ error: "Stay not found", success: false }, { status: 404 });
       }
+      stayActBilledAtAdmission = Boolean(stay.medicalActCode);
     }
 
     // ── Create ─────────────────────────────────────────────────────────────
@@ -216,8 +219,10 @@ export async function POST(
 
     const isCompletedConsultation = record.type === "consultation" && record.isSigned;
 
+    // A stay admitted with a medical act was already billed (and paid) at admission —
+    // signing the note only bills the consultation for stays/visits without one.
     const billing =
-      isCompletedConsultation && session.user.tenantId
+      isCompletedConsultation && !stayActBilledAtAdmission && session.user.tenantId
         ? await suggestInvoiceLine({
             tenantId: session.user.tenantId,
             patientId: id,

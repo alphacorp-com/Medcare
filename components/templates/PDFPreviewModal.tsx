@@ -19,6 +19,7 @@ import { StockReportTemplate } from './StockReportTemplate';
 import { PatientFileTemplate, type PatientFileData } from './PatientFileTemplate';
 import { MedicationGuideTemplate } from './MedicationGuideTemplate';
 import { ReceiptTemplate } from './ReceiptTemplate';
+import { MedicalRecordTemplate, type MedicalRecordData } from './MedicalRecordTemplate';
 import { useTranslations } from 'next-intl';
 import type { PdfFacility, PdfInvoiceData, PdfReceiptData, PdfSettings } from './types';
 
@@ -293,6 +294,16 @@ export function PDFPreviewModal({ isOpen, onClose, templateId, facility, setting
             facility={facility}
             settings={settings}
             labels={labels}
+          />
+        );
+      case 'medical_record':
+        // No demo fallback: only ever opened with a real admission (see stays/[id]).
+        return (
+          <MedicalRecordTemplate
+            data={data as MedicalRecordData}
+            facility={facility}
+            settings={settings}
+            labels={tDocs.raw('medicalRecord') as Record<string, string>}
           />
         );
       default:

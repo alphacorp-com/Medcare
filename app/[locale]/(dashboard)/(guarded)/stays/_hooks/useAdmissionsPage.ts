@@ -1,5 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { StayRow, Department, Doctor, Bed, NewStayForm, EMPTY_VITALS } from "../types";
+import { DEFAULT_PAGE_SIZE } from "@/components/shared/pagination-bar";
+
+export type StayFilters = { status: string; type: string };
+const EMPTY_FILTERS: StayFilters = { status: "", type: "" };
 
 const EMPTY_FORM: NewStayForm = {
   patientId: "",
@@ -9,6 +13,7 @@ const EMPTY_FORM: NewStayForm = {
   bedId: "",
   attendingDoctorId: "",
   triageAcuity: "",
+  medicalActCode: "",
   vitals: EMPTY_VITALS,
 };
 
@@ -20,7 +25,13 @@ export function useAdmissionsPage() {
   const [beds, setBeds] = useState<Bed[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [view, setView] = useState<"all" | "triage">("all");
+  const [view, setViewState] = useState<"all" | "triage">("all");
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSizeState] = useState(DEFAULT_PAGE_SIZE);
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [filters, setFiltersState] = useState<StayFilters>(EMPTY_FILTERS);
 
   // Form
   const [stayForm, setStayForm] = useState<NewStayForm>(EMPTY_FORM);
@@ -29,30 +40,63 @@ export function useAdmissionsPage() {
 
   // ── Fetchers ──────────────────────────────────────────────────────────────
 
-  const fetchStays = useCallback(async (currentView: "all" | "triage") => {
+  const fetchStays = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const url = currentView === "triage"
-        ? "/api/v1/stays?type=emergency&status=in_progress&sort=acuity"
-        : "/api/v1/stays";
-      const res = await fetch(url);
+      const url = new URL("/api/v1/stays", window.location.origin);
+      if (view === "triage") {
+        url.searchParams.set("type", "emergency");
+        url.searchParams.set("status", "in_progress");
+        url.searchParams.set("sort", "acuity");
+      } else {
+        if (filters.status) url.searchParams.set("status", filters.status);
+        if (filters.type) url.searchParams.set("type", filters.type);
+      }
+      if (search) url.searchParams.set("q", search);
+      url.searchParams.set("page", String(page));
+      url.searchParams.set("limit", String(pageSize));
+      const res = await fetch(url.toString());
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.error ?? "Failed to load stays");
       setStays(json.data as StayRow[]);
+      setTotal(json.total as number);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load stays");
       setStays([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [view, filters, search, page, pageSize]);
 
   useEffect(() => {
     (async () => {
-      await fetchStays(view);
+      await fetchStays();
     })();
-  }, [fetchStays, view]);
+  }, [fetchStays]);
+
+  // Debounced search; any change of search, filter, view or page size restarts at page 1.
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [searchInput]);
+
+  const setView = useCallback((next: "all" | "triage") => {
+    setViewState(next);
+    setPage(1);
+  }, []);
+  const setFilters = useCallback((next: StayFilters) => {
+    setFiltersState(next);
+    setPage(1);
+  }, []);
+  const setPageSize = useCallback((size: number) => {
+    setPageSizeState(size);
+    setPage(1);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -111,13 +155,16 @@ export function useAdmissionsPage() {
           bedId: stayForm.bedId || null,
           attendingDoctorId: stayForm.attendingDoctorId || null,
           triageAcuity: stayForm.triageAcuity || undefined,
+          medicalActCode: stayForm.medicalActCode || undefined,
           vitals: stayForm.vitals,
         }),
       });
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.error ?? "Failed to create stay");
 
-      await fetchStays(view);
+      // Newest admission first: back to page 1 so the one just created is on top.
+      if (page === 1) await fetchStays();
+      else setPage(1);
       return true;
     } catch (e) {
       setStayError(e instanceof Error ? e.message : "Failed to create stay");
@@ -125,12 +172,14 @@ export function useAdmissionsPage() {
     } finally {
       setSavingStay(false);
     }
-  }, [savingStay, stayForm, fetchStays, view]);
+  }, [savingStay, stayForm, fetchStays, page]);
 
   return {
     // Data
     stays, departments, doctors, beds, loading, error,
     view, setView,
+    total, page, setPage, pageSize, setPageSize,
+    searchInput, setSearchInput, filters, setFilters,
     // Form
     stayForm, updateStayForm, resetForm,
     savingStay, stayError,

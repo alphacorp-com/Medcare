@@ -4,16 +4,23 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { useState } from "react";
+import type { StayFilters } from "../_hooks/useAdmissionsPage";
 
 interface StaysFilterBarProps {
   showFilters: boolean;
   onFilterClose: () => void;
+  searchInput: string;
+  onSearchChange: (value: string) => void;
+  filters: StayFilters;
+  onApplyFilters: (filters: StayFilters) => void;
 }
 
-export function StaysFilterBar({ showFilters, onFilterClose }: StaysFilterBarProps) {
+export function StaysFilterBar({ showFilters, onFilterClose, searchInput, onSearchChange, filters, onApplyFilters }: StaysFilterBarProps) {
   const t = useTranslations("admissions");
   const tc = useTranslations("common");
   const tp = useTranslations("patients");
+  const [pending, setPending] = useState<StayFilters>(filters);
 
   return (
     <div className="p-2 border-b border-slate-200 bg-slate-50 flex flex-col gap-2">
@@ -22,14 +29,11 @@ export function StaysFilterBar({ showFilters, onFilterClose }: StaysFilterBarPro
           <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-slate-400" />
           <Input
             type="search"
-            placeholder={tc("search")}
+            value={searchInput}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder={t("search_stays_placeholder")}
             className="pl-8 h-8 text-xs bg-white border-slate-200 focus:border-blue-400"
           />
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="px-2 py-0.5 bg-slate-100 text-slate-500 text-[10px] rounded-full font-normal italic">
-            Updated 1m ago
-          </span>
         </div>
       </div>
 
@@ -39,8 +43,12 @@ export function StaysFilterBar({ showFilters, onFilterClose }: StaysFilterBarPro
             <label className="text-[10px] font-bold text-slate-500 uppercase">
               {tc("status")}:
             </label>
-            <select className="h-7 text-xs bg-white border border-slate-200 rounded px-2 outline-none focus:border-blue-400 text-slate-700">
-              <option>{tc("all")}</option>
+            <select
+              value={pending.status}
+              onChange={(e) => setPending((prev) => ({ ...prev, status: e.target.value }))}
+              className="h-7 text-xs bg-white border border-slate-200 rounded px-2 outline-none focus:border-blue-400 text-slate-700"
+            >
+              <option value="">{tc("all")}</option>
               <option value="in_progress">{tc("status_in_progress")}</option>
               <option value="pre_admission">{tc("status_pre_admission")}</option>
               <option value="discharged">{tc("status_discharged")}</option>
@@ -51,22 +59,31 @@ export function StaysFilterBar({ showFilters, onFilterClose }: StaysFilterBarPro
             <label className="text-[10px] font-bold text-slate-500 uppercase">
               {t("arrival_mode")}:
             </label>
-            <select className="h-7 text-xs bg-white border border-slate-200 rounded px-2 outline-none focus:border-blue-400 text-slate-700">
-              <option>{tc("all")}</option>
+            <select
+              value={pending.type}
+              onChange={(e) => setPending((prev) => ({ ...prev, type: e.target.value }))}
+              className="h-7 text-xs bg-white border border-slate-200 rounded px-2 outline-none focus:border-blue-400 text-slate-700"
+            >
+              <option value="">{tc("all")}</option>
               <option value="emergency">{t("type_emergency")}</option>
               <option value="scheduled">{t("type_scheduled")}</option>
               <option value="day_care">{t("type_day_care")}</option>
               <option value="outpatient">{t("type_outpatient")}</option>
             </select>
           </div>
-          <Button size="sm" variant="secondary" className="h-7 text-xs ml-auto">
+          <Button size="sm" variant="secondary" className="h-7 text-xs ml-auto" onClick={() => onApplyFilters(pending)}>
             {tp("apply_filters")}
           </Button>
           <Button
             size="sm"
             variant="ghost"
             className="h-7 text-xs text-slate-500"
-            onClick={onFilterClose}
+            onClick={() => {
+              const cleared = { status: "", type: "" };
+              setPending(cleared);
+              onApplyFilters(cleared);
+              onFilterClose();
+            }}
           >
             {tp("clear")}
           </Button>

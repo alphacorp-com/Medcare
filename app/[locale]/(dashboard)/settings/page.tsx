@@ -174,7 +174,7 @@ function SettingsPageContent() {
     if (activeModules.some(m => m.moduleId === moduleId)) {
       setActiveModules(activeModules.filter(m => m.moduleId !== moduleId));
     } else {
-      setActiveModules([...activeModules, { moduleId, actions: ["read", "create", "update", "delete"] }]);
+      setActiveModules([...activeModules, { moduleId, actions: ["read", "create", "update", "delete", "validate"] }]);
     }
   };
 

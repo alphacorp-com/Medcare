@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { requireModulePermission } from "@/lib/permissions";
 
-const PATIENT_SELECT = { id: true, firstName: true, lastName: true, ipp: true, allergies: true } as const;
+const PATIENT_SELECT = { id: true, firstName: true, lastName: true, ipp: true, allergies: true, gender: true } as const;
 
 export async function GET(req: Request, context: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);

@@ -1,6 +1,6 @@
 import { ResultParameter } from "@/lib/laboratory/results";
 
-export type ExamRequestStatus = "requested" | "scheduled" | "in_progress" | "completed" | "cancelled";
+export type ExamRequestStatus = "awaiting_payment" | "requested" | "scheduled" | "in_progress" | "completed" | "cancelled";
 export type ExamUrgency = "routine" | "urgent" | "stat";
 
 export type LabResult = {
@@ -32,16 +32,18 @@ export type LabExam = {
     firstName: string;
     lastName: string;
     ipp: string;
+    gender?: string | null;
   };
   results: LabResult[];
 };
 
 /** Derived UI-facing state, since "awaiting validation" isn't a stored status. */
-export type LabWorkflowState = "pending_sample" | "in_analysis" | "awaiting_validation" | "completed" | "cancelled";
+export type LabWorkflowState = "awaiting_payment" | "pending_sample" | "in_analysis" | "awaiting_validation" | "completed" | "cancelled";
 
 export function deriveWorkflowState(exam: LabExam): LabWorkflowState {
   if (exam.status === "cancelled") return "cancelled";
   if (exam.status === "completed") return "completed";
+  if (exam.status === "awaiting_payment") return "awaiting_payment";
   if (exam.status === "requested" || exam.status === "scheduled") return "pending_sample";
   const latest = exam.results[0];
   if (latest && !latest.validatedAt) return "awaiting_validation";

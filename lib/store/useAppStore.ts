@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type ModuleAction = "create" | "read" | "update" | "delete";
+export type ModuleAction = "create" | "read" | "update" | "delete" | "validate";
 
 export interface ModulePermission {
   moduleId: string;

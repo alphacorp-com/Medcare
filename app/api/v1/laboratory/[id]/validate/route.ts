@@ -12,7 +12,9 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const permCheck = requireModulePermission(session, "MODULE_LAB", "update");
+  // Signing off (or sending back) results is the biologist's / radiologist's call,
+  // not the technician's who entered them — see the "validate" module action.
+  const permCheck = requireModulePermission(session, "MODULE_LAB", "validate");
   if (!permCheck.ok) {
     return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
   }

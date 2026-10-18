@@ -11,6 +11,7 @@ import type { PatientListData } from "@/components/templates/PatientListTemplate
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertTriangle } from "lucide-react";
+import { DEFAULT_PAGE_SIZE, PaginationBar } from "@/components/shared/pagination-bar";
 
 // Internal Components
 import { PatientsHeader } from "./_components/PatientsHeader";
@@ -48,6 +49,9 @@ export default function PatientsPage() {
   const [pendingStatus, setPendingStatus] = useState<"active" | "deceased">("active");
   const [patients, setPatients] = useState<PatientRow[]>([]);
   const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [lastCreatedId, setLastCreatedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<NewPatientForm>(EMPTY_FORM);
@@ -56,9 +60,12 @@ export default function PatientsPage() {
   const [duplicateMatches, setDuplicateMatches] = useState<DuplicateMatch[]>([]);
   const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
 
-  // Debounce the search input
+  // Debounce the search input; a new search starts back on the first page.
   useEffect(() => {
-    const handle = setTimeout(() => setSearchQuery(searchInput.trim()), 300);
+    const handle = setTimeout(() => {
+      setSearchQuery(searchInput.trim());
+      setPage(1);
+    }, 300);
     return () => clearTimeout(handle);
   }, [searchInput]);
 
@@ -69,6 +76,8 @@ export default function PatientsPage() {
       const url = new URL("/api/v1/patients", window.location.origin);
       if (searchQuery) url.searchParams.set("q", searchQuery);
       url.searchParams.set("status", statusFilter);
+      url.searchParams.set("page", String(page));
+      url.searchParams.set("limit", String(pageSize));
       const res = await fetch(url.toString());
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.error ?? "Failed to load");
@@ -81,7 +90,7 @@ export default function PatientsPage() {
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, statusFilter, t]);
+  }, [searchQuery, statusFilter, page, pageSize, t]);
 
   useEffect(() => {
     (async () => {
@@ -110,12 +119,19 @@ export default function PatientsPage() {
 
   const applyFilters = () => {
     setStatusFilter(pendingStatus);
+    setPage(1);
   };
 
   const clearFilters = () => {
     setPendingStatus("active");
     setStatusFilter("active");
+    setPage(1);
     setShowFilters(false);
+  };
+
+  const changePageSize = (size: number) => {
+    setPageSize(size);
+    setPage(1);
   };
 
   const updateForm = <K extends keyof NewPatientForm>(key: K, value: NewPatientForm[K]) => {
@@ -163,7 +179,14 @@ export default function PatientsPage() {
       setForm(EMPTY_FORM);
       setShowDuplicateDialog(false);
       setDuplicateMatches([]);
-      await fetchPatients();
+      // The list is newest-first: show the first page, unfiltered, with the new patient on top.
+      setLastCreatedId(json.data?.id ?? null);
+      setSearchInput("");
+      setSearchQuery("");
+      setPendingStatus("active");
+      setStatusFilter("active");
+      if (page === 1) await fetchPatients();
+      else setPage(1);
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : t('error_save_patient'));
     } finally {
@@ -234,12 +257,18 @@ export default function PatientsPage() {
           onClearFilters={clearFilters}
         />
 
-        <PatientsTable patients={patients} loading={loading} error={error} />
-
-        {/* Footer Summary */}
-        <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-between items-center text-[11px] text-slate-500 shrink-0">
-          <span>{t("showing_total", { count: total })}</span>
+        <div className="flex-1 overflow-auto">
+          <PatientsTable patients={patients} loading={loading} error={error} highlightId={lastCreatedId} />
         </div>
+
+        <PaginationBar
+          className="shrink-0"
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          onPageChange={setPage}
+          onPageSizeChange={changePageSize}
+        />
       </div>
 
       {/* PDF Export Preview Modal */}
@@ -303,10 +332,17 @@ export default function PatientsPage() {
       />
 
       <div className="mt-3">
-        <PatientsTable patients={patients} loading={loading} error={error} />
+        <PatientsTable patients={patients} loading={loading} error={error} highlightId={lastCreatedId} />
       </div>
 
-      <div className="mt-4 text-[13px] text-blue-600 font-medium">{t("showing_total", { count: total })}</div>
+      <PaginationBar
+        className="mt-3 rounded-xl border"
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        onPageChange={setPage}
+        onPageSizeChange={changePageSize}
+      />
     </StandardMobileTemplate>
   );
 

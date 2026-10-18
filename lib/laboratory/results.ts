@@ -1,4 +1,6 @@
-export type ResultFlag = "normal" | "high" | "low" | "critical";
+// "abnormal" is for qualitative results (e.g. "Positif") that are out of range without
+// being higher or lower than anything.
+export type ResultFlag = "normal" | "high" | "low" | "abnormal" | "critical";
 
 export interface ResultParameter {
   name: string;
@@ -6,6 +8,8 @@ export interface ResultParameter {
   unit: string;
   referenceRange: string;
   flag: ResultFlag;
+  // Copied from the catalog definition so the report keeps its grouping.
+  section?: string;
 }
 
 export interface ResultData {

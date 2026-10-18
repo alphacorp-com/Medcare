@@ -50,5 +50,6 @@ export type NewStayForm = {
   bedId: string;
   attendingDoctorId: string;
   triageAcuity: string;
+  medicalActCode: string;
   vitals: VitalsForm;
 };

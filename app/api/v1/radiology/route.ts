@@ -4,8 +4,9 @@ import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { requireModulePermission } from "@/lib/permissions";
 import type { ExamRequestStatus, ExamUrgency } from "@prisma/client";
+import { chargePrescribedExams, examNeedsPrepayment, isPaymentGateActive } from "@/lib/billing/paymentGate";
 
-const PATIENT_SELECT = { id: true, firstName: true, lastName: true, ipp: true, allergies: true } as const;
+const PATIENT_SELECT = { id: true, firstName: true, lastName: true, ipp: true, allergies: true, gender: true } as const;
 
 // ── GET /api/v1/radiology ───────────────────────────────────────────────────
 // Query params: status, urgency, critical ("true"), search (patient name/ipp/examLabel)
@@ -95,22 +96,48 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Patient not found" }, { status: 404 });
     }
 
+    const stay = stayId
+      ? await prisma.stay.findFirst({
+          where: { id: stayId, tenantId: session.user.tenantId, patientId },
+          select: { id: true, type: true, triageAcuity: true },
+        })
+      : null;
+    if (stayId && !stay) {
+      return NextResponse.json({ error: "Stay not found" }, { status: 404 });
+    }
+    const resolvedUrgency = urgency ?? "routine";
+    const gateActive = await isPaymentGateActive(session.user.tenantId);
+
     const exam = await prisma.examRequest.create({
       data: {
         tenantId: session.user.tenantId,
         patientId,
-        stayId: stayId || null,
+        stayId: stay?.id ?? null,
         prescriberId: session.user.id,
         type: "radiology",
         examCode: catalogEntry?.code ?? `RAD-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000).toString().padStart(3, "0")}`,
         examLabel: catalogEntry?.nameFr ?? examLabel!.trim(),
-        urgency: urgency ?? "routine",
+        urgency: resolvedUrgency,
+        status: examNeedsPrepayment(gateActive, stay, resolvedUrgency) ? "awaiting_payment" : "requested",
         notes: notes || null,
       },
       include: { patient: { select: PATIENT_SELECT }, results: true },
     });
 
-    return NextResponse.json(exam, { status: 201 });
+    // Billed at prescription; stays "awaiting_payment" until the patient pays.
+    const billing = await chargePrescribedExams({
+      tenantId: session.user.tenantId,
+      patientId,
+      stayId: exam.stayId,
+      performedById: session.user.id,
+      exams: [exam],
+    });
+    const current = await prisma.examRequest.findUnique({
+      where: { id: exam.id },
+      include: { patient: { select: PATIENT_SELECT }, results: true },
+    });
+
+    return NextResponse.json({ ...(current ?? exam), billing }, { status: 201 });
   } catch (error) {
     console.error("Error creating radiology exam:", error);
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });

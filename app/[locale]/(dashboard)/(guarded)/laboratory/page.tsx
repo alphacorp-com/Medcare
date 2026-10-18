@@ -7,13 +7,14 @@ import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useEffect, useMemo, useState } from "react";
+import { DEFAULT_PAGE_SIZE, paginate, PaginationBar } from "@/components/shared/pagination-bar";
 import { Search, AlertTriangle, Plus } from "lucide-react";
 import { PrescribeExamSheet } from "./_components/PrescribeExamSheet";
 import { ExamDetailSheet } from "./_components/ExamDetailSheet";
 import { deriveWorkflowState, LabExam, LabWorkflowState, UserRef } from "./types";
 
 const FILTERS: (LabWorkflowState | "All" | "critical")[] = [
-  "All", "pending_sample", "in_analysis", "awaiting_validation", "critical",
+  "All", "awaiting_payment", "pending_sample", "in_analysis", "awaiting_validation", "critical",
 ];
 
 export default function LaboratoryPage() {
@@ -23,6 +24,8 @@ export default function LaboratoryPage() {
 
   const [filter, setFilter] = useState<LabWorkflowState | "All" | "critical">("All");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [exams, setExams] = useState<LabExam[]>([]);
   const [users, setUsers] = useState<UserRef[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -86,6 +89,16 @@ export default function LaboratoryPage() {
     if (search && !patientName.includes(search.toLowerCase()) && !exam.examCode.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
+  // Newest prescriptions first (the API orders by requestedAt desc), one page at a time.
+  const pageItems = paginate(filtered, page, pageSize);
+  const changeFilter = (next: typeof filter) => {
+    setFilter(next);
+    setPage(1);
+  };
+  const changePageSize = (size: number) => {
+    setPageSize(size);
+    setPage(1);
+  };
 
   const count = (predicate: (s: LabWorkflowState) => boolean) => withState.filter((w) => predicate(w.state)).length;
   const criticalCount = withState.filter((w) => w.critical).length;
@@ -117,25 +130,25 @@ export default function LaboratoryPage() {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4 shrink-0">
-        <div className="bg-white p-3 rounded border border-slate-200 shadow-sm flex items-end justify-between hover:border-blue-300 transition-colors cursor-pointer sm:p-4" onClick={() => setFilter("pending_sample")}>
+        <div className="bg-white p-3 rounded border border-slate-200 shadow-sm flex items-end justify-between hover:border-blue-300 transition-colors cursor-pointer sm:p-4" onClick={() => changeFilter("pending_sample")}>
           <div>
             <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1 sm:text-xs">{t('samples')}</div>
             <div className="text-2xl font-bold text-slate-900 sm:text-3xl">{count((s) => s === 'pending_sample')}</div>
           </div>
         </div>
-        <div className="bg-white p-3 rounded border border-slate-200 shadow-sm flex items-end justify-between hover:border-blue-300 transition-colors cursor-pointer sm:p-4" onClick={() => setFilter("in_analysis")}>
+        <div className="bg-white p-3 rounded border border-slate-200 shadow-sm flex items-end justify-between hover:border-blue-300 transition-colors cursor-pointer sm:p-4" onClick={() => changeFilter("in_analysis")}>
           <div>
             <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1 sm:text-xs">{t('in_analysis')}</div>
             <div className="text-2xl font-bold text-slate-900 sm:text-3xl">{count((s) => s === 'in_analysis')}</div>
           </div>
         </div>
-        <div className="bg-white p-3 rounded border border-slate-200 shadow-sm flex items-end justify-between hover:border-blue-300 transition-colors cursor-pointer sm:p-4" onClick={() => setFilter("awaiting_validation")}>
+        <div className="bg-white p-3 rounded border border-slate-200 shadow-sm flex items-end justify-between hover:border-blue-300 transition-colors cursor-pointer sm:p-4" onClick={() => changeFilter("awaiting_validation")}>
           <div>
             <div className="text-[10px] font-semibold text-yellow-600 uppercase tracking-wider mb-1 sm:text-xs">{t('pending_results')}</div>
             <div className="text-2xl font-bold text-yellow-600 sm:text-3xl">{count((s) => s === 'awaiting_validation')}</div>
           </div>
         </div>
-        <div className="bg-red-50 p-3 rounded border border-red-200 shadow-sm flex items-end justify-between hover:border-red-300 transition-colors cursor-pointer sm:p-4" onClick={() => setFilter("critical")}>
+        <div className="bg-red-50 p-3 rounded border border-red-200 shadow-sm flex items-end justify-between hover:border-red-300 transition-colors cursor-pointer sm:p-4" onClick={() => changeFilter("critical")}>
           <div>
              <div className="text-[10px] font-semibold text-red-800 uppercase tracking-wider mb-1 sm:text-xs">{t('critical_results')}</div>
              <div className="text-2xl font-bold text-red-700 sm:text-3xl">{criticalCount}</div>
@@ -152,7 +165,7 @@ export default function LaboratoryPage() {
                 type="search"
                 placeholder={tc('search')}
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
                 className="pl-8 h-8 text-xs bg-white border-slate-200 focus:border-blue-400"
               />
             </div>
@@ -160,7 +173,7 @@ export default function LaboratoryPage() {
               {FILTERS.map((f) => (
                 <button
                   key={f}
-                  onClick={() => setFilter(f)}
+                  onClick={() => changeFilter(f)}
                   className={cn("px-2 py-1 rounded text-[10px] uppercase font-bold sm:px-3", filter === f ? "bg-white shadow-sm text-slate-700" : "text-slate-500 hover:text-slate-700")}
                 >
                   {f === "All" ? tc('all') : f === "critical" ? t('critical_results') : t(f)}
@@ -186,7 +199,7 @@ export default function LaboratoryPage() {
                 <tr><td colSpan={7} className="text-center py-8 text-slate-400">{tc('loading')}</td></tr>
               ) : filtered.length === 0 ? (
                 <tr><td colSpan={7} className="text-center py-8 text-slate-500 text-xs">{tc('no_data')}</td></tr>
-              ) : filtered.map(({ exam, state, critical }) => (
+              ) : pageItems.map(({ exam, state, critical }) => (
                 <tr key={exam.id} className="hover:bg-blue-50/50 cursor-pointer" onClick={() => setSelectedExam(exam)}>
                   <td className="px-4 py-2 font-mono text-slate-600">
                     <div>{exam.examCode}</div>
@@ -213,6 +226,7 @@ export default function LaboratoryPage() {
                   <td className="px-4 py-2">
                     <span className={cn(
                        "px-2 py-0.5 rounded text-[10px] uppercase font-bold",
+                       state === 'awaiting_payment' ? "bg-amber-100 text-amber-700" :
                        state === 'pending_sample' ? "bg-slate-100 text-slate-700" :
                        state === 'in_analysis' ? "bg-blue-100 text-blue-700" :
                        state === 'awaiting_validation' ? "bg-yellow-100 text-yellow-700 border border-yellow-200" :
@@ -240,6 +254,7 @@ export default function LaboratoryPage() {
             </tbody>
           </table>
         </div>
+        <PaginationBar page={page} pageSize={pageSize} total={filtered.length} onPageChange={setPage} onPageSizeChange={changePageSize} />
       </div>
 
       <PrescribeExamSheet

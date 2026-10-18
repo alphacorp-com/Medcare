@@ -28,6 +28,35 @@ interface StayTabsProps {
 
 const LAB_RADIO_TYPES = ["biology", "radiology"];
 
+type TimelineEvent = { date: string; label: string; title?: string | null; description: string; author?: string; tone?: "danger" | "info" };
+
+// Admission, every note written on the stay (consultation, complementary…), the
+// hospitalisation and the discharge, oldest first.
+function buildTimeline(stay: StayDetail, t: (key: string, values?: Record<string, string>) => string): TimelineEvent[] {
+  const events: TimelineEvent[] = [
+    { date: stay.admissionDate, label: t('timeline_admission'), description: stay.admissionReason || t('timeline_admission_default') },
+    ...stay.medicalRecords.map((record) => ({
+      date: record.createdAt,
+      label: t(`timeline_record_${record.type === "consultation" || record.type === "complementary_note" ? record.type : "other"}`),
+      title: record.title,
+      description: record.content,
+      author: stay.userNames?.[record.authorId],
+      tone: "info" as const,
+    })),
+  ];
+  if (stay.hospitalization?.hospitalizedAt) {
+    events.push({
+      date: stay.hospitalization.hospitalizedAt,
+      label: t('timeline_hospitalization'),
+      description: [stay.hospitalization.departmentName, stay.hospitalization.bedLabel].filter(Boolean).join(" — "),
+    });
+  }
+  if (stay.dischargeDate) {
+    events.push({ date: stay.dischargeDate, label: t('timeline_discharge'), description: stay.dischargeSummary || t('timeline_discharge_default'), tone: "danger" });
+  }
+  return events.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+}
+
 export function StayTabs({ stay, onPrescriptionOpen, onOrderOpen, onCompleteOrder, onCancelOrder, getDoctorName }: StayTabsProps) {
   const t = useTranslations('admissions');
   const tc = useTranslations('common');
@@ -83,22 +112,19 @@ export function StayTabs({ stay, onPrescriptionOpen, onOrderOpen, onCompleteOrde
                   </tr>
                 </thead>
                 <tbody className="text-xs divide-y divide-slate-50">
-                  <tr className="hover:bg-slate-50/50 transition-colors">
-                    <td className="px-6 py-4 font-mono text-[10px] text-slate-400">{format(new Date(stay.admissionDate), "MMM d, yyyy HH:mm")}</td>
-                    <td className="px-6 py-4">
-                      <span className="font-bold text-slate-800">Admission</span>
-                    </td>
-                    <td className="px-6 py-4 text-slate-600 font-medium">{stay.admissionReason || "Patient admitted"}</td>
-                  </tr>
-                  {stay.dischargeDate && (
-                    <tr className="hover:bg-slate-50/50 transition-colors">
-                      <td className="px-6 py-4 font-mono text-[10px] text-slate-400">{format(new Date(stay.dischargeDate), "MMM d, yyyy HH:mm")}</td>
+                  {buildTimeline(stay, t).map((event, index) => (
+                    <tr key={index} className="hover:bg-slate-50/50 transition-colors align-top">
+                      <td className="px-6 py-4 font-mono text-[10px] text-slate-400 whitespace-nowrap">{format(new Date(event.date), "MMM d, yyyy HH:mm")}</td>
                       <td className="px-6 py-4">
-                        <span className="font-bold text-red-600">Discharge</span>
+                        <span className={cn("font-bold", event.tone === "danger" ? "text-red-600" : event.tone === "info" ? "text-blue-700" : "text-slate-800")}>{event.label}</span>
+                        {event.author && <div className="text-[10px] text-slate-400 mt-0.5">{event.author}</div>}
                       </td>
-                      <td className="px-6 py-4 text-slate-600 font-medium">Patient discharged</td>
+                      <td className="px-6 py-4 text-slate-600 font-medium">
+                        {event.title && <div className="font-semibold text-slate-800">{event.title}</div>}
+                        <div className="whitespace-pre-wrap line-clamp-4">{event.description}</div>
+                      </td>
                     </tr>
-                  )}
+                  ))}
                 </tbody>
               </table>
             </ScrollArea>

@@ -11,9 +11,11 @@ interface PatientsTableProps {
   patients: PatientRow[];
   loading: boolean;
   error: string | null;
+  // The patient just registered — highlighted so the front desk sees it landed on top.
+  highlightId?: string | null;
 }
 
-export function PatientsTable({ patients, loading, error }: PatientsTableProps) {
+export function PatientsTable({ patients, loading, error, highlightId }: PatientsTableProps) {
   const t = useTranslations('patients');
   const tc = useTranslations('common');
   const router = useRouter();
@@ -46,12 +48,18 @@ export function PatientsTable({ patients, loading, error }: PatientsTableProps) 
                 key={patient.id}
                 type="button"
                 onClick={() => router.push(`/patients/${patient.id}`)}
-                className="w-full rounded-2xl border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:border-blue-200 hover:bg-blue-50/40"
+                className={cn(
+                  "w-full rounded-2xl border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:border-blue-200 hover:bg-blue-50/40",
+                  patient.id === highlightId && "border-green-300 bg-green-50 ring-1 ring-green-200"
+                )}
               >
                 <div className="mb-2 flex items-start justify-between gap-3">
                   <div>
                     <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">{patient.ipp}</div>
-                    <div className="mt-1 text-sm font-semibold text-slate-900">{patient.lastName} {patient.firstName}</div>
+                    <div className="mt-1 text-sm font-semibold text-slate-900">
+                      {patient.lastName} {patient.firstName}
+                      {patient.id === highlightId && <span className="ml-2 rounded bg-green-600 px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">{t('new_badge')}</span>}
+                    </div>
                   </div>
                   <span className={cn(
                     "rounded-full px-2 py-1 text-[10px] font-semibold uppercase",
@@ -126,11 +134,17 @@ export function PatientsTable({ patients, loading, error }: PatientsTableProps) 
               patients.map((patient) => (
                 <tr
                   key={patient.id}
-                  className="hover:bg-blue-50/50 cursor-pointer group transition-colors"
+                  className={cn(
+                    "hover:bg-blue-50/50 cursor-pointer group transition-colors",
+                    patient.id === highlightId && "bg-green-50 hover:bg-green-100/60"
+                  )}
                   onClick={() => router.push(`/patients/${patient.id}`)}
                 >
                   <td className="px-4 py-3 font-mono text-slate-600">{patient.ipp}</td>
-                  <td className="px-4 py-3 font-medium text-slate-900">{patient.lastName} {patient.firstName}</td>
+                  <td className="px-4 py-3 font-medium text-slate-900">
+                    {patient.lastName} {patient.firstName}
+                    {patient.id === highlightId && <span className="ml-2 rounded bg-green-600 px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">{t('new_badge')}</span>}
+                  </td>
                   <td className="px-4 py-3">{patient.gender}</td>
                   <td className="px-4 py-3">
                     {format(new Date(patient.birthDate), "yyyy-MM-dd")}

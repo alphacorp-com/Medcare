@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { requireModulePermission } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
 import type { ExamType, ExamUrgency } from "@prisma/client";
+import { chargePrescribedExams, examNeedsPrepayment, isPaymentGateActive } from "@/lib/billing/paymentGate";
 
 type OrderSource = "laboratory" | "radiology" | "medical_act";
 
@@ -24,6 +25,8 @@ const SOURCE_TO_TYPE: Record<OrderSource, ExamType> = {
 // Every order must resolve to an already-configured, priced catalog entry (ExamCatalogEntry
 // for labo/radio, MedicalAct for everything else) — no free-text exam label accepted, so the
 // examCode this stores always matches a real code a FeeSchedule entry can be billed against.
+// Laboratory and radiology orders are billed right away and wait in "awaiting_payment" until
+// the patient pays (see lib/billing/paymentGate.ts); medical acts are still billed on completion.
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -61,7 +64,7 @@ export async function POST(
 
     const stay = await prisma.stay.findFirst({
       where: { id: stayId, tenantId: session.user.tenantId },
-      select: { id: true, patientId: true },
+      select: { id: true, patientId: true, type: true, triageAcuity: true },
     });
     if (!stay) {
       return NextResponse.json(
@@ -116,6 +119,9 @@ export async function POST(
       }
     }
 
+    const gateActive = await isPaymentGateActive(session.user.tenantId);
+    const isPrepaid = (type: ExamType) => type === "biology" || type === "radiology";
+
     const orders = await prisma.$transaction(
       resolved.map((item) =>
         prisma.examRequest.create({
@@ -128,13 +134,29 @@ export async function POST(
             examCode: item.examCode,
             examLabel: item.examLabel,
             urgency: item.urgency,
+            status:
+              isPrepaid(item.type) && examNeedsPrepayment(gateActive, stay, item.urgency) ? "awaiting_payment" : "requested",
             notes: notes || null,
           },
         })
       )
     );
 
-    return NextResponse.json({ data: orders, success: true }, { status: 201 });
+    const billing = await chargePrescribedExams({
+      tenantId: session.user.tenantId,
+      patientId: stay.patientId,
+      stayId: stay.id,
+      performedById: session.user.id,
+      exams: orders.filter((order) => isPrepaid(order.type)),
+    });
+
+    // Re-read: billing may already have released zero-priced exams.
+    const current = await prisma.examRequest.findMany({
+      where: { id: { in: orders.map((order) => order.id) } },
+      orderBy: { requestedAt: "desc" },
+    });
+
+    return NextResponse.json({ data: current, billing, success: true }, { status: 201 });
   } catch (error) {
     console.error("[POST /api/v1/stays/:id/orders]", error);
     return NextResponse.json(

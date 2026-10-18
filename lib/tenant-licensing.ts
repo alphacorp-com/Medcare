@@ -194,7 +194,7 @@ export async function resolveTenantModules(tenantId: string): Promise<ModulePerm
     .filter((assignment) => Boolean(assignment.module?.code))
     .map((assignment) => ({
       moduleId: assignment.module.code,
-      actions: ["read", "create", "update", "delete"],
+      actions: ["read", "create", "update", "delete", "validate"],
     }));
 }
 

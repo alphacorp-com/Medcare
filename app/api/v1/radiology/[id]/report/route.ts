@@ -5,9 +5,11 @@ import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { requireModulePermission } from "@/lib/permissions";
 import { RadiologyReportData } from "@/lib/radiology/report";
+import { computeIsCritical, type ResultParameter } from "@/lib/laboratory/results";
 
 // POST /api/v1/radiology/[id]/report
-// Body: { technique, findings, impression, priorStudyIds?, isCritical?, reportUrl? }
+// Body: { technique, findings?, impression, parameters?, priorStudyIds?, isCritical?, reportUrl? }
+// findings may be left empty when the structured parameters (organ by organ) carry them.
 export async function POST(req: Request, context: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
@@ -22,8 +24,9 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
 
   try {
     const body = await req.json();
-    const { technique, findings, impression, priorStudyIds, isCritical, reportUrl } = body as {
+    const { technique, findings, impression, parameters, priorStudyIds, isCritical, reportUrl } = body as {
       technique?: string;
+      parameters?: ResultParameter[];
       findings?: string;
       impression?: string;
       priorStudyIds?: string[];
@@ -31,8 +34,9 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
       reportUrl?: string;
     };
 
-    if (!findings?.trim() || !impression?.trim()) {
-      return NextResponse.json({ error: "Findings and impression are required" }, { status: 400 });
+    const structured = Array.isArray(parameters) ? parameters.filter((p) => p?.name?.trim() && p?.value?.trim()) : [];
+    if (!impression?.trim() || (!findings?.trim() && structured.length === 0)) {
+      return NextResponse.json({ error: "Findings (or structured parameters) and impression are required" }, { status: 400 });
     }
 
     const exam = await prisma.examRequest.findFirst({ where: { id, tenantId: session.user.tenantId } });
@@ -51,9 +55,10 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
 
     const resultData: RadiologyReportData = {
       technique: technique?.trim() || "",
-      findings: findings.trim(),
+      findings: findings?.trim() || "",
       impression: impression.trim(),
       priorStudyIds: priorStudyIds ?? [],
+      ...(structured.length > 0 ? { parameters: structured } : {}),
     };
 
     const result = await prisma.examResult.create({
@@ -63,7 +68,7 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
         patientId: exam.patientId,
         performerId: session.user.id,
         resultData: resultData as unknown as Prisma.InputJsonValue,
-        isCritical: Boolean(isCritical),
+        isCritical: computeIsCritical(structured, isCritical),
         reportUrl: reportUrl?.trim() || null,
       },
     });

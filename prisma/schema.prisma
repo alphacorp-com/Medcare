@@ -169,10 +169,24 @@ enum TriageAcuity {
 // Tracks a Stay's progress through the doctor's consultation queue, independent of
 // StayStatus (which stays "in_progress" the whole time) — so adding this never changes
 // what any existing `status: "in_progress"` filter across admissions/KPIs/dashboard sees.
+// awaiting_payment: the admission's medical act is billed but not yet settled — the
+// patient only reaches "waiting" (and the doctor's queue) once the cashier records it
+// (see lib/billing/paymentGate.ts).
 enum ConsultationStatus {
+  awaiting_payment
   waiting
   claimed
   completed
+
+  @@schema("tenant_template")
+}
+
+// Hospitalisation decided after the consultation: the bed is reserved while the
+// hospitalisation act is awaiting payment, and occupied once it's paid (see
+// lib/billing/paymentGate.ts).
+enum HospitalizationStatus {
+  awaiting_payment
+  admitted
 
   @@schema("tenant_template")
 }
@@ -190,6 +204,8 @@ enum AppointmentStatus {
 
 enum MedicalRecordType {
   consultation
+  // Added after the consultation note is signed (e.g. once exam results come back).
+  complementary_note
   observation
   surgery_report
   discharge_letter
@@ -230,7 +246,10 @@ enum ExamUrgency {
   @@schema("tenant_template")
 }
 
+// awaiting_payment: a lab/radiology exam billed at prescription whose invoice is not yet
+// settled — the lab/radiology workflow (collect, schedule…) only starts at "requested".
 enum ExamRequestStatus {
+  awaiting_payment
   requested
   scheduled
   in_progress
@@ -281,6 +300,7 @@ enum ScheduleStatus {
 
 enum BillingSourceType {
   consultation
+  hospitalization
   exam
   surgery
   pharmacy_dispensation
@@ -756,6 +776,9 @@ model Stay {
   bedId              String?            @map("bed_id") @db.Uuid
   attendingDoctorId  String?            @map("attending_doctor_id") @db.Uuid
   admissionReason    String?            @map("admission_reason")
+  // MedicalAct.code chosen at admission and billed right away (sourceType "consultation",
+  // sourceId = this stay's id). Null for stays created before this existed or without an act.
+  medicalActCode     String?            @map("medical_act_code") @db.VarChar(40)
   dischargeSummary   String?            @map("discharge_summary")
   pmsiCode           String?            @map("pmsi_code") @db.VarChar(20)
   pmsiValidated      Boolean            @default(false) @map("pmsi_validated")
@@ -763,6 +786,14 @@ model Stay {
   triageAcuity       TriageAcuity?      @map("triage_acuity")
   triagedAt          DateTime?          @map("triaged_at") @db.Timestamptz
   consultationStatus ConsultationStatus @default(waiting) @map("consultation_status")
+  // Pending until paid: the chosen bed is held as "reserved" and only becomes the stay's
+  // bedId/departmentId once the hospitalisation act is settled.
+  hospitalizationStatus       HospitalizationStatus? @map("hospitalization_status")
+  hospitalizationActCode      String?                @map("hospitalization_act_code") @db.VarChar(40)
+  hospitalizationDepartmentId String?                @map("hospitalization_department_id") @db.Uuid
+  hospitalizationBedId        String?                @map("hospitalization_bed_id") @db.Uuid
+  hospitalizationRequestedAt  DateTime?              @map("hospitalization_requested_at") @db.Timestamptz
+  hospitalizedAt              DateTime?              @map("hospitalized_at") @db.Timestamptz
   createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz
   updatedAt          DateTime           @updatedAt @map("updated_at") @db.Timestamptz
 

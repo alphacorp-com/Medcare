@@ -14,6 +14,7 @@ import {
 import { format } from "date-fns";
 import { VitalsFields } from "@/components/shared/vitals-fields";
 import { TRIAGE_ACUITIES } from "@/components/shared/triage-badge";
+import { MedicalActSelect, useMedicalActs, isVitalEmergencyTriage } from "@/components/shared/medical-act-select";
 import { TagInput } from "@/components/shared/tag-input";
 import {
   EditPatientForm,
@@ -220,6 +221,9 @@ export function NewAdmissionSheet({
   const t = useTranslations('patients');
   const tc = useTranslations('common');
   const tad = useTranslations('admissions');
+  const { acts } = useMedicalActs();
+  const actOptional = isVitalEmergencyTriage(form.type, form.triageAcuity);
+  const actMissing = !actOptional && acts.length > 0 && !form.medicalActCode;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -288,6 +292,13 @@ export function NewAdmissionSheet({
             </div>
           )}
 
+          <MedicalActSelect
+            acts={acts}
+            value={form.medicalActCode}
+            onChange={(code) => onUpdateForm("medicalActCode", code)}
+            optional={actOptional}
+          />
+
           <div className="space-y-1">
             <label className="text-[10px] font-bold text-slate-500 uppercase">{t('chief_complaint')}</label>
             <textarea 
@@ -351,7 +362,7 @@ export function NewAdmissionSheet({
         </div>
         <SheetFooter className="p-4 border-t border-slate-200 bg-white shrink-0 shadow-[0_-4px_6px_-1px_rgb(0,0,0,0.05)]">
           <Button variant="outline" className="text-xs h-8" onClick={() => onOpenChange(false)} disabled={saving}>{tc('cancel')}</Button>
-          <Button className="text-xs h-8 bg-blue-600 hover:bg-blue-700" onClick={onSubmit} disabled={saving || (form.type === "emergency" && !form.triageAcuity)}>
+          <Button className="text-xs h-8 bg-blue-600 hover:bg-blue-700" onClick={onSubmit} disabled={saving || actMissing || (form.type === "emergency" && !form.triageAcuity)}>
             {saving ? tc('saving') : tc('save')}
           </Button>
         </SheetFooter>
