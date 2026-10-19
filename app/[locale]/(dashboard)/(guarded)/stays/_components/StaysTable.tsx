@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { useRouter } from "@/i18n/routing";
 import { TriageBadge } from "@/components/shared/triage-badge";
+import { StayPhaseBadge } from "@/components/shared/stay-phase-badge";
 import { StayRow } from "../types";
 
 interface StaysTableProps {
@@ -99,18 +100,7 @@ export function StaysTable({ stays, loading, error, view = "all" }: StaysTablePr
                   {view === "triage" && stay.triageAcuity ? (
                     <TriageBadge acuity={stay.triageAcuity} />
                   ) : (
-                    <span
-                      className={cn(
-                        "px-2 py-0.5 rounded text-[10px] font-semibold",
-                        stay.status === "in_progress"
-                          ? "text-orange-700 bg-orange-100"
-                          : stay.status === "discharged"
-                          ? "text-green-700 bg-green-100"
-                          : "text-slate-600 bg-slate-100"
-                      )}
-                    >
-                      {tc(`status_${stay.status}`)}
-                    </span>
+                    <StayPhaseBadge stay={stay} />
                   )}
                 </td>
                 <td className="px-4 py-3 text-right">

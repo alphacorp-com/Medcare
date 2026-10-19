@@ -67,6 +67,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#cbd5e1', paddingBottom: 10, marginBottom: 14 },
   facilityName: { fontSize: 13, fontFamily: 'Helvetica-Bold', color: '#0f172a' },
   title: { fontSize: 16, fontFamily: 'Helvetica-Bold', color: '#0f172a', textAlign: 'center', marginBottom: 14, textTransform: 'uppercase' },
+  dischargeMention: { borderWidth: 1.5, borderColor: '#dc2626', color: '#dc2626', fontFamily: 'Helvetica-Bold', fontSize: 11, textAlign: 'center', padding: 6, marginBottom: 14, textTransform: 'uppercase' },
   section: { marginBottom: 12 },
   sectionTitle: { fontSize: 10.5, fontFamily: 'Helvetica-Bold', color: '#1e293b', backgroundColor: '#f1f5f9', padding: 4, marginBottom: 6, borderLeftWidth: 3, borderLeftColor: '#2563eb' },
   row: { flexDirection: 'row', marginBottom: 3 },
@@ -157,6 +158,9 @@ export const MedicalRecordTemplate = ({
       </View>
 
       <Text style={styles.title}>{labels.title}</Text>
+      {data.stay.dischargeDate ? (
+        <Text style={styles.dischargeMention}>{labels.discharge_mention} {data.stay.dischargeDate}</Text>
+      ) : null}
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>1. {labels.identification}</Text>
