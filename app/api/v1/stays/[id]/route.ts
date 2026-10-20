@@ -4,13 +4,46 @@ import { authOptions } from "@/lib/auth";
 import { requireModulePermission } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
 import type { StayStatus, TriageAcuity } from "@prisma/client";
-import { isVitalEmergency } from "@/lib/billing/paymentGate";
+import { isVitalEmergency, regularizeHospitalizationCharge, removeUnpaidCharge } from "@/lib/billing/paymentGate";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const toUuid = (v: unknown): string | null =>
   typeof v === "string" && UUID_RE.test(v) ? v : null;
 
 const TERMINAL_STATUSES: StayStatus[] = ["discharged", "transferred", "deceased"];
+
+// A pending (unpaid) hospitalisation loses its deposit charge; an admitted one has its
+// deposit regularised to the days actually spent. Never throws: the discharge itself has
+// already been saved — a billing failure is logged and fixable from the billing module.
+async function settleHospitalizationOnLeave(
+  stay: { hospitalizationStatus: string | null; hospitalizationBedId: string | null; hospitalizedAt: Date | null },
+  stayId: string,
+  leftAt: Date
+) {
+  try {
+    if (stay.hospitalizationStatus === "awaiting_payment") {
+      await removeUnpaidCharge("hospitalization", stayId);
+      return null;
+    }
+    if (stay.hospitalizationStatus !== "admitted" || !stay.hospitalizedAt) return null;
+
+    const bed = stay.hospitalizationBedId
+      ? await prisma.bed.findUnique({ where: { id: stay.hospitalizationBedId }, select: { roomTypeId: true } })
+      : null;
+    const room = bed?.roomTypeId
+      ? await prisma.referenceCatalogItem.findUnique({ where: { id: bed.roomTypeId }, select: { nameFr: true } })
+      : null;
+    return await regularizeHospitalizationCharge({
+      stayId,
+      roomLabel: room?.nameFr ?? null,
+      hospitalizedAt: stay.hospitalizedAt,
+      leftAt,
+    });
+  } catch (error) {
+    console.error("[settleHospitalizationOnLeave] Failed to settle hospitalisation billing:", error);
+    return null;
+  }
+}
 
 const TRIAGE_ACUITIES: TriageAcuity[] = [
   "resuscitation",
@@ -86,7 +119,7 @@ export async function GET(
         ? prisma.medicalAct.findFirst({ where: { tenantId, code: stay.hospitalizationActCode }, select: { nameFr: true } })
         : null,
       stay.hospitalizationBedId
-        ? prisma.bed.findFirst({ where: { tenantId, id: stay.hospitalizationBedId }, select: { code: true, label: true } })
+        ? prisma.bed.findFirst({ where: { tenantId, id: stay.hospitalizationBedId }, select: { code: true, label: true, roomTypeId: true } })
         : null,
       stay.hospitalizationDepartmentId
         ? prisma.department.findFirst({ where: { tenantId, id: stay.hospitalizationDepartmentId }, select: { name: true } })
@@ -107,6 +140,9 @@ export async function GET(
         select: { id: true, fullName: true },
       }),
     ]);
+    const hospitalizationRoom = hospitalizationBed?.roomTypeId
+      ? await prisma.referenceCatalogItem.findFirst({ where: { tenantId, id: hospitalizationBed.roomTypeId }, select: { nameFr: true } })
+      : null;
 
     return NextResponse.json({
       data: {
@@ -115,7 +151,8 @@ export async function GET(
         hospitalization: stay.hospitalizationStatus
           ? {
               status: stay.hospitalizationStatus,
-              actLabel: hospitalizationAct?.nameFr ?? stay.hospitalizationActCode,
+              // Room (salle) of the bed; older stays were billed through a medical act instead.
+              actLabel: hospitalizationAct?.nameFr ?? hospitalizationRoom?.nameFr ?? stay.hospitalizationActCode,
               bedLabel: hospitalizationBed?.label ?? null,
               departmentName: hospitalizationDepartment?.name ?? null,
               requestedAt: stay.hospitalizationRequestedAt,
@@ -172,7 +209,7 @@ export async function PATCH(
       where: { id, tenantId: session.user.tenantId },
       select: {
         id: true, bedId: true, departmentId: true, status: true, triagedAt: true, type: true, consultationStatus: true,
-        hospitalizationStatus: true, hospitalizationBedId: true,
+        hospitalizationStatus: true, hospitalizationBedId: true, hospitalizedAt: true,
       },
     });
 
@@ -281,7 +318,12 @@ export async function PATCH(
       return updated;
     });
 
-    return NextResponse.json({ data: stay, success: true });
+    // Leaving the hospital settles the hospitalisation bill — only on the transition into a
+    // terminal status, so re-saving a discharged stay never regularises twice.
+    const isLeaving = isEnding && !TERMINAL_STATUSES.includes(existingStay.status);
+    const billing = isLeaving ? await settleHospitalizationOnLeave(existingStay, id, stay.dischargeDate ?? new Date()) : null;
+
+    return NextResponse.json({ data: stay, billing, success: true });
   } catch (error) {
     if (error instanceof Error && error.message === "BED_CONFLICT") {
       return NextResponse.json({ error: "Bed was just taken by another admission", success: false }, { status: 409 });

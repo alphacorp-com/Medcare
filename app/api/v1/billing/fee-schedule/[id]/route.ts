@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { requireModulePermission } from "@/lib/permissions";
+import { requireTenantAdmin } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
 
 // PATCH /api/v1/billing/fee-schedule/[id] — update label/price/active flag
@@ -11,7 +11,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    const permCheck = requireModulePermission(session, "MODULE_BILLING", "update");
+    const permCheck = requireTenantAdmin(session);
     if (!permCheck.ok) {
       return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
     }
@@ -48,7 +48,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const permCheck = requireModulePermission(session, "MODULE_BILLING", "delete");
+  const permCheck = requireTenantAdmin(session);
   if (!permCheck.ok) {
     return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
   }

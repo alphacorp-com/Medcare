@@ -4,11 +4,15 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Plus, Loader2 } from "lucide-react";
+import { useAppStore } from "@/lib/store/useAppStore";
 import { FeeScheduleFormDialog } from "./FeeScheduleFormDialog";
 import { FeeScheduleItem } from "../types";
 
 export function FeeScheduleTab() {
   const t = useTranslations("billing");
+  // Cashiers see the tariff grid read-only; only the tenant admin may change prices. This
+  // only hides the controls — the fee-schedule API enforces the same rule server-side.
+  const canEditTariffs = useAppStore((state) => state.currentUser?.isSystemAdmin === true);
 
   const [fees, setFees] = useState<FeeScheduleItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -51,9 +55,11 @@ export function FeeScheduleTab() {
     <div className="flex-1 flex flex-col bg-white rounded border border-slate-200 shadow-sm overflow-hidden">
       <div className="p-2 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
         <p className="text-xs text-slate-500 px-2">{t("fee_schedule_desc")}</p>
-        <Button size="sm" className="h-8 text-xs bg-blue-600 hover:bg-blue-700" onClick={() => setIsFormOpen(true)}>
-          <Plus className="h-3.5 w-3.5 mr-2" /> {t("new_tariff")}
-        </Button>
+        {canEditTariffs && (
+          <Button size="sm" className="h-8 text-xs bg-blue-600 hover:bg-blue-700" onClick={() => setIsFormOpen(true)}>
+            <Plus className="h-3.5 w-3.5 mr-2" /> {t("new_tariff")}
+          </Button>
+        )}
       </div>
       <div className="flex-1 overflow-auto">
         <table className="w-full text-left">
@@ -76,7 +82,8 @@ export function FeeScheduleTab() {
                 <td className="px-4 py-2 text-right">
                   <button
                     onClick={() => toggleActive(fee)}
-                    className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold ${fee.isActive ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"}`}
+                    disabled={!canEditTariffs}
+                    className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold disabled:cursor-default ${fee.isActive ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"}`}
                   >
                     {fee.isActive ? t("active") : t("inactive")}
                   </button>
@@ -92,7 +99,7 @@ export function FeeScheduleTab() {
         </table>
       </div>
 
-      <FeeScheduleFormDialog open={isFormOpen} onOpenChange={setIsFormOpen} onSaved={fetchFees} />
+      {canEditTariffs && <FeeScheduleFormDialog open={isFormOpen} onOpenChange={setIsFormOpen} onSaved={fetchFees} />}
     </div>
   );
 }

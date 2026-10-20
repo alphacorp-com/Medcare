@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { requireTenantAdmin } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
 import { ReferenceCatalogType } from "@prisma/client";
+import { getRoomTypeDailyPrices, parseDailyPrice, setRoomTypeDailyPrice } from "@/lib/billing/roomPricing";
 
 const VALID_TYPES = Object.values(ReferenceCatalogType);
 
@@ -32,6 +33,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ cata
     orderBy: [{ order: "asc" }, { nameFr: "asc" }],
   });
 
+  // Room types carry their daily hospitalisation price (null = not configured yet).
+  if (catalogType === "room_type") {
+    const prices = await getRoomTypeDailyPrices(session.user.tenantId);
+    return NextResponse.json(items.map((item) => ({ ...item, dailyPrice: prices.get(item.code) ?? null })));
+  }
+
   return NextResponse.json(items);
 }
 
@@ -54,7 +61,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cat
     }
 
     const body = await request.json();
-    const { code, nameFr, nameEn, color, icon, group, order } = body as {
+    const { code, nameFr, nameEn, color, icon, group, order, dailyPrice } = body as {
       code?: string;
       nameFr?: string;
       nameEn?: string;
@@ -62,24 +69,36 @@ export async function POST(request: Request, { params }: { params: Promise<{ cat
       icon?: string;
       group?: string;
       order?: number;
+      dailyPrice?: number | string | null;
     };
 
     if (!code?.trim() || !nameFr?.trim()) {
       return NextResponse.json({ error: "code and nameFr are required" }, { status: 400 });
     }
+    const parsedPrice = parseDailyPrice(dailyPrice);
+    if (!parsedPrice.ok) {
+      return NextResponse.json({ error: "dailyPrice must be a non-negative number" }, { status: 400 });
+    }
+    const tenantId = session.user.tenantId;
 
-    const item = await prisma.referenceCatalogItem.create({
-      data: {
-        tenantId: session.user.tenantId,
-        catalogType,
-        code: code.trim().toUpperCase(),
-        nameFr: nameFr.trim(),
-        nameEn: nameEn?.trim() || null,
-        color: color || null,
-        icon: icon || null,
-        group: group || null,
-        order: order ?? 0,
-      },
+    const item = await prisma.$transaction(async (tx) => {
+      const created = await tx.referenceCatalogItem.create({
+        data: {
+          tenantId,
+          catalogType,
+          code: code.trim().toUpperCase(),
+          nameFr: nameFr.trim(),
+          nameEn: nameEn?.trim() || null,
+          color: color || null,
+          icon: icon || null,
+          group: group || null,
+          order: order ?? 0,
+        },
+      });
+      if (catalogType === "room_type" && parsedPrice.price !== undefined) {
+        await setRoomTypeDailyPrice(tx, { tenantId, code: created.code, label: created.nameFr, price: parsedPrice.price });
+      }
+      return created;
     });
 
     return NextResponse.json(item, { status: 201 });

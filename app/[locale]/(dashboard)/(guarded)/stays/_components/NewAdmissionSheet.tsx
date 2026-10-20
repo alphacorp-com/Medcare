@@ -195,7 +195,7 @@ export function NewAdmissionSheet({
           </div>
 
           {/* Bed */}
-          <div className="space-y-1">
+          {/* <div className="space-y-1">
             <label className="text-[10px] font-bold text-slate-500 uppercase">
               {t("bed")}
             </label>
@@ -212,7 +212,7 @@ export function NewAdmissionSheet({
                   <option key={b.id} value={b.id}>{b.label}</option>
                 ))}
             </select>
-          </div>
+          </div> */}
         </div>
 
         <SheetFooter className="p-4 border-t border-slate-200 bg-white shrink-0">

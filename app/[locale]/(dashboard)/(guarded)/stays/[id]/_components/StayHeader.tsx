@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { Link } from "@/i18n/routing";
 import { format } from "date-fns";
 import { TriageBadge } from "@/components/shared/triage-badge";
+import { StayPhaseBadge } from "@/components/shared/stay-phase-badge";
 import { isVitalEmergencyTriage } from "@/components/shared/medical-act-select";
 import { StayDetail } from "../types";
 
@@ -63,14 +64,10 @@ export function StayHeader({
         <div>
           <div className="flex flex-wrap items-center gap-2 md:gap-3">
             <h1 className="text-xl font-bold text-slate-900 tracking-tight">{stay.stayNumber}</h1>
-            <span className={cn(
-                "px-2.5 py-0.5 text-[10px] rounded-full uppercase font-bold tracking-wider",
-                stay.status === 'in_progress' ? "bg-orange-100 text-orange-700 ring-1 ring-orange-200" :
-                stay.status === 'discharged' ? "bg-green-100 text-green-700 ring-1 ring-green-200" :
-                "bg-slate-100 text-slate-600 ring-1 ring-slate-200"
-            )}>
-              {tc(`status_${stay.status}`)}
-            </span>
+            <StayPhaseBadge
+              stay={{ status: stay.status, consultationStatus: stay.consultationStatus, hospitalizationStatus: stay.hospitalization?.status }}
+              className="px-2.5 rounded-full uppercase font-bold tracking-wider"
+            />
             <span className={cn(
                 "px-2.5 py-0.5 text-[10px] rounded-full uppercase font-bold tracking-wider",
                 stay.type === 'emergency' ? "bg-red-100 text-red-700 ring-1 ring-red-200" :

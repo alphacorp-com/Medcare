@@ -6,15 +6,18 @@ import prisma from "@/lib/prisma";
 import { recordAuditEvent, extractRequestMeta } from "@/lib/audit";
 import { admitHospitalization } from "@/lib/billing/release";
 import { chargeHospitalization, isPaymentGateActive, isVitalEmergency, removeUnpaidCharge } from "@/lib/billing/paymentGate";
+import { getRoomTypeDailyPrice } from "@/lib/billing/roomPricing";
 
 const MAX_DAYS = 365;
 
 // ── POST /api/v1/stays/:id/hospitalization ──────────────────────────────────
-// Body: { departmentId, bedId, medicalActCode, days? }
-// Hospitalises the patient after a signed consultation. The chosen bed is reserved and the
-// hospitalisation act (price × planned days) is billed; the patient takes the bed once the
-// cashier records the payment — or straight away for a vital emergency, or when billing is
-// off. See lib/billing/paymentGate.ts.
+// Body: { departmentId, bedId, days? }
+// Hospitalises the patient after a signed consultation. The chosen bed is reserved and a
+// deposit (caution) is billed: the daily price of the bed's room (salle, configured in
+// Settings > Room types) × planned days — never a price sent by the client. The patient
+// takes the bed once the cashier records the payment — or straight away for a vital
+// emergency, or when billing is off. The deposit is regularised to the real length of stay
+// at discharge. See lib/billing/paymentGate.ts.
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions);
@@ -28,11 +31,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const { id } = await params;
     const body = await request.json().catch(() => ({}));
-    const { departmentId, bedId, medicalActCode } = body as { departmentId?: string; bedId?: string; medicalActCode?: string };
+    const { departmentId, bedId } = body as { departmentId?: string; bedId?: string };
     const days = Number(body?.days ?? 1);
 
-    if (!departmentId || !bedId || !medicalActCode) {
-      return NextResponse.json({ error: "departmentId, bedId and medicalActCode are required", success: false }, { status: 400 });
+    if (!departmentId || !bedId) {
+      return NextResponse.json({ error: "departmentId and bedId are required", success: false }, { status: 400 });
     }
     if (!Number.isInteger(days) || days < 1 || days > MAX_DAYS) {
       return NextResponse.json({ error: `days must be an integer between 1 and ${MAX_DAYS}`, success: false }, { status: 400 });
@@ -57,16 +60,36 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       );
     }
 
-    const [department, bed, act] = await Promise.all([
+    const [department, bed] = await Promise.all([
       prisma.department.findFirst({ where: { id: departmentId, tenantId } }),
       prisma.bed.findFirst({ where: { id: bedId, tenantId, isActive: true } }),
-      prisma.medicalAct.findFirst({ where: { tenantId, code: medicalActCode, isActive: true } }),
     ]);
     if (!department) return NextResponse.json({ error: "Department not found", success: false }, { status: 404 });
     if (!bed) return NextResponse.json({ error: "Bed not found", success: false }, { status: 404 });
-    if (!act) return NextResponse.json({ error: `Medical act "${medicalActCode}" was not found or is inactive`, success: false }, { status: 404 });
     if (bed.departmentId !== department.id) {
       return NextResponse.json({ error: "Bed does not belong to the selected department", success: false }, { status: 409 });
+    }
+
+    // The price comes from the bed's room. With billing on, a room without a configured price
+    // can't be hospitalised into — the deposit would otherwise be billed at 0.
+    const room = bed.roomTypeId
+      ? await prisma.referenceCatalogItem.findFirst({
+          where: { id: bed.roomTypeId, tenantId, catalogType: "room_type", isActive: true },
+          select: { code: true, nameFr: true },
+        })
+      : null;
+    const billingActive = await isPaymentGateActive(tenantId);
+    const dailyPrice = room ? await getRoomTypeDailyPrice(prisma, tenantId, room.code) : null;
+    if (billingActive && (!room || dailyPrice === null)) {
+      return NextResponse.json(
+        {
+          error: room
+            ? `No daily price is configured for room "${room.nameFr}" — set it in Settings > Room types / Aucun prix journalier n'est défini pour la salle « ${room.nameFr} » — à configurer dans Paramètres > Types de salles`
+            : "This bed is not assigned to an active room with a price — fix it in Settings > Beds / Ce lit n'est rattaché à aucune salle active avec un prix — à corriger dans Paramètres > Lits",
+          success: false,
+        },
+        { status: 422 }
+      );
     }
 
     // Reserve the bed atomically (the guarded updateMany only succeeds if it's still free)
@@ -82,7 +105,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         where: { id: stay.id },
         data: {
           hospitalizationStatus: "awaiting_payment",
-          hospitalizationActCode: act.code,
+          // Legacy field (hospitalisations used to be billed through a medical act); the
+          // price now comes from the bed's room.
+          hospitalizationActCode: null,
           hospitalizationDepartmentId: department.id,
           hospitalizationBedId: bed.id,
           hospitalizationRequestedAt: new Date(),
@@ -90,16 +115,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       });
     });
 
-    const gateActive = (await isPaymentGateActive(tenantId)) && !vitalEmergency;
-    const billing = await chargeHospitalization({
-      tenantId,
-      patientId: stay.patientId,
-      stayId: stay.id,
-      act,
-      days,
-      performedById: session.user.id,
-    });
-    if (!gateActive) await admitHospitalization(stay.id);
+    const gateActive = billingActive && !vitalEmergency;
+    const billing =
+      room && dailyPrice !== null
+        ? await chargeHospitalization({
+            tenantId,
+            patientId: stay.patientId,
+            stayId: stay.id,
+            room: { code: room.code, label: room.nameFr },
+            dailyPrice,
+            days,
+            performedById: session.user.id,
+          })
+        : null;
+    if (!gateActive || !billing) await admitHospitalization(stay.id);
 
     const { ipAddress, userAgent } = extractRequestMeta(request.headers);
     await recordAuditEvent({
@@ -109,7 +138,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       action: "stay.hospitalization_requested",
       resourceType: "stay",
       resourceId: stay.id,
-      payload: { departmentId: department.id, bedId: bed.id, medicalActCode: act.code, days },
+      payload: { departmentId: department.id, bedId: bed.id, roomCode: room?.code ?? null, dailyPrice, days },
       ipAddress,
       userAgent,
     });

@@ -30,6 +30,8 @@ type ReferenceCatalogItem = {
   group: string | null;
   order: number;
   isActive: boolean;
+  // Only returned for room types: daily hospitalisation price, null when not configured.
+  dailyPrice?: number | null;
 };
 
 export function ReferenceCatalogPage({
@@ -38,6 +40,7 @@ export function ReferenceCatalogPage({
   showColor = false,
   showIcon = false,
   showGroup = false,
+  showDailyPrice = false,
   allowCsvImport = false,
 }: {
   catalogType: string;
@@ -45,6 +48,7 @@ export function ReferenceCatalogPage({
   showColor?: boolean;
   showIcon?: boolean;
   showGroup?: boolean;
+  showDailyPrice?: boolean;
   allowCsvImport?: boolean;
 }) {
   const t = useTranslations(translationNamespace);
@@ -64,6 +68,7 @@ export function ReferenceCatalogPage({
   const [icon, setIcon] = useState("");
   const [group, setGroup] = useState("");
   const [order, setOrder] = useState("0");
+  const [dailyPrice, setDailyPrice] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -95,6 +100,7 @@ export function ReferenceCatalogPage({
     setIcon("");
     setGroup("");
     setOrder("0");
+    setDailyPrice("");
     setError(null);
     setIsFormOpen(true);
   };
@@ -108,6 +114,7 @@ export function ReferenceCatalogPage({
     setIcon(item.icon ?? "");
     setGroup(item.group ?? "");
     setOrder(String(item.order));
+    setDailyPrice(item.dailyPrice != null ? String(item.dailyPrice) : "");
     setError(null);
     setIsFormOpen(true);
   };
@@ -128,6 +135,8 @@ export function ReferenceCatalogPage({
         icon: showIcon ? icon : undefined,
         group: showGroup ? group.trim() || undefined : undefined,
         order: Number(order) || 0,
+        // Empty clears the price (the room can then no longer be hospitalised into).
+        dailyPrice: showDailyPrice ? (dailyPrice.trim() === "" ? null : Number(dailyPrice)) : undefined,
       };
       const res = editingItem
         ? await fetch(`${baseUrl}/${editingItem.id}`, {
@@ -218,6 +227,11 @@ export function ReferenceCatalogPage({
                 {item.nameEn && <span>{item.nameEn}</span>}
                 {item.group && <span>({item.group})</span>}
                 <SettingsCode>{item.code}</SettingsCode>
+                {showDailyPrice && (
+                  item.dailyPrice != null
+                    ? <span className="font-semibold text-slate-700">{t("daily_price_value", { amount: item.dailyPrice.toLocaleString() })}</span>
+                    : <span className="text-amber-600">{t("price_not_set")}</span>
+                )}
               </>
             }
             active={{ value: item.isActive, onToggle: () => toggleActive(item) }}
@@ -258,6 +272,14 @@ export function ReferenceCatalogPage({
               <Label>{t("name_en")}</Label>
               <Input value={nameEn} onChange={(e) => setNameEn(e.target.value)} className="h-9 text-xs" />
             </div>
+
+            {showDailyPrice && (
+              <div className="space-y-1">
+                <Label>{t("daily_price")}</Label>
+                <Input type="number" min="0" value={dailyPrice} onChange={(e) => setDailyPrice(e.target.value)} className="h-9 text-xs" />
+                <p className="text-[10px] text-slate-500">{t("daily_price_hint")}</p>
+              </div>
+            )}
 
             {showGroup && (
               <div className="space-y-1">

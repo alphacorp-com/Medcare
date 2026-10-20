@@ -33,6 +33,7 @@ export type StayExamRequest = {
     validatedAt: string | null;
     validatedBy: string | null;
     isCritical: boolean;
+    reportUrl: string | null;
     resultData: { parameters?: ResultParameter[] } & Partial<RadiologyReportData>;
   }[];
 };

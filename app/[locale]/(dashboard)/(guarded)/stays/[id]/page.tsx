@@ -33,6 +33,7 @@ export default function AdmissionDetailPage() {
   const t = useTranslations('admissions');
   const tc = useTranslations('common');
   const tm = useTranslations('documents.medicalRecord');
+  const td = useTranslations('discharges');
   const { facility: pdfFacility, settings: pdfSettings } = usePdfBranding();
   const params = useParams();
   const id = params.id as string;
@@ -182,9 +183,12 @@ export default function AdmissionDetailPage() {
       });
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.error ?? t('error_save'));
-      toast.success(t('confirm_discharge'));
+      toast.success(td('discharged_toast'));
+      if (json.billing?.actualDays) toast.info(td('regularized_toast', { days: json.billing.actualDays }));
       setDischargeOpen(false);
-      fetchStay();
+      // The discharge record (medical record with the discharge mention) is generated
+      // right away; handlePrint re-fetches the stay, so it also refreshes the page.
+      await handlePrint();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t('error_save'));
     } finally {

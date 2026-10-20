@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { requireModulePermission } from "@/lib/permissions";
+import { requireModulePermission, requireTenantAdmin } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
 import type { BillingSourceType } from "@prisma/client";
 
@@ -27,14 +27,17 @@ export async function GET(req: Request) {
   return NextResponse.json(fees);
 }
 
-// POST /api/v1/billing/fee-schedule — add/update a tariff (upsert on tenant+sourceType+code)
+// POST /api/v1/billing/fee-schedule — add/update a tariff (upsert on tenant+sourceType+code).
+// Tariffs drive what every auto-generated invoice line costs, so writes are restricted to the
+// tenant admin (same gate as the Settings catalogs) — a billing grant alone, which cashiers
+// hold, only allows reading them.
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    const permCheck = requireModulePermission(session, "MODULE_BILLING", "create");
+    const permCheck = requireTenantAdmin(session);
     if (!permCheck.ok) {
       return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
     }

@@ -83,6 +83,8 @@ export type StayRow = {
   stayNumber: string;
   type: string;
   status: string;
+  consultationStatus: string | null;
+  hospitalizationStatus: string | null;
   admissionDate: string;
   dischargeDate: string | null;
   admissionReason: string | null;

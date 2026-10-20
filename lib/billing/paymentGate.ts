@@ -2,6 +2,7 @@ import prisma from "@/lib/prisma";
 import { isModuleActiveForTenant } from "@/lib/tenant-licensing";
 import { lookupUnitPrice, recalculateInvoiceTotals, suggestInvoiceLine, suggestInvoiceLines } from "@/lib/billing/suggestCharge";
 import { admitHospitalization } from "@/lib/billing/release";
+import { hospitalizedDays } from "@/lib/billing/hospitalizedDays";
 import type { BillingSourceType, ExamRequest, ExamUrgency, Prisma, StayType, TriageAcuity } from "@prisma/client";
 
 // "Pay first, then care": an admission's medical act is billed at admission and the patient
@@ -93,33 +94,72 @@ export async function chargePrescribedExams(params: {
   return billing;
 }
 
-// Bills a hospitalisation (act price × planned days) onto the stay's invoice; the reserved
-// bed is taken once it's paid. If billing fails, the patient is admitted anyway rather than
-// left in the corridor with no invoice to pay.
+// Bills the hospitalisation deposit (caution) — the room's daily price × planned days — onto
+// the stay's invoice; the reserved bed is taken once it's paid. The line keeps the daily
+// price and the planned days (unitPrice × quantity): at discharge it is regularised to the
+// days actually spent (see regularizeHospitalizationCharge). If billing fails, the patient is
+// admitted anyway rather than left in the corridor with no invoice to pay.
 export async function chargeHospitalization(params: {
   tenantId: string | null;
   patientId: string;
   stayId: string;
-  act: { code: string; nameFr: string; basePrice: Prisma.Decimal | number };
+  room: { code: string; label: string };
+  dailyPrice: number;
   days: number;
   performedById: string;
 }) {
-  const { tenantId, patientId, stayId, act, days, performedById } = params;
+  const { tenantId, patientId, stayId, room, dailyPrice, days, performedById } = params;
   const billing = !tenantId ? null : await suggestInvoiceLine({
     tenantId,
     patientId,
     stayId,
     sourceType: "hospitalization",
     sourceId: stayId,
-    description: `${act.nameFr} (${days} j)`,
-    feeCode: act.code,
+    description: `Caution hospitalisation — ${room.label} (${days} j prévus)`,
+    feeCode: room.code,
     quantity: days,
-    unitPrice: Number(act.basePrice),
+    unitPrice: dailyPrice,
     performedById,
   });
 
   if (!billing) await admitHospitalization(stayId);
   return billing;
+}
+
+// Turns the hospitalisation deposit line into the final charge once the patient leaves the
+// bed: same daily price, but the days actually spent. The invoice is recalculated, so the
+// cashier sees either the balance still owed (longer stay than planned) or the overpayment
+// to refund (shorter stay) — the invoice page already shows "refund due" when paid > owed.
+// Returns null when there was nothing to regularise (billing off, or never billed).
+// Must run once per stay (when it leaves its bed): it reads the planned days from the line.
+export async function regularizeHospitalizationCharge(params: {
+  stayId: string;
+  roomLabel: string | null;
+  hospitalizedAt: Date;
+  leftAt: Date;
+}): Promise<{ invoiceId: string; plannedDays: number; actualDays: number; amount: number } | null> {
+  const { stayId, roomLabel, hospitalizedAt, leftAt } = params;
+  const line = await prisma.patientInvoiceLine.findFirst({
+    where: { sourceType: "hospitalization", sourceId: stayId },
+    include: { invoice: { select: { status: true } } },
+  });
+  if (!line || line.invoice.status === "cancelled") return null;
+
+  const plannedDays = Number(line.quantity);
+  const actualDays = hospitalizedDays(hospitalizedAt, leftAt);
+  const unitPrice = Number(line.unitPrice);
+
+  await prisma.patientInvoiceLine.update({
+    where: { id: line.id },
+    data: {
+      description: `Hospitalisation${roomLabel ? ` — ${roomLabel}` : ""} (${actualDays} j ; caution de ${plannedDays} j régularisée)`,
+      quantity: actualDays,
+      amount: unitPrice * actualDays,
+    },
+  });
+  await recalculateInvoiceTotals(line.invoiceId);
+
+  return { invoiceId: line.invoiceId, plannedDays, actualDays, amount: unitPrice * actualDays };
 }
 
 // A charge whose act was cancelled before anything was paid on its invoice shouldn't stay

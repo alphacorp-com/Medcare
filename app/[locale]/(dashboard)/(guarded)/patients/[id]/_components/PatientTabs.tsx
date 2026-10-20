@@ -18,6 +18,7 @@ import {
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Link } from "@/i18n/routing";
+import { StayPhaseBadge } from "@/components/shared/stay-phase-badge";
 import {
   StayRow,
   MedicalRecordRow,
@@ -82,11 +83,6 @@ export function PatientTabs({
     return st;
   };
 
-  const stayStatusLabel = (s: string) => {
-    if (s === "in_progress") return tc("status_in_progress");
-    if (s === "discharged") return tc("status_discharged");
-    return s;
-  };
 
   const describePrescription = (items: unknown): string => {
     if (!Array.isArray(items) || items.length === 0) return "—";
@@ -215,10 +211,7 @@ export function PatientTabs({
                     <td className="px-4 py-3">{adm.departmentId ?? "—"} <span className="text-slate-500 block text-[10px]">{adm.bedId ?? ""}</span></td>
                     <td className="px-4 py-3">{adm.attendingDoctorId ?? "—"}</td>
                     <td className="px-4 py-3">
-                       <span className={cn("px-2 py-0.5 rounded text-[10px] uppercase font-semibold",
-                        adm.status === 'in_progress' ? "bg-orange-100 text-orange-700" : "bg-slate-100 text-slate-700")}>
-                         {stayStatusLabel(adm.status)}
-                      </span>
+                      <StayPhaseBadge stay={adm} className="uppercase" />
                     </td>
                   </tr>
                 ))}

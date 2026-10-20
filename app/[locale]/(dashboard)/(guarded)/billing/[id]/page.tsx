@@ -7,12 +7,10 @@ import { format } from "date-fns";
 import { Link } from "@/i18n/routing";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { ArrowLeft, Loader2, Plus, CreditCard, Pencil, Printer, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Loader2, CreditCard, Printer, ShieldCheck } from "lucide-react";
 import { RecordPaymentDialog } from "./_components/RecordPaymentDialog";
-import { AddLineDialog } from "./_components/AddLineDialog";
-import { EditLineDialog } from "./_components/EditLineDialog";
 import { WaivePaymentDialog } from "./_components/WaivePaymentDialog";
-import { InvoiceDetail, InvoiceLine, Payment } from "../types";
+import { InvoiceDetail, Payment } from "../types";
 import { PDFPreviewModal } from "@/components/templates/PDFPreviewModal";
 import { usePdfBranding } from "@/components/templates/usePdfBranding";
 import type { PdfInvoiceData, PdfReceiptData } from "@/components/templates/types";
@@ -26,9 +24,7 @@ export default function InvoiceDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
-  const [isAddLineOpen, setIsAddLineOpen] = useState(false);
   const [isWaiveOpen, setIsWaiveOpen] = useState(false);
-  const [editingLine, setEditingLine] = useState<InvoiceLine | null>(null);
   const [isInvoicePreviewOpen, setIsInvoicePreviewOpen] = useState(false);
   const [receiptPreview, setReceiptPreview] = useState<Payment | null>(null);
   const { facility: pdfFacility, settings: pdfSettings } = usePdfBranding();
@@ -76,7 +72,6 @@ export default function InvoiceDetailPage() {
   const refundDue = Math.max(0, paidAmount - patientAmount);
   const hasInsuranceDiscount = insuranceAmount > 0;
   const canPay = invoice.status !== "paid" && invoice.status !== "cancelled" && outstanding > 0;
-  const canAddLine = invoice.status !== "paid" && invoice.status !== "cancelled";
 
   const pdfInvoiceData: PdfInvoiceData = {
     number: invoice.id.slice(0, 8).toUpperCase(),
@@ -147,11 +142,6 @@ export default function InvoiceDetailPage() {
           <Button variant="outline" size="sm" className="h-10 md:h-8 w-full md:w-auto text-xs" onClick={() => setIsInvoicePreviewOpen(true)}>
             <Printer className="h-3.5 w-3.5 mr-2" /> {t("print_invoice")}
           </Button>
-          {canAddLine && (
-            <Button variant="outline" size="sm" className="h-10 md:h-8 w-full md:w-auto text-xs" onClick={() => setIsAddLineOpen(true)}>
-              <Plus className="h-3.5 w-3.5 mr-2" /> {t("add_line")}
-            </Button>
-          )}
           {canPay && (
             <Button size="sm" className="h-10 md:h-8 w-full md:w-auto text-xs bg-blue-600 hover:bg-blue-700" onClick={() => setIsPaymentOpen(true)}>
               <CreditCard className="h-3.5 w-3.5 mr-2" /> {t("record_payment")}
@@ -178,32 +168,20 @@ export default function InvoiceDetailPage() {
                   <th className="px-4 py-2 text-right">{t("quantity")}</th>
                   <th className="px-4 py-2 text-right">{t("unit_price")}</th>
                   <th className="px-4 py-2 text-right">{t("total")}</th>
-                  {canAddLine && <th className="px-4 py-2 w-8" />}
                 </tr>
               </thead>
               <tbody className="text-xs divide-y divide-slate-100">
                 {invoice.lines.map((line) => (
-                  <tr key={line.id} className="group">
+                  <tr key={line.id}>
                     <td className="px-4 py-2 text-slate-800">{line.description}</td>
                     <td className="px-4 py-2 text-right font-mono">{Number(line.quantity)}</td>
                     <td className="px-4 py-2 text-right font-mono">{Number(line.unitPrice).toLocaleString()}</td>
                     <td className="px-4 py-2 text-right font-mono font-semibold">{Number(line.amount).toLocaleString()}</td>
-                    {canAddLine && (
-                      <td className="px-4 py-2 text-right">
-                        <button
-                          onClick={() => setEditingLine(line)}
-                          className="text-slate-300 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                          title={t("edit_line")}
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </button>
-                      </td>
-                    )}
                   </tr>
                 ))}
                 {invoice.lines.length === 0 && (
                   <tr>
-                    <td colSpan={canAddLine ? 5 : 4} className="text-center py-6 text-slate-400 italic text-xs">{t("no_lines")}</td>
+                    <td colSpan={4} className="text-center py-6 text-slate-400 italic text-xs">{t("no_lines")}</td>
                   </tr>
                 )}
               </tbody>
@@ -314,15 +292,6 @@ export default function InvoiceDetailPage() {
         onSaved={fetchInvoice}
       />
       <WaivePaymentDialog open={isWaiveOpen} onOpenChange={setIsWaiveOpen} invoiceId={invoice.id} onSaved={fetchInvoice} />
-      <AddLineDialog open={isAddLineOpen} onOpenChange={setIsAddLineOpen} invoiceId={invoice.id} onSaved={fetchInvoice} />
-      <EditLineDialog
-        key={editingLine?.id ?? "none"}
-        open={Boolean(editingLine)}
-        onOpenChange={(open) => !open && setEditingLine(null)}
-        invoiceId={invoice.id}
-        line={editingLine}
-        onSaved={fetchInvoice}
-      />
 
       <PDFPreviewModal
         isOpen={isInvoicePreviewOpen}

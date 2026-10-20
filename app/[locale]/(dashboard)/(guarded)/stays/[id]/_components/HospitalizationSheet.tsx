@@ -7,20 +7,20 @@ import { BedDouble, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { MedicalActSelect, useMedicalActs } from "@/components/shared/medical-act-select";
 import { notifyBillingGenerated } from "@/lib/billing/client";
 import type { Bed, Department } from "../types";
 
-type RoomType = { id: string; nameFr: string; isActive: boolean };
+type RoomType = { id: string; nameFr: string; isActive: boolean; dailyPrice: number | null };
 
 const NO_ROOM_TYPE = "__none__";
 
 const selectClass =
   "flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-xs shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:bg-slate-50 disabled:text-slate-400";
 
-// Department → room (salle, i.e. the bed's room type) → free bed, plus the hospitalisation
-// act and planned length of stay that get billed. The bed is held as "reserved" until the
-// cashier records the payment.
+// Department → room (salle, i.e. the bed's room type) → free bed, plus the planned length of
+// stay. A deposit (room's daily price × planned days) is sent to the cashier and the bed is
+// held as "reserved" until it's paid. The amount shown here is informative only — the
+// server recomputes it from the configured room price.
 export function HospitalizationSheet({
   open,
   onOpenChange,
@@ -38,13 +38,11 @@ export function HospitalizationSheet({
 }) {
   const t = useTranslations("admissions");
   const tc = useTranslations("common");
-  const { acts } = useMedicalActs();
 
   const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
   const [departmentId, setDepartmentId] = useState("");
   const [roomTypeId, setRoomTypeId] = useState("");
   const [bedId, setBedId] = useState("");
-  const [actCode, setActCode] = useState("");
   const [days, setDays] = useState("1");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,15 +62,27 @@ export function HospitalizationSheet({
   // Only offer rooms that actually have a free bed in the chosen department.
   const roomOptions = useMemo(() => {
     const ids = new Set(freeBeds.map((bed) => bed.roomTypeId ?? NO_ROOM_TYPE));
-    const options = roomTypes.filter((room) => ids.has(room.id)).map((room) => ({ id: room.id, label: room.nameFr }));
+    const options = roomTypes
+      .filter((room) => ids.has(room.id))
+      .map((room) => ({
+        id: room.id,
+        label: room.dailyPrice != null
+          ? `${room.nameFr} — ${t("room_daily_price", { amount: room.dailyPrice.toLocaleString() })}`
+          : `${room.nameFr} — ${t("room_price_missing")}`,
+      }));
     if (ids.has(NO_ROOM_TYPE)) options.push({ id: NO_ROOM_TYPE, label: t("room_unspecified") });
     return options;
   }, [freeBeds, roomTypes, t]);
   const bedOptions = freeBeds.filter((bed) => !roomTypeId || (bed.roomTypeId ?? NO_ROOM_TYPE) === roomTypeId);
 
-  const selectedAct = acts.find((act) => act.code === actCode);
+  // The deposit preview follows the selected bed's room.
+  const selectedBed = beds.find((bed) => bed.id === bedId);
+  const selectedRoom = roomTypes.find((room) => room.id === selectedBed?.roomTypeId);
   const dayCount = Number(days);
-  const total = selectedAct?.price != null && Number.isInteger(dayCount) && dayCount > 0 ? selectedAct.price * dayCount : null;
+  const validDays = Number.isInteger(dayCount) && dayCount >= 1 && dayCount <= 365;
+  const dailyPrice = selectedRoom?.dailyPrice ?? null;
+  const deposit = dailyPrice != null && validDays ? dailyPrice * dayCount : null;
+  const priceMissing = Boolean(selectedBed) && dailyPrice == null;
 
   const handleSubmit = async () => {
     setSaving(true);
@@ -81,7 +91,7 @@ export function HospitalizationSheet({
       const res = await fetch(`/api/v1/stays/${stayId}/hospitalization`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ departmentId, bedId, medicalActCode: actCode, days: dayCount }),
+        body: JSON.stringify({ departmentId, bedId, days: dayCount }),
       });
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.error ?? t("error_save"));
@@ -91,7 +101,6 @@ export function HospitalizationSheet({
       setDepartmentId("");
       setRoomTypeId("");
       setBedId("");
-      setActCode("");
       setDays("1");
       onDone();
     } catch (e) {
@@ -162,16 +171,22 @@ export function HospitalizationSheet({
             </select>
           </div>
 
-          <MedicalActSelect acts={acts} value={actCode} onChange={setActCode} label={t("hospitalization_act")} hint={t("hospitalization_act_hint")} />
-
           <div className="space-y-1">
             <label className="text-[10px] font-bold text-slate-500 uppercase">{t("planned_days")}</label>
             <Input type="number" min={1} max={365} value={days} onChange={(e) => setDays(e.target.value)} className="h-9 text-xs bg-white" />
           </div>
 
-          {total !== null && (
-            <div className="rounded-md border border-blue-100 bg-blue-50 p-3 text-xs text-blue-800">
-              {t("hospitalization_total", { amount: total.toLocaleString(), days: dayCount })}
+          {deposit !== null && dailyPrice !== null && (
+            <div className="rounded-md border border-blue-100 bg-blue-50 p-3 text-xs text-blue-800 space-y-1">
+              <div className="font-semibold">
+                {t("hospitalization_deposit", { amount: deposit.toLocaleString(), price: dailyPrice.toLocaleString(), days: dayCount })}
+              </div>
+              <div className="text-[11px] text-blue-700">{t("hospitalization_deposit_hint")}</div>
+            </div>
+          )}
+          {priceMissing && (
+            <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+              {t("room_price_missing_hint")}
             </div>
           )}
         </div>
@@ -181,7 +196,7 @@ export function HospitalizationSheet({
           <Button
             className="text-xs h-9 bg-blue-600 hover:bg-blue-700"
             onClick={handleSubmit}
-            disabled={saving || !departmentId || !bedId || !actCode || !(dayCount >= 1)}
+            disabled={saving || !departmentId || !bedId || !validDays}
           >
             {saving && <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" />}
             {t("confirm_hospitalization")}
