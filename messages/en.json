@@ -527,6 +527,17 @@
   "settings": {
     "validate_permission": "Validate",
     "validate_permission_hint": "Validate or reject results (clinical biologist / radiologist)",
+    "perm_read": "Read",
+    "perm_create": "Create",
+    "perm_update": "Update",
+    "perm_delete": "Delete",
+    "perm_read_required_hint": "Other actions also grant read access — the module can't be used without it.",
+    "perm_core_locked_hint": "Always granted: every user can look up patients.",
+    "perm_toggle_module": "All actions for {module}",
+    "perm_modules_enabled": "{count, plural, =0 {No module enabled} one {# module enabled} other {# modules enabled}}",
+    "perm_grant_read_all": "Read access everywhere",
+    "perm_clear_all": "Clear all",
+    "full_system_access_desc": "Administrators have implicit access to every module and action.",
     "title": "Settings",
     "description": "Configure your account, facility, and clinical modules.",
     "users_tab": "Personnel Management",
@@ -2212,5 +2223,53 @@
     "discharged_toast": "Patient discharged — discharge record generated",
     "regularized_toast": "Hospitalisation regularised over {days} day(s) — see the cashier for the balance.",
     "load_error": "Could not load the discharges list."
+  },
+  "audit": {
+    "system_actor": "System",
+    "unknown_actor": "Unknown user",
+    "unknown_action": "Other action ({code})",
+    "showing": "{count, plural, one {# recent activity} other {# recent activities}}",
+    "actions": {
+      "user": {
+        "login": "Signed in",
+        "login_failed": "Failed sign-in attempt",
+        "login_rate_limited": "Sign-in blocked (too many attempts)",
+        "password_change": "Changed a password",
+        "create": "Created a user account",
+        "update": "Updated a user account",
+        "delete": "Deleted a user account"
+      },
+      "role": {
+        "create": "Created a role",
+        "update": "Updated a role",
+        "delete": "Deleted a role"
+      },
+      "stay": {
+        "hospitalization_requested": "Requested a hospitalization",
+        "hospitalization_cancelled": "Cancelled a hospitalization request",
+        "consultation_claim": "Took over a consultation",
+        "consultation_release": "Released a consultation back to the queue"
+      },
+      "appointment": {
+        "created": "Booked an appointment",
+        "rescheduled": "Rescheduled an appointment",
+        "cancelled": "Cancelled an appointment",
+        "no_show": "Marked a patient as no-show",
+        "checked_in": "Checked a patient in"
+      },
+      "billing": {
+        "payment_waived": "Waived a payment"
+      },
+      "license": {
+        "redeemed": "Activated a license key",
+        "redemption_failed": "Failed to activate a license key"
+      },
+      "onprem_license": {
+        "applied": "Applied the license"
+      },
+      "dhis2": {
+        "sync": "Synchronized with DHIS2"
+      }
+    }
   }
 }

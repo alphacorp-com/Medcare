@@ -11,10 +11,9 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // This feed spans every staff member's activity in the tenant (names, IP
-    // addresses, and full change payloads) — restricted to tenant_admin for
-    // the same reason users/[id]/activity restricts a user's own activity
-    // history to admins-or-self.
+    // This feed spans every staff member's activity in the tenant — restricted to
+    // tenant_admin for the same reason users/[id]/activity restricts a user's own
+    // activity history to admins-or-self.
     const permissionCheck = requireTenantAdmin(session);
     if (!permissionCheck.ok) {
       return NextResponse.json({ error: permissionCheck.error }, { status: permissionCheck.status });
@@ -28,56 +27,34 @@ export async function GET() {
     const activities = await prisma.auditLog.findMany({
       where: {
         tenantId: session.user.tenantId,
-        createdAt: {
-          gte: yesterday,
-        },
+        createdAt: { gte: yesterday },
       },
-      include: {
-        tenant: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      select: { id: true, createdAt: true, actorId: true, actorType: true, action: true, resourceType: true, payload: true },
+      orderBy: { createdAt: "desc" },
       take: 20, // Limit to 20 for dashboard
     });
 
-    // For each activity, get user info based on actorType
-    const auditData = await Promise.all(
-      activities.map(async (activity) => {
-        let user = null;
+    // Resolve actor names in one query. Only tenant_user actors have a name to show:
+    // 'system' rows (e.g. failed logins) have no actor, and 'admin' rows come from the
+    // decommissioned cross-tenant console, whose AdminUser table no longer exists.
+    const actorIds = [...new Set(activities.filter((a) => a.actorType === "tenant_user").map((a) => a.actorId))];
+    const actors = await prisma.tenantUser.findMany({
+      where: { id: { in: actorIds }, tenantId: session.user.tenantId },
+      select: { id: true, fullName: true },
+    });
+    const actorNames = new Map(actors.map((a) => [a.id, a.fullName]));
 
-        if (activity.actorType === 'tenant_user') {
-          // Get tenant user info
-          user = await prisma.tenantUser.findUnique({
-            where: { id: activity.actorId },
-            select: {
-              id: true,
-              fullName: true,
-              email: true,
-            },
-          });
-        }
-        // Note: actorType 'admin' can still appear on historical rows from the
-        // decommissioned cross-tenant admin console, but there's no longer any
-        // AdminUser table to resolve a name from — those fall through to "Unknown User".
-
-        return {
-          id: activity.id,
-          timestamp: activity.createdAt.toISOString(),
-          user: user ? user.fullName : 'Unknown User',
-          action: activity.action,
-          resource: activity.resourceType || 'Unknown',
-          details: activity.payload ? JSON.stringify(activity.payload) : 'No details',
-          ipAddress: activity.ipAddress || 'Unknown',
-          severity: (activity.payload as unknown as { severity?: string } | null)?.severity || 'low',
-        };
-      })
-    );
+    // Codes and nulls only — the card translates them. The raw payload and IP address
+    // aren't displayed on the dashboard, so they aren't sent either.
+    const auditData = activities.map((activity) => ({
+      id: activity.id,
+      timestamp: activity.createdAt.toISOString(),
+      user: actorNames.get(activity.actorId) ?? null,
+      actorType: activity.actorType,
+      action: activity.action,
+      resourceType: activity.resourceType,
+      severity: (activity.payload as unknown as { severity?: string } | null)?.severity ?? "low",
+    }));
 
     return NextResponse.json({
       data: auditData,

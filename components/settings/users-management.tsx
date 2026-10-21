@@ -9,7 +9,7 @@ import { Sheet, SheetContent, SheetHeader, SheetFooter, SheetTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PlusCircle, Search, Edit2, Activity, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useAssignableModules } from "@/components/settings/useAssignableModules";
+import { ModulePermissionMatrix } from "@/components/settings/module-permission-matrix";
 import { LastLoginBadge } from "@/components/settings/activity/last-login-badge";
 import { SettingsList, SettingsListItem, SettingsPageHeader, SettingsPill, settingsActionButtonClass } from "@/components/settings/settings-ui";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -57,8 +57,6 @@ export function UsersManagement() {
 
   const t = useTranslations('settings');
   const tc = useTranslations('common');
-
-  const ALL_MODULES = useAssignableModules();
 
   useEffect(() => {
     let cancelled = false;
@@ -117,31 +115,6 @@ export function UsersManagement() {
       }, {} as Record<string, ModuleAction[]>)
     );
     setIsAddOpen(true);
-  };
-
-  const toggleModuleAction = (moduleId: string, action: ModuleAction) => {
-    setSelectedModules((prev) => {
-      const next = { ...prev };
-      const current = new Set(next[moduleId] || []);
-
-      if (current.has(action)) {
-        current.delete(action);
-      } else {
-        current.add(action);
-      }
-
-      if (moduleId === 'MODULE_CORE_PATIENT') {
-        current.add('read');
-      }
-
-      if (current.size > 0) {
-        next[moduleId] = Array.from(current);
-      } else {
-        delete next[moduleId];
-      }
-
-      return next;
-    });
   };
 
   const handleDelete = async (id: string, name: string) => {
@@ -316,82 +289,12 @@ export function UsersManagement() {
           </div>
 
           <div className="pt-4 border-t border-slate-100">
-            <Label className="mb-3 block font-bold text-slate-700">{t('module_access_scopes')}</Label>
-            {selectedRole?.isSystemAdmin ? (
-              <div className="bg-blue-50 p-4 rounded-md border border-blue-100 text-center">
-                <p className="text-sm font-semibold text-blue-700">Full System Access</p>
-                <p className="text-xs text-blue-600 mt-1">Administrators have implicit access to all modules and actions.</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {ALL_MODULES.map((mod) => {
-                  const currentActions = selectedModules[mod.id] ?? (mod.id === 'MODULE_CORE_PATIENT' ? ['read'] : []);
-                  const hasRead = currentActions.includes('read');
-                  const hasCreate = currentActions.includes('create');
-                  const hasUpdate = currentActions.includes('update');
-                  const hasDelete = currentActions.includes('delete');
-
-                  return (
-                    <div key={mod.id} className="flex flex-col gap-3 text-sm border border-slate-200 rounded-xl p-4 hover:border-blue-200 transition-colors">
-                      <div className="font-semibold text-slate-700 flex items-center justify-between">
-                        <span>{mod.name}</span>
-                        <span className="text-[11px] text-slate-500 uppercase tracking-[0.15em]">Actions</span>
-                      </div>
-                      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
-                        <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 cursor-pointer text-xs text-slate-600 hover:border-blue-300">
-                          <input
-                            type="checkbox"
-                            checked={hasRead}
-                            disabled={mod.id === 'MODULE_CORE_PATIENT'}
-                            onChange={() => toggleModuleAction(mod.id, 'read')}
-                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                          />
-                          Read
-                        </label>
-                        <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 cursor-pointer text-xs text-slate-600 hover:border-blue-300">
-                          <input
-                            type="checkbox"
-                            checked={hasCreate}
-                            onChange={() => toggleModuleAction(mod.id, 'create')}
-                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                          />
-                          Create
-                        </label>
-                        <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 cursor-pointer text-xs text-slate-600 hover:border-blue-300">
-                          <input
-                            type="checkbox"
-                            checked={hasUpdate}
-                            onChange={() => toggleModuleAction(mod.id, 'update')}
-                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                          />
-                          Update
-                        </label>
-                        <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 cursor-pointer text-xs text-slate-600 hover:border-blue-300">
-                          <input
-                            type="checkbox"
-                            checked={hasDelete}
-                            onChange={() => toggleModuleAction(mod.id, 'delete')}
-                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                          />
-                          Delete
-                        </label>
-                        {(mod.id === 'MODULE_LAB' || mod.id === 'MODULE_RADIOLOGY') && (
-                          <label className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50/50 px-3 py-2 cursor-pointer text-xs text-amber-800 hover:border-amber-300" title={t('validate_permission_hint')}>
-                            <input
-                              type="checkbox"
-                              checked={currentActions.includes('validate')}
-                              onChange={() => toggleModuleAction(mod.id, 'validate')}
-                              className="rounded border-slate-300 text-amber-600 focus:ring-amber-500"
-                            />
-                            {t('validate_permission')}
-                          </label>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+            <ModulePermissionMatrix
+              title={t('module_access_scopes')}
+              value={selectedModules}
+              onChange={setSelectedModules}
+              isSystemAdmin={selectedRole?.isSystemAdmin}
+            />
           </div>
 
           {formError ? (

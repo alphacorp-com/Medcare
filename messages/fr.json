@@ -532,6 +532,17 @@
   "settings": {
     "validate_permission": "Valider",
     "validate_permission_hint": "Valider ou rejeter les résultats (médecin biologiste / radiologue)",
+    "perm_read": "Consulter",
+    "perm_create": "Créer",
+    "perm_update": "Modifier",
+    "perm_delete": "Supprimer",
+    "perm_read_required_hint": "Les autres actions accordent aussi la consultation — le module est inutilisable sans elle.",
+    "perm_core_locked_hint": "Toujours accordé : tout utilisateur peut rechercher des patients.",
+    "perm_toggle_module": "Toutes les actions du module {module}",
+    "perm_modules_enabled": "{count, plural, =0 {Aucun module activé} one {# module activé} other {# modules activés}}",
+    "perm_grant_read_all": "Consultation partout",
+    "perm_clear_all": "Tout effacer",
+    "full_system_access_desc": "Les administrateurs ont implicitement accès à tous les modules et à toutes les actions.",
     "title": "Paramètres",
     "description": "Configurez votre compte, votre établissement et les modules cliniques.",
     "users_tab": "Gestion du Personnel",
@@ -2217,5 +2228,53 @@
     "discharged_toast": "Patient sorti — fiche de sortie générée",
     "regularized_toast": "Hospitalisation régularisée sur {days} jour(s) — voir la caisse pour le solde.",
     "load_error": "Impossible de charger la liste des sorties."
+  },
+  "audit": {
+    "system_actor": "Système",
+    "unknown_actor": "Utilisateur inconnu",
+    "unknown_action": "Autre action ({code})",
+    "showing": "{count, plural, one {# activité récente} other {# activités récentes}}",
+    "actions": {
+      "user": {
+        "login": "S'est connecté(e)",
+        "login_failed": "Tentative de connexion échouée",
+        "login_rate_limited": "Connexion bloquée (trop de tentatives)",
+        "password_change": "A modifié un mot de passe",
+        "create": "A créé un compte utilisateur",
+        "update": "A modifié un compte utilisateur",
+        "delete": "A supprimé un compte utilisateur"
+      },
+      "role": {
+        "create": "A créé un rôle",
+        "update": "A modifié un rôle",
+        "delete": "A supprimé un rôle"
+      },
+      "stay": {
+        "hospitalization_requested": "A demandé une hospitalisation",
+        "hospitalization_cancelled": "A annulé une demande d'hospitalisation",
+        "consultation_claim": "A pris en charge une consultation",
+        "consultation_release": "A remis une consultation en file d'attente"
+      },
+      "appointment": {
+        "created": "A créé un rendez-vous",
+        "rescheduled": "A déplacé un rendez-vous",
+        "cancelled": "A annulé un rendez-vous",
+        "no_show": "A signalé un patient absent",
+        "checked_in": "A enregistré l'arrivée d'un patient"
+      },
+      "billing": {
+        "payment_waived": "A exonéré un paiement"
+      },
+      "license": {
+        "redeemed": "A activé une clé de licence",
+        "redemption_failed": "Échec d'activation d'une clé de licence"
+      },
+      "onprem_license": {
+        "applied": "A appliqué la licence"
+      },
+      "dhis2": {
+        "sync": "Synchronisation avec DHIS2"
+      }
+    }
   }
 }

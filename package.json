@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "test": "tsx --test \"lib/**/*.test.ts\"",
+    "test": "tsx --test \"lib/**/*.test.ts\" \"components/**/*.test.ts\"",
     "seed": "tsx prisma/seed.ts",
     "seed-settings": "tsx prisma/seed-reference-data.ts",
     "seed-journeys": "tsx prisma/seed-patient-journeys.ts",

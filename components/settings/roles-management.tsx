@@ -11,7 +11,7 @@ import { SettingsList, SettingsListItem, SettingsPageHeader, SettingsPill, setti
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
-import { useAssignableModules } from "@/components/settings/useAssignableModules";
+import { ModulePermissionMatrix } from "@/components/settings/module-permission-matrix";
 
 export type ModuleAction = 'read' | 'create' | 'update' | 'delete' | 'validate';
 
@@ -43,8 +43,6 @@ export function RolesManagement() {
 
   const t = useTranslations('settings');
   const tc = useTranslations('common');
-
-  const ALL_MODULES = useAssignableModules();
 
   useEffect(() => {
     let cancelled = false;
@@ -102,19 +100,6 @@ export function RolesManagement() {
     } catch (error) {
       console.error("Failed to delete role", error);
     }
-  };
-
-  const toggleModuleAction = (moduleId: string, action: ModuleAction) => {
-    setSelectedModules((prev) => {
-      const next = { ...prev };
-      const current = new Set(next[moduleId] || []);
-      if (current.has(action)) current.delete(action);
-      else current.add(action);
-      if (moduleId === 'MODULE_CORE_PATIENT') current.add('read');
-      if (current.size > 0) next[moduleId] = Array.from(current);
-      else delete next[moduleId];
-      return next;
-    });
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -217,80 +202,15 @@ export function RolesManagement() {
               </span>
             </label>
 
-            {!isAdminRole && (
-              <div className="pt-2 border-t border-slate-100">
-                <Label className="mb-1 block font-bold text-slate-700">{t('default_module_permissions')}</Label>
-                <p className="text-xs text-slate-500 mb-3">{t('default_module_permissions_desc')}</p>
-                <div className="space-y-3">
-                  {ALL_MODULES.map((mod) => {
-                    const currentActions = selectedModules[mod.id] ?? (mod.id === 'MODULE_CORE_PATIENT' ? ['read'] : []);
-                    const hasRead = currentActions.includes('read');
-                    const hasCreate = currentActions.includes('create');
-                    const hasUpdate = currentActions.includes('update');
-                    const hasDelete = currentActions.includes('delete');
-
-                    return (
-                      <div key={mod.id} className="flex flex-col gap-3 text-sm border border-slate-200 rounded-xl p-4 hover:border-blue-200 transition-colors">
-                        <div className="font-semibold text-slate-700 flex items-center justify-between">
-                          <span>{mod.name}</span>
-                          <span className="text-[11px] text-slate-500 uppercase tracking-[0.15em]">Actions</span>
-                        </div>
-                        <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
-                          <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 cursor-pointer text-xs text-slate-600 hover:border-blue-300">
-                            <input
-                              type="checkbox"
-                              checked={hasRead}
-                              disabled={mod.id === 'MODULE_CORE_PATIENT'}
-                              onChange={() => toggleModuleAction(mod.id, 'read')}
-                              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                            />
-                            Read
-                          </label>
-                          <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 cursor-pointer text-xs text-slate-600 hover:border-blue-300">
-                            <input
-                              type="checkbox"
-                              checked={hasCreate}
-                              onChange={() => toggleModuleAction(mod.id, 'create')}
-                              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                            />
-                            Create
-                          </label>
-                          <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 cursor-pointer text-xs text-slate-600 hover:border-blue-300">
-                            <input
-                              type="checkbox"
-                              checked={hasUpdate}
-                              onChange={() => toggleModuleAction(mod.id, 'update')}
-                              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                            />
-                            Update
-                          </label>
-                          <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 cursor-pointer text-xs text-slate-600 hover:border-blue-300">
-                            <input
-                              type="checkbox"
-                              checked={hasDelete}
-                              onChange={() => toggleModuleAction(mod.id, 'delete')}
-                              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                            />
-                            Delete
-                          </label>
-                          {(mod.id === 'MODULE_LAB' || mod.id === 'MODULE_RADIOLOGY') && (
-                            <label className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50/50 px-3 py-2 cursor-pointer text-xs text-amber-800 hover:border-amber-300" title={t('validate_permission_hint')}>
-                              <input
-                                type="checkbox"
-                                checked={currentActions.includes('validate')}
-                                onChange={() => toggleModuleAction(mod.id, 'validate')}
-                                className="rounded border-slate-300 text-amber-600 focus:ring-amber-500"
-                              />
-                              {t('validate_permission')}
-                            </label>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+            <div className="pt-2 border-t border-slate-100">
+              <ModulePermissionMatrix
+                title={t('default_module_permissions')}
+                description={t('default_module_permissions_desc')}
+                value={selectedModules}
+                onChange={setSelectedModules}
+                isSystemAdmin={isAdminRole}
+              />
+            </div>
 
             {formError ? (
               <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-md px-3 py-2">{formError}</p>
