@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { addMonths, addWeeks } from "date-fns";
 import { findAppointmentConflicts, findAvailabilityConflict } from "@/lib/scheduling/conflicts";
+import { isBookableDoctor } from "@/lib/scheduling/doctors";
 import { requireModulePermission } from "@/lib/permissions";
 import { recordAuditEvent, extractRequestMeta } from "@/lib/audit";
 import type { AppointmentStatus } from "@prisma/client";
@@ -91,15 +93,23 @@ export async function POST(req: Request) {
     if (!patient) {
       return NextResponse.json({ error: "Patient not found" }, { status: 404 });
     }
+    if (!(await isBookableDoctor(session.user.tenantId, doctorId))) {
+      return NextResponse.json({ error: "Doctor not found or not a clinical provider" }, { status: 400 });
+    }
 
     const duration = durationMinutes ? Number(durationMinutes) : 30;
     const baseDate = new Date(scheduledAt);
+    if (Number.isNaN(baseDate.getTime())) {
+      return NextResponse.json({ error: "scheduledAt is not a valid date" }, { status: 400 });
+    }
     const occurrenceDates: Date[] = [baseDate];
 
     if (recurrence?.frequency && recurrence?.occurrences > 1) {
-      const stepDays = recurrence.frequency === "monthly" ? 30 : 7;
+      // Calendar steps: "monthly" keeps the same day of month (addMonths clamps the 31st
+      // to the month's last day) instead of drifting by fixed 30-day blocks.
+      const step = recurrence.frequency === "monthly" ? addMonths : addWeeks;
       for (let i = 1; i < Math.min(Number(recurrence.occurrences), 52); i++) {
-        occurrenceDates.push(new Date(baseDate.getTime() + i * stepDays * 24 * 60 * 60 * 1000));
+        occurrenceDates.push(step(baseDate, i));
       }
     }
 
@@ -110,7 +120,7 @@ export async function POST(req: Request) {
     for (const date of occurrenceDates) {
       if (!force) {
         const [resourceConflicts, availabilityIssue] = await Promise.all([
-          findAppointmentConflicts({ doctorId, scheduledAt: date, durationMinutes: duration }),
+          findAppointmentConflicts({ tenantId: session.user.tenantId, doctorId, scheduledAt: date, durationMinutes: duration }),
           findAvailabilityConflict(session.user.tenantId, doctorId, date),
         ]);
         if (resourceConflicts.length > 0 || availabilityIssue) {

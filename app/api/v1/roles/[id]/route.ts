@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth/next";
 import prisma from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { requireTenantAdmin } from "@/lib/permissions";
+import { parseModulePermissions } from "@/lib/module-permissions";
 import { recordAuditEvent, extractRequestMeta } from "@/lib/audit";
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -28,7 +29,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const name = typeof body.name === "string" ? body.name.trim() : undefined;
     const isSystemAdmin = typeof body.isSystemAdmin === "boolean" ? body.isSystemAdmin : undefined;
     const isClinicalProvider = typeof body.isClinicalProvider === "boolean" ? body.isClinicalProvider : undefined;
-    const defaultModules = Array.isArray(body.defaultModules) ? body.defaultModules : undefined;
+    const defaultModules = body.defaultModules === undefined ? undefined : parseModulePermissions(body.defaultModules);
+    if (defaultModules === null) {
+      return NextResponse.json({ error: "Invalid module permissions" }, { status: 400 });
+    }
 
     if (name !== undefined) {
       if (!name) {

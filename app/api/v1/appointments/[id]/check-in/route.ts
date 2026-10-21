@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { withNextStayNumber } from "@/lib/stays/numbering";
 import { requireModulePermission } from "@/lib/permissions";
 import { recordAuditEvent, extractRequestMeta } from "@/lib/audit";
 import { chargeAdmissionAct, isPaymentGateActive } from "@/lib/billing/paymentGate";
@@ -53,10 +54,19 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
     }
     const awaitingPayment = Boolean(act) && (await isPaymentGateActive(session.user.tenantId));
 
-    const count = await prisma.stay.count({ where: { tenantId: session.user.tenantId } });
-    const stayNumber = `STAY${String(count + 1).padStart(6, "0")}`;
+    const { stay, updated } = await withNextStayNumber(session.user.tenantId, (stayNumber) => prisma.$transaction(async (tx) => {
+      // Claim the appointment first, conditionally: the status check above ran outside
+      // the transaction, so two simultaneous check-ins could both pass it. Only one of
+      // them can flip a still-unlinked booked/confirmed appointment; the other aborts
+      // before creating a second stay.
+      const claimed = await tx.appointment.updateMany({
+        where: { id, tenantId: session.user.tenantId, stayId: null, status: { in: ["booked", "confirmed"] } },
+        data: { status: "checked_in" },
+      });
+      if (claimed.count !== 1) {
+        throw new Error("ALREADY_CHECKED_IN");
+      }
 
-    const { stay, updated } = await prisma.$transaction(async (tx) => {
       const stay = await tx.stay.create({
         data: {
           tenantId: session.user.tenantId,
@@ -74,11 +84,11 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
 
       const updated = await tx.appointment.update({
         where: { id },
-        data: { status: "checked_in", stayId: stay.id },
+        data: { stayId: stay.id },
       });
 
       return { stay, updated };
-    });
+    }));
 
     const billing = act
       ? await chargeAdmissionAct({
@@ -105,6 +115,9 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
 
     return NextResponse.json({ data: updated, stay, billing, success: true });
   } catch (error) {
+    if (error instanceof Error && error.message === "ALREADY_CHECKED_IN") {
+      return NextResponse.json({ error: "Appointment already checked in" }, { status: 409 });
+    }
     console.error("Error checking in appointment:", error);
     return NextResponse.json({ error: "Failed to check in" }, { status: 500 });
   }

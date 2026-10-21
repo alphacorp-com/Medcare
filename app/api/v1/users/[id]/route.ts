@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import prisma from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { isAdminOrTenantAdmin, requireSelfOrAdmin, requireAdminOrTenantAdmin } from "@/lib/permissions";
+import { parseModulePermissions } from "@/lib/module-permissions";
 import { recordAuditEvent, extractRequestMeta } from "@/lib/audit";
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -91,6 +92,13 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
     const canManage = isAdminOrTenantAdmin(session);
 
+    // Only an administrator may change a user's modules (a user editing their own profile
+    // can't grant themselves access); anything they send is validated before storage.
+    const parsedModules = modules !== undefined && modules !== null && canManage ? parseModulePermissions(modules) : undefined;
+    if (parsedModules === null) {
+      return NextResponse.json({ error: "Invalid module permissions" }, { status: 400 });
+    }
+
     let newRole: { id: string; name: string; isSystemAdmin: boolean } | null = null;
     if (roleId && canManage && roleId !== existingUser.roleId) {
       newRole = await prisma.role.findFirst({
@@ -126,7 +134,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         ...(fullName && { fullName }),
         ...(email && { email }),
         ...(newRole && { roleId: newRole.id }),
-        ...(modules && canManage && { modules }),
+        ...(parsedModules && { modules: parsedModules }),
         ...(status && canManage && { isActive: status === 'active' }),
         // Bumping sessionVersion when a password is set here invalidates this user's
         // existing sessions immediately, same as the dedicated reset-password routes.
@@ -136,8 +144,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     });
 
     const { ipAddress, userAgent } = extractRequestMeta(req.headers);
-    const modulesChanged = modules && canManage &&
-      JSON.stringify(modules) !== JSON.stringify(existingUser.modules);
+    const modulesChanged = parsedModules !== undefined &&
+      JSON.stringify(parsedModules) !== JSON.stringify(existingUser.modules);
     await recordAuditEvent({
       tenantId: session.user.tenantId,
       actorId: session.user.id,
@@ -148,7 +156,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       payload: {
         fields: Object.keys(body),
         ...(newRole ? { roleChanged: { from: existingUser.role.name, to: newRole.name } } : {}),
-        ...(modulesChanged ? { modulesChanged: { from: existingUser.modules, to: modules } } : {}),
+        ...(modulesChanged ? { modulesChanged: { from: existingUser.modules, to: parsedModules } } : {}),
       },
       ipAddress,
       userAgent,

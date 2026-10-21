@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { requireModulePermission } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
+import { withNextStayNumber } from "@/lib/stays/numbering";
 import type { StayStatus, StayType, TriageAcuity } from "@prisma/client";
 import { chargeAdmissionAct, isPaymentGateActive, isVitalEmergency } from "@/lib/billing/paymentGate";
 
@@ -243,17 +244,12 @@ export async function POST(
       }
     }
 
-    // ── Generate stay number (scoped to tenant since Stay.stayNumber is
-    // unique per-tenant, not globally) ──────────────────────────────────────
-    const count = await prisma.stay.count({
-      where: { tenantId: session.user.tenantId },
-    });
-    const stayNumber = `STAY${String(count + 1).padStart(6, "0")}`;
-
     // ── Create (and, if a bed was chosen, occupy it atomically — the guarded
     // updateMany only succeeds if the bed is still available, closing the race
-    // where two admissions target the same bed at once) ────────────────────
-    const stay = await prisma.$transaction(async (tx) => {
+    // where two admissions target the same bed at once). The stay number is
+    // per-tenant unique; withNextStayNumber re-runs the whole transaction with the
+    // next number if a concurrent admission took it first ─────────────────────
+    const stay = await withNextStayNumber(session.user.tenantId, (stayNumber) => prisma.$transaction(async (tx) => {
       const created = await tx.stay.create({
         data: {
           tenantId: session.user.tenantId,
@@ -306,7 +302,7 @@ export async function POST(
       }
 
       return created;
-    });
+    }));
 
     const billing = act
       ? await chargeAdmissionAct({

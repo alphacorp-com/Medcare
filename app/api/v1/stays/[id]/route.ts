@@ -5,6 +5,7 @@ import { requireModulePermission } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
 import type { StayStatus, TriageAcuity } from "@prisma/client";
 import { isVitalEmergency, regularizeHospitalizationCharge, removeUnpaidCharge } from "@/lib/billing/paymentGate";
+import { completeAppointmentForStay } from "@/lib/scheduling/appointments";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const toUuid = (v: unknown): string | null =>
@@ -289,6 +290,11 @@ export async function PATCH(
           },
         },
       });
+
+      // A patient leaving without a signed consultation note still closes the appointment.
+      if (isEnding) {
+        await completeAppointmentForStay(session.user.tenantId, id, tx);
+      }
 
       if (isEnding && existingStay.hospitalizationStatus === "awaiting_payment" && existingStay.hospitalizationBedId) {
         await tx.bed.updateMany({

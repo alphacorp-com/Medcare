@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth/next";
 import prisma from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { requireAdminOrTenantAdmin, requireTenantAdmin } from "@/lib/permissions";
+import { parseModulePermissions } from "@/lib/module-permissions";
 import { recordAuditEvent, extractRequestMeta } from "@/lib/audit";
 
 // Roles are tenant-scoped and admin-defined — no fixed catalog. isSystemAdmin
@@ -59,7 +60,10 @@ export async function POST(req: Request) {
     const name = typeof body.name === "string" ? body.name.trim() : "";
     const isSystemAdmin = Boolean(body.isSystemAdmin);
     const isClinicalProvider = Boolean(body.isClinicalProvider);
-    const defaultModules = Array.isArray(body.defaultModules) ? body.defaultModules : [];
+    const defaultModules = body.defaultModules === undefined ? [] : parseModulePermissions(body.defaultModules);
+    if (!defaultModules) {
+      return NextResponse.json({ error: "Invalid module permissions" }, { status: 400 });
+    }
 
     if (!name) {
       return NextResponse.json({ error: "Role name is required" }, { status: 400 });

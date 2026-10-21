@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import prisma from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
+import { requireModulePermission } from "@/lib/permissions";
 import { StayStatus } from "@prisma/client";
 
 export async function GET() {
@@ -9,6 +10,14 @@ export async function GET() {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Same data as GET /consultations (in-progress stays with patient identity), so the
+    // same module gate applies — authentication alone would expose patient names/IPP
+    // to every staff account.
+    const permCheck = requireModulePermission(session, "MODULE_ADMISSION", "read");
+    if (!permCheck.ok) {
+      return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
     }
 
     // Get active stays (in progress) with patient info
