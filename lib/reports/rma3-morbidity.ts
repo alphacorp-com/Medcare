@@ -1,7 +1,7 @@
 import type { DiagnosisContext, Gender } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { parseIcd10Ranges, codeMatchesItems, type Icd10Item } from "@/lib/diagnoses/icd10-ranges";
-import { ageInCompletedMonths } from "@/lib/reports/age-bands";
+import { RMA3_AGE_SCHEMES, disaggregationColumns, disaggregationKey, emptyCells, type Disaggregation } from "@/lib/reports/age-bands";
 import { loadRubrics, type CauseRubric } from "@/lib/reports/rma3-rubrics";
 import {
   RMA3_MORBIDITY_SECTIONS,
@@ -43,60 +43,24 @@ export interface MorbidityDiagnosis {
   patient: { birthDate: Date; gender: Gender };
 }
 
-type Band = { key: string; label: string; maxYears: number };
-
-const SEXES = [
-  { key: "M", label: "M" },
-  { key: "F", label: "F" },
-] as const;
-
-// Upper bounds are inclusive, in completed years at the date of the consultation.
-const UNDER5: Band[] = [
-  { key: "lt5", label: "< 5 ans", maxYears: 4 },
-  { key: "5plus", label: "5 ans et +", maxYears: Infinity },
-];
-const MENTAL: Band[] = [
-  { key: "0-10", label: "0-10 ans", maxYears: 10 },
-  { key: "11-20", label: "11-20 ans", maxYears: 20 },
-  { key: "21-55", label: "21-55 ans", maxYears: 55 },
-  { key: "56plus", label: "> 55 ans", maxYears: Infinity },
-];
-const EYE: Band[] = [
-  { key: "0-14", label: "0-14 ans", maxYears: 14 },
-  { key: "15-49", label: "15-49 ans", maxYears: 49 },
-  { key: "50plus", label: "50 ans et +", maxYears: Infinity },
-];
-
-const BREAKDOWNS: Record<Rma3Breakdown, { bands: Band[] | null; bySex: boolean }> = {
+// Each section's RMA3 breakdown, from the shared age/sex schemes.
+const BREAKDOWNS: Record<Rma3Breakdown, Disaggregation> = {
   none: { bands: null, bySex: false },
   sex: { bands: null, bySex: true },
-  under5: { bands: null, bySex: false }, // only children under 5 are counted at all
-  under5Sex: { bands: UNDER5, bySex: true },
-  mentalAgeSex: { bands: MENTAL, bySex: true },
-  eyeAge: { bands: EYE, bySex: false },
-  eyeAgeSex: { bands: EYE, bySex: true },
+  under5: { bands: RMA3_AGE_SCHEMES.child0to59m, bySex: false }, // older children are not counted at all
+  under5Sex: { bands: RMA3_AGE_SCHEMES.under5, bySex: true },
+  mentalAgeSex: { bands: RMA3_AGE_SCHEMES.mentalHealth, bySex: true },
+  eyeAge: { bands: RMA3_AGE_SCHEMES.eyeOral, bySex: false },
+  eyeAgeSex: { bands: RMA3_AGE_SCHEMES.eyeOral, bySex: true },
 };
 
 export function breakdownColumns(breakdown: Rma3Breakdown): Rma3MorbidityColumn[] {
-  const { bands, bySex } = BREAKDOWNS[breakdown];
-  if (bands && bySex) return bands.flatMap((b) => SEXES.map((s) => ({ key: `${b.key}_${s.key}`, label: `${b.label} ${s.label}` })));
-  if (bands) return bands.map((b) => ({ key: b.key, label: b.label }));
-  if (bySex) return SEXES.map((s) => ({ key: s.key, label: s.label }));
-  return [];
+  return disaggregationColumns(BREAKDOWNS[breakdown]);
 }
 
-// The column a new case falls in: a key, "" (counted in the total only: sex not recorded,
-// or no breakdown), or null when the section does not count this patient at all.
+// The column a new case falls in ("" = total only, null = not counted): see disaggregationKey.
 export function columnFor(breakdown: Rma3Breakdown, birthDate: Date, gender: Gender, at: Date): string | null {
-  const years = Math.floor(ageInCompletedMonths(birthDate, at) / 12);
-  if (breakdown === "under5") return years < 5 ? "" : null;
-  const { bands, bySex } = BREAKDOWNS[breakdown];
-  const band = bands?.find((b) => years <= b.maxYears);
-  const sex = gender === "M" || gender === "F" ? gender : null;
-  if (bySex && !sex) return "";
-  if (band && sex && bySex) return `${band.key}_${sex}`;
-  if (band) return band.key;
-  return bySex && sex ? sex : "";
+  return disaggregationKey(BREAKDOWNS[breakdown], { birthDate, gender }, at);
 }
 
 // Pure: counts new-case consultation diagnoses (principal or secondary) in every active
@@ -114,7 +78,7 @@ export function buildMorbidityTables(rubrics: readonly CauseRubric[], diagnoses:
     const rows: Rma3MorbidityRow[] = active.map(({ rubric }) => ({
       code: rubric.code,
       label: rubric.label,
-      cells: Object.fromEntries(columns.map((c) => [c.key, 0])),
+      cells: emptyCells(columns),
       total: 0,
       deaths: countDeaths ? 0 : null,
     }));

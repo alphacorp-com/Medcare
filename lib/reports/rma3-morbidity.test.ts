@@ -33,23 +33,23 @@ describe("default morbidity rubrics", () => {
 
 describe("columnFor", () => {
   it("applies the age bands at the date of the consultation, inclusive upper bounds", () => {
-    assert.equal(columnFor("mentalAgeSex", born("2016-10-15"), "M", at), "0-10_M"); // exactly 10
-    assert.equal(columnFor("mentalAgeSex", born("2015-10-14"), "F", at), "11-20_F"); // 11
-    assert.equal(columnFor("mentalAgeSex", elder.birthDate, "F", at), "56plus_F");
-    assert.equal(columnFor("eyeAge", born("1977-01-01"), "M", at), "15-49"); // 49
-    assert.equal(columnFor("eyeAge", born("1976-10-15"), "M", at), "50plus"); // 50
-    assert.equal(columnFor("under5Sex", born("2021-10-16"), "F", at), "lt5_F"); // 4 years 11 months
+    assert.equal(columnFor("mentalAgeSex", born("2016-10-15"), "M", at), "age0to10_M"); // exactly 10
+    assert.equal(columnFor("mentalAgeSex", born("2015-10-14"), "F", at), "age11to20_F"); // 11
+    assert.equal(columnFor("mentalAgeSex", elder.birthDate, "F", at), "age56plus_F");
+    assert.equal(columnFor("eyeAge", born("1977-01-01"), "M", at), "age15to49"); // 49
+    assert.equal(columnFor("eyeAge", born("1976-10-15"), "M", at), "age50plus"); // 50
+    assert.equal(columnFor("under5Sex", born("2021-10-16"), "F", at), "under5_F"); // 4 years 11 months
   });
 
   it("keeps patients without a recorded sex in the total only, and excludes children over 5 from PCIMNE", () => {
     assert.equal(columnFor("sex", unknownSex.birthDate, "U", at), "");
-    assert.equal(columnFor("under5", toddler.birthDate, "F", at), "");
+    assert.equal(columnFor("under5", toddler.birthDate, "F", at), "age0to59m");
     assert.equal(columnFor("under5", sixYears.birthDate, "M", at), null);
     assert.equal(columnFor("none", man.birthDate, "M", at), "");
   });
 
   it("builds one column per band × sex", () => {
-    assert.deepEqual(breakdownColumns("eyeAgeSex").map((c) => c.key), ["0-14_M", "0-14_F", "15-49_M", "15-49_F", "50plus_M", "50plus_F"]);
+    assert.deepEqual(breakdownColumns("eyeAgeSex").map((c) => c.key), ["age0to14_M", "age0to14_F", "age15to49_M", "age15to49_F", "age50plus_M", "age50plus_F"]);
     assert.deepEqual(breakdownColumns("none"), []);
   });
 });
@@ -86,8 +86,8 @@ describe("buildMorbidityTables", () => {
   });
 
   it("counts a diagnosis in every rubric covering it (non-exclusive sections)", () => {
-    assert.equal(row("IV.4.9", "Dépression").cells["56plus_F"], 1);
-    assert.equal(row("IV.4.9", "Première consultation").cells["56plus_F"], 1);
+    assert.equal(row("IV.4.9", "Dépression").cells["age56plus_F"], 1);
+    assert.equal(row("IV.4.9", "Première consultation").cells["age56plus_F"], 1);
     assert.equal(row("II.2", "Cas de cancer du sein").total, 1);
     assert.equal(row("IV.5", "Pian").total, 0);
   });
