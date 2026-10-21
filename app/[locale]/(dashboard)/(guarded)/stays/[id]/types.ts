@@ -1,5 +1,6 @@
 import type { ResultParameter } from "@/lib/laboratory/results";
 import type { RadiologyReportData } from "@/lib/radiology/report";
+import type { RecordedDiagnosis } from "@/components/shared/diagnosis-list";
 
 export type StayPrescriptionItem = {
   drug: string;
@@ -100,6 +101,7 @@ export type StayDetail = {
     chronicConditions: unknown;
   };
   medicalRecords: StayMedicalRecord[];
+  diagnoses: RecordedDiagnosis[];
   prescriptions: StayPrescription[];
   examRequests: StayExamRequest[];
 };

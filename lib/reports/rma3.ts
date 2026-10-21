@@ -1,6 +1,9 @@
 import prisma from "@/lib/prisma";
 import { computeMonthlyIndicators, periodToDateRange, Dhis2Period } from "@/lib/dhis2/indicators";
 import { Dhis2MetricKey, Dhis2MetricValue } from "@/lib/dhis2/types";
+import { computeCauseTables, type Rma3CauseTable } from "@/lib/reports/rma3-rubrics";
+
+export type { Rma3CauseRow, Rma3CauseTable } from "@/lib/reports/rma3-rubrics";
 
 export interface Rma3Identification {
   facilityName: string;
@@ -62,6 +65,8 @@ export interface Rma3ReportData {
   vaccination: Rma3VaccinationRow[];
   malaria: Rma3MalariaRow[];
   tuberculosis: Rma3TbSection;
+  // V.3 / V.4 / V.5 — from coded diagnoses and the tenant's ICD-10 → RMA3 correspondence.
+  causes: Rma3CauseTable[];
 }
 
 function pickMetrics(values: Dhis2MetricValue[]): Record<Dhis2MetricKey, number> {
@@ -300,13 +305,15 @@ async function computeTuberculosisSection(tenantId: string, period: Dhis2Period)
 }
 
 export async function computeRma3Report(tenantId: string, period: Dhis2Period): Promise<Rma3ReportData> {
-  const [rawMetrics, identification, vaccination, malaria, tuberculosis, bedCount] = await Promise.all([
+  const { start, end } = periodToDateRange(period);
+  const [rawMetrics, identification, vaccination, malaria, tuberculosis, bedCount, causes] = await Promise.all([
     computeMonthlyIndicators(tenantId, period),
     computeIdentificationSection(tenantId),
     computeVaccinationSection(tenantId, period),
     computeMalariaSection(tenantId, period),
     computeTuberculosisSection(tenantId, period),
     prisma.bed.count({ where: { tenantId, isActive: true } }),
+    computeCauseTables(tenantId, start, end),
   ]);
 
   const metrics = pickMetrics(rawMetrics);
@@ -319,5 +326,6 @@ export async function computeRma3Report(tenantId: string, period: Dhis2Period): 
     vaccination,
     malaria,
     tuberculosis,
+    causes,
   };
 }

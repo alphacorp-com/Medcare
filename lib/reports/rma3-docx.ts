@@ -12,7 +12,8 @@ import {
   TextRun,
   WidthType,
 } from "docx";
-import { Rma3KeyValueRow, Rma3MalariaRow, Rma3ReportData, Rma3TbRow, Rma3VaccinationRow } from "./rma3";
+import { Rma3CauseTable, Rma3KeyValueRow, Rma3MalariaRow, Rma3ReportData, Rma3TbRow, Rma3VaccinationRow } from "./rma3";
+import { RMA3_CAUSE_SECTIONS } from "./rma3-rubrics-default";
 
 const FRENCH_MONTHS = [
   "janvier", "février", "mars", "avril", "mai", "juin",
@@ -32,6 +33,7 @@ const INCLUDED_SECTIONS = [
   "IV.2 - Lutte contre le Paludisme",
   "IV.3 - Notification et Résultats du Traitement Antituberculeux",
   "V.1 - Activité générale (consultations, hospitalisations, décès, capacité)",
+  "V.3 / V.4 / V.5 - Principales causes de consultation, d'hospitalisation et de décès (diagnostics codés CIM-10)",
 ];
 
 const EXCLUDED_SECTIONS = [
@@ -160,6 +162,22 @@ function tbTable(rows: Rma3TbRow[], firstColumnLabel: string): Table {
   return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [header, ...body] });
 }
 
+// V.3 / V.4 / V.5: one row per active rubric, then the unclassified diagnoses so the
+// table can be reconciled with the activity.
+function causeTable(table: Rma3CauseTable): Table {
+  const header = new TableRow({
+    tableHeader: true,
+    children: ["Cause", "0-59 mois", "5-14 ans", "15 ans et +", "Total"].map((text) => cell(text, { bold: true, shaded: true })),
+  });
+  const rows = [...table.rows, table.unclassified].map(
+    (r) =>
+      new TableRow({
+        children: [cell(r.label), cell(String(r.age0to59m)), cell(String(r.age5to14)), cell(String(r.age15plus)), cell(String(r.total))],
+      })
+  );
+  return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [header, ...rows] });
+}
+
 export async function buildRma3Document(
   data: Rma3ReportData,
   meta: { generatedByName: string; generatedByEmail: string }
@@ -244,6 +262,7 @@ export async function buildRma3Document(
     tbTable(data.tuberculosis.notifications, "Classification"),
     sectionHeading("IV.3.4 - Résultats du Traitement Antituberculeux"),
     tbTable(data.tuberculosis.outcomes, "Issue du traitement"),
+    ...data.causes.flatMap((table) => [sectionHeading(`${table.section} - ${RMA3_CAUSE_SECTIONS[table.section]}`), causeTable(table)]),
     sectionHeading("Portée de ce document généré automatiquement"),
     new Paragraph({ children: [new TextRun({ bold: true, text: "Sections incluses (données réelles calculées) :" })] }),
     ...INCLUDED_SECTIONS.map((s) => new Paragraph({ bullet: { level: 0 }, children: [new TextRun({ text: s })] })),

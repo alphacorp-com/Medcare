@@ -1,5 +1,6 @@
 "use client";
 
+import { useDiagnosisErrorMessage } from "@/components/shared/diagnosis-editor";
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { format } from "date-fns";
@@ -15,7 +16,7 @@ import { PDFPreviewModal } from "@/components/templates/PDFPreviewModal";
 import { usePdfBranding } from "@/components/templates/usePdfBranding";
 import type { MedicalRecordData } from "@/components/templates/MedicalRecordTemplate";
 import { hospitalizedDays } from "@/lib/billing/hospitalizedDays";
-import { DischargeSheet } from "../stays/[id]/_components/DischargeSheet";
+import { DischargeSheet, dischargePayload } from "../stays/[id]/_components/DischargeSheet";
 import { buildMedicalRecord } from "../stays/[id]/_components/buildMedicalRecord";
 import type { StayDetail } from "../stays/[id]/types";
 
@@ -43,6 +44,7 @@ const fmt = (date: string | null) => (date ? format(new Date(date), "dd/MM/yyyy 
 // bill server-side and opens the discharge record (medical record with the discharge mention).
 export default function DischargesPage() {
   const t = useTranslations("discharges");
+  const diagnosisError = useDiagnosisErrorMessage();
   const ta = useTranslations("admissions");
   const tm = useTranslations("documents.medicalRecord");
   const tc = useTranslations("common");
@@ -139,14 +141,10 @@ export default function DischargesPage() {
       const res = await fetch(`/api/v1/stays/${dischargeTarget.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          status: "discharged",
-          dischargeDate: new Date(formData.get("dischargeDate") as string).toISOString(),
-          dischargeSummary: formData.get("dischargeSummary"),
-        }),
+        body: JSON.stringify(dischargePayload(formData)),
       });
       const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json.error ?? ta("error_save"));
+      if (!res.ok || !json.success) throw new Error(diagnosisError(json) ?? json.error ?? ta("error_save"));
       toast.success(t("discharged_toast"));
       if (json.billing?.actualDays) toast.info(t("regularized_toast", { days: json.billing.actualDays }));
       const stayId = dischargeTarget.id;
@@ -309,6 +307,8 @@ export default function DischargesPage() {
         onOpenChange={(open) => !open && setDischargeTarget(null)}
         submitting={submitting}
         onSubmit={handleDischarge}
+        // This list only holds hospitalized stays (GET /api/v1/discharges).
+        hospitalized
       />
 
       <PDFPreviewModal

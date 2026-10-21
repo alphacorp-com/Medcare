@@ -348,7 +348,8 @@
     "loading": "Chargement de la file de consultation...",
     "failed_load": "Échec du chargement de la file de consultation",
     "claim_failed": "Échec de la prise en charge de ce patient",
-    "already_claimed": "Ce patient a déjà été pris en charge par un autre médecin"
+    "already_claimed": "Ce patient a déjà été pris en charge par un autre médecin",
+    "diagnoses_title": "Diagnostics (CIM-10)"
   },
   "patients": {
     "pending": "En attente",
@@ -727,7 +728,8 @@
       "suppliers": "Fournisseurs",
       "imagingTypes": "Types d'Imagerie",
       "anatomicalZones": "Zones Anatomiques",
-      "vaccineAntigens": "Antigènes Vaccinaux"
+      "vaccineAntigens": "Antigènes Vaccinaux",
+      "rma3Mapping": "RMA3 : correspondance CIM-10"
     },
     "csvImport": {
       "title": "Importer un CSV",
@@ -1166,7 +1168,29 @@
     "details": "Détails",
     "not_found": "Compte Non Trouvé",
     "not_found_desc": "L'utilisateur recherché n'existe pas ou a été supprimé.",
-    "authorized": "Modules Autorisés"
+    "authorized": "Modules Autorisés",
+    "rma3Mapping": {
+      "title": "RMA3 : correspondance CIM-10",
+      "description": "Codes CIM-10 qui alimentent chaque cause des tableaux RMA3 V.3 (consultations), V.4 (hospitalisations) et V.5 (décès).",
+      "medical_review_notice": "Proposition standard à faire valider par l'équipe médicale de l'établissement. Chaque diagnostic est compté dans la première rubrique active (par ordre) qui couvre son code ; chaque modification est tracée dans le journal d'audit.",
+      "test_code": "Tester un code",
+      "test_invalid": "Code CIM-10 invalide (ex. B50 ou B50.9).",
+      "test_unclassified": "non classé",
+      "overlaps_title": "{count, plural, one {# catégorie CIM-10 est couverte} other {# catégories CIM-10 sont couvertes}} par deux rubriques actives",
+      "overlaps_hint": "Seule la première rubrique (par ordre) les compte. Ajustez les plages ou désactivez une rubrique.",
+      "load_error": "Impossible de charger la correspondance.",
+      "col_code": "N°",
+      "col_label": "Cause RMA3",
+      "col_ranges": "Codes et plages CIM-10",
+      "col_active": "Active",
+      "ranges_invalid": "Codes ou plages séparés par des virgules, ex. B50-B54, A39.",
+      "save": "Enregistrer",
+      "saved": "Correspondance enregistrée.",
+      "invalid": "Valeur invalide : vérifiez le libellé et les codes CIM-10.",
+      "save_error": "Échec de l'enregistrement.",
+      "reset_hint": "Restaurer la valeur standard",
+      "reset_confirm": "Restaurer la correspondance standard de « {label} » ?"
+    }
   },
   "surgery": {
     "postpone": "Reporter",
@@ -2333,7 +2357,10 @@
       "modules": "Droits d'accès",
       "defaultModules": "Droits d'accès par défaut",
       "isSystemAdmin": "Administrateur",
-      "isClinicalProvider": "Soignant"
+      "isClinicalProvider": "Soignant",
+      "icd10Ranges": "Codes CIM-10",
+      "order": "Ordre",
+      "label": "Libellé"
     },
     "details": {
       "changed": "{field} : {from} → {to}",
@@ -2388,7 +2415,31 @@
       },
       "dhis2": {
         "sync": "Synchronisation avec DHIS2"
+      },
+      "rma3_rubric": {
+        "update": "A modifié la correspondance CIM-10 du RMA3"
       }
     }
+  },
+  "diagnoses": {
+    "search_placeholder": "Rechercher un code ou un libellé CIM-10…",
+    "searching": "Recherche…",
+    "no_result": "Aucun code CIM-10 correspondant",
+    "new_case": "Nouveau cas",
+    "remove": "Retirer",
+    "principal": "Diagnostic principal",
+    "principal_required": "Un diagnostic principal codé est obligatoire.",
+    "secondary": "Diagnostics secondaires",
+    "add_secondary": "Ajouter un diagnostic secondaire",
+    "discharge_mode": "Mode de sortie",
+    "mode_discharged": "Sortie",
+    "mode_transferred": "Transfert / référence",
+    "mode_deceased": "Décès",
+    "cause_of_death": "Cause du décès (CIM-10)",
+    "cause_of_death_hint": "Cause initiale du décès. Le dossier du patient est marqué décédé à la date de sortie.",
+    "change": "Modifier",
+    "discharge_diagnoses": "Diagnostics de sortie",
+    "discharge_principal": "Diagnostic principal de sortie",
+    "confirm_death": "Enregistrer le décès"
   }
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { useDiagnosisErrorMessage } from "@/components/shared/diagnosis-editor";
 import { useTranslations } from "next-intl";
 import { Loader2 } from "lucide-react";
 import { useParams } from "next/navigation";
@@ -12,7 +13,7 @@ import { AdmissionInfo } from "./_components/AdmissionInfo";
 import { StayTabs } from "./_components/StayTabs";
 import { TransferSheet } from "./_components/TransferSheet";
 import { RetriageSheet } from "./_components/RetriageSheet";
-import { DischargeSheet } from "./_components/DischargeSheet";
+import { DischargeSheet, dischargePayload } from "./_components/DischargeSheet";
 import { PrescriptionSheet } from "./_components/PrescriptionSheet";
 import { MedicalOrderSheet } from "./_components/MedicalOrderSheet";
 import { VitalsSheet } from "./_components/VitalsSheet";
@@ -31,6 +32,7 @@ import type { TriageAcuity } from "@/components/shared/triage-badge";
 
 export default function AdmissionDetailPage() {
   const t = useTranslations('admissions');
+  const diagnosisError = useDiagnosisErrorMessage();
   const tc = useTranslations('common');
   const tm = useTranslations('documents.medicalRecord');
   const td = useTranslations('discharges');
@@ -169,11 +171,7 @@ export default function AdmissionDetailPage() {
     e.preventDefault();
     setSubmitting(true);
     const formData = new FormData(e.currentTarget);
-    const data = {
-      status: "discharged",
-      dischargeDate: new Date(formData.get("dischargeDate") as string).toISOString(),
-      dischargeSummary: formData.get("dischargeSummary"),
-    };
+    const data = dischargePayload(formData);
 
     try {
       const res = await fetch(`/api/v1/stays/${id}`, {
@@ -182,7 +180,7 @@ export default function AdmissionDetailPage() {
         body: JSON.stringify(data),
       });
       const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json.error ?? t('error_save'));
+      if (!res.ok || !json.success) throw new Error(diagnosisError(json) ?? json.error ?? t('error_save'));
       toast.success(td('discharged_toast'));
       if (json.billing?.actualDays) toast.info(td('regularized_toast', { days: json.billing.actualDays }));
       setDischargeOpen(false);
@@ -407,6 +405,7 @@ export default function AdmissionDetailPage() {
         onOpenChange={setDischargeOpen} 
         submitting={submitting} 
         onSubmit={handleDischarge} 
+        hospitalized={stay.hospitalization?.status === "admitted"}
       />
 
       <PrescriptionSheet 

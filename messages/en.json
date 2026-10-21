@@ -349,7 +349,8 @@
     "loading": "Loading consultation queue...",
     "failed_load": "Failed to load the consultation queue",
     "claim_failed": "Failed to claim this patient",
-    "already_claimed": "This patient has already been claimed by another doctor"
+    "already_claimed": "This patient has already been claimed by another doctor",
+    "diagnoses_title": "Diagnoses (ICD-10)"
   },
   "patients": {
     "pending": "Pending",
@@ -722,7 +723,8 @@
       "suppliers": "Suppliers",
       "imagingTypes": "Imaging Types",
       "anatomicalZones": "Anatomical Zones",
-      "vaccineAntigens": "Vaccine Antigens"
+      "vaccineAntigens": "Vaccine Antigens",
+      "rma3Mapping": "RMA3: ICD-10 mapping"
     },
     "csvImport": {
       "title": "Import CSV",
@@ -1161,7 +1163,29 @@
     "details": "Details",
     "not_found": "Account Not Found",
     "not_found_desc": "The user you are looking for does not exist or has been removed.",
-    "authorized": "Modules Authorized"
+    "authorized": "Modules Authorized",
+    "rma3Mapping": {
+      "title": "RMA3: ICD-10 mapping",
+      "description": "Which ICD-10 codes feed each cause of the RMA3 tables V.3 (consultations), V.4 (hospitalizations) and V.5 (deaths).",
+      "medical_review_notice": "Standard proposal to be reviewed by the facility's medical team. Each diagnosis is counted in the first active rubric (by order) that covers its code; every change is recorded in the audit log.",
+      "test_code": "Test a code",
+      "test_invalid": "Not a valid ICD-10 code (e.g. B50 or B50.9).",
+      "test_unclassified": "unclassified",
+      "overlaps_title": "{count, plural, one {# ICD-10 category is} other {# ICD-10 categories are}} covered by two active rubrics",
+      "overlaps_hint": "Only the first rubric (by order) counts them. Adjust the ranges or deactivate a rubric.",
+      "load_error": "Could not load the mapping.",
+      "col_code": "No.",
+      "col_label": "RMA3 cause",
+      "col_ranges": "ICD-10 codes and ranges",
+      "col_active": "Active",
+      "ranges_invalid": "Use codes or ranges separated by commas, e.g. B50-B54, A39.",
+      "save": "Save",
+      "saved": "Mapping saved.",
+      "invalid": "Invalid value: check the label and the ICD-10 codes.",
+      "save_error": "Could not save the mapping.",
+      "reset_hint": "Restore the standard value",
+      "reset_confirm": "Restore the standard mapping of “{label}”?"
+    }
   },
   "surgery": {
     "postpone": "Postpone",
@@ -2328,7 +2352,10 @@
       "modules": "Access rights",
       "defaultModules": "Default access rights",
       "isSystemAdmin": "Administrator",
-      "isClinicalProvider": "Clinical provider"
+      "isClinicalProvider": "Clinical provider",
+      "icd10Ranges": "ICD-10 codes",
+      "order": "Order",
+      "label": "Label"
     },
     "details": {
       "changed": "{field}: {from} → {to}",
@@ -2383,7 +2410,31 @@
       },
       "dhis2": {
         "sync": "Synchronized with DHIS2"
+      },
+      "rma3_rubric": {
+        "update": "Updated the RMA3 ICD-10 mapping"
       }
     }
+  },
+  "diagnoses": {
+    "search_placeholder": "Search an ICD-10 code or label…",
+    "searching": "Searching…",
+    "no_result": "No matching ICD-10 code",
+    "new_case": "New case",
+    "remove": "Remove",
+    "principal": "Principal diagnosis",
+    "principal_required": "A coded principal diagnosis is required.",
+    "secondary": "Secondary diagnoses",
+    "add_secondary": "Add a secondary diagnosis",
+    "discharge_mode": "Discharge mode",
+    "mode_discharged": "Discharged",
+    "mode_transferred": "Transferred / referred",
+    "mode_deceased": "Death",
+    "cause_of_death": "Cause of death (ICD-10)",
+    "cause_of_death_hint": "The underlying cause of death. The patient record is marked deceased at the discharge date.",
+    "change": "Change",
+    "discharge_diagnoses": "Discharge diagnoses",
+    "discharge_principal": "Principal discharge diagnosis",
+    "confirm_death": "Record the death"
   }
 }

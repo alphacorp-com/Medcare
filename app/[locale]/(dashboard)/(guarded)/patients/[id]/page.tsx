@@ -1,5 +1,6 @@
 "use client";
 
+import { toDiagnosisPayload, useDiagnosisErrorMessage } from "@/components/shared/diagnosis-editor";
 import { Link } from "@/i18n/routing";
 import { useParams, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -58,6 +59,7 @@ import {
 
 export default function PatientDetailPage() {
   const t = useTranslations('patients');
+  const diagnosisError = useDiagnosisErrorMessage();
   const tc = useTranslations('common');
   const params = useParams();
   const id = params.id as string;
@@ -116,7 +118,7 @@ export default function PatientDetailPage() {
   const [stayError, setStayError] = useState<string | null>(null);
 
   const [recordForm, setRecordForm] = useState<NewMedRecordForm>({
-    type: "consultation", title: "", content: "", stayId: "", authorId: "", isSigned: false
+    type: "consultation", title: "", content: "", stayId: "", isSigned: false, diagnoses: []
   });
   const [savingRecord, setSavingRecord] = useState(false);
   const [recordError, setRecordError] = useState<string | null>(null);
@@ -214,7 +216,6 @@ export default function PatientDetailPage() {
       ...prev,
       type: "consultation",
       stayId: stayIdParam,
-      authorId: session?.user?.id || prev.authorId,
     }));
     setIsRecordOpen(true);
   }, [searchParams, session?.user?.id]);
@@ -306,8 +307,14 @@ export default function PatientDetailPage() {
     setRecordError(null);
     try {
       const res = await fetch(`/api/v1/patients/${id}/records`, {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(recordForm)
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...recordForm, diagnoses: toDiagnosisPayload(recordForm.diagnoses) })
       });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        setRecordError(diagnosisError(json) ?? json?.error ?? "Failed to create record");
+        return;
+      }
       if (res.ok) {
         const json = await res.json().catch(() => ({}));
         notifyBillingGenerated(json?.billing, tc("invoice_generated"));
@@ -462,11 +469,7 @@ export default function PatientDetailPage() {
               immunizations={immunizations}
               malariaCases={malariaCases}
               tbCases={tbCases}
-              onAddRecord={() => {
-                const defaultAuthorId = session?.user?.id || "";
-                setRecordForm(prev => ({ ...prev, authorId: defaultAuthorId }));
-                setIsRecordOpen(true);
-              }}
+              onAddRecord={() => setIsRecordOpen(true)}
               onAddImmunization={() => setIsImmunizationOpen(true)}
               onAddMalariaCase={() => setIsMalariaCaseOpen(true)}
               onAddTbCase={() => setIsTbCaseOpen(true)}
@@ -493,7 +496,7 @@ export default function PatientDetailPage() {
       <NewMedicalRecordSheet
         open={isRecordOpen} onOpenChange={setIsRecordOpen}
         form={recordForm} onUpdateForm={(k, v) => setRecordForm(p => ({ ...p, [k]: v }))}
-        stays={stays} doctors={doctors} saving={savingRecord} error={recordError} onSubmit={handleSaveRecord}
+        stays={stays} saving={savingRecord} error={recordError} onSubmit={handleSaveRecord}
       />
 
       <NewImmunizationSheet

@@ -6,6 +6,8 @@ import prisma from "@/lib/prisma";
 import type { MedicalRecordType } from "@prisma/client";
 import { suggestInvoiceLine } from "@/lib/billing/suggestCharge";
 import { completeAppointmentForStay } from "@/lib/scheduling/appointments";
+import { parseDiagnosisInput } from "@/lib/diagnoses/diagnosis-input";
+import { diagnosisRows, resolveDiagnoses } from "@/lib/diagnoses/diagnoses";
 
 // Only accept valid UUIDs for FK fields; treat anything else as null
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -93,17 +95,19 @@ export async function GET(
 
 // ── POST /api/v1/patients/:id/records ──────────────────────────────────────
 // Body (all MedicalRecord writable fields):
-//   authorId*      – UUID of the TenantUser writing the record (required)
+// The author and, when signed, the signer are ALWAYS the signed-in user, and the signature
+// time is the server's: authorId / signedBy / signedAt sent by the client are ignored, so
+// nobody can write or sign a note in someone else's name.
 //   type*          – MedicalRecordType (required)
 //   content*       – plain text content (required)
 //   title          – optional title
 //   contentHtml    – optional HTML version of content
 //   stayId         – optional Stay UUID
 //   isSigned       – boolean (default false)
-//   signedAt       – ISO datetime (only if isSigned)
-//   signedBy       – UUID of signing TenantUser
 //   signatureHash  – optional hash string
 //   attachments    – array of attachment objects (default [])
+//   diagnoses      – [{ code, kind: principal|secondary, isNewCase? }] — a principal ICD-10
+//                    diagnosis is required to sign a consultation (RMA3 causes of consultation)
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -122,26 +126,18 @@ export async function POST(
     const body = await request.json();
 
     const {
-      authorId,
       type,
       content,
       title,
       contentHtml,
       stayId,
       isSigned,
-      signedAt,
-      signedBy,
       signatureHash,
       attachments,
+      diagnoses,
     } = body;
 
     // ── Validate required fields ───────────────────────────────────────────
-    if (!authorId || !toUuid(authorId)) {
-      return NextResponse.json(
-        { error: "authorId is required and must be a valid UUID", success: false },
-        { status: 400 }
-      );
-    }
     if (!type || !RECORD_TYPES.includes(type as MedicalRecordType)) {
       return NextResponse.json(
         {
@@ -190,32 +186,61 @@ export async function POST(
       stayActBilledAtAdmission = Boolean(stay.medicalActCode);
     }
 
-    // ── Create ─────────────────────────────────────────────────────────────
-    const record = await prisma.medicalRecord.create({
-      data: {
-        tenantId: session.user.tenantId,
-        patientId: id,
-        authorId: authorId as string,
-        type: type as MedicalRecordType,
-        content: content.trim(),
-        title: title || null,
-        contentHtml: contentHtml || null,
-        stayId: resolvedStayId,
-        isSigned: typeof isSigned === "boolean" ? isSigned : false,
-        signedAt: isSigned && signedAt ? new Date(signedAt) : null,
-        signedBy: isSigned ? toUuid(signedBy) : null,
-        signatureHash: isSigned && signatureHash ? signatureHash : null,
-        attachments: Array.isArray(attachments) ? attachments : [],
-      },
-      include: {
-        stay: {
-          select: {
-            stayNumber: true,
-            type: true,
-            admissionDate: true,
+    // ── Coded diagnoses: required to sign a consultation, optional otherwise ─
+    const signsConsultation = type === "consultation" && isSigned === true;
+    const parsedDiagnoses = parseDiagnosisInput(diagnoses, { principalRequired: signsConsultation });
+    if (!parsedDiagnoses.ok) {
+      return NextResponse.json({ error: "Invalid diagnoses", code: parsedDiagnoses.error, success: false }, { status: 400 });
+    }
+    const resolvedDiagnoses = await resolveDiagnoses(session.user.tenantId, parsedDiagnoses.value);
+    if (!resolvedDiagnoses.ok) {
+      return NextResponse.json(
+        { error: "Unknown ICD-10 code", code: "unknown_code", codes: resolvedDiagnoses.unknownCodes, success: false },
+        { status: 400 }
+      );
+    }
+
+    // ── Create (the note and its diagnoses together, or neither) ───────────
+    const record = await prisma.$transaction(async (tx) => {
+      const created = await tx.medicalRecord.create({
+        data: {
+          tenantId: session.user.tenantId,
+          patientId: id,
+          authorId: session.user.id,
+          type: type as MedicalRecordType,
+          content: content.trim(),
+          title: title || null,
+          contentHtml: contentHtml || null,
+          stayId: resolvedStayId,
+          isSigned: typeof isSigned === "boolean" ? isSigned : false,
+          signedAt: isSigned === true ? new Date() : null,
+          signedBy: isSigned === true ? session.user.id : null,
+          signatureHash: isSigned && signatureHash ? signatureHash : null,
+          attachments: Array.isArray(attachments) ? attachments : [],
+        },
+        include: {
+          stay: {
+            select: {
+              stayNumber: true,
+              type: true,
+              admissionDate: true,
+            },
           },
         },
-      },
+      });
+      if (resolvedDiagnoses.value.length > 0) {
+        await tx.diagnosis.createMany({
+          data: diagnosisRows(resolvedDiagnoses.value, {
+            tenantId: session.user.tenantId,
+            patientId: id,
+            stayId: created.stayId,
+            medicalRecordId: created.id,
+            context: "consultation",
+            recordedById: session.user.id,
+          }),
+        });
+      }
+      return created;
     });
 
     const isCompletedConsultation = record.type === "consultation" && record.isSigned;

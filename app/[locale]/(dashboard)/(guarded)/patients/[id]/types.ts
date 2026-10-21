@@ -1,4 +1,5 @@
 import type { VitalsForm } from "@/components/shared/vitals-fields";
+import type { DiagnosisDraft } from "@/components/shared/diagnosis-editor";
 
 export type EmergencyContact = { name?: string; relation?: string; phone?: string };
 
@@ -74,8 +75,9 @@ export type NewMedRecordForm = {
   title: string;
   content: string;
   stayId: string;
-  authorId: string;
   isSigned: boolean;
+  // Coded diagnoses — required (principal) to sign a consultation.
+  diagnoses: DiagnosisDraft[];
 };
 
 export type StayRow = {
