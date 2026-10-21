@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { findAppointmentConflicts, findAvailabilityConflict } from "@/lib/scheduling/conflicts";
+import { isBookableDoctor } from "@/lib/scheduling/doctors";
 import { requireModulePermission } from "@/lib/permissions";
 import { recordAuditEvent, extractRequestMeta } from "@/lib/audit";
 
@@ -60,13 +61,22 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
     const { scheduledAt, doctorId, departmentId, appointmentTypeCode, durationMinutes, reasonForVisit, notes, force } =
       body;
 
+    // Only a doctor change needs checking — the stored one was validated when booked.
+    if (doctorId !== undefined && doctorId !== existing.doctorId && !(await isBookableDoctor(session.user.tenantId, doctorId))) {
+      return NextResponse.json({ error: "Doctor not found or not a clinical provider" }, { status: 400 });
+    }
+
     const nextDoctorId = doctorId ?? existing.doctorId;
     const nextScheduledAt = scheduledAt ? new Date(scheduledAt) : existing.scheduledAt;
+    if (Number.isNaN(nextScheduledAt.getTime())) {
+      return NextResponse.json({ error: "scheduledAt is not a valid date" }, { status: 400 });
+    }
     const nextDuration = durationMinutes ? Number(durationMinutes) : existing.durationMinutes;
 
     if (!force) {
       const [resourceConflicts, availabilityIssue] = await Promise.all([
         findAppointmentConflicts({
+          tenantId: session.user.tenantId,
           doctorId: nextDoctorId,
           scheduledAt: nextScheduledAt,
           durationMinutes: nextDuration,

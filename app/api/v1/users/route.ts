@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { authOptions } from "@/lib/auth";
 import { requireAdminOrTenantAdmin } from "@/lib/permissions";
+import { parseModulePermissions } from "@/lib/module-permissions";
 import { recordAuditEvent, extractRequestMeta } from "@/lib/audit";
 import { getTenantSeatLimit } from "@/lib/tenant-licensing";
 
@@ -69,6 +70,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
+    const parsedModules = modules === undefined || modules === null ? [] : parseModulePermissions(modules);
+    if (!parsedModules) {
+      return NextResponse.json({ error: "Invalid module permissions" }, { status: 400 });
+    }
+
     if (!password || password.length < 8) {
       return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 });
     }
@@ -112,7 +118,7 @@ export async function POST(req: Request) {
         email,
         fullName,
         roleId: role.id,
-        modules: modules || [],
+        modules: parsedModules,
         passwordHash,
         isActive: status === 'active',
         tenantId: session.user.tenantId,

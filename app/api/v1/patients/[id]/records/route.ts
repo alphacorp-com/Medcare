@@ -5,6 +5,7 @@ import { requireModulePermission } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
 import type { MedicalRecordType } from "@prisma/client";
 import { suggestInvoiceLine } from "@/lib/billing/suggestCharge";
+import { completeAppointmentForStay } from "@/lib/scheduling/appointments";
 
 // Only accept valid UUIDs for FK fields; treat anything else as null
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -244,6 +245,7 @@ export async function POST(
           where: { id: record.stayId },
           data: { consultationStatus: "completed" },
         });
+        await completeAppointmentForStay(session.user.tenantId, record.stayId);
       } catch (statusError) {
         console.error("[POST /api/v1/patients/:id/records] Failed to close consultation status:", statusError);
       }

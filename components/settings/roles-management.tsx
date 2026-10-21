@@ -11,6 +11,7 @@ import { SettingsList, SettingsListItem, SettingsPageHeader, SettingsPill, setti
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
+import { useAssignableModules } from "@/components/settings/useAssignableModules";
 
 export type ModuleAction = 'read' | 'create' | 'update' | 'delete' | 'validate';
 
@@ -42,29 +43,8 @@ export function RolesManagement() {
 
   const t = useTranslations('settings');
   const tc = useTranslations('common');
-  const tp = useTranslations('patients');
-  const tadm = useTranslations('admissions');
-  const tph = useTranslations('pharmacy');
-  const tlab = useTranslations('lab');
-  const trad = useTranslations('radiology');
-  const tsurg = useTranslations('surgery');
-  const tbill = useTranslations('billing');
-  const tplan = useTranslations('planning');
-  const tmat = useTranslations('maternity');
-  const tdp = useTranslations('diseasePrograms');
 
-  const ALL_MODULES = [
-    { id: "MODULE_CORE_PATIENT", name: tp('module_title') },
-    { id: "MODULE_ADMISSION", name: tadm('title') },
-    { id: "MODULE_PHARMACY", name: tph('title') },
-    { id: "MODULE_LAB", name: tlab('title') },
-    { id: "MODULE_SURGERY", name: tsurg('title') },
-    { id: "MODULE_RADIOLOGY", name: trad('title') },
-    { id: "MODULE_BILLING", name: tbill('title') },
-    { id: "MODULE_PLANNING", name: tplan('title') },
-    { id: "MODULE_MATERNITY", name: tmat('title') },
-    { id: "MODULE_DISEASE_PROGRAMS", name: tdp('module_title') },
-  ];
+  const ALL_MODULES = useAssignableModules();
 
   useEffect(() => {
     let cancelled = false;

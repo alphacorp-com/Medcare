@@ -2,12 +2,19 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import prisma from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
+import { requireModulePermission } from "@/lib/permissions";
 
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Same inventory data as GET /pharmacy/inventory, so the same module gate applies.
+    const permCheck = requireModulePermission(session, "MODULE_PHARMACY", "read");
+    if (!permCheck.ok) {
+      return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
     }
 
     // Get medications with low stock (below threshold)

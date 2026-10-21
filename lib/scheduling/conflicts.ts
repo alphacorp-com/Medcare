@@ -50,6 +50,9 @@ export async function findSurgeryConflicts({
 }
 
 export interface AppointmentConflictCheck {
+  // Required: conflicts carry patient names back to the caller, so the lookup must never
+  // reach another tenant's appointments.
+  tenantId: string | null;
   doctorId: string;
   scheduledAt: Date;
   durationMinutes?: number;
@@ -63,6 +66,7 @@ export interface AppointmentConflict {
 }
 
 export async function findAppointmentConflicts({
+  tenantId,
   doctorId,
   scheduledAt,
   durationMinutes = 30,
@@ -75,6 +79,7 @@ export async function findAppointmentConflicts({
   const candidates = await prisma.appointment.findMany({
     where: {
       id: excludeId ? { not: excludeId } : undefined,
+      tenantId,
       doctorId,
       status: { in: ["booked", "confirmed", "checked_in"] },
       scheduledAt: { gte: windowStart, lte: windowEnd },
