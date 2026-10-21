@@ -7,6 +7,7 @@ import { ageInDaysAt } from "@/lib/patients/age";
 import { randomUUID } from "node:crypto";
 import { StockError, stockErrorResponse } from "@/lib/stock/movements";
 import { administerVaccineDose } from "@/lib/stock/vaccines";
+import { isPopulationGroup, isStrategy, isUuid } from "@/lib/epi/input";
 
 // The form sends a calendar date: today means "now" (the order of the doses matters for
 // multi-dose vials), an earlier day is recorded at noon UTC. Never in the future.
@@ -51,6 +52,7 @@ export async function GET(
     const immunizations = await prisma.immunization.findMany({
       where: { patientId: id, tenantId: session.user.tenantId },
       orderBy: { administeredAt: "desc" },
+      include: { _count: { select: { aefiReports: true } } },
     });
 
     return NextResponse.json({ data: immunizations, total: immunizations.length, success: true });
@@ -62,7 +64,10 @@ export async function GET(
 
 // ── POST /api/v1/patients/:id/immunizations ─────────────────────────────────
 // Body: { antigenCode, doseNumber?, administeredAt?, stockLotId?, lotNumber?, expiryDate?,
-//         isOutOfSchedule?, notes? }
+//         isOutOfSchedule?, notes?, strategy?, populationGroup?, sessionId? }
+// strategy (fixed|outreach) and populationGroup (general|nomad|pygmy|refugee) feed the
+// RMA3 III.2 breakdowns. A session (of this facility, not cancelled) imposes its strategy
+// and is marked held. Without populationGroup, the patient's previous dose's is reused.
 // When the antigen is managed in stock (an active article has vaccineAntigenCode = antigen),
 // stockLotId is required: the dose is taken from that lot (one unit) in the same transaction,
 // and the lot number / expiry come from the lot, not from the browser. Otherwise the lot
@@ -83,10 +88,19 @@ export async function POST(
 
     const { id } = await params;
     const body = await request.json();
-    const { antigenCode, doseNumber, administeredAt, stockLotId, lotNumber, expiryDate, isOutOfSchedule, notes } = body as {
+    const { antigenCode, doseNumber, administeredAt, stockLotId, lotNumber, expiryDate, isOutOfSchedule, notes, strategy, populationGroup, sessionId } = body as {
       antigenCode?: string; doseNumber?: number; administeredAt?: string; stockLotId?: string; lotNumber?: string;
-      expiryDate?: string; isOutOfSchedule?: boolean; notes?: string;
+      expiryDate?: string; isOutOfSchedule?: boolean; notes?: string; strategy?: unknown; populationGroup?: unknown; sessionId?: unknown;
     };
+    if (strategy !== undefined && !isStrategy(strategy)) {
+      return NextResponse.json({ error: "invalid_strategy", code: "invalid_strategy", success: false }, { status: 400 });
+    }
+    if (populationGroup !== undefined && !isPopulationGroup(populationGroup)) {
+      return NextResponse.json({ error: "invalid_population", code: "invalid_population", success: false }, { status: 400 });
+    }
+    if (sessionId !== undefined && sessionId !== null && sessionId !== "" && !isUuid(sessionId)) {
+      return NextResponse.json({ error: "invalid_session", code: "invalid_session", success: false }, { status: 400 });
+    }
     const tenantId = session.user.tenantId;
     if (!tenantId) {
       return NextResponse.json({ error: "A facility account is required", success: false }, { status: 403 });
@@ -136,6 +150,18 @@ export async function POST(
       }
     }
 
+    // Session of this facility, not cancelled: it gives the strategy of the dose.
+    const vaccinationSession = typeof sessionId === "string" && sessionId
+      ? await prisma.vaccinationSession.findFirst({ where: { id: sessionId, tenantId, status: { not: "cancelled" } }, select: { id: true, strategy: true, status: true } })
+      : null;
+    if (typeof sessionId === "string" && sessionId && !vaccinationSession) {
+      return NextResponse.json({ error: "invalid_session", code: "invalid_session", success: false }, { status: 400 });
+    }
+    const doseStrategy = vaccinationSession?.strategy ?? (isStrategy(strategy) ? strategy : "fixed");
+    const dosePopulation = isPopulationGroup(populationGroup)
+      ? populationGroup
+      : (await prisma.immunization.findFirst({ where: { patientId: id, tenantId }, orderBy: { administeredAt: "desc" }, select: { populationGroup: true } }))?.populationGroup ?? "general";
+
     const immunizationId = randomUUID();
     // Lot number / expiry typed by the user apply only to antigens not managed in stock.
     const data = {
@@ -152,11 +178,18 @@ export async function POST(
       expiryDate: expiryDate ? new Date(expiryDate) : null,
       isOutOfSchedule: isOutOfSchedule ?? false,
       notes: notes || null,
+      strategy: doseStrategy,
+      populationGroup: dosePopulation,
+      sessionId: vaccinationSession?.id ?? null,
     };
 
     let immunization;
     try {
       immunization = await prisma.$transaction(async (tx) => {
+        // A dose given in a planned session means the session took place.
+        if (vaccinationSession && vaccinationSession.status === "planned") {
+          await tx.vaccinationSession.updateMany({ where: { id: vaccinationSession.id, status: "planned" }, data: { status: "held", heldAt: new Date() } });
+        }
         if (!stockLot) return tx.immunization.create({ data });
         // One dose: a unit of the lot, or the next dose of the lot's open multi-dose vial.
         const dose = await administerVaccineDose(tx, {

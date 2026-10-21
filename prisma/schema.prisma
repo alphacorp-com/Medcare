@@ -1959,6 +1959,12 @@ model Immunization {
   ageInDaysAtAdministration Int       @map("age_in_days_at_administration")
   lotNumber                 String?   @map("lot_number") @db.VarChar(60)
   expiryDate                DateTime? @map("expiry_date") @db.Date
+  // RMA3 III.2 / III.3 breakdowns: where the dose was given (fixed post or outreach /
+  // mobile strategy) and the population status of the child at that time.
+  strategy                  VaccinationStrategy @default(fixed)
+  populationGroup           PopulationGroup     @default(general) @map("population_group")
+  // Session the dose was given in (optional; its strategy then applies).
+  sessionId                 String?   @map("session_id") @db.Uuid
   // The stock lot the dose was taken from (null for antigens not managed in stock), and the
   // opened vial for multi-dose vaccines.
   stockLotId                String?   @map("stock_lot_id") @db.Uuid
@@ -1966,14 +1972,163 @@ model Immunization {
   isOutOfSchedule           Boolean   @default(false) @map("is_out_of_schedule")
   notes                     String?
 
-  patient       Patient        @relation(fields: [patientId], references: [id])
-  stockLot      StockLot?      @relation(fields: [stockLotId], references: [id])
-  stockOpenVial StockOpenVial? @relation(fields: [stockOpenVialId], references: [id])
+  patient       Patient             @relation(fields: [patientId], references: [id])
+  stockLot      StockLot?           @relation(fields: [stockLotId], references: [id])
+  stockOpenVial StockOpenVial?      @relation(fields: [stockOpenVialId], references: [id])
+  session       VaccinationSession? @relation(fields: [sessionId], references: [id])
+  aefiReports   AefiReport[]
 
   @@index([tenantId])
   @@index([patientId, administeredAt(sort: Desc)])
   @@index([antigenCode])
   @@map("immunizations")
+  @@schema("tenant_template")
+}
+
+enum VaccinationStrategy {
+  fixed
+  outreach
+
+  @@schema("tenant_template")
+}
+
+enum PopulationGroup {
+  general
+  nomad
+  pygmy
+  refugee
+
+  @@schema("tenant_template")
+}
+
+enum VaccinationSessionStatus {
+  planned
+  held
+  cancelled
+
+  @@schema("tenant_template")
+}
+
+// A planned vaccination session (RMA3 III.1: sessions planned / held, fixed or outreach).
+model VaccinationSession {
+  id            String                   @id @default(uuid()) @db.Uuid
+  tenantId      String                   @map("tenant_id") @db.Uuid
+  scheduledDate DateTime                 @map("scheduled_date") @db.Date
+  strategy      VaccinationStrategy
+  // Village, neighbourhood, school… (outreach), or the fixed post.
+  site          String                   @db.VarChar(150)
+  status        VaccinationSessionStatus @default(planned)
+  heldAt        DateTime?                @map("held_at") @db.Timestamptz
+  notes         String?                  @db.VarChar(500)
+  createdById   String                   @map("created_by_id") @db.Uuid
+  createdAt     DateTime                 @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime                 @updatedAt @map("updated_at") @db.Timestamptz
+
+  immunizations Immunization[]
+
+  @@index([tenantId, scheduledDate])
+  @@map("vaccination_sessions")
+  @@schema("tenant_template")
+}
+
+enum AefiSeriousness {
+  minor
+  serious
+
+  @@schema("tenant_template")
+}
+
+enum AefiOutcome {
+  unknown
+  recovering
+  recovered
+  sequelae
+  death
+
+  @@schema("tenant_template")
+}
+
+// Adverse event following immunization (MAPI), always tied to the dose that preceded it
+// (RMA3 III.6: minor / serious per vaccine).
+model AefiReport {
+  id             String          @id @default(uuid()) @db.Uuid
+  tenantId       String          @map("tenant_id") @db.Uuid
+  patientId      String          @map("patient_id") @db.Uuid
+  immunizationId String          @map("immunization_id") @db.Uuid
+  onsetAt        DateTime        @map("onset_at") @db.Timestamptz
+  seriousness    AefiSeriousness
+  outcome        AefiOutcome     @default(unknown)
+  hospitalized   Boolean         @default(false)
+  description    String          @db.VarChar(2000)
+  reportedById   String          @map("reported_by_id") @db.Uuid
+  reportedAt     DateTime        @default(now()) @map("reported_at") @db.Timestamptz
+  updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz
+
+  immunization Immunization @relation(fields: [immunizationId], references: [id])
+
+  @@index([tenantId, onsetAt])
+  @@index([immunizationId])
+  @@map("aefi_reports")
+  @@schema("tenant_template")
+}
+
+enum ColdChainEquipmentType {
+  refrigerator
+  freezer
+  cold_box
+  vaccine_carrier
+
+  @@schema("tenant_template")
+}
+
+enum ColdChainEquipmentStatus {
+  functional
+  needs_repair
+  out_of_service
+
+  @@schema("tenant_template")
+}
+
+// Cold chain equipment (RMA3 III.4) with the temperature range its vaccines must stay in.
+model ColdChainEquipment {
+  id         String                   @id @default(uuid()) @db.Uuid
+  tenantId   String                   @map("tenant_id") @db.Uuid
+  code       String                   @db.VarChar(40)
+  type       ColdChainEquipmentType
+  label      String                   @db.VarChar(150)
+  locationId String?                  @map("location_id") @db.Uuid
+  minTempC   Decimal                  @map("min_temp_c") @db.Decimal(4, 1)
+  maxTempC   Decimal                  @map("max_temp_c") @db.Decimal(4, 1)
+  status     ColdChainEquipmentStatus @default(functional)
+  isActive   Boolean                  @default(true) @map("is_active")
+  createdAt  DateTime                 @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime                 @updatedAt @map("updated_at") @db.Timestamptz
+
+  readings ColdChainReading[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@map("cold_chain_equipment")
+  @@schema("tenant_template")
+}
+
+// One temperature reading (usually morning and evening); out of the equipment's range =
+// an alarm in the RMA3.
+model ColdChainReading {
+  id           String   @id @default(uuid()) @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  equipmentId  String   @map("equipment_id") @db.Uuid
+  readAt       DateTime @map("read_at") @db.Timestamptz
+  temperatureC Decimal  @map("temperature_c") @db.Decimal(4, 1)
+  notes        String?  @db.VarChar(255)
+  recordedById String   @map("recorded_by_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  equipment ColdChainEquipment @relation(fields: [equipmentId], references: [id])
+
+  @@index([tenantId, readAt])
+  @@index([equipmentId, readAt])
+  @@map("cold_chain_readings")
   @@schema("tenant_template")
 }
 

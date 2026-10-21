@@ -7,7 +7,10 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Link } from "@/i18n/routing";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Syringe, ShieldAlert, Cross } from "lucide-react";
+import { Syringe, ShieldAlert, Cross, CalendarDays, Thermometer, TriangleAlert } from "lucide-react";
+import { SessionsTab } from "./_components/SessionsTab";
+import { ColdChainTab } from "./_components/ColdChainTab";
+import { AefiTab } from "./_components/AefiTab";
 
 type PatientRef = { id: string; firstName: string; lastName: string; ipp: string };
 type ImmunizationItem = { id: string; antigenName: string; doseNumber: number; administeredAt: string; patient: PatientRef };
@@ -18,6 +21,9 @@ export default function DiseaseProgramsPage() {
   const t = useTranslations('diseasePrograms');
   const tc = useTranslations('common');
   const hasModule = useAppStore((state) => state.hasModule);
+  const hasPermission = useAppStore((state) => state.hasPermission);
+  // UI only: every EPI route checks the permission server-side.
+  const canEdit = hasPermission("MODULE_DISEASE_PROGRAMS", "create");
 
   const [immunizations, setImmunizations] = useState<ImmunizationItem[]>([]);
   const [malariaCases, setMalariaCases] = useState<MalariaCaseItem[]>([]);
@@ -100,6 +106,15 @@ export default function DiseaseProgramsPage() {
               </TabsTrigger>
               <TabsTrigger value="tuberculosis" className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs px-3">
                 <Cross className="h-3.5 w-3.5 mr-2" /> {t('tuberculosis.tab')}
+              </TabsTrigger>
+              <TabsTrigger value="sessions" className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs px-3">
+                <CalendarDays className="h-3.5 w-3.5 mr-2" /> {t('epi.sessions_tab')}
+              </TabsTrigger>
+              <TabsTrigger value="cold-chain" className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs px-3">
+                <Thermometer className="h-3.5 w-3.5 mr-2" /> {t('epi.cold_chain_tab')}
+              </TabsTrigger>
+              <TabsTrigger value="aefi" className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs px-3">
+                <TriangleAlert className="h-3.5 w-3.5 mr-2" /> {t('epi.aefi_tab')}
               </TabsTrigger>
             </TabsList>
           </div>
@@ -231,6 +246,16 @@ export default function DiseaseProgramsPage() {
                   </table>
                 </div>
               </div>
+            </TabsContent>
+
+            <TabsContent value="sessions" className="m-0 flex-1 flex flex-col overflow-hidden">
+              <SessionsTab canEdit={canEdit} />
+            </TabsContent>
+            <TabsContent value="cold-chain" className="m-0 flex-1 flex flex-col overflow-hidden">
+              <ColdChainTab canEdit={canEdit} />
+            </TabsContent>
+            <TabsContent value="aefi" className="m-0 flex-1 flex flex-col overflow-hidden">
+              <AefiTab canEdit={hasPermission("MODULE_DISEASE_PROGRAMS", "update")} />
             </TabsContent>
           </div>
         </Tabs>

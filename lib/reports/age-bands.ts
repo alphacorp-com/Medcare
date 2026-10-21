@@ -114,6 +114,11 @@ export const RMA3_AGE_SCHEMES = {
     ["under40", "< 40 ans", 0, years(40)],
     ["age40plus", "40 ans et +", years(40), null],
   ]),
+  // III.3 HPV: girls and boys of 9 years, and of 10-13 years
+  hpv: scheme([
+    ["age9", "9 ans", years(9), years(10)],
+    ["age10to13", "10-13 ans", years(10), years(14)],
+  ]),
   // IV.6 nutrition (CNTI): < 6 / 6-59 / > 59 mois (CNA uses the last two bands)
   nutrition: scheme([
     ["under6m", "< 6 mois", 0, months(6)],

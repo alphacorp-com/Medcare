@@ -12,7 +12,7 @@ import {
   TextRun,
   WidthType,
 } from "docx";
-import { Rma3CauseTable, Rma3KeyValueRow, Rma3MalariaRow, Rma3MorbidityTable, Rma3ReportData, Rma3TbRow, Rma3VaccinationRow } from "./rma3";
+import { Rma3AefiRow, Rma3CauseTable, Rma3ColdChain, Rma3HpvRow, Rma3KeyValueRow, Rma3MalariaRow, Rma3MorbidityTable, Rma3ReportData, Rma3TbRow, Rma3VaccinationRow } from "./rma3";
 import { RMA3_CAUSE_SECTIONS } from "./rma3-rubrics-default";
 import { rma3FormSection } from "./rma3-morbidity-default";
 import type { Rma3StockCategory } from "@/lib/stock/input";
@@ -32,7 +32,11 @@ function formatPeriodFr(period: string): string {
 const INCLUDED_SECTIONS = [
   "Identification de la formation sanitaire",
   "II.1 - Consultations Prénatales, Accouchements et Naissances",
-  "III.2 - Immunisation des Enfants (PEV)",
+  "III.1 - Séances de vaccination planifiées / réalisées (stratégie fixe et avancée)",
+  "III.2 - Immunisation des Enfants (PEV) par tranche d'âge, stratégie, sexe et populations spéciales",
+  "III.3 - Vaccination VPH (9 ans et 10-13 ans)",
+  "III.4 - Chaîne du froid (équipements, températures, alarmes)",
+  "III.6 - MAPI par vaccin (mineures / graves)",
   "IV.2 - Lutte contre le Paludisme",
   "IV.3 - Notification et Résultats du Traitement Antituberculeux",
   "V.1 - Activité générale (consultations, hospitalisations, décès, capacité)",
@@ -42,7 +46,8 @@ const INCLUDED_SECTIONS = [
 ];
 
 const EXCLUDED_SECTIONS = [
-  "III.5 Chaîne du froid (équipements, relevés de température) — le stock des intrants PEV est inclus",
+  "III.1 Activités de communication (causeries, sensibilisation, visites à domicile, recherche des perdus de vue)",
+  "III.4 Boîtes de sécurité utilisées / détruites",
   "IV.1.1 Dépistage VIH en population générale (hors grossesse)",
   "Registre / stock des médicaments antituberculeux",
   "V.6 Banque de sang / transfusion",
@@ -107,12 +112,14 @@ function identificationTable(data: Rma3ReportData["identification"]): Table {
   });
 }
 
+// III.2: age band × strategy (F = fixe, A = avancée/mobile), sex, special populations.
 function vaccinationTable(rows: Rma3VaccinationRow[]): Table {
   const header = new TableRow({
     tableHeader: true,
     children: [
-      "Antigène / Dose", "Garçons", "Filles", "Sexe non précisé", "Total",
-      "< 12 mois", "12-23 mois", "24-59 mois", "5 ans et +", "Hors calendrier",
+      "Antigène / Dose",
+      "0-11 m F", "0-11 m A", "12-23 m F", "12-23 m A", "24-59 m F", "24-59 m A", "5 ans et +",
+      "Garçons", "Filles", "dont nomades", "dont pygmées", "dont réfugiés", "Hors calendrier", "Total",
     ].map((text) => cell(text, { bold: true, shaded: true })),
   });
   const body = rows.map(
@@ -120,18 +127,62 @@ function vaccinationTable(rows: Rma3VaccinationRow[]): Table {
       new TableRow({
         children: [
           cell(`${r.antigenName} (dose ${r.doseNumber})`),
+          cell(String(r.byStrategy.fixed.ageUnder12m)),
+          cell(String(r.byStrategy.outreach.ageUnder12m)),
+          cell(String(r.byStrategy.fixed.age12to23m)),
+          cell(String(r.byStrategy.outreach.age12to23m)),
+          cell(String(r.byStrategy.fixed.age24to59m)),
+          cell(String(r.byStrategy.outreach.age24to59m)),
+          cell(String(r.age5yPlus)),
           cell(String(r.boys)),
           cell(String(r.girls)),
-          cell(String(r.unknownSex)),
-          cell(String(r.total)),
-          cell(String(r.ageUnder12m)),
-          cell(String(r.age12to23m)),
-          cell(String(r.age24to59m)),
-          cell(String(r.age5yPlus)),
+          cell(String(r.nomad)),
+          cell(String(r.pygmy)),
+          cell(String(r.refugee)),
           cell(String(r.outOfSchedule)),
+          cell(String(r.total)),
         ],
       })
   );
+  return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [header, ...body] });
+}
+
+function sessionsTable(sessions: Rma3ReportData["epi"]["sessions"]): Table {
+  const header = new TableRow({ tableHeader: true, children: ["Séances de vaccination", "Planifiées", "Réalisées"].map((t) => cell(t, { bold: true, shaded: true })) });
+  const row = (label: string, s: { planned: number; held: number }) => new TableRow({ children: [cell(label), cell(String(s.planned)), cell(String(s.held))] });
+  return new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    rows: [header, row("Stratégie fixe", sessions.fixed), row("Stratégie avancée / mobile", sessions.outreach)],
+  });
+}
+
+function hpvTable(rows: Rma3HpvRow[]): Table {
+  const header = new TableRow({ tableHeader: true, children: ["VPH", "Fixe", "Avancée", "dont réfugiés"].map((t) => cell(t, { bold: true, shaded: true })) });
+  const body = rows.map((r) => new TableRow({ children: [cell(r.label), cell(String(r.fixed)), cell(String(r.outreach)), cell(String(r.refugees))] }));
+  return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [header, ...body] });
+}
+
+function coldChainTable(c: Rma3ColdChain): Table {
+  const temp = (v: number | null) => (v === null ? "—" : `${v} °C`);
+  const rows: [string, string][] = [
+    ["Total équipements de la chaîne du froid", String(c.equipmentTotal)],
+    ["Équipements fonctionnels", String(c.equipmentFunctional)],
+    ["Température minimale enregistrée", temp(c.minTemperature)],
+    ["Température maximale enregistrée", temp(c.maxTemperature)],
+    ["Alarmes basses températures (sous la plage, < +2 °C au réfrigérateur)", String(c.lowAlarms)],
+    ["Alarmes températures élevées (au-dessus de la plage, > +8 °C au réfrigérateur)", String(c.highAlarms)],
+    ["Relevés de température du mois", String(c.readings)],
+    ["Équipements sans aucun relevé dans le mois", String(c.equipmentWithoutReadings)],
+  ];
+  return new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    rows: rows.map(([label, value]) => new TableRow({ children: [cell(label), cell(value)] })),
+  });
+}
+
+function aefiTable(rows: Rma3AefiRow[]): Table {
+  const header = new TableRow({ tableHeader: true, children: ["MAPI", "Mineures", "Graves"].map((t) => cell(t, { bold: true, shaded: true })) });
+  const body = rows.map((r) => new TableRow({ children: [cell(`MAPI ${r.label}`), cell(String(r.minor)), cell(String(r.serious))] }));
   return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [header, ...body] });
 }
 
@@ -332,6 +383,8 @@ export async function buildRma3Document(
   ];
 
   const landscapeChildren: (Paragraph | Table)[] = [
+    sectionHeading("III.1 - Séances de vaccination"),
+    sessionsTable(data.epi.sessions),
     sectionHeading("III.2 - Immunisation des Enfants (PEV)"),
     new Paragraph({
       children: [
@@ -342,6 +395,21 @@ export async function buildRma3Document(
       ],
     }),
     vaccinationTable(data.vaccination),
+    new Paragraph({
+      children: [
+        new TextRun({
+          italics: true,
+          size: 16,
+          text: "F = stratégie fixe, A = stratégie avancée / mobile. Les doses enregistrées avant la saisie de la stratégie et du statut de population sont comptées en stratégie fixe, population générale.",
+        }),
+      ],
+    }),
+    sectionHeading("III.3 - Vaccination contre le VPH"),
+    hpvTable(data.epi.hpv),
+    sectionHeading("III.4 - Chaîne du froid"),
+    coldChainTable(data.epi.coldChain),
+    sectionHeading("III.6 - Manifestations post-vaccinales indésirables (MAPI)"),
+    aefiTable(data.epi.aefi),
     sectionHeading("IV.2 - Lutte contre le Paludisme"),
     malariaTable(data.malaria),
     sectionHeading("IV.3.3 - Notification des Cas de Tuberculose"),
