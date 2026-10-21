@@ -2,7 +2,8 @@
 
 import { useAppStore } from "@/lib/store/useAppStore";
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useUrlTab } from "@/hooks/use-url-tab";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Link } from "@/i18n/routing";
@@ -11,19 +12,26 @@ import { Syringe, ShieldAlert, Cross, CalendarDays, Thermometer, TriangleAlert }
 import { SessionsTab } from "./_components/SessionsTab";
 import { ColdChainTab } from "./_components/ColdChainTab";
 import { AefiTab } from "./_components/AefiTab";
+import { HivProgramTab } from "./_components/HivProgramTab";
+import { HeartPulse } from "lucide-react";
 
 type PatientRef = { id: string; firstName: string; lastName: string; ipp: string };
 type ImmunizationItem = { id: string; antigenName: string; doseNumber: number; administeredAt: string; patient: PatientRef };
 type MalariaCaseItem = { id: string; testType: string; result: string; diagnosedAt: string; treatedWithAct: boolean; patient: PatientRef };
 type TbCaseItem = { id: string; classification: string; outcome: string; notificationDate: string; patient: PatientRef };
 
-export default function DiseaseProgramsPage() {
+function DiseaseProgramsPageContent() {
   const t = useTranslations('diseasePrograms');
   const tc = useTranslations('common');
   const hasModule = useAppStore((state) => state.hasModule);
   const hasPermission = useAppStore((state) => state.hasPermission);
   // UI only: every EPI route checks the permission server-side.
   const canEdit = hasPermission("MODULE_DISEASE_PROGRAMS", "create");
+  // HIV / hepatitis data: only for staff granted MODULE_HIV (the routes check it too).
+  const canReadHiv = hasPermission("MODULE_HIV", "read");
+  const [tab, setTab] = useUrlTab(["vaccination", "malaria", "tuberculosis", "sessions", "cold-chain", "aefi", "hiv"] as const, "vaccination");
+  // The HIV tab is only shown with MODULE_HIV: a link to it falls back to vaccination.
+  const activeTab = tab === "hiv" && !canReadHiv ? "vaccination" : tab;
 
   const [immunizations, setImmunizations] = useState<ImmunizationItem[]>([]);
   const [malariaCases, setMalariaCases] = useState<MalariaCaseItem[]>([]);
@@ -95,7 +103,7 @@ export default function DiseaseProgramsPage() {
       </div>
 
       <div className="flex-1 bg-white rounded border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-        <Tabs defaultValue="vaccination" className="flex-1 flex flex-col">
+        <Tabs value={activeTab} onValueChange={(v) => setTab(v as typeof tab)} className="flex-1 flex flex-col">
           <div className="px-2 pt-2 border-b border-slate-200 bg-slate-50 shrink-0">
             <TabsList className="h-10 bg-transparent p-0 flex flex-wrap gap-2">
               <TabsTrigger value="vaccination" className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs px-3">
@@ -116,6 +124,11 @@ export default function DiseaseProgramsPage() {
               <TabsTrigger value="aefi" className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs px-3">
                 <TriangleAlert className="h-3.5 w-3.5 mr-2" /> {t('epi.aefi_tab')}
               </TabsTrigger>
+              {canReadHiv && (
+                <TabsTrigger value="hiv" className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs px-3">
+                  <HeartPulse className="h-3.5 w-3.5 mr-2" /> {t('hiv.tab')}
+                </TabsTrigger>
+              )}
             </TabsList>
           </div>
 
@@ -257,9 +270,23 @@ export default function DiseaseProgramsPage() {
             <TabsContent value="aefi" className="m-0 flex-1 flex flex-col overflow-hidden">
               <AefiTab canEdit={hasPermission("MODULE_DISEASE_PROGRAMS", "update")} />
             </TabsContent>
+            {canReadHiv && (
+              <TabsContent value="hiv" className="m-0 flex-1 flex flex-col overflow-hidden">
+                <HivProgramTab />
+              </TabsContent>
+            )}
           </div>
         </Tabs>
       </div>
     </div>
+  );
+}
+
+// The active tab lives in the URL (?tab=, see useUrlTab), which needs a Suspense boundary.
+export default function DiseaseProgramsPage() {
+  return (
+    <Suspense fallback={null}>
+      <DiseaseProgramsPageContent />
+    </Suspense>
   );
 }

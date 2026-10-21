@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { format, addDays, addWeeks, subWeeks, startOfWeek } from "date-fns";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, Suspense } from "react";
+import { useUrlTab } from "@/hooks/use-url-tab";
 import { Building2, CalendarDays, Search, Plus, ChevronLeft, ChevronRight, UserMinus } from "lucide-react";
 import { RosterGrid } from "./_components/RosterGrid";
 import { AssignShiftSheet } from "./_components/AssignShiftSheet";
@@ -16,12 +17,12 @@ import { DepartmentsGrid } from "./_components/DepartmentsGrid";
 import { DepartmentFormSheet } from "./_components/DepartmentFormSheet";
 import { DepartmentRecord, ScheduleEntry, StaffMember } from "./types";
 
-export default function PlanningPage() {
+function PlanningPageContent() {
   const t = useTranslations('planning');
   const tc = useTranslations('common');
   const hasModule = useAppStore((state) => state.hasModule);
 
-  const [activeTab, setActiveTab] = useState<"roster" | "departments">("roster");
+  const [activeTab, setActiveTab] = useUrlTab(["roster", "departments"] as const, "roster");
   const [departments, setDepartments] = useState<DepartmentRecord[]>([]);
   const [users, setUsers] = useState<StaffMember[]>([]);
   const [selectedDepartmentId, setSelectedDepartmentId] = useState("");
@@ -250,5 +251,14 @@ export default function PlanningPage() {
         onSaved={fetchDepartments}
       />
     </div>
+  );
+}
+
+// The active tab lives in the URL (?tab=, see useUrlTab), which needs a Suspense boundary.
+export default function PlanningPage() {
+  return (
+    <Suspense fallback={null}>
+      <PlanningPageContent />
+    </Suspense>
   );
 }

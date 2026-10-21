@@ -5,6 +5,8 @@ import { computeCauseTables, type Rma3CauseTable } from "@/lib/reports/rma3-rubr
 import { computeMorbidityTables, type Rma3MorbidityTable } from "@/lib/reports/rma3-morbidity";
 import { computeStockReport, type StockReportItemRow } from "@/lib/stock/report-data";
 import { computeEpiSections, type Rma3EpiSections } from "@/lib/epi/rma3-epi-data";
+import { computeHivReport } from "@/lib/hiv/rma3-hiv-data";
+import type { Rma3HivReport } from "@/lib/hiv/rma3-hiv";
 import type { Rma3VaccinationRow } from "@/lib/epi/rma3-epi";
 import { RMA3_AGE_SCHEMES, ageBand, bandOrPregnant, rma3Sex } from "@/lib/reports/age-bands";
 
@@ -67,6 +69,8 @@ export interface Rma3ReportData {
   // V.7 tracers, III.5 EPI inputs, IV.2.7 antimalarials, V.9 oxygen, IV.6 nutrition: the
   // monthly stock report of the articles given an RMA3 category.
   stock: StockReportItemRow[];
+  // II.3 PMTCT, II.1.1 antenatal syphilis / hepatitis B, IV.1 HIV and hepatitis / STI.
+  hiv: Rma3HivReport;
 }
 
 function pickMetrics(values: Dhis2MetricValue[]): Record<Dhis2MetricKey, number> {
@@ -233,7 +237,7 @@ async function computeTuberculosisSection(tenantId: string, period: Dhis2Period)
 
 export async function computeRma3Report(tenantId: string, period: Dhis2Period): Promise<Rma3ReportData> {
   const { start, end } = periodToDateRange(period);
-  const [rawMetrics, identification, epiSections, malaria, tuberculosis, bedCount, causes, morbidity, stockReport] = await Promise.all([
+  const [rawMetrics, identification, epiSections, malaria, tuberculosis, bedCount, causes, morbidity, stockReport, hiv] = await Promise.all([
     computeMonthlyIndicators(tenantId, period),
     computeIdentificationSection(tenantId),
     computeEpiSections(tenantId, start, end),
@@ -243,6 +247,7 @@ export async function computeRma3Report(tenantId: string, period: Dhis2Period): 
     computeCauseTables(tenantId, start, end),
     computeMorbidityTables(tenantId, start, end),
     computeStockReport(tenantId, period),
+    computeHivReport(tenantId, start, end),
   ]);
 
   const metrics = pickMetrics(rawMetrics);
@@ -260,5 +265,6 @@ export async function computeRma3Report(tenantId: string, period: Dhis2Period): 
     causes,
     morbidity,
     stock: (stockReport?.rows ?? []).filter((row) => row.rma3Category !== null),
+    hiv,
   };
 }

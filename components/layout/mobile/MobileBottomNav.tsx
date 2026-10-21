@@ -7,13 +7,13 @@ import { Link, usePathname } from "@/i18n/routing";
 import { useAppStore } from "@/lib/store/useAppStore";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { NAV_ITEMS, isNavHrefActive, type NavItem } from "../navigation";
+import { NAV_ITEMS, isNavHrefActive, isNavItemActive, type NavItem } from "../navigation";
 import { useUnreadMessagesCount } from "../use-layout-data";
 import { PoweredByAlphaCorp } from "@/components/brand/logos";
 
 // Modules offered as direct tabs, in priority order; the first two the user can access are
 // shown, the rest live in the "More" sheet.
-const TAB_CANDIDATES = ["patients", "stays", "consultations", "pharmacy", "laboratory"];
+const TAB_CANDIDATES = ["patients", "stays", "pharmacy", "laboratory"];
 const MODULE_TAB_COUNT = 2;
 // Tab labels must stay short; these override the longer sidebar labels.
 const SHORT_LABEL_KEYS: Record<string, string> = { dashboard: "home", patients: "patients", stays: "stays" };
@@ -61,14 +61,14 @@ export function MobileBottomNav() {
   const messagesActive = isNavHrefActive("/messages", pathname);
   const settingsActive = isNavHrefActive("/settings", pathname);
   // "More" is highlighted whenever the current page is one of the services it contains.
-  const moreActive = settingsActive || moreItems.some((item) => isNavHrefActive(item.href, pathname));
+  const moreActive = settingsActive || moreItems.some((item) => isNavItemActive(item, pathname));
 
   return (
     <>
       <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur supports-backdrop-filter:bg-white/85">
         <div className="grid h-16" style={{ gridTemplateColumns: `repeat(${tabs.length + 2}, minmax(0, 1fr))` }}>
           {tabs.map((item) => {
-            const active = isNavHrefActive(item.href, pathname);
+            const active = isNavItemActive(item, pathname);
             return (
               <Link key={item.href} href={item.href} className={tabClass} aria-current={active ? "page" : undefined}>
                 <TabIcon icon={item.icon} active={active} />
@@ -98,7 +98,7 @@ export function MobileBottomNav() {
 
           <div className="grid grid-cols-3 gap-2 overflow-y-auto px-4 pb-5">
             {[...moreItems, { name: "settings", href: "/settings", icon: Settings, module: null } as NavItem].map((item) => {
-              const active = isNavHrefActive(item.href, pathname);
+              const active = isNavItemActive(item, pathname);
               return (
                 <Link
                   key={item.href}

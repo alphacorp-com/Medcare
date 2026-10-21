@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { parseModulePermissions } from "@/lib/module-permissions";
 import { MODULE_CATALOG } from "@/lib/module-catalog";
 import { ASSIGNABLE_MODULE_IDS } from "@/components/settings/useAssignableModules";
+import { SUB_MODULE_PARENT } from "@/lib/sub-modules";
 
 describe("parseModulePermissions", () => {
   it("accepts a well-formed list, including MODULE_APPOINTMENTS", () => {
@@ -64,10 +65,14 @@ describe("parseModulePermissions", () => {
 describe("assignable modules in the admin settings", () => {
   // Regression: MODULE_APPOINTMENTS was licensed but missing from the users/roles
   // permission matrices, so it could never be granted to a non-admin user.
-  it("lists every module of the catalog, exactly once", () => {
+  it("lists every module of the catalog and every sub-module, exactly once", () => {
     assert.deepEqual(
       [...ASSIGNABLE_MODULE_IDS].sort(),
-      MODULE_CATALOG.map((m) => m.code).sort()
+      [...MODULE_CATALOG.map((m) => m.code), ...Object.keys(SUB_MODULE_PARENT)].sort()
     );
+  });
+
+  it("keeps MODULE_HIV when permissions are saved", () => {
+    assert.deepEqual(parseModulePermissions([{ moduleId: "MODULE_HIV", actions: ["read"] }]), [{ moduleId: "MODULE_HIV", actions: ["read"] }]);
   });
 });

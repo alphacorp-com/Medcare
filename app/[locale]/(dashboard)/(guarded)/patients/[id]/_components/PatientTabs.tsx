@@ -19,6 +19,9 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Link } from "@/i18n/routing";
 import { StayPhaseBadge } from "@/components/shared/stay-phase-badge";
+import { useParams } from "next/navigation";
+import { useAppStore } from "@/lib/store/useAppStore";
+import { HivPatientPanel } from "@/components/hiv/HivPatientPanel";
 import {
   StayRow,
   MedicalRecordRow,
@@ -78,6 +81,10 @@ export function PatientTabs({
   const trx = useTranslations('pharmacy');
   const trad = useTranslations('radiology');
   const tdp = useTranslations('diseasePrograms');
+  const patientId = useParams<{ id: string }>().id;
+  const hasPermission = useAppStore((state) => state.hasPermission);
+  const canReadHiv = hasPermission("MODULE_HIV", "read");
+  const canEditHiv = hasPermission("MODULE_HIV", "create");
 
   const stayTypeLabel = (st: string) => {
     if (st === "emergency") return tc("status_emergency");
@@ -533,6 +540,14 @@ export function PatientTabs({
                 </tbody>
               </table>
             </div>
+
+            {/* VIH / PTME / hépatites / IST: only for staff granted MODULE_HIV (checked again by every route). */}
+            {canReadHiv && patientId && (
+              <div>
+                <h4 className="mb-2 text-[11px] font-bold text-slate-900 uppercase tracking-wider">{tdp('hiv.panel_title')}</h4>
+                <HivPatientPanel patientId={patientId} canEdit={canEditHiv} />
+              </div>
+            )}
 
             {/* Paludisme */}
             <div>

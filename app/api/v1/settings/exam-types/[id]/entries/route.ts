@@ -5,6 +5,7 @@ import { requireTenantAdmin } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { validateExamParameters } from "@/lib/exam-catalog/validate-parameters";
+import { SCREENING_TEST_TYPES, type ScreeningTestType } from "@/lib/hiv/input";
 import { syncExamFeeSchedule } from "@/lib/billing/syncFeeSchedule";
 
 // GET /api/v1/settings/exam-types/[id]/entries — exams belonging to one exam type
@@ -45,12 +46,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const body = await request.json();
     const {
       code, nameFr, nameEn, price, parameters,
-      imagingCatalogItemId, anatomicalZoneId, requiresContrast,
+      imagingCatalogItemId, anatomicalZoneId, requiresContrast, screeningTestType,
     } = body as {
       code?: string; nameFr?: string; nameEn?: string; price?: number | string;
       parameters?: unknown;
       imagingCatalogItemId?: string; anatomicalZoneId?: string; requiresContrast?: boolean;
+      screeningTestType?: unknown;
     };
+    if (screeningTestType !== undefined && screeningTestType !== null && screeningTestType !== "" && !(SCREENING_TEST_TYPES as readonly unknown[]).includes(screeningTestType)) {
+      return NextResponse.json({ error: "Invalid screening test type", code: "invalid_screening_test_type" }, { status: 400 });
+    }
 
     if (!code?.trim() || !nameFr?.trim()) {
       return NextResponse.json({ error: "code and nameFr are required" }, { status: 400 });
@@ -77,6 +82,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         imagingCatalogItemId: imagingCatalogItemId || null,
         anatomicalZoneId: anatomicalZoneId || null,
         requiresContrast: requiresContrast ?? null,
+        screeningTestType: (screeningTestType || null) as ScreeningTestType | null,
       },
     });
 

@@ -4,9 +4,13 @@ import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { requireModulePermission } from "@/lib/permissions";
 import { suggestInvoiceLine } from "@/lib/billing/suggestCharge";
+import { recordScreeningFromLab } from "@/lib/hiv/lab-link";
+import type { ResultData } from "@/lib/laboratory/results";
 
 // PATCH /api/v1/laboratory/[id]/validate
-// Requires an unvalidated result; publishes it and completes the exam request.
+// Requires an unvalidated result; publishes it and completes the exam request. For an exam
+// whose catalog entry is a screening test (HIV, syphilis, HBsAg…), the validated result also
+// feeds the program's screening register (lib/hiv/lab-link), in the same transaction.
 export async function PATCH(req: Request, context: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
@@ -34,14 +38,35 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
   }
 
   const now = new Date();
+  const tenantId = session.user.tenantId;
+  const [catalogEntry, stay] = await Promise.all([
+    tenantId
+      ? prisma.examCatalogEntry.findFirst({ where: { tenantId, code: exam.examCode }, select: { screeningTestType: true } })
+      : null,
+    exam.stayId ? prisma.stay.findFirst({ where: { id: exam.stayId, tenantId }, select: { type: true } }) : null,
+  ]);
 
-  const [updatedExam] = await prisma.$transaction([
-    prisma.examRequest.update({ where: { id }, data: { status: "completed", completedAt: now } }),
-    prisma.examResult.update({
+  const updatedExam = await prisma.$transaction(async (tx) => {
+    const updated = await tx.examRequest.update({ where: { id }, data: { status: "completed", completedAt: now } });
+    await tx.examResult.update({
       where: { id: pendingResult.id },
       data: { validatedAt: now, validatedBy: session.user.id },
-    }),
-  ]);
+    });
+    if (tenantId && catalogEntry?.screeningTestType) {
+      await recordScreeningFromLab(tx, {
+        tenantId,
+        examResultId: pendingResult.id,
+        patientId: exam.patientId,
+        testType: catalogEntry.screeningTestType,
+        testedAt: pendingResult.createdAt,
+        pregnancyId: exam.pregnancyId,
+        stayType: stay?.type ?? null,
+        parameters: ((pendingResult.resultData ?? {}) as unknown as Partial<ResultData>).parameters ?? [],
+        validatedById: session.user.id,
+      });
+    }
+    return updated;
+  });
 
   const billing = session.user.tenantId
     ? await suggestInvoiceLine({

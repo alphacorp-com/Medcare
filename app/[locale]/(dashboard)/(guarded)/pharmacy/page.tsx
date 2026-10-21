@@ -16,7 +16,7 @@ import { PharmacyHeader } from "./_components/PharmacyHeader";
 import { PrescriptionQueue } from "./_components/PrescriptionQueue";
 import { InventoryTab } from "./_components/InventoryTab";
 import { RxDetailSheet } from "./_components/RxDetailSheet";
-import { useDeepLinkedValue } from "@/hooks/use-deep-linked-item";
+import { useUrlTab } from "@/hooks/use-url-tab";
 import { AddMedicationSheet, EditMedicationSheet, useInventoryReferences } from "./_components/InventorySheets";
 import { LossSheet, ReceiptSheet, StockDetailSheet, TransferSheet } from "./_components/StockSheets";
 import { StockReportTab } from "./_components/StockReportTab";
@@ -46,9 +46,8 @@ function PharmacyPageContent() {
   const stockError = useStockErrorMessage();
 
   // UI State
-  // ?tab=inventory (dashboard stock alerts) opens the inventory tab directly.
-  const linkedTab = useDeepLinkedValue("tab", ["prescriptions", "inventory", "report"] as const);
-  const [activeTab, setActiveTab] = useState<PharmacyTab>(linkedTab ?? "prescriptions");
+  // The tab is in the URL (?tab=): dashboard stock alerts and the sidebar sub-items open it.
+  const [activeTab, setActiveTab] = useUrlTab<PharmacyTab>(["prescriptions", "inventory", "report"], "prescriptions");
   const [rxFilter, setRxFilter] = useState("All");
   const [rxSearch, setRxSearch] = useState("");
   const [invSearch, setInvSearch] = useState("");

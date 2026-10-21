@@ -1,12 +1,13 @@
 "use client";
 
 import { Link, usePathname } from "@/i18n/routing";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/store/useAppStore";
-import { Settings, MessageSquare } from "lucide-react";
-import { NAV_ITEMS, NAV_GROUP_LABEL_KEY, isNavHrefActive, type NavGroup, type NavItem } from "./navigation";
+import { Settings, MessageSquare, ChevronDown } from "lucide-react";
+import { NAV_ITEMS, NAV_GROUP_LABEL_KEY, isNavChildActive, isNavItemActive, type NavChild, type NavGroup, type NavItem } from "./navigation";
 import { useUnreadMessagesCount } from "./use-layout-data";
 import { MedcareLogo, PoweredByAlphaCorp } from "@/components/brand/logos";
 
@@ -14,8 +15,13 @@ export function Sidebar() {
   const t = useTranslations('common');
   const pathname = usePathname();
   const hasModule = useAppStore((state) => state.hasModule);
+  const hasPermission = useAppStore((state) => state.hasPermission);
   const [collapsed, setCollapsed] = useState(false);
+  // Parents opened / closed by hand; otherwise a parent is open while one of its pages is.
+  const [toggled, setToggled] = useState<Record<string, boolean>>({});
   const messagesUnreadCount = useUnreadMessagesCount();
+  const visibleChildren = (item: NavItem): NavChild[] =>
+    (item.children ?? []).filter((c) => !c.permission || hasPermission(c.permission.module, c.permission.action));
 
   const navigationWithHeaders = NAV_ITEMS.reduce<{ item: NavItem; showHeader: boolean }[]>((acc, item) => {
     const previousGroup = acc[acc.length - 1]?.item.group;
@@ -44,7 +50,9 @@ export function Sidebar() {
       <nav className="flex-1 py-4 overflow-y-auto">
         {navigationWithHeaders.map(({ item, showHeader }) => {
           const isEnabled = !item.module || hasModule(item.module);
-          const isActive = isNavHrefActive(item.href, pathname);
+          const isActive = isNavItemActive(item, pathname);
+          const children = visibleChildren(item);
+          const isOpen = !collapsed && children.length > 0 && (toggled[item.name] ?? isActive);
 
           return (
             <div key={item.name}>
@@ -69,9 +77,35 @@ export function Sidebar() {
                     <span className="shrink-0 ml-2 px-1.5 py-0.5 bg-slate-700 text-slate-500 text-[9px] rounded uppercase">{t('disabled')}</span>
                   )}
                 </div>
+              ) : children.length > 0 && !collapsed ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setToggled((prev) => ({ ...prev, [item.name]: !isOpen }))}
+                    aria-expanded={isOpen}
+                    className={cn(
+                      "flex w-full items-center justify-between px-4 py-2 border-l-4 pl-3",
+                      isActive ? "text-white border-blue-500 bg-slate-800/60" : "text-slate-400 hover:text-white hover:bg-slate-800 border-transparent"
+                    )}
+                  >
+                    <span className="flex items-center gap-3 truncate">
+                      <item.icon className="h-4 w-4 shrink-0" />
+                      <span className="text-sm truncate">{t(item.name)}</span>
+                    </span>
+                    <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 transition-transform", isOpen ? "rotate-180" : "")} />
+                  </button>
+                  {isOpen && (
+                    // The ?tab= read needs a Suspense boundary; the fallback renders the same
+                    // list without the tab (never an empty sidebar).
+                    <Suspense fallback={<SubItems items={children} pathname={pathname} currentTab={null} />}>
+                      <SubItemsFromUrl items={children} pathname={pathname} />
+                    </Suspense>
+                  )}
+                </>
               ) : (
                 <Link
-                  href={item.href}
+                  // Collapsed: the icon opens the first sub-item.
+                  href={children[0]?.href ?? item.href}
                   title={collapsed ? t(item.name) : undefined}
                   className={cn(
                     "flex items-center",
@@ -147,5 +181,35 @@ export function Sidebar() {
         <PoweredByAlphaCorp tone="dark" compact={collapsed} label={t('powered_by')} />
       </div>
     </aside>
+  );
+}
+
+function SubItemsFromUrl({ items, pathname }: { items: NavChild[]; pathname: string }) {
+  return <SubItems items={items} pathname={pathname} currentTab={useSearchParams().get("tab")} />;
+}
+
+function SubItems({ items, pathname, currentTab }: { items: NavChild[]; pathname: string; currentTab: string | null }) {
+  const t = useTranslations("common");
+  return (
+    <ul className="mb-1">
+      {items.map((child) => {
+        const active = isNavChildActive(child, items, pathname, currentTab);
+        return (
+          <li key={child.href}>
+            <Link
+              href={child.href}
+              aria-current={active ? "page" : undefined}
+              className={cn(
+                "block py-1.5 pl-11 pr-4 text-[13px] truncate",
+                active ? "text-white font-semibold" : "text-slate-400 hover:text-white hover:bg-slate-800"
+              )}
+            >
+              <span className={cn("mr-2 inline-block h-1.5 w-1.5 rounded-full align-middle", active ? "bg-blue-400" : "bg-slate-600")} />
+              {t(child.name)}
+            </Link>
+          </li>
+        );
+      })}
+    </ul>
   );
 }

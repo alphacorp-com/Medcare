@@ -1,11 +1,13 @@
 import type { ModuleAction } from "@/types/next-auth";
 import { MODULE_CATALOG } from "@/lib/module-catalog";
+import { SUB_MODULE_PARENT } from "@/lib/sub-modules";
 
 // Same shape as ModulePermission, declared as a type alias: unlike an interface it is
 // assignable to Prisma's InputJsonValue, so it can be written to the JSON columns as is.
 export type StoredModulePermission = { moduleId: string; actions: ModuleAction[] };
 
-const KNOWN_MODULES = new Set(MODULE_CATALOG.map((m) => m.code));
+// Licensed modules and their sub-modules (e.g. MODULE_HIV).
+const KNOWN_MODULES = new Set([...MODULE_CATALOG.map((m) => m.code), ...Object.keys(SUB_MODULE_PARENT)]);
 const KNOWN_ACTIONS: ReadonlySet<string> = new Set<ModuleAction>(["read", "create", "update", "delete", "validate"]);
 
 // Validates a module-permission list from a request body (TenantUser.modules,

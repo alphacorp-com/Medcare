@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { SCREENING_TEST_TYPES } from "@/lib/hiv/input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,6 +24,7 @@ type ExamEntry = {
   id: string; code: string; nameFr: string; nameEn: string | null; price: string | number | null;
   parameters: ExamParameterDefinition[];
   imagingCatalogItemId: string | null; anatomicalZoneId: string | null; requiresContrast: boolean | null; isActive: boolean;
+  screeningTestType: string | null;
 };
 type RefItem = { id: string; code: string; nameFr: string };
 type EntryTab = "general" | "params" | "preview";
@@ -35,6 +37,7 @@ const STANDARD_SHEETS: Record<ExamCatalogDomain, Record<string, ExamParameterDef
 export default function ExamTypesPage() {
   const t = useTranslations("settings.examTypes");
   const tc = useTranslations("common");
+  const tdp = useTranslations("diseasePrograms");
 
   const [domain, setDomain] = useState<ExamCatalogDomain>("laboratory");
   const [types, setTypes] = useState<ExamType[]>([]);
@@ -63,6 +66,8 @@ export default function ExamTypesPage() {
   const [entryImagingId, setEntryImagingId] = useState("");
   const [entryZoneId, setEntryZoneId] = useState("");
   const [entryContrast, setEntryContrast] = useState(false);
+  // Laboratory only: the program screening test (HIV, syphilis, HBsAg…) a validated result feeds.
+  const [entryScreening, setEntryScreening] = useState("");
   const [entryError, setEntryError] = useState<string | null>(null);
   const [isSavingEntry, setIsSavingEntry] = useState(false);
   // Result sheet being edited (ExamCatalogEntry.parameters) and the row validation rejected.
@@ -149,7 +154,7 @@ export default function ExamTypesPage() {
   const openCreateEntry = () => {
     setEditingEntry(null);
     setEntryCode(""); setEntryNameFr(""); setEntryNameEn(""); setEntryPrice("");
-    setEntryImagingId(""); setEntryZoneId(""); setEntryContrast(false);
+    setEntryImagingId(""); setEntryZoneId(""); setEntryContrast(false); setEntryScreening("");
     setEntryDrafts([]); setEntryTab("general"); setParamErrorIndex(undefined);
     setEntryError(null); setIsEntryFormOpen(true);
   };
@@ -160,6 +165,7 @@ export default function ExamTypesPage() {
     setEntryPrice(entry.price !== null ? String(entry.price) : "");
     setEntryImagingId(entry.imagingCatalogItemId ?? ""); setEntryZoneId(entry.anatomicalZoneId ?? "");
     setEntryContrast(entry.requiresContrast ?? false);
+    setEntryScreening(entry.screeningTestType ?? "");
     setEntryDrafts(draftsFromDefinitions(Array.isArray(entry.parameters) ? entry.parameters : []));
     setEntryTab("general"); setParamErrorIndex(undefined);
     setEntryError(null); setIsEntryFormOpen(true);
@@ -200,6 +206,7 @@ export default function ExamTypesPage() {
         imagingCatalogItemId: domain === "radiology" ? entryImagingId || undefined : undefined,
         anatomicalZoneId: domain === "radiology" ? entryZoneId || undefined : undefined,
         requiresContrast: domain === "radiology" ? entryContrast : undefined,
+        screeningTestType: domain === "laboratory" ? entryScreening || null : undefined,
         parameters: sheet.value,
       };
       const res = editingEntry
@@ -379,6 +386,19 @@ export default function ExamTypesPage() {
                 <div className="space-y-1"><Label>{t("name_fr")}</Label><Input value={entryNameFr} onChange={(e) => setEntryNameFr(e.target.value)} className="h-9 text-xs" /></div>
                 <div className="space-y-1"><Label>{t("name_en")}</Label><Input value={entryNameEn} onChange={(e) => setEntryNameEn(e.target.value)} className="h-9 text-xs" /></div>
                 <div className="space-y-1"><Label>{t("price")} (XAF)</Label><Input type="number" min="0" value={entryPrice} onChange={(e) => setEntryPrice(e.target.value)} className="h-9 text-xs" /></div>
+
+                {domain === "laboratory" && (
+                  <div className="space-y-1">
+                    <Label>{t("screening_test_type")}</Label>
+                    <select value={entryScreening} onChange={(e) => setEntryScreening(e.target.value)} className="flex h-9 w-full rounded-md border border-slate-200 bg-white px-2 text-xs">
+                      <option value="">{t("screening_none")}</option>
+                      {SCREENING_TEST_TYPES.map((type) => (
+                        <option key={type} value={type}>{tdp(`hiv.test_type_${type}`)}</option>
+                      ))}
+                    </select>
+                    <p className="text-[11px] text-slate-500">{t("screening_hint")}</p>
+                  </div>
+                )}
 
                 {domain === "radiology" && (
                   <>

@@ -127,9 +127,37 @@ export const RMA3_AGE_SCHEMES = {
   ]),
 } as const;
 
-// NOT DEFINED HERE ON PURPOSE: the "9 tranches" (IV.1.3 hepatitis/STI) and "13 tranches"
-// (IV.1 HIV) breakdowns. The RMA3 dictionary names them without listing the bands; add them
-// to RMA3_AGE_SCHEMES from the official form when the HIV / hepatitis modules are built.
+// PROVISIONAL, TO BE VALIDATED against the official RMA3 form: the dictionary names the
+// "13 tranches" (IV.1 HIV) and "9 tranches" (IV.1.3 hepatitis / STI) without listing them.
+// These are the usual DHIS2 / PEPFAR bands; changing them here changes every report.
+export const PROVISIONAL_AGE_SCHEMES = {
+  hiv13: scheme([
+    ["lt1", "< 1 an", 0, years(1)],
+    ["1to4", "1-4 ans", years(1), years(5)],
+    ["5to9", "5-9 ans", years(5), years(10)],
+    ["10to14", "10-14 ans", years(10), years(15)],
+    ["15to19", "15-19 ans", years(15), years(20)],
+    ["20to24", "20-24 ans", years(20), years(25)],
+    ["25to29", "25-29 ans", years(25), years(30)],
+    ["30to34", "30-34 ans", years(30), years(35)],
+    ["35to39", "35-39 ans", years(35), years(40)],
+    ["40to44", "40-44 ans", years(40), years(45)],
+    ["45to49", "45-49 ans", years(45), years(50)],
+    ["50to54", "50-54 ans", years(50), years(55)],
+    ["55plus", "55 ans et +", years(55), null],
+  ]),
+  hep9: scheme([
+    ["lt5", "< 5 ans", 0, years(5)],
+    ["5to9", "5-9 ans", years(5), years(10)],
+    ["10to14", "10-14 ans", years(10), years(15)],
+    ["15to19", "15-19 ans", years(15), years(20)],
+    ["20to24", "20-24 ans", years(20), years(25)],
+    ["25to34", "25-34 ans", years(25), years(35)],
+    ["35to44", "35-44 ans", years(35), years(45)],
+    ["45to54", "45-54 ans", years(45), years(55)],
+    ["55plus", "55 ans et +", years(55), null],
+  ]),
+} as const;
 
 export type Rma3AgeSchemeName = keyof typeof RMA3_AGE_SCHEMES;
 
