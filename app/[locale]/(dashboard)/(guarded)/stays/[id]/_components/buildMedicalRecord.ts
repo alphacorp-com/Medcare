@@ -56,6 +56,14 @@ export function buildMedicalRecord(stay: StayDetail, ta: Translate, tm: Translat
           vitals.height != null ? `${vitals.height} cm` : null,
         ].filter(Boolean).join(" · ")
       : null,
+    // Causes of death are not principal/secondary in the RMA3 sense: only the context is shown.
+    diagnoses: (stay.diagnoses ?? []).map((dx) => ({
+      context: tm(`dx_context_${dx.context}`),
+      kind: dx.context === "death" ? tm("dx_cause") : tm(`dx_kind_${dx.kind}`),
+      code: dx.icd10Code,
+      label: dx.label,
+      date: fmt(dx.recordedAt) ?? "",
+    })),
     notes: byDateAsc(stay.medicalRecords, (record) => record.createdAt).map((record) => ({
       date: fmt(record.createdAt) ?? "",
       type: tm(`note_${record.type}`) || record.type,

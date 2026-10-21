@@ -258,7 +258,9 @@ export async function PATCH(
         ? parseDiagnosisInput(causeOfDeath ? [{ ...causeOfDeath, kind: "principal" }] : undefined, { principalRequired: true })
         : { ok: true as const, value: [] };
       if (!parsedDeath.ok) {
-        return NextResponse.json({ error: "Cause of death required", code: parsedDeath.error, success: false }, { status: 400 });
+        // A missing cause gets its own code so the UI does not talk about a "principal diagnosis".
+        const code = parsedDeath.error === "principal_required" ? "cause_of_death_required" : parsedDeath.error;
+        return NextResponse.json({ error: "Cause of death required", code, success: false }, { status: 400 });
       }
       const resolved = await resolveDiagnoses(session.user.tenantId, [...parsedDischarge.value, ...parsedDeath.value]);
       if (!resolved.ok) {

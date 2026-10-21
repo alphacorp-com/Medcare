@@ -32,6 +32,7 @@ export function toDiagnosisPayload(drafts: DiagnosisDraft[]) {
 
 const DIAGNOSIS_ERROR_CODES = [
   "principal_required",
+  "cause_of_death_required",
   "single_principal",
   "duplicate_code",
   "invalid_code",

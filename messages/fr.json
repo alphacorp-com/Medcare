@@ -1171,7 +1171,8 @@
     "authorized": "Modules Autorisés",
     "rma3Mapping": {
       "title": "RMA3 : correspondance CIM-10",
-      "description": "Codes CIM-10 qui alimentent chaque cause des tableaux RMA3 V.3 (consultations), V.4 (hospitalisations) et V.5 (décès).",
+      "description": "Codes CIM-10 qui alimentent chaque rubrique du RMA3 : causes de consultation, d'hospitalisation et de décès (V.3-V.5) et sections de morbidité (cancers, PCIMNE, maladies non transmissibles, santé mentale, ophtalmologie, bucco-dentaire/ORL, MTN).",
+      "morbidity_hint": "Nouveaux cas de cette section : chaque diagnostic de consultation (principal ou secondaire) marqué « nouveau cas » est compté dans chaque rubrique active qui couvre son code ; des plages qui se chevauchent sont donc normales ici.",
       "medical_review_notice": "Proposition standard à faire valider par l'équipe médicale de l'établissement. Chaque diagnostic est compté dans la première rubrique active (par ordre) qui couvre son code ; chaque modification est tracée dans le journal d'audit.",
       "test_code": "Tester un code",
       "test_invalid": "Code CIM-10 invalide (ex. B50 ou B50.9).",
@@ -2182,7 +2183,14 @@
       "note_delivery_report": "Compte rendu d'accouchement",
       "hospitalized_on": "hospitalisé le",
       "hospitalization_awaiting_payment": "en attente de paiement",
-      "awaiting_validation": "En attente de validation"
+      "awaiting_validation": "En attente de validation",
+      "diagnoses": "Diagnostics (CIM-10)",
+      "dx_context_consultation": "consultation",
+      "dx_context_discharge": "sortie",
+      "dx_context_death": "décès",
+      "dx_kind_principal": "principal",
+      "dx_kind_secondary": "secondaire",
+      "dx_cause": "cause du décès"
     },
     "invoice": "FACTURE",
     "billed_to": "Facturé à",
@@ -2440,6 +2448,24 @@
     "change": "Modifier",
     "discharge_diagnoses": "Diagnostics de sortie",
     "discharge_principal": "Diagnostic principal de sortie",
-    "confirm_death": "Enregistrer le décès"
+    "confirm_death": "Enregistrer le décès",
+    "recorded_title": "Diagnostics (CIM-10)",
+    "none_recorded": "Aucun diagnostic codé enregistré.",
+    "context_consultation": "Consultation",
+    "context_discharge": "Sortie",
+    "context_death": "Cause du décès",
+    "kind_principal": "Principal",
+    "kind_secondary": "Secondaire",
+    "errors": {
+      "cause_of_death_required": "La cause du décès codée est obligatoire.",
+      "principal_required": "Un diagnostic principal codé est obligatoire.",
+      "single_principal": "Un seul diagnostic principal est autorisé.",
+      "duplicate_code": "Le même code CIM-10 a été saisi deux fois.",
+      "invalid_code": "Code CIM-10 invalide (ex. B50 ou B50.9).",
+      "unknown_code": "Codes absents du catalogue CIM-10 de l'établissement : {codes}.",
+      "too_many": "Trop de diagnostics (10 au maximum).",
+      "not_a_list": "Liste de diagnostics invalide.",
+      "invalid_entry": "Diagnostic invalide."
+    }
   }
 }

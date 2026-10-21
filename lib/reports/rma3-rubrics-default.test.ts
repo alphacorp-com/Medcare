@@ -12,7 +12,9 @@ describe("default RMA3 cause rubrics", () => {
     assert.equal(section("V.5").length, 36);
     const codes = DEFAULT_RMA3_RUBRICS.map((r) => r.code);
     assert.equal(new Set(codes).size, codes.length);
-    assert.ok(codes.every((c) => /^RMA3-V\.[345]-\d{3}$/.test(c)));
+    assert.ok(codes.filter((c) => c.startsWith("RMA3-V.")).every((c) => /^RMA3-V\.[345]-\d{3}$/.test(c)));
+    // Codes and sections must fit their columns (code VarChar(30), section VarChar(10)).
+    assert.ok(DEFAULT_RMA3_RUBRICS.every((r) => r.code.length <= 30 && r.section.length <= 10 && r.code.startsWith(`RMA3-${r.section}-`)));
   });
 
   it("only use valid ICD-10 ranges", () => {

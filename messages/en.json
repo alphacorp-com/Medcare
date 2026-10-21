@@ -1166,7 +1166,8 @@
     "authorized": "Modules Authorized",
     "rma3Mapping": {
       "title": "RMA3: ICD-10 mapping",
-      "description": "Which ICD-10 codes feed each cause of the RMA3 tables V.3 (consultations), V.4 (hospitalizations) and V.5 (deaths).",
+      "description": "Which ICD-10 codes feed each rubric of the RMA3: causes of consultation, hospitalization and death (V.3-V.5) and the morbidity sections (cancers, PCIMNE, non-communicable diseases, mental health, eye, oral/ENT, NTDs).",
+      "morbidity_hint": "New cases of this section: every consultation diagnosis (principal or secondary) marked “new case” is counted in each active rubric covering its code, so overlapping ranges are expected here.",
       "medical_review_notice": "Standard proposal to be reviewed by the facility's medical team. Each diagnosis is counted in the first active rubric (by order) that covers its code; every change is recorded in the audit log.",
       "test_code": "Test a code",
       "test_invalid": "Not a valid ICD-10 code (e.g. B50 or B50.9).",
@@ -2177,7 +2178,14 @@
       "note_delivery_report": "Delivery report",
       "hospitalized_on": "hospitalised on",
       "hospitalization_awaiting_payment": "awaiting payment",
-      "awaiting_validation": "Awaiting validation"
+      "awaiting_validation": "Awaiting validation",
+      "diagnoses": "Diagnoses (ICD-10)",
+      "dx_context_consultation": "consultation",
+      "dx_context_discharge": "discharge",
+      "dx_context_death": "death",
+      "dx_kind_principal": "principal",
+      "dx_kind_secondary": "secondary",
+      "dx_cause": "cause of death"
     },
     "invoice": "INVOICE",
     "billed_to": "Billed To",
@@ -2435,6 +2443,24 @@
     "change": "Change",
     "discharge_diagnoses": "Discharge diagnoses",
     "discharge_principal": "Principal discharge diagnosis",
-    "confirm_death": "Record the death"
+    "confirm_death": "Record the death",
+    "recorded_title": "Diagnoses (ICD-10)",
+    "none_recorded": "No coded diagnosis recorded.",
+    "context_consultation": "Consultation",
+    "context_discharge": "Discharge",
+    "context_death": "Cause of death",
+    "kind_principal": "Principal",
+    "kind_secondary": "Secondary",
+    "errors": {
+      "cause_of_death_required": "The coded cause of death is required.",
+      "principal_required": "A coded principal diagnosis is required.",
+      "single_principal": "Only one principal diagnosis is allowed.",
+      "duplicate_code": "The same ICD-10 code was entered twice.",
+      "invalid_code": "Invalid ICD-10 code (e.g. B50 or B50.9).",
+      "unknown_code": "Codes not found in the facility's ICD-10 catalog: {codes}.",
+      "too_many": "Too many diagnoses (10 at most).",
+      "not_a_list": "Invalid diagnosis list.",
+      "invalid_entry": "Invalid diagnosis entry."
+    }
   }
 }

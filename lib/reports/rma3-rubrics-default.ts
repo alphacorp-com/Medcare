@@ -11,10 +11,13 @@
 //  - The RMA3 reference dictionary lists two rubrics twice in V.4/V.5 (032 = 023 and
 //    035 = 024); the duplicates are seeded inactive and empty so nothing is counted twice.
 
+import { DEFAULT_MORBIDITY_RUBRICS, RMA3_MORBIDITY_SECTIONS, type Rma3MorbiditySection } from "./rma3-morbidity-default";
+
 export type Rma3CauseSection = "V.3" | "V.4" | "V.5";
+export type Rma3RubricSection = Rma3CauseSection | Rma3MorbiditySection;
 
 export interface DefaultRubric {
-  section: Rma3CauseSection;
+  section: Rma3RubricSection;
   code: string;
   label: string;
   icd10Ranges: string;
@@ -100,6 +103,13 @@ const HOSPITAL: Entry[] = [
   ["Tumeurs malignes", "C00-C97"],
 ];
 
+// Every editable section, in form order. "exclusive" sections count each diagnosis in one
+// rubric only (first active match), so overlapping ranges there are a configuration error.
+export const RMA3_RUBRIC_SECTIONS: readonly { section: Rma3RubricSection; title: string; exclusive: boolean }[] = [
+  ...RMA3_MORBIDITY_SECTIONS.map(({ section, title }) => ({ section, title, exclusive: false })),
+  ...(Object.keys(RMA3_CAUSE_SECTIONS) as Rma3CauseSection[]).map((section) => ({ section, title: RMA3_CAUSE_SECTIONS[section], exclusive: true })),
+];
+
 function build(section: Rma3CauseSection, entries: Entry[]): DefaultRubric[] {
   return entries.map(([label, icd10Ranges, isActive = true], index) => ({
     section,
@@ -115,4 +125,5 @@ export const DEFAULT_RMA3_RUBRICS: readonly DefaultRubric[] = [
   ...build("V.3", CONSULTATION),
   ...build("V.4", HOSPITAL),
   ...build("V.5", HOSPITAL),
+  ...DEFAULT_MORBIDITY_RUBRICS,
 ];

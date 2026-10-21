@@ -1,6 +1,7 @@
 "use client";
 
 import { toDiagnosisPayload, useDiagnosisErrorMessage } from "@/components/shared/diagnosis-editor";
+import type { RecordedDiagnosis } from "@/components/shared/diagnosis-list";
 import { Link } from "@/i18n/routing";
 import { useParams, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -70,6 +71,7 @@ export default function PatientDetailPage() {
 
   // Data State
   const [patient, setPatient] = useState<PatientDetail | null>(null);
+  const [diagnoses, setDiagnoses] = useState<RecordedDiagnosis[]>([]);
   const [stays, setStays] = useState<StayRow[]>([]);
   const [prescriptions, setPrescriptions] = useState<PrescriptionRow[]>([]);
   const [exams, setExams] = useState<ExamRow[]>([]);
@@ -151,7 +153,7 @@ export default function PatientDetailPage() {
 
   const fetchData = async () => {
     try {
-      const [pRes, sRes, rxRes, exRes, recRes, billRes, vitRes, surgRes, pregRes, immRes, malRes, tbRes] = await Promise.all([
+      const [pRes, sRes, rxRes, exRes, recRes, billRes, vitRes, surgRes, pregRes, immRes, malRes, tbRes, dxRes] = await Promise.all([
         fetch(`/api/v1/patients/${id}`),
         fetch(`/api/v1/patients/${id}/stays`),
         fetch(`/api/v1/patients/${id}/prescriptions`),
@@ -164,9 +166,10 @@ export default function PatientDetailPage() {
         fetch(`/api/v1/patients/${id}/immunizations`),
         fetch(`/api/v1/patients/${id}/malaria-cases`),
         fetch(`/api/v1/patients/${id}/tb-cases`),
+        fetch(`/api/v1/patients/${id}/diagnoses`),
       ]);
-      const [pJson, sJson, rxJson, exJson, recJson, billJson, vitJson, surgJson, pregJson, immJson, malJson, tbJson] = await Promise.all([
-        pRes.json(), sRes.json(), rxRes.json(), exRes.json(), recRes.json(), billRes.json(), vitRes.json(), surgRes.json(), pregRes.json(), immRes.json(), malRes.json(), tbRes.json()
+      const [pJson, sJson, rxJson, exJson, recJson, billJson, vitJson, surgJson, pregJson, immJson, malJson, tbJson, dxJson] = await Promise.all([
+        pRes.json(), sRes.json(), rxRes.json(), exRes.json(), recRes.json(), billRes.json(), vitRes.json(), surgRes.json(), pregRes.json(), immRes.json(), malRes.json(), tbRes.json(), dxRes.json()
       ]);
 
       if (!pRes.ok || !pJson.success) throw new Error(pJson.error ?? "Failed to load patient");
@@ -182,6 +185,7 @@ export default function PatientDetailPage() {
       if (immJson.success) setImmunizations(immJson.data);
       if (malJson.success) setMalariaCases(malJson.data);
       if (tbJson.success) setTbCases(tbJson.data);
+      if (dxJson.success) setDiagnoses(dxJson.data);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load");
     } finally {
@@ -319,9 +323,12 @@ export default function PatientDetailPage() {
         const json = await res.json().catch(() => ({}));
         notifyBillingGenerated(json?.billing, tc("invoice_generated"));
         setIsRecordOpen(false);
-        const recRes = await fetch(`/api/v1/patients/${id}/records`);
-        const recJson = await recRes.json();
+        const [recJson, dxJson] = await Promise.all([
+          fetch(`/api/v1/patients/${id}/records`).then((r) => r.json()),
+          fetch(`/api/v1/patients/${id}/diagnoses`).then((r) => r.json()),
+        ]);
         if (recJson.success) setRecords(recJson.data);
+        if (dxJson.success) setDiagnoses(dxJson.data);
       }
     } catch (e) {
       setRecordError("Failed to create record");
@@ -453,7 +460,7 @@ export default function PatientDetailPage() {
 
         <div className={`grid gap-4 flex-1 ${isMobile ? "grid-cols-1" : "grid-cols-12 overflow-hidden"}`}>
           <div className={isMobile ? "w-full" : "col-span-3 overflow-hidden"}>
-            <PatientQuickProfile patient={patient} latestVitals={vitals[0] ?? null} />
+            <PatientQuickProfile patient={patient} latestVitals={vitals[0] ?? null} diagnoses={diagnoses} />
           </div>
 
           <div className={isMobile ? "w-full" : "col-span-9"}>

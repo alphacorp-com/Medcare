@@ -37,6 +37,9 @@ export interface MedicalRecordData {
     dischargeSummary?: string | null;
   };
   vitals?: string | null;
+  // Coded diagnoses, already labelled: context (consultation / discharge / cause of death)
+  // and kind (principal / secondary).
+  diagnoses?: { context: string; kind: string; code: string; label: string; date: string }[];
   notes: { date: string; type: string; title?: string | null; author: string; content: string }[];
   prescriptions: { date: string; prescriber: string; items: { drug: string; dosage: string; frequency: string; duration: string }[] }[];
   exams: {
@@ -239,9 +242,19 @@ export const MedicalRecordTemplate = ({
         ))}
       </View>
 
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>6. {labels.diagnoses}</Text>
+        {(data.diagnoses ?? []).length === 0 ? <Text style={styles.muted}>{labels.none}</Text> : null}
+        {(data.diagnoses ?? []).map((dx, i) => (
+          <Text key={i} style={{ marginBottom: 2 }}>
+            <Text style={styles.bold}>{dx.code}</Text> {safe(dx.label)} <Text style={styles.muted}>({dx.context} · {dx.kind} · {dx.date})</Text>
+          </Text>
+        ))}
+      </View>
+
       {data.stay.dischargeSummary ? (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>6. {labels.discharge_summary}</Text>
+          <Text style={styles.sectionTitle}>7. {labels.discharge_summary}</Text>
           <Text style={{ lineHeight: 1.4 }}>{safe(data.stay.dischargeSummary)}</Text>
         </View>
       ) : null}

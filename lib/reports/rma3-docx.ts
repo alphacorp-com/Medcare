@@ -12,8 +12,9 @@ import {
   TextRun,
   WidthType,
 } from "docx";
-import { Rma3CauseTable, Rma3KeyValueRow, Rma3MalariaRow, Rma3ReportData, Rma3TbRow, Rma3VaccinationRow } from "./rma3";
+import { Rma3CauseTable, Rma3KeyValueRow, Rma3MalariaRow, Rma3MorbidityTable, Rma3ReportData, Rma3TbRow, Rma3VaccinationRow } from "./rma3";
 import { RMA3_CAUSE_SECTIONS } from "./rma3-rubrics-default";
+import { rma3FormSection } from "./rma3-morbidity-default";
 
 const FRENCH_MONTHS = [
   "janvier", "février", "mars", "avril", "mai", "juin",
@@ -34,6 +35,7 @@ const INCLUDED_SECTIONS = [
   "IV.3 - Notification et Résultats du Traitement Antituberculeux",
   "V.1 - Activité générale (consultations, hospitalisations, décès, capacité)",
   "V.3 / V.4 / V.5 - Principales causes de consultation, d'hospitalisation et de décès (diagnostics codés CIM-10)",
+  "II.2, III.7, IV.4, IV.4.9, IV.4.10, IV.4.11, IV.5 - Nouveaux cas issus des diagnostics codés CIM-10 (lignes dérivables d'un diagnostic uniquement, voir la note de chaque tableau)",
 ];
 
 const EXCLUDED_SECTIONS = [
@@ -178,6 +180,35 @@ function causeTable(table: Rma3CauseTable): Table {
   return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [header, ...rows] });
 }
 
+// II.2 / III.7 / IV.4 / IV.5: new cases per rubric in the section's RMA3 breakdown, a
+// deaths column where the form has one, then the form rows a diagnosis cannot produce.
+function morbidityTable(table: Rma3MorbidityTable): (Paragraph | Table)[] {
+  const hasDeaths = table.rows.some((r) => r.deaths !== null);
+  const header = new TableRow({
+    tableHeader: true,
+    children: ["Rubrique", ...table.columns.map((c) => c.label), "Total nouveaux cas", ...(hasDeaths ? ["Décès"] : [])].map((text) =>
+      cell(text, { bold: true, shaded: true })
+    ),
+  });
+  const rows = table.rows.map(
+    (r) =>
+      new TableRow({
+        children: [
+          cell(r.label),
+          ...table.columns.map((c) => cell(String(r.cells[c.key] ?? 0))),
+          cell(String(r.total)),
+          ...(hasDeaths ? [cell(String(r.deaths ?? 0))] : []),
+        ],
+      })
+  );
+  return [
+    new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [header, ...rows] }),
+    new Paragraph({
+      children: [new TextRun({ italics: true, size: 16, text: `Non produit (à compléter manuellement) : ${table.notDerivable.join(" ; ")}.` })],
+    }),
+  ];
+}
+
 export async function buildRma3Document(
   data: Rma3ReportData,
   meta: { generatedByName: string; generatedByEmail: string }
@@ -263,6 +294,18 @@ export async function buildRma3Document(
     sectionHeading("IV.3.4 - Résultats du Traitement Antituberculeux"),
     tbTable(data.tuberculosis.outcomes, "Issue du traitement"),
     ...data.causes.flatMap((table) => [sectionHeading(`${table.section} - ${RMA3_CAUSE_SECTIONS[table.section]}`), causeTable(table)]),
+    new Paragraph({
+      spacing: { before: 200 },
+      children: [
+        new TextRun({
+          italics: true,
+          text:
+            "Tableaux suivants : nouveaux cas = diagnostics de consultation (principaux et secondaires) marqués « nouveau cas », " +
+            "comptés dans chaque rubrique qui couvre leur code ; un total peut inclure des patients de sexe non renseigné.",
+        }),
+      ],
+    }),
+    ...data.morbidity.flatMap((table) => [sectionHeading(`${rma3FormSection(table.section)} - ${table.title}`), ...morbidityTable(table)]),
     sectionHeading("Portée de ce document généré automatiquement"),
     new Paragraph({ children: [new TextRun({ bold: true, text: "Sections incluses (données réelles calculées) :" })] }),
     ...INCLUDED_SECTIONS.map((s) => new Paragraph({ bullet: { level: 0 }, children: [new TextRun({ text: s })] })),

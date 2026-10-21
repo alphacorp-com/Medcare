@@ -4,9 +4,11 @@ import { useTranslations } from "next-intl";
 import { 
   MapPin, 
   LogOut,
-  Building2
+  Building2,
+  Stethoscope
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { DiagnosisList } from "@/components/shared/diagnosis-list";
 import { Department, Bed, StayDetail } from "../types";
 
 interface AdmissionInfoProps {
@@ -18,6 +20,7 @@ interface AdmissionInfoProps {
 
 export function AdmissionInfo({ stay, departments, beds, doctorName }: AdmissionInfoProps) {
   const t = useTranslations('admissions');
+  const td = useTranslations('diagnoses');
 
   return (
     <div className="lg:col-span-3 flex flex-col gap-4 lg:overflow-y-auto">
@@ -50,6 +53,14 @@ export function AdmissionInfo({ stay, departments, beds, doctorName }: Admission
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 md:p-5">
+        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center justify-between">
+          <span>{td('recorded_title')}</span>
+          <Stethoscope className="h-3 w-3" />
+        </div>
+        <DiagnosisList diagnoses={stay.diagnoses ?? []} />
       </div>
 
       {stay.dischargeSummary && (

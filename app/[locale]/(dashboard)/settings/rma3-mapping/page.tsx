@@ -9,13 +9,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SettingsPageHeader } from "@/components/settings/settings-ui";
 import { ApiError, apiFetch } from "@/lib/api-client";
-import { findRubricForCode, normalizeIcd10Code, parseIcd10Ranges } from "@/lib/diagnoses/icd10-ranges";
-import { RMA3_CAUSE_SECTIONS, type Rma3CauseSection } from "@/lib/reports/rma3-rubrics-default";
+import { codeMatchesItems, findRubricForCode, normalizeIcd10Code, parseIcd10Ranges } from "@/lib/diagnoses/icd10-ranges";
+import { RMA3_RUBRIC_SECTIONS, type Rma3RubricSection } from "@/lib/reports/rma3-rubrics-default";
+import { rma3FormSection } from "@/lib/reports/rma3-morbidity-default";
 import { cn } from "@/lib/utils";
 
 interface Rubric {
   id: string;
-  section: Rma3CauseSection;
+  section: Rma3RubricSection;
   code: string;
   label: string;
   icd10Ranges: string;
@@ -28,25 +29,28 @@ interface RubricsResponse {
   overlaps: Record<string, Array<{ category: string; rubrics: string[] }>>;
 }
 
-const SECTIONS = Object.keys(RMA3_CAUSE_SECTIONS) as Rma3CauseSection[];
+const SECTIONS = RMA3_RUBRIC_SECTIONS;
 const QUERY_KEY = ["settings", "rma3-rubrics"];
 
 type Draft = Pick<Rubric, "label" | "icd10Ranges" | "isActive">;
 
 // Settings > RMA3 : correspondance CIM-10. The administrator reviews and adjusts which
-// ICD-10 codes feed each cause of the RMA3 tables V.3 / V.4 / V.5. Changes are validated
-// and audited by the API; this page also previews where a code would be counted.
+// ICD-10 codes feed each rubric of the RMA3 tables: causes V.3 / V.4 / V.5 (one rubric per
+// diagnosis) and the morbidity sections II.2 to IV.5 (every matching rubric). Changes are
+// validated and audited by the API; this page also previews where a code would be counted.
 export default function Rma3MappingPage() {
   const t = useTranslations("settings.rma3Mapping");
   const queryClient = useQueryClient();
-  const [section, setSection] = useState<Rma3CauseSection>("V.3");
+  const [section, setSection] = useState<Rma3RubricSection>("V.3");
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [testCode, setTestCode] = useState("");
 
   const query = useQuery({ queryKey: QUERY_KEY, queryFn: () => apiFetch<RubricsResponse>("/api/v1/settings/rma3-rubrics") });
   const rubrics = query.data?.data ?? [];
   const sectionRubrics = rubrics.filter((r) => r.section === section).sort((a, b) => a.order - b.order);
-  const overlaps = query.data?.overlaps?.[section] ?? [];
+  const exclusive = SECTIONS.find((s) => s.section === section)?.exclusive ?? true;
+  // Overlaps only matter where a diagnosis is counted once (V.3-V.5).
+  const overlaps = exclusive ? query.data?.overlaps?.[section] ?? [] : [];
 
   const mutation = useMutation({
     mutationFn: ({ id, body }: { id: string; body: Partial<Draft> | { reset: true } }) =>
@@ -93,11 +97,19 @@ export default function Rma3MappingPage() {
             {!normalizedTest ? (
               <span className="text-red-600">{t("test_invalid")}</span>
             ) : (
-              SECTIONS.map((s) => {
-                const rubric = findRubricForCode(normalizedTest, rubrics.filter((r) => r.section === s));
+              SECTIONS.map(({ section: s, exclusive: isExclusive }) => {
+                const candidates = rubrics.filter((r) => r.section === s);
+                const matches = isExclusive
+                  ? [findRubricForCode(normalizedTest, candidates)].filter((r): r is Rubric => r !== null)
+                  : candidates.filter((r) => {
+                      const parsed = parseIcd10Ranges(r.icd10Ranges);
+                      return r.isActive && parsed.ok && codeMatchesItems(normalizedTest, parsed.items);
+                    });
+                // Morbidity sections without a match are noise: only cause tables show "unclassified".
+                if (!isExclusive && matches.length === 0) return null;
                 return (
-                  <span key={s} className={cn("rounded-full px-2.5 py-1", rubric ? "bg-blue-50 text-blue-800" : "bg-slate-100 text-slate-500")}>
-                    <strong>{s}</strong> : {rubric ? rubric.label : t("test_unclassified")}
+                  <span key={s} className={cn("rounded-full px-2.5 py-1", matches.length ? "bg-blue-50 text-blue-800" : "bg-slate-100 text-slate-500")}>
+                    <strong>{rma3FormSection(s)}</strong> : {matches.length ? matches.map((r) => r.label).join(" / ") : t("test_unclassified")}
                   </span>
                 );
               })
@@ -106,8 +118,8 @@ export default function Rma3MappingPage() {
         )}
       </div>
 
-      <div className="inline-flex rounded-md bg-slate-100 p-0.5" role="tablist">
-        {SECTIONS.map((s) => (
+      <div className="flex flex-wrap gap-0.5 rounded-md bg-slate-100 p-0.5" role="tablist">
+        {SECTIONS.map(({ section: s, title }) => (
           <button
             key={s}
             type="button"
@@ -116,10 +128,12 @@ export default function Rma3MappingPage() {
             onClick={() => setSection(s)}
             className={cn("rounded px-3 py-1.5 text-xs font-semibold", section === s ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700")}
           >
-            {s} — {RMA3_CAUSE_SECTIONS[s]}
+            {rma3FormSection(s)} — {title}
           </button>
         ))}
       </div>
+
+      {!exclusive && <p className="text-xs text-slate-500">{t("morbidity_hint")}</p>}
 
       {overlaps.length > 0 && (
         <div role="alert" className="flex gap-2 rounded-lg border border-orange-200 bg-orange-50 p-3 text-xs text-orange-900">
