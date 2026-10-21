@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { requireTenantAdmin } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
+import { validateExamParameters } from "@/lib/exam-catalog/validate-parameters";
 import { syncExamFeeSchedule } from "@/lib/billing/syncFeeSchedule";
 
 // GET /api/v1/settings/exam-types/[id]/entries — exams belonging to one exam type
@@ -46,12 +48,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       imagingCatalogItemId, anatomicalZoneId, requiresContrast,
     } = body as {
       code?: string; nameFr?: string; nameEn?: string; price?: number | string;
-      parameters?: { name: string; unit: string; referenceRange: string }[];
+      parameters?: unknown;
       imagingCatalogItemId?: string; anatomicalZoneId?: string; requiresContrast?: boolean;
     };
 
     if (!code?.trim() || !nameFr?.trim()) {
       return NextResponse.json({ error: "code and nameFr are required" }, { status: 400 });
+    }
+
+    // The sheet drives result entry and automatic (critical) flags — validated server-side.
+    const parsedParameters = parameters === undefined ? undefined : validateExamParameters(parameters);
+    if (parsedParameters && !parsedParameters.ok) {
+      return NextResponse.json(
+        { error: "Invalid result parameters", code: parsedParameters.code, index: parsedParameters.index },
+        { status: 400 }
+      );
     }
 
     const entry = await prisma.examCatalogEntry.create({
@@ -62,7 +73,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         nameFr: nameFr.trim(),
         nameEn: nameEn?.trim() || null,
         price: price !== undefined && price !== null && price !== "" ? Number(price) : null,
-        parameters: parameters ?? [],
+        parameters: (parsedParameters?.ok ? parsedParameters.value : []) as unknown as Prisma.InputJsonValue,
         imagingCatalogItemId: imagingCatalogItemId || null,
         anatomicalZoneId: anatomicalZoneId || null,
         requiresContrast: requiresContrast ?? null,

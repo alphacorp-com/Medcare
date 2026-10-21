@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Shield, AlertTriangle, Info, CheckCircle } from "lucide-react";
+import { auditActionLabel, auditActorLabel } from "@/components/shared/audit-format";
 
 interface AuditItem {
   id: string;
@@ -15,11 +16,6 @@ interface AuditItem {
   resourceType: string | null;
   severity: string;
 }
-
-// Audit codes double as nested translation paths ("user.login" → audit.actions.user.login).
-// Anything outside this charset is never used as a key, so a malformed code can't make
-// next-intl resolve an unrelated message.
-const AUDIT_CODE_RE = /^[a-z0-9_]+(\.[a-z0-9_]+)*$/;
 
 const MINUTE_MS = 60 * 1000;
 const HOUR_MS = 60 * MINUTE_MS;
@@ -59,16 +55,6 @@ export function AuditActivity() {
     const interval = setInterval(fetchActivities, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
-
-  const actionLabel = (code: string) => {
-    const key = `actions.${code}`;
-    if (AUDIT_CODE_RE.test(code) && ta.has(key)) return ta(key);
-    // A code added without a translation yet: show it readably rather than as a raw key.
-    return ta('unknown_action', { code: code.replace(/[._]/g, ' ') });
-  };
-
-  const actorLabel = (activity: AuditItem) =>
-    activity.user ?? (activity.actorType === 'system' ? ta('system_actor') : ta('unknown_actor'));
 
   const formatTimestamp = (timestamp: string) => {
     const date = new Date(timestamp);
@@ -122,12 +108,12 @@ export function AuditActivity() {
                   <div className="mt-0.5">{getSeverityIcon(activity.severity)}</div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2 mb-0.5">
-                      <span className="text-xs font-medium text-slate-900 truncate">{actorLabel(activity)}</span>
+                      <span className="text-xs font-medium text-slate-900 truncate">{auditActorLabel(activity.user, activity.actorType, ta)}</span>
                       <time dateTime={activity.timestamp} className="text-[10px] text-slate-500 shrink-0">
                         {formatTimestamp(activity.timestamp)}
                       </time>
                     </div>
-                    <div className="text-xs text-slate-600">{actionLabel(activity.action)}</div>
+                    <div className="text-xs text-slate-600">{auditActionLabel(activity.action, ta)}</div>
                   </div>
                 </div>
               </li>

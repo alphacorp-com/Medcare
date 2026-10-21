@@ -5,13 +5,14 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, Suspense } from "react";
 import { toast } from "sonner";
 import {
   CalendarClock, CheckCircle2, Clock, Plus, UserX, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { NewAppointmentSheet } from "./_components/NewAppointmentSheet";
 import { AppointmentDetailSheet } from "./_components/AppointmentDetailSheet";
+import { useDeepLinkedItem } from "@/hooks/use-deep-linked-item";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Appointment, Doctor } from "./types";
 
@@ -22,7 +23,7 @@ function dayBounds(date: Date) {
   return { start, end };
 }
 
-export default function AppointmentsPage() {
+function AppointmentsPageContent() {
   const t = useTranslations("appointments");
   const tc = useTranslations("common");
   const isMobile = useIsMobile();
@@ -36,6 +37,9 @@ export default function AppointmentsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isNewOpen, setIsNewOpen] = useState(false);
   const [detailAppointment, setDetailAppointment] = useState<Appointment | null>(null);
+  // ?appointment=<id> (dashboard panels) opens it once the day's list has loaded.
+  const appointmentLink = useDeepLinkedItem("appointment", appointments);
+  const openAppointment = detailAppointment ?? appointmentLink.linked;
 
   const doctorsById = useMemo(() => new Map(doctors.map((d) => [d.id, d])), [doctors]);
 
@@ -312,12 +316,26 @@ export default function AppointmentsPage() {
         onCreated={fetchAppointments}
       />
       <AppointmentDetailSheet
-        open={Boolean(detailAppointment)}
-        onOpenChange={(open) => !open && setDetailAppointment(null)}
-        appointment={detailAppointment}
+        open={Boolean(openAppointment)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDetailAppointment(null);
+            appointmentLink.dismiss();
+          }
+        }}
+        appointment={openAppointment}
         doctors={doctors}
         onUpdated={fetchAppointments}
       />
     </div>
+  );
+}
+
+// useSearchParams (dashboard deep links) needs a Suspense boundary.
+export default function AppointmentsPage() {
+  return (
+    <Suspense fallback={null}>
+      <AppointmentsPageContent />
+    </Suspense>
   );
 }

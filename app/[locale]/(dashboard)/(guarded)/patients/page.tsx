@@ -1,7 +1,7 @@
 "use client";
 
 import { useAppStore } from "@/lib/store/useAppStore";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/routing";
@@ -20,6 +20,7 @@ import { PatientsTable } from "./_components/PatientsTable";
 import StandardMobileTemplate from "@/components/layout/mobile/StandardMobileTemplate";
 import { NewPatientSheet } from "./_components/NewPatientSheet";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useDeepLinkedValue } from "@/hooks/use-deep-linked-item";
 
 // Types & Helpers
 import {
@@ -30,7 +31,7 @@ import {
   ageFromBirthDate,
 } from "./types";
 
-export default function PatientsPage() {
+function PatientsPageContent() {
   const hasModule = useAppStore((state) => state.hasModule);
   const t = useTranslations('patients');
   const tc = useTranslations('common');
@@ -39,7 +40,9 @@ export default function PatientsPage() {
 
   // UI State
   const [showFilters, setShowFilters] = useState(false);
-  const [isNewPatientOpen, setIsNewPatientOpen] = useState(false);
+  // ?new=1 (dashboard "New patient" button) opens the creation form directly.
+  const openNewFromLink = useDeepLinkedValue("new", ["1"] as const) === "1";
+  const [isNewPatientOpen, setIsNewPatientOpen] = useState(openNewFromLink);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [pdfData, setPdfData] = useState<PatientListData | null>(null);
 
@@ -361,5 +364,14 @@ export default function PatientsPage() {
 
       {isMobile ? mobile : desktop}
     </>
+  );
+}
+
+// useSearchParams (dashboard deep links) needs a Suspense boundary.
+export default function PatientsPage() {
+  return (
+    <Suspense fallback={null}>
+      <PatientsPageContent />
+    </Suspense>
   );
 }

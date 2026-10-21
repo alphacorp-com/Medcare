@@ -34,8 +34,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       }
     }
 
+    // Scoped to the caller's tenant as well: AuditLog is platform-wide, and the access check
+    // above is about the target user, not about which tenant's rows get read.
     const entries = await prisma.auditLog.findMany({
       where: {
+        tenantId: session.user.tenantId,
         OR: [
           { actorId: id },
           { resourceType: "tenant_user", resourceId: id },
@@ -47,8 +50,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
     const actorIds = Array.from(new Set(entries.map((e) => e.actorId)));
     const tenantActors = await prisma.tenantUser.findMany({
-      where: { id: { in: actorIds } },
-      select: { id: true, fullName: true, email: true },
+      where: { id: { in: actorIds }, tenantId: session.user.tenantId },
+      select: { id: true, fullName: true },
     });
     const actorNames = new Map<string, string>();
     for (const actor of tenantActors) {
@@ -61,9 +64,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       action: entry.action,
       resourceType: entry.resourceType,
       actorId: entry.actorId,
-      actorName: actorNames.get(entry.actorId) ?? "System",
+      actorType: entry.actorType,
+      // Null when there's no name to show (system actor, deleted user) — the page
+      // translates the fallback. Codes and structured payload only; the page formats them.
+      actorName: actorNames.get(entry.actorId) ?? null,
       isSelf: entry.actorId === id,
-      details: entry.payload ? JSON.stringify(entry.payload) : null,
+      payload: entry.payload,
       ipAddress: entry.ipAddress,
     }));
 

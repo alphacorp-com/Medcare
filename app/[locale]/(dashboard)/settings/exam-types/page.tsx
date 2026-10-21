@@ -6,7 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Loader2, Plus, Pencil, Trash2 } from "lucide-react";
+import { ClipboardList, Eye, Info, Loader2, Plus, Pencil, Trash2 } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { ExamParametersBuilder, ExamParametersPreview } from "@/components/settings/exam-parameters-builder";
+import type { ExamParameterDefinition } from "@/lib/exam-catalog/parameters";
+import { definitionsFromDrafts, draftsFromDefinitions, type ParameterDraft } from "@/lib/exam-catalog/parameter-drafts";
+import { validateExamParameters, type ParameterErrorCode } from "@/lib/exam-catalog/validate-parameters";
+import { LAB_PARAMETERS, RADIOLOGY_PARAMETERS } from "@/lib/exam-catalog/standard-parameters";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { SettingsPageHeader } from "@/components/settings/settings-ui";
@@ -15,10 +21,16 @@ type ExamCatalogDomain = "laboratory" | "radiology";
 type ExamType = { id: string; domain: ExamCatalogDomain; code: string; nameFr: string; nameEn: string | null; order: number; isActive: boolean; _count: { entries: number } };
 type ExamEntry = {
   id: string; code: string; nameFr: string; nameEn: string | null; price: string | number | null;
-  parameters: { name: string; unit: string; referenceRange: string }[];
+  parameters: ExamParameterDefinition[];
   imagingCatalogItemId: string | null; anatomicalZoneId: string | null; requiresContrast: boolean | null; isActive: boolean;
 };
 type RefItem = { id: string; code: string; nameFr: string };
+type EntryTab = "general" | "params" | "preview";
+
+const STANDARD_SHEETS: Record<ExamCatalogDomain, Record<string, ExamParameterDefinition[]>> = {
+  laboratory: LAB_PARAMETERS,
+  radiology: RADIOLOGY_PARAMETERS,
+};
 
 export default function ExamTypesPage() {
   const t = useTranslations("settings.examTypes");
@@ -53,6 +65,10 @@ export default function ExamTypesPage() {
   const [entryContrast, setEntryContrast] = useState(false);
   const [entryError, setEntryError] = useState<string | null>(null);
   const [isSavingEntry, setIsSavingEntry] = useState(false);
+  // Result sheet being edited (ExamCatalogEntry.parameters) and the row validation rejected.
+  const [entryDrafts, setEntryDrafts] = useState<ParameterDraft[]>([]);
+  const [entryTab, setEntryTab] = useState<EntryTab>("general");
+  const [paramErrorIndex, setParamErrorIndex] = useState<number | undefined>(undefined);
 
   const fetchTypes = async (d: ExamCatalogDomain) => {
     setIsLoadingTypes(true);
@@ -134,6 +150,7 @@ export default function ExamTypesPage() {
     setEditingEntry(null);
     setEntryCode(""); setEntryNameFr(""); setEntryNameEn(""); setEntryPrice("");
     setEntryImagingId(""); setEntryZoneId(""); setEntryContrast(false);
+    setEntryDrafts([]); setEntryTab("general"); setParamErrorIndex(undefined);
     setEntryError(null); setIsEntryFormOpen(true);
   };
 
@@ -143,16 +160,37 @@ export default function ExamTypesPage() {
     setEntryPrice(entry.price !== null ? String(entry.price) : "");
     setEntryImagingId(entry.imagingCatalogItemId ?? ""); setEntryZoneId(entry.anatomicalZoneId ?? "");
     setEntryContrast(entry.requiresContrast ?? false);
+    setEntryDrafts(draftsFromDefinitions(Array.isArray(entry.parameters) ? entry.parameters : []));
+    setEntryTab("general"); setParamErrorIndex(undefined);
     setEntryError(null); setIsEntryFormOpen(true);
+  };
+
+  // Shows a result-sheet validation error on the faulty row. `code` may come from the
+  // server response, so an unknown one falls back to the generic save error.
+  const showParamError = (code: string, index?: number) => {
+    const key = `param_errors.${code}`;
+    const message = t.has(key) ? t(key) : t("save_error");
+    setParamErrorIndex(index);
+    setEntryTab("params");
+    setEntryError(index !== undefined ? t("param_error", { index: index + 1, message }) : message);
   };
 
   const handleSaveEntry = async () => {
     if (!selectedType || !entryCode.trim() || !entryNameFr.trim()) {
+      setEntryTab("general");
       setEntryError(t("required_fields"));
+      return;
+    }
+    // Same rules as the server (lib/exam-catalog/validate-parameters.ts), checked first
+    // so the faulty row can be pointed at before anything is sent.
+    const sheet = validateExamParameters(definitionsFromDrafts(entryDrafts));
+    if (!sheet.ok) {
+      showParamError(sheet.code, sheet.index);
       return;
     }
     setIsSavingEntry(true);
     setEntryError(null);
+    setParamErrorIndex(undefined);
     try {
       const payload = {
         code: entryCode.trim(),
@@ -162,6 +200,7 @@ export default function ExamTypesPage() {
         imagingCatalogItemId: domain === "radiology" ? entryImagingId || undefined : undefined,
         anatomicalZoneId: domain === "radiology" ? entryZoneId || undefined : undefined,
         requiresContrast: domain === "radiology" ? entryContrast : undefined,
+        parameters: sheet.value,
       };
       const res = editingEntry
         ? await fetch(`/api/v1/settings/exam-entries/${editingEntry.id}`, {
@@ -172,7 +211,11 @@ export default function ExamTypesPage() {
           });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        setEntryError(body?.error || t("save_error"));
+        if (typeof body?.code === "string") {
+          showParamError(body.code as ParameterErrorCode, typeof body.index === "number" ? body.index : undefined);
+        } else {
+          setEntryError(body?.error || t("save_error"));
+        }
         return;
       }
       setIsEntryFormOpen(false);
@@ -261,6 +304,10 @@ export default function ExamTypesPage() {
                   <div>
                     <div className="font-semibold text-slate-800">{entry.nameFr}</div>
                     <div className="text-[10px] text-slate-400 font-mono">{entry.code}{entry.price ? ` — ${Number(entry.price).toLocaleString()} XAF` : ""}</div>
+                    <div className={cn("mt-0.5 inline-flex items-center gap-1 text-[10px]", entry.parameters?.length ? "text-blue-600" : "text-slate-400")}>
+                      <ClipboardList className="h-3 w-3" />
+                      {entry.parameters?.length ? t("params_count", { count: entry.parameters.length }) : t("params_free_entry")}
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <button onClick={() => openEditEntry(entry)} aria-label={tc("edit")} className="p-2 md:p-0 text-slate-400 hover:text-blue-600"><Pencil className="h-3.5 w-3.5" /></button>
@@ -292,47 +339,101 @@ export default function ExamTypesPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isEntryFormOpen} onOpenChange={setIsEntryFormOpen}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader><DialogTitle>{editingEntry ? t("edit_exam") : t("new_exam")}</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            {entryError && <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded p-2">{entryError}</div>}
-            <div className="space-y-1"><Label>{t("code")}</Label><Input value={entryCode} onChange={(e) => setEntryCode(e.target.value)} className="h-9 text-xs font-mono uppercase" /></div>
-            <div className="space-y-1"><Label>{t("name_fr")}</Label><Input value={entryNameFr} onChange={(e) => setEntryNameFr(e.target.value)} className="h-9 text-xs" /></div>
-            <div className="space-y-1"><Label>{t("name_en")}</Label><Input value={entryNameEn} onChange={(e) => setEntryNameEn(e.target.value)} className="h-9 text-xs" /></div>
-            <div className="space-y-1"><Label>{t("price")} (XAF)</Label><Input type="number" min="0" value={entryPrice} onChange={(e) => setEntryPrice(e.target.value)} className="h-9 text-xs" /></div>
+      <Sheet open={isEntryFormOpen} onOpenChange={setIsEntryFormOpen}>
+        <SheetContent className="sm:max-w-3xl p-0 flex flex-col gap-0">
+          <SheetHeader className="px-6 py-4 border-b border-slate-100 space-y-3">
+            <SheetTitle>{editingEntry ? t("edit_exam") : t("new_exam")}</SheetTitle>
+            <div className="inline-flex w-fit rounded-md bg-slate-100 p-0.5" role="tablist">
+              {([
+                ["general", Info],
+                ["params", ClipboardList],
+                ["preview", Eye],
+              ] as const).map(([tab, Icon]) => (
+                <button
+                  key={tab}
+                  type="button"
+                  role="tab"
+                  aria-selected={entryTab === tab}
+                  onClick={() => setEntryTab(tab)}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded px-3 py-1 text-xs font-medium",
+                    entryTab === tab ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {t(`tab_${tab}`)}
+                  {tab === "params" && entryDrafts.length > 0 && (
+                    <span className="rounded-full bg-blue-100 px-1.5 text-[10px] text-blue-700">{entryDrafts.length}</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </SheetHeader>
 
-            {domain === "radiology" && (
-              <>
-                <div className="space-y-1">
-                  <Label>{t("imaging_modality")}</Label>
-                  <select value={entryImagingId} onChange={(e) => setEntryImagingId(e.target.value)} className="flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-xs">
-                    <option value="">—</option>
-                    {imagingItems.map((i) => <option key={i.id} value={i.id}>{i.nameFr}</option>)}
-                  </select>
+          <div className="flex-1 overflow-y-auto bg-slate-50/60 px-4 py-4 sm:px-6 space-y-3">
+            {entryError && <div role="alert" className="text-xs text-red-700 bg-red-50 border border-red-200 rounded p-2">{entryError}</div>}
+
+            {entryTab === "general" && (
+              <div className="space-y-3 rounded-lg border border-slate-200 bg-white p-4 max-w-md">
+                <div className="space-y-1"><Label>{t("code")}</Label><Input value={entryCode} onChange={(e) => setEntryCode(e.target.value)} className="h-9 text-xs font-mono uppercase" /></div>
+                <div className="space-y-1"><Label>{t("name_fr")}</Label><Input value={entryNameFr} onChange={(e) => setEntryNameFr(e.target.value)} className="h-9 text-xs" /></div>
+                <div className="space-y-1"><Label>{t("name_en")}</Label><Input value={entryNameEn} onChange={(e) => setEntryNameEn(e.target.value)} className="h-9 text-xs" /></div>
+                <div className="space-y-1"><Label>{t("price")} (XAF)</Label><Input type="number" min="0" value={entryPrice} onChange={(e) => setEntryPrice(e.target.value)} className="h-9 text-xs" /></div>
+
+                {domain === "radiology" && (
+                  <>
+                    <div className="space-y-1">
+                      <Label>{t("imaging_modality")}</Label>
+                      <select value={entryImagingId} onChange={(e) => setEntryImagingId(e.target.value)} className="flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-xs">
+                        <option value="">—</option>
+                        {imagingItems.map((i) => <option key={i.id} value={i.id}>{i.nameFr}</option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label>{t("anatomical_zone")}</Label>
+                      <select value={entryZoneId} onChange={(e) => setEntryZoneId(e.target.value)} className="flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-xs">
+                        <option value="">—</option>
+                        {zoneItems.map((z) => <option key={z.id} value={z.id}>{z.nameFr}</option>)}
+                      </select>
+                    </div>
+                    <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
+                      <input type="checkbox" checked={entryContrast} onChange={(e) => setEntryContrast(e.target.checked)} className="h-4 w-4 rounded border-slate-300" />
+                      {t("requires_contrast")}
+                    </label>
+                  </>
+                )}
+              </div>
+            )}
+
+            {entryTab === "params" && (
+              <div className="space-y-3">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-700">{t("params_title")}</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">{t("params_desc")}</p>
                 </div>
-                <div className="space-y-1">
-                  <Label>{t("anatomical_zone")}</Label>
-                  <select value={entryZoneId} onChange={(e) => setEntryZoneId(e.target.value)} className="flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-xs">
-                    <option value="">—</option>
-                    {zoneItems.map((z) => <option key={z.id} value={z.id}>{z.nameFr}</option>)}
-                  </select>
-                </div>
-                <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
-                  <input type="checkbox" checked={entryContrast} onChange={(e) => setEntryContrast(e.target.checked)} className="h-4 w-4 rounded border-slate-300" />
-                  {t("requires_contrast")}
-                </label>
-              </>
+                <ExamParametersBuilder
+                  drafts={entryDrafts}
+                  onChange={(next) => { setEntryDrafts(next); setParamErrorIndex(undefined); }}
+                  standardSheets={STANDARD_SHEETS[domain]}
+                  errorIndex={paramErrorIndex}
+                />
+              </div>
+            )}
+
+            {entryTab === "preview" && (
+              // Remounted on every visit so it always reflects the current drafts.
+              <ExamParametersPreview definitions={definitionsFromDrafts(entryDrafts)} />
             )}
           </div>
-          <DialogFooter>
+
+          <div className="border-t border-slate-200 bg-white px-4 py-3 sm:px-6 flex justify-end gap-3">
             <Button variant="outline" onClick={() => setIsEntryFormOpen(false)}>{tc("cancel")}</Button>
             <Button disabled={isSavingEntry} onClick={handleSaveEntry} className="bg-blue-600 text-white hover:bg-blue-700">
               {isSavingEntry ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}{tc("save")}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

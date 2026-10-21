@@ -186,7 +186,7 @@ async function myAppointmentsToday({ tenantId, userId }: LoaderContext): Promise
         key: `appointment_${a.status}`,
         tone: a.status === "checked_in" ? "success" : a.status === "no_show" ? "critical" : "default",
       },
-      href: "/appointments",
+      href: `/appointments?appointment=${a.id}`,
     })),
   };
 }
@@ -206,7 +206,7 @@ async function myRecentResults({ tenantId, userId }: LoaderContext): Promise<Lis
         validatedAt: true,
         isCritical: true,
         patient: { select: PATIENT_SELECT },
-        request: { select: { examLabel: true } },
+        request: { select: { id: true, examLabel: true } },
       },
       // Critical results first, then most recent.
       orderBy: [{ isCritical: "desc" }, { validatedAt: "desc" }],
@@ -223,7 +223,7 @@ async function myRecentResults({ tenantId, userId }: LoaderContext): Promise<Lis
       subtitle: r.request.examLabel,
       timestamp: r.validatedAt?.toISOString(),
       badge: r.isCritical ? { key: "critical", tone: "critical" } : undefined,
-      href: `/patients/${r.patient.id}`,
+      href: `/laboratory?exam=${r.request.id}`,
     })),
   };
 }
@@ -289,7 +289,7 @@ async function listExamRequests(where: Prisma.ExamRequestWhereInput, viewAllHref
         badge: isCritical
           ? { key: "critical", tone: "critical" as const }
           : { key: `urgency_${e.urgency}`, tone: e.urgency === "routine" ? ("default" as const) : ("warning" as const) },
-        href: viewAllHref,
+        href: `${viewAllHref}?exam=${e.id}`,
       };
     }),
   };
@@ -315,7 +315,7 @@ async function pharmacyPendingRx({ tenantId }: LoaderContext): Promise<ListWidge
       subtitle: `#${p.patient.ipp}`,
       timestamp: p.prescribedAt.toISOString(),
       badge: { key: `rx_${p.status}`, tone: p.status === "validated" ? "success" : "warning" },
-      href: "/pharmacy",
+      href: `/pharmacy?rx=${p.id}`,
     })),
   };
 }

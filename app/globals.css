@@ -236,3 +236,33 @@
     }
   }
 }
+
+/* Printing a single card (e.g. the dashboard patient queue): the component adds
+   .printing-region to <body> and .print-region to its root for the duration of
+   window.print(), and removes both on afterprint. Everything else is hidden, and the card's
+   own scroll/height limits are lifted so every row prints. */
+@media print {
+  body.printing-region * {
+    visibility: hidden;
+  }
+
+  body.printing-region .print-region,
+  body.printing-region .print-region * {
+    visibility: visible;
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  body.printing-region .print-region {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    height: auto !important;
+    border: none;
+    box-shadow: none;
+  }
+
+  body.printing-region .print-region .print-hide {
+    display: none !important;
+  }
+}

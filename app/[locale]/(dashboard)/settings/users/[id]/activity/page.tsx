@@ -5,7 +5,7 @@ import { useRouter } from "@/i18n/routing";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Activity, ShieldAlert, Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { UserIdentityCard, type ActivityUser } from "@/components/settings/activity/user-identity-card";
 import { ActivityTimeline, type ActivityEntry } from "@/components/settings/activity/activity-timeline";
 import { ActivityExportActions } from "@/components/settings/activity/activity-export-actions";
@@ -22,6 +22,8 @@ export default function UserActivityPage() {
   const [activities, setActivities] = useState<ActivityEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [forbidden, setForbidden] = useState(false);
+  // The printable report: identity card + history, without the page chrome.
+  const reportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -55,7 +57,7 @@ export default function UserActivityPage() {
     return (
       <div className="flex flex-col items-center justify-center p-12 text-slate-500 min-h-[400px]">
         <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-        <p className="text-sm mt-4">Loading user profile...</p>
+        <p className="text-sm mt-4">{t('loading_user_profile')}</p>
       </div>
     );
   }
@@ -89,9 +91,10 @@ export default function UserActivityPage() {
         <Button variant="ghost" size="sm" onClick={() => router.push('/settings')} className="max-md:hidden text-slate-500 hover:text-slate-900 -ml-2 print:hidden">
           <ArrowLeft className="w-4 h-4 mr-2" /> {t('back_to_users')}
         </Button>
-        <ActivityExportActions user={user} activities={activities} t={t} tc={tc} />
+        <ActivityExportActions user={user} activities={activities} printTarget={reportRef} />
       </div>
 
+      <div ref={reportRef} className="space-y-6">
       <UserIdentityCard user={user} t={t} tc={tc} tr={tr} />
 
       <div className="flex items-center gap-3 pb-2 border-b border-slate-200 md:mt-8">
@@ -105,7 +108,8 @@ export default function UserActivityPage() {
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-        <ActivityTimeline activities={activities} t={t} tc={tc} />
+        <ActivityTimeline activities={activities} t={t} />
+      </div>
       </div>
 
     </div>

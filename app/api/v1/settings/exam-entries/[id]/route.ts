@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { requireTenantAdmin } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
+import { validateExamParameters } from "@/lib/exam-catalog/validate-parameters";
 import { syncExamFeeSchedule, deactivateExamFeeSchedule } from "@/lib/billing/syncFeeSchedule";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -26,16 +27,25 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       imagingCatalogItemId, anatomicalZoneId, requiresContrast, isActive,
     } = body as {
       code?: string; nameFr?: string; nameEn?: string; price?: number | string | null;
-      parameters?: { name: string; unit: string; referenceRange: string }[];
+      parameters?: unknown;
       imagingCatalogItemId?: string | null; anatomicalZoneId?: string | null; requiresContrast?: boolean | null; isActive?: boolean;
     };
+
+    // The sheet drives result entry and automatic (critical) flags — validated server-side.
+    const parsedParameters = parameters === undefined ? undefined : validateExamParameters(parameters);
+    if (parsedParameters && !parsedParameters.ok) {
+      return NextResponse.json(
+        { error: "Invalid result parameters", code: parsedParameters.code, index: parsedParameters.index },
+        { status: 400 }
+      );
+    }
 
     const data: Record<string, unknown> = {};
     if (code !== undefined) data.code = code.trim().toUpperCase();
     if (nameFr !== undefined) data.nameFr = nameFr.trim();
     if (nameEn !== undefined) data.nameEn = nameEn?.trim() || null;
     if (price !== undefined) data.price = price === null || price === "" ? null : Number(price);
-    if (parameters !== undefined) data.parameters = parameters;
+    if (parsedParameters?.ok) data.parameters = parsedParameters.value;
     if (imagingCatalogItemId !== undefined) data.imagingCatalogItemId = imagingCatalogItemId || null;
     if (anatomicalZoneId !== undefined) data.anatomicalZoneId = anatomicalZoneId || null;
     if (requiresContrast !== undefined) data.requiresContrast = requiresContrast;

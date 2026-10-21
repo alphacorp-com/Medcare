@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
+import { useRouter } from "@/i18n/routing";
 import { AlertTriangle, Package, Clock } from "lucide-react";
 
 interface StockAlert {
@@ -20,6 +21,7 @@ interface StockAlert {
 export function StockAlerts() {
   const t = useTranslations('dashboard');
   const tc = useTranslations('common');
+  const router = useRouter();
   const [alerts, setAlerts] = useState<StockAlert[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -124,7 +126,10 @@ export function StockAlerts() {
       </div>
 
       <div className="mt-3 pt-3 border-t border-slate-700">
-        <button className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold rounded uppercase tracking-widest transition-colors cursor-pointer border-none outline-none">
+        <button
+          type="button"
+          onClick={() => router.push('/pharmacy?tab=inventory')}
+          className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold rounded uppercase tracking-widest transition-colors cursor-pointer border-none outline-none">
           {t('manage_inventory')}
         </button>
       </div>

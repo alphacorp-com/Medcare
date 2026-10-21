@@ -1,7 +1,7 @@
 "use client";
 
 import { useAppStore } from "@/lib/store/useAppStore";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useTranslations } from "next-intl";
 
 // Internal Components
@@ -9,6 +9,7 @@ import { PharmacyHeader } from "./_components/PharmacyHeader";
 import { PrescriptionQueue } from "./_components/PrescriptionQueue";
 import { InventoryTab } from "./_components/InventoryTab";
 import { RxDetailSheet } from "./_components/RxDetailSheet";
+import { useDeepLinkedItem, useDeepLinkedValue } from "@/hooks/use-deep-linked-item";
 import { 
   AddMedicationSheet, 
   EditMedicationSheet, 
@@ -19,13 +20,15 @@ import {
 import { PrescriptionRow, InventoryRow, MedForm } from "./types";
 import { notifyBillingGeneratedMany } from "@/lib/billing/client";
 
-export default function PharmacyPage() {
+function PharmacyPageContent() {
   const hasModule = useAppStore((state) => state.hasModule);
   const t = useTranslations('pharmacy');
   const tc = useTranslations('common');
 
   // UI State
-  const [activeTab, setActiveTab] = useState<"prescriptions" | "inventory">("prescriptions");
+  // ?tab=inventory (dashboard stock alerts) opens the inventory tab directly.
+  const linkedTab = useDeepLinkedValue("tab", ["prescriptions", "inventory"] as const);
+  const [activeTab, setActiveTab] = useState<"prescriptions" | "inventory">(linkedTab ?? "prescriptions");
   const [rxFilter, setRxFilter] = useState("All");
   const [rxSearch, setRxSearch] = useState("");
   const [invSearch, setInvSearch] = useState("");
@@ -35,6 +38,9 @@ export default function PharmacyPage() {
   const [prescriptions, setPrescriptions] = useState<PrescriptionRow[]>([]);
   const [inventory, setInventory] = useState<InventoryRow[]>([]);
   const [loading, setLoading] = useState(true);
+  // ?rx=<id> (dashboard panels) opens that prescription once the queue has loaded.
+  const rxLink = useDeepLinkedItem("rx", prescriptions);
+  const openRx = selectedRx ?? rxLink.linked;
 
   // Medication Sheets State
   const [isAddMedOpen, setIsAddMedOpen] = useState(false);
@@ -222,8 +228,11 @@ export default function PharmacyPage() {
 
       {/* Sheets / Modals */}
       <RxDetailSheet
-        rx={selectedRx}
-        onClose={() => setSelectedRx(null)}
+        rx={openRx}
+        onClose={() => {
+          setSelectedRx(null);
+          rxLink.dismiss();
+        }}
         onValidate={handleValidateRx}
         onDispense={handleDispenseRx}
       />
@@ -256,5 +265,14 @@ export default function PharmacyPage() {
         onSubmit={handleRestock} 
       />
     </div>
+  );
+}
+
+// useSearchParams (dashboard deep links) needs a Suspense boundary.
+export default function PharmacyPage() {
+  return (
+    <Suspense fallback={null}>
+      <PharmacyPageContent />
+    </Suspense>
   );
 }

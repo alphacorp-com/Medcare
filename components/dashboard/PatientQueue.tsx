@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useTranslations } from "next-intl";
+import { useState, useEffect, useRef } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/routing";
+import { printRegion } from "@/lib/print-region";
 import { TriageBadge, type TriageAcuity } from "@/components/shared/triage-badge";
 
 interface QueueItem {
@@ -20,7 +21,10 @@ interface QueueItem {
 export function PatientQueue() {
   const t = useTranslations('dashboard');
   const tc = useTranslations('common');
+  const tp = useTranslations('patients');
+  const locale = useLocale();
   const router = useRouter();
+  const cardRef = useRef<HTMLDivElement>(null);
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -58,27 +62,25 @@ export function PatientQueue() {
   };
 
   return (
-    <div className="flex flex-col bg-white rounded border border-slate-200 shadow-sm h-full overflow-hidden">
+    <div ref={cardRef} className="flex flex-col bg-white rounded border border-slate-200 shadow-sm h-full overflow-hidden">
       <div className="p-3 lg:p-4 border-b border-slate-200 flex justify-between items-center gap-3">
         <h2 className="text-sm font-bold text-slate-800">
           {t('queue_title')}
           <span className="ml-2 px-2 py-0.5 bg-slate-100 text-slate-500 text-[10px] rounded-full font-normal italic">
-            {t('updated')} {new Date().toLocaleTimeString('en-US', {
+            {t('updated')} {new Date().toLocaleTimeString(locale, {
               hour: '2-digit',
               minute: '2-digit',
-              hour12: false,
             })}
           </span>
         </h2>
-        <div className="flex gap-2">
-          {/* <button className="p-1.5 hover:bg-slate-100 rounded border border-slate-200 text-xs">
-            {tc('search')}
-          </button> */}
+        <div className="flex gap-2 print-hide">
+          {/* Opens the patients page with its "new patient" form already open (?new=1). */}
           <button
-            onClick={() => router.push('/patients')}
+            type="button"
+            onClick={() => router.push('/patients?new=1')}
             className="p-1.5 bg-blue-600 text-white rounded text-xs px-3 hover:bg-blue-700"
           >
-            + {tc('patients')}
+            + {tp('new_patient')}
           </button>
         </div>
       </div>
@@ -134,21 +136,22 @@ export function PatientQueue() {
 
       <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-between items-center text-[11px] text-slate-500 shrink-0">
         <span>{t('showing')} {queue.length} {tc('patients')}</span>
-        <div className="flex gap-4">
-          <a
-            href="#"
-            onClick={(e) => { e.preventDefault(); router.push('/stays'); }}
-            className="text-blue-600 font-semibold cursor-pointer hover:underline"
+        <div className="flex gap-4 print-hide">
+          <button
+            type="button"
+            onClick={() => router.push('/stays')}
+            className="text-blue-600 font-semibold hover:underline"
           >
             {t('view_all')}
-          </a>
-          <a
-            href="#"
-            onClick={(e) => { e.preventDefault(); window.print(); }}
-            className="text-blue-600 font-semibold cursor-pointer hover:underline"
+          </button>
+          <button
+            type="button"
+            onClick={() => printRegion(cardRef.current)}
+            disabled={loading || queue.length === 0}
+            className="text-blue-600 font-semibold hover:underline disabled:text-slate-400 disabled:no-underline"
           >
             {tc('print')}
-          </a>
+          </button>
         </div>
       </div>
     </div>

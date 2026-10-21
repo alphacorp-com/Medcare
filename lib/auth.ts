@@ -123,6 +123,10 @@ export const authOptions: NextAuthOptions = {
                         actorId: SYSTEM_ACTOR_ID,
                         actorType: "system",
                         action: "user.login_failed",
+                        // Filed against the targeted account so the attempt shows up in that
+                        // user's activity history (GET /api/v1/users/[id]/activity).
+                        resourceType: "tenant_user",
+                        resourceId: user.id,
                         payload: { email: credentials.email },
                         ipAddress,
                         userAgent,

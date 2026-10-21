@@ -48,7 +48,9 @@ export interface NewAppointmentForm {
   patientId: string;
   doctorId: string;
   appointmentTypeCode: string;
-  scheduledAt: string;
+  // Local date (yyyy-MM-dd) and time (HH:mm), combined into an ISO instant on submit.
+  date: string;
+  time: string;
   durationMinutes: string;
   reasonForVisit: string;
   notes: string;

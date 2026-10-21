@@ -6,18 +6,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, Suspense } from "react";
 import { DEFAULT_PAGE_SIZE, paginate, PaginationBar } from "@/components/shared/pagination-bar";
 import { Search, AlertTriangle, Plus } from "lucide-react";
 import { PrescribeExamSheet } from "./_components/PrescribeExamSheet";
 import { ExamDetailSheet } from "./_components/ExamDetailSheet";
+import { useDeepLinkedItem } from "@/hooks/use-deep-linked-item";
 import { deriveWorkflowState, LabExam, LabWorkflowState, UserRef } from "./types";
 
 const FILTERS: (LabWorkflowState | "All" | "critical")[] = [
   "All", "awaiting_payment", "pending_sample", "in_analysis", "awaiting_validation", "critical",
 ];
 
-export default function LaboratoryPage() {
+function LaboratoryPageContent() {
   const t = useTranslations('lab');
   const tc = useTranslations('common');
   const hasModule = useAppStore((state) => state.hasModule);
@@ -30,6 +31,9 @@ export default function LaboratoryPage() {
   const [users, setUsers] = useState<UserRef[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedExam, setSelectedExam] = useState<LabExam | null>(null);
+  // ?exam=<id> (dashboard panels) opens that exam once the list has loaded.
+  const examLink = useDeepLinkedItem("exam", exams);
+  const openExam = selectedExam ?? examLink.linked;
   const [isPrescribeOpen, setIsPrescribeOpen] = useState(false);
 
   const usersById = useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);
@@ -264,9 +268,14 @@ export default function LaboratoryPage() {
       />
 
       <ExamDetailSheet
-        open={Boolean(selectedExam)}
-        onOpenChange={(open) => !open && setSelectedExam(null)}
-        exam={selectedExam}
+        open={Boolean(openExam)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedExam(null);
+            examLink.dismiss();
+          }
+        }}
+        exam={openExam}
         usersById={usersById}
         onUpdated={async () => {
           const list = await fetchExams();
@@ -274,5 +283,14 @@ export default function LaboratoryPage() {
         }}
       />
     </div>
+  );
+}
+
+// useSearchParams (dashboard deep links) needs a Suspense boundary.
+export default function LaboratoryPage() {
+  return (
+    <Suspense fallback={null}>
+      <LaboratoryPageContent />
+    </Suspense>
   );
 }
