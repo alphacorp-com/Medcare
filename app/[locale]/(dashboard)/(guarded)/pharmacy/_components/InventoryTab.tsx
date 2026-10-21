@@ -15,6 +15,7 @@ interface InventoryTabProps {
   onReceipt: (item: InventoryRow) => void;
   onLoss: (item: InventoryRow) => void;
   onDetail: (item: InventoryRow) => void;
+  onTransfer: (item: InventoryRow) => void;
   onEdit: (item: InventoryRow) => void;
 }
 
@@ -25,6 +26,7 @@ export function InventoryTab({
   onReceipt,
   onLoss,
   onDetail,
+  onTransfer,
   onEdit,
 }: InventoryTabProps) {
   const t = useTranslations('pharmacy');
@@ -37,11 +39,11 @@ export function InventoryTab({
 
   const filteredInventory = inventory.filter(item => {
     // Search
-    const matchesSearch = !search || 
-      item.name.toLowerCase().includes(search.toLowerCase()) || 
+    const matchesSearch = !search ||
+      item.name.toLowerCase().includes(search.toLowerCase()) ||
       item.id.toLowerCase().includes(search.toLowerCase()) ||
       item.category.toLowerCase().includes(search.toLowerCase());
-    
+
     if (!matchesSearch) return false;
 
     // Stock Filter
@@ -138,6 +140,11 @@ export function InventoryTab({
                   </td>
                   <td className="px-3 py-3 text-right font-mono font-medium sm:px-4">
                     {item.stock} <span className="text-slate-400 text-[10px] ml-1">{item.unit}</span>
+                    {item.dispensableStock !== item.stock && (
+                      <span className="block text-[10px] font-normal text-slate-500" title={ts('dispensable_hint')}>
+                        {ts('dispensable', { quantity: item.dispensableStock })}
+                      </span>
+                    )}
                   </td>
                   <td className="px-3 py-3 text-right font-mono text-slate-500 sm:px-4">
                     {item.threshold}
@@ -167,6 +174,7 @@ export function InventoryTab({
                   <td className="px-3 py-3 text-right space-x-2 whitespace-nowrap sm:px-4">
                     <button className="text-blue-600 hover:underline font-medium text-[10px] sm:text-xs" onClick={() => onReceipt(item)}>{ts('receipt_action')}</button>
                     <button className="text-red-600 hover:underline font-medium text-[10px] sm:text-xs" onClick={() => onLoss(item)}>{ts('loss_action')}</button>
+                    <button className="text-slate-600 hover:underline font-medium text-[10px] sm:text-xs" onClick={() => onTransfer(item)}>{ts('transfer_action')}</button>
                     <button className="text-slate-600 hover:underline font-medium text-[10px] sm:text-xs" onClick={() => onDetail(item)}>{ts('detail_action')}</button>
                     <button className="text-slate-500 hover:text-slate-800 hover:underline font-medium text-[10px] sm:text-xs" onClick={() => onEdit(item)}>{tc('edit')}</button>
                   </td>

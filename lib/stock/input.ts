@@ -25,6 +25,7 @@ export type StockInputError =
   | "reason_required"
   | "invalid_loss_type"
   | "invalid_lot"
+  | "invalid_location"
   | "invalid_kind";
 
 type Result<T> = { ok: true; value: T } | { ok: false; error: StockInputError };
@@ -67,7 +68,14 @@ function uuid(value: unknown): string | null {
   return typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value) ? value : null;
 }
 
+// Optional depot id: null when absent (the article's dispensing depot is used).
+function optionalLocation(value: unknown): string | null | undefined {
+  if (value === undefined || value === null || value === "") return null;
+  return uuid(value) ?? undefined;
+}
+
 export interface ReceiptInput {
+  locationId: string | null;
   lotNumber: string;
   expiryDate: Date | null;
   quantity: number;
@@ -94,12 +102,15 @@ export function parseReceipt(body: Record<string, unknown>, now = new Date()): R
   if (reason === undefined) return fail("invalid_reason");
   const at = occurredAt(body.occurredAt, now);
   if (typeof at === "string") return fail(at);
-  return { ok: true, value: { lotNumber: lotNumber.toUpperCase(), expiryDate, quantity: qty, unitCost, supplierId: uuid(body.supplierId), reason, occurredAt: at } };
+  const locationId = optionalLocation(body.locationId);
+  if (locationId === undefined) return fail("invalid_location");
+  return { ok: true, value: { locationId, lotNumber: lotNumber.toUpperCase(), expiryDate, quantity: qty, unitCost, supplierId: uuid(body.supplierId), reason, occurredAt: at } };
 }
 
 export interface LossInput {
   type: LossType;
   lotId: string | null;
+  locationId: string | null;
   quantity: number;
   reason: string;
   occurredAt: Date;
@@ -117,7 +128,32 @@ export function parseLoss(body: Record<string, unknown>, now = new Date()): Resu
   if (!reason) return fail("reason_required");
   const at = occurredAt(body.occurredAt, now);
   if (typeof at === "string") return fail(at);
-  return { ok: true, value: { type: body.type as LossType, lotId, quantity: qty, reason, occurredAt: at } };
+  const locationId = optionalLocation(body.locationId);
+  if (locationId === undefined) return fail("invalid_location");
+  return { ok: true, value: { type: body.type as LossType, lotId, locationId, quantity: qty, reason, occurredAt: at } };
+}
+
+export interface TransferInput {
+  lotId: string;
+  toLocationId: string;
+  quantity: number;
+  reason: string | null;
+  occurredAt: Date;
+}
+
+// Moves part of one lot to another depot.
+export function parseTransfer(body: Record<string, unknown>, now = new Date()): Result<TransferInput> {
+  const lotId = uuid(body.lotId);
+  if (!lotId) return fail("invalid_lot");
+  const toLocationId = uuid(body.toLocationId);
+  if (!toLocationId) return fail("invalid_location");
+  const qty = quantity(body.quantity);
+  if (qty === null) return fail("invalid_quantity");
+  const reason = text(body.reason, MAX_REASON);
+  if (reason === undefined) return fail("invalid_reason");
+  const at = occurredAt(body.occurredAt, now);
+  if (typeof at === "string") return fail(at);
+  return { ok: true, value: { lotId, toLocationId, quantity: qty, reason, occurredAt: at } };
 }
 
 export interface CountInput {
@@ -153,9 +189,24 @@ export interface ItemFields {
   supplierId: string | null;
   rma3Category: Rma3StockCategory | null;
   vaccineAntigenCode: string | null;
+  dosesPerUnit: number;
+  openVialHours: number | null;
 }
 
-export type ItemFieldError = "invalid_name" | "invalid_field" | "invalid_threshold" | "invalid_unit_price" | "invalid_rma3_category" | "stock_is_read_only";
+export type ItemFieldError =
+  | "invalid_name"
+  | "invalid_field"
+  | "invalid_threshold"
+  | "invalid_unit_price"
+  | "invalid_rma3_category"
+  | "invalid_doses_per_unit"
+  | "open_vial_hours_required"
+  | "stock_is_read_only";
+
+// Largest vial in use (e.g. BCG 20 doses) with margin; 28 days after opening at most (WHO
+// multi-dose vial policy for liquid vaccines).
+const MAX_DOSES_PER_UNIT = 50;
+const MAX_OPEN_VIAL_HOURS = 24 * 28;
 
 // Article settings (creation: every field; update: only the fields present). The stock
 // itself is never accepted here: it only changes through movements.
@@ -198,6 +249,23 @@ export function parseItemFields(
       if (!Number.isFinite(n) || n < 0 || n > 1e10) return { ok: false, error: "invalid_unit_price" };
       value.unitPrice = Math.round(n * 100) / 100;
     }
+  }
+  if (has("dosesPerUnit")) {
+    const raw = body.dosesPerUnit;
+    const doses = raw === undefined || raw === null || raw === "" ? 1 : quantity(raw);
+    if (doses === null || doses > MAX_DOSES_PER_UNIT) return { ok: false, error: "invalid_doses_per_unit" };
+    value.dosesPerUnit = doses;
+  }
+  if (has("openVialHours")) {
+    const raw = body.openVialHours;
+    const hours = raw === undefined || raw === null || raw === "" ? null : quantity(raw);
+    if (hours === null && raw !== undefined && raw !== null && raw !== "") return { ok: false, error: "open_vial_hours_required" };
+    if (hours !== null && hours > MAX_OPEN_VIAL_HOURS) return { ok: false, error: "open_vial_hours_required" };
+    value.openVialHours = hours;
+  }
+  // A multi-dose vial must say how long it may be used once opened (no guessed default).
+  if (value.dosesPerUnit !== undefined && value.dosesPerUnit > 1 && !value.openVialHours && !(partial && body.openVialHours === undefined)) {
+    return { ok: false, error: "open_vial_hours_required" };
   }
   if (has("rma3Category")) {
     const raw = body.rma3Category;

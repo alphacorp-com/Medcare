@@ -15,19 +15,17 @@ import { cn } from "@/lib/utils";
 import { notifyBillingGeneratedMany } from "@/lib/billing/client";
 import { ExamParametersTable } from "@/components/shared/exam-parameters-editor";
 import { DiagnosisEditor, toDiagnosisPayload, type DiagnosisDraft, useDiagnosisErrorMessage } from "@/components/shared/diagnosis-editor";
-import { PrescriptionSheet } from "../../stays/[id]/_components/PrescriptionSheet";
+import { EMPTY_RX_ITEM, PrescriptionSheet, prescriptionPayloadItems, usePrescriptionErrorMessage, type RxItem } from "../../stays/[id]/_components/PrescriptionSheet";
 import { MedicalOrderSheet } from "../../stays/[id]/_components/MedicalOrderSheet";
 import type {
   CatalogOption,
   Doctor,
-  InventoryItem,
   MedicalActOption,
   OrderItem,
   StayDetail,
   StayExamRequest,
 } from "../../stays/[id]/types";
 
-const EMPTY_RX = { drug: "", dosage: "", frequency: "", duration: "" };
 const EMPTY_ORDER: OrderItem = { source: "laboratory", code: "", urgency: "routine" };
 
 // The doctor's consultation workspace for one admission: the reason recorded at admission,
@@ -49,7 +47,6 @@ export default function ConsultationWorkspacePage() {
   const [error, setError] = useState<string | null>(null);
 
   const [doctors, setDoctors] = useState<Doctor[]>([]);
-  const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [labCatalog, setLabCatalog] = useState<CatalogOption[]>([]);
   const [radiologyCatalog, setRadiologyCatalog] = useState<CatalogOption[]>([]);
   const [medicalActs, setMedicalActs] = useState<MedicalActOption[]>([]);
@@ -62,7 +59,8 @@ export default function ConsultationWorkspacePage() {
 
   const [prescriptionOpen, setPrescriptionOpen] = useState(false);
   const [orderOpen, setOrderOpen] = useState(false);
-  const [rxItems, setRxItems] = useState([{ ...EMPTY_RX }]);
+  const [rxItems, setRxItems] = useState<RxItem[]>([{ ...EMPTY_RX_ITEM }]);
+  const prescriptionError = usePrescriptionErrorMessage();
   const [orderItems, setOrderItems] = useState<OrderItem[]>([{ ...EMPTY_ORDER }]);
   const [submitting, setSubmitting] = useState(false);
 
@@ -89,14 +87,12 @@ export default function ConsultationWorkspacePage() {
     void fetchStay();
     Promise.all([
       fetch("/api/v1/doctors").then((r) => r.json()),
-      fetch("/api/v1/pharmacy/inventory").then((r) => r.json()),
       fetch("/api/v1/exam-catalog?domain=laboratory").then((r) => r.json()),
       fetch("/api/v1/exam-catalog?domain=radiology").then((r) => r.json()),
       fetch("/api/v1/medical-acts").then((r) => r.json()),
     ])
-      .then(([docsJson, invJson, labJson, radioJson, actsJson]) => {
+      .then(([docsJson, labJson, radioJson, actsJson]) => {
         if (docsJson.success) setDoctors(docsJson.data);
-        if (invJson.success) setInventory(invJson.data);
         if (Array.isArray(labJson)) setLabCatalog(labJson);
         if (Array.isArray(radioJson)) setRadiologyCatalog(radioJson);
         if (Array.isArray(actsJson)) setMedicalActs(actsJson);
@@ -142,14 +138,14 @@ export default function ConsultationWorkspacePage() {
         body: JSON.stringify({
           prescriberId: prescriberFrom(formData),
           notes: formData.get("notes"),
-          items: rxItems.filter((item) => item.drug !== ""),
+          items: prescriptionPayloadItems(rxItems),
         }),
       });
       const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json.error ?? ta("error_save"));
+      if (!res.ok || !json.success) throw new Error(prescriptionError(json) ?? json.error ?? ta("error_save"));
       toast.success(t("prescription_saved"));
       setPrescriptionOpen(false);
-      setRxItems([{ ...EMPTY_RX }]);
+      setRxItems([{ ...EMPTY_RX_ITEM }]);
       void fetchStay();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : ta("error_save"));
@@ -462,7 +458,6 @@ export default function ConsultationWorkspacePage() {
         open={prescriptionOpen}
         onOpenChange={setPrescriptionOpen}
         doctors={doctors}
-        inventory={inventory}
         rxItems={rxItems}
         setRxItems={setRxItems}
         submitting={submitting}

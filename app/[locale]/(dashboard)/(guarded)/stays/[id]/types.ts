@@ -118,11 +118,6 @@ export type Department = {
   code: string;
 };
 
-export type InventoryItem = {
-  id: string;
-  name: string;
-};
-
 export type Bed = {
   id: string;
   code: string;

@@ -6,6 +6,7 @@ import prisma from "@/lib/prisma";
 import { recordAuditEvent, extractRequestMeta } from "@/lib/audit";
 import { parseItemFields } from "@/lib/stock/input";
 import { checkItemReferences } from "@/lib/stock/item-references";
+import { ensureDefaultLocation } from "@/lib/stock/locations";
 
 // ── PATCH /api/v1/pharmacy/inventory/:id ────────────────────────────────────
 // Updates the article's settings. `stock` is refused (400 stock_is_read_only): it only
@@ -41,7 +42,7 @@ export async function PATCH(
     // The edit form sends the whole row back: ignore the read-only stock when unchanged.
     const raw = { ...(body as Record<string, unknown>) };
     if (raw.stock !== undefined && Number(raw.stock) === existingItem.stock) delete raw.stock;
-    for (const key of ["id", "tenantId", "isActive", "createdAt", "updatedAt", "expiredQuantity", "expiringSoonQuantity", "nearestExpiry"]) delete raw[key];
+    for (const key of ["id", "tenantId", "isActive", "createdAt", "updatedAt", "expiredQuantity", "expiringSoonQuantity", "nearestExpiry", "dispensableStock"]) delete raw[key];
 
     const parsed = parseItemFields(raw, { partial: true });
     if (!parsed.ok) {
@@ -51,8 +52,23 @@ export async function PATCH(
     if (referenceError) {
       return NextResponse.json({ error: referenceError, code: referenceError, success: false }, { status: 400 });
     }
+    // The resulting article must stay consistent: a multi-dose vial needs its use-by time.
+    const dosesPerUnit = parsed.value.dosesPerUnit ?? existingItem.dosesPerUnit;
+    const openVialHours = parsed.value.openVialHours !== undefined ? parsed.value.openVialHours : existingItem.openVialHours;
+    if (dosesPerUnit > 1 && !openVialHours) {
+      return NextResponse.json({ error: "open_vial_hours_required", code: "open_vial_hours_required", success: false }, { status: 400 });
+    }
 
-    const item = await prisma.medicationInventory.update({ where: { id: existingItem.id }, data: parsed.value });
+    const item = await prisma.$transaction(async (tx) =>
+      tx.medicationInventory.update({
+        where: { id: existingItem.id },
+        data: {
+          ...parsed.value,
+          // Clearing the depot falls back to the main one: an article always has a dispensing depot.
+          ...(parsed.value.storageLocationId === null ? { storageLocationId: await ensureDefaultLocation(tx, tenantId) } : {}),
+        },
+      })
+    );
 
     const changed = Object.fromEntries(
       Object.entries(parsed.value).filter(([key, value]) => String(existingItem[key as keyof typeof existingItem] ?? "") !== String(value ?? ""))

@@ -91,7 +91,7 @@ function ItemFields<F extends MedForm>({ form, onUpdateForm }: { form: F; onUpda
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1">
-          <Label>{t("storage_location")}</Label>
+          <Label>{ts("dispensing_location")}</Label>
           <select value={form.storageLocationId ?? ""} onChange={(e) => onUpdateForm({ ...form, storageLocationId: e.target.value || null })} className={selectClass}>
             <option value="">—</option>
             {locations.map((loc) => (
@@ -133,7 +133,30 @@ function ItemFields<F extends MedForm>({ form, onUpdateForm }: { form: F; onUpda
           </select>
         </div>
       </div>
-      {form.vaccineAntigenCode && <p className="text-[11px] text-blue-700 bg-blue-50 border border-blue-100 rounded p-2">{ts("vaccine_antigen_hint")}</p>}
+      {form.vaccineAntigenCode && (
+        <>
+          <p className="text-[11px] text-blue-700 bg-blue-50 border border-blue-100 rounded p-2">{ts("vaccine_antigen_hint")}</p>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <Label>{ts("doses_per_unit")}</Label>
+              <Input type="number" min={1} max={50} value={form.dosesPerUnit} onChange={(e) => onUpdateForm({ ...form, dosesPerUnit: parseInt(e.target.value) || 1 })} className={fieldClass} />
+            </div>
+            <div className="space-y-1">
+              <Label>{ts("open_vial_hours")}</Label>
+              <Input
+                type="number"
+                min={1}
+                max={672}
+                value={form.openVialHours ?? ""}
+                disabled={form.dosesPerUnit <= 1}
+                onChange={(e) => onUpdateForm({ ...form, openVialHours: parseInt(e.target.value) || null })}
+                className={fieldClass}
+              />
+            </div>
+          </div>
+          {form.dosesPerUnit > 1 && <p className="text-[11px] text-slate-500">{ts("open_vial_hours_hint")}</p>}
+        </>
+      )}
     </>
   );
 }

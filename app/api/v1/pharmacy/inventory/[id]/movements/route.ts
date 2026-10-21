@@ -5,12 +5,19 @@ import { requireModulePermission } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
 import { parsePagination } from "@/lib/pagination";
 import { isExpired } from "@/lib/stock/fefo";
-import { parseCount, parseLoss, parseReceipt } from "@/lib/stock/input";
-import { StockError, consumeStock, countLot, receiveStock, stockErrorResponse } from "@/lib/stock/movements";
+import { parseCount, parseLoss, parseReceipt, parseTransfer } from "@/lib/stock/input";
+import { StockError, consumeStock, countLot, receiveStock, stockErrorResponse, transferStock } from "@/lib/stock/movements";
+
+// A depot id from the browser must be one of this tenant's active storage locations.
+async function isTenantLocation(tenantId: string, locationId: string | null): Promise<boolean> {
+  if (!locationId) return true;
+  const location = await prisma.storageLocation.findFirst({ where: { id: locationId, tenantId, isActive: true }, select: { id: true } });
+  return Boolean(location);
+}
 
 // ── GET /api/v1/pharmacy/inventory/:id/movements?page=&pageSize= ───────────
-// The article's lots still in stock (FEFO order, expired ones flagged) and its stock
-// journal, most recent first, paged.
+// The article's lots still in stock per depot (FEFO order, expired ones flagged), its open
+// multi-dose vials and its stock journal, most recent first, paged.
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -30,26 +37,32 @@ export async function GET(
     }
     const { id } = await params;
 
-    const item = await prisma.medicationInventory.findFirst({ where: { id, tenantId }, select: { id: true } });
+    const item = await prisma.medicationInventory.findFirst({ where: { id, tenantId }, select: { id: true, storageLocationId: true } });
     if (!item) {
       return NextResponse.json({ error: "Inventory item not found", success: false }, { status: 404 });
     }
 
     const { page, pageSize, skip } = parsePagination(new URL(request.url).searchParams);
-    const [lots, movements, total] = await Promise.all([
+    const now = new Date();
+    const [lots, movements, total, openVials] = await Promise.all([
       prisma.stockLot.findMany({
         where: { itemId: id, tenantId, quantity: { gt: 0 } },
         orderBy: [{ expiryDate: { sort: "asc", nulls: "last" } }, { lotNumber: "asc" }],
-        select: { id: true, lotNumber: true, expiryDate: true, quantity: true, receivedAt: true },
+        select: { id: true, lotNumber: true, expiryDate: true, quantity: true, receivedAt: true, location: { select: { id: true, name: true } } },
       }),
       prisma.stockMovement.findMany({
         where: { itemId: id, tenantId },
         orderBy: [{ occurredAt: "desc" }, { createdAt: "desc" }],
         skip,
         take: pageSize,
-        include: { lot: { select: { lotNumber: true } } },
+        include: { lot: { select: { lotNumber: true } }, location: { select: { name: true } } },
       }),
       prisma.stockMovement.count({ where: { itemId: id, tenantId } }),
+      prisma.stockOpenVial.findMany({
+        where: { itemId: id, tenantId, closedAt: null, discardAt: { gt: now } },
+        orderBy: { openedAt: "asc" },
+        select: { id: true, dosesPerVial: true, dosesUsed: true, openedAt: true, discardAt: true, lot: { select: { lotNumber: true } } },
+      }),
     ]);
 
     const userIds = [...new Set(movements.map((m) => m.recordedById))];
@@ -59,13 +72,15 @@ export async function GET(
     });
     const userNames = new Map(users.map((u) => [u.id, u.fullName]));
 
-    const now = new Date();
     return NextResponse.json({
-      lots: lots.map((lot) => ({ ...lot, isExpired: isExpired(lot.expiryDate, now) })),
-      data: movements.map(({ lot, ...m }) => ({
+      dispensingLocationId: item.storageLocationId,
+      lots: lots.map(({ location, ...lot }) => ({ ...lot, locationId: location.id, locationName: location.name, isExpired: isExpired(lot.expiryDate, now) })),
+      openVials: openVials.map(({ lot, ...vial }) => ({ ...vial, lotNumber: lot.lotNumber, dosesLeft: vial.dosesPerVial - vial.dosesUsed })),
+      data: movements.map(({ lot, location, ...m }) => ({
         ...m,
         unitCost: m.unitCost === null ? null : Number(m.unitCost),
         lotNumber: lot?.lotNumber ?? null,
+        locationName: location.name,
         recordedByName: userNames.get(m.recordedById) ?? null,
       })),
       total,
@@ -80,9 +95,11 @@ export async function GET(
 }
 
 // ── POST /api/v1/pharmacy/inventory/:id/movements ───────────────────────────
-// Body: { kind: "receipt", lotNumber, expiryDate?, quantity, unitCost?, supplierId?, reason?, occurredAt? }
-//     | { kind: "loss", type: "expired"|"damaged"|"lost", lotId?, quantity, reason, occurredAt? }
+// Body: { kind: "receipt", locationId?, lotNumber, expiryDate?, quantity, unitCost?, supplierId?, reason?, occurredAt? }
+//     | { kind: "loss", type: "expired"|"damaged"|"lost", lotId? | locationId?, quantity, reason, occurredAt? }
+//     | { kind: "transfer", lotId, toLocationId, quantity, reason?, occurredAt? }
 //     | { kind: "count", lotId, countedQuantity, reason }
+// locationId defaults to the article's dispensing depot.
 // Every quantity is validated server-side and applied by lib/stock in one transaction.
 export async function POST(
   request: Request,
@@ -119,16 +136,25 @@ export async function POST(
           const supplier = await prisma.supplier.findFirst({ where: { id: parsed.value.supplierId, tenantId }, select: { id: true } });
           if (!supplier) return invalid("unknown_supplier");
         }
+        if (!(await isTenantLocation(tenantId, parsed.value.locationId))) return invalid("unknown_storage_location");
         const movement = await prisma.$transaction((tx) => receiveStock(tx, { ...actor, itemId, ...parsed.value }));
         return NextResponse.json({ data: movement, success: true }, { status: 201 });
       }
       if (input.kind === "loss") {
         const parsed = parseLoss(input);
         if (!parsed.ok) return invalid(parsed.error);
+        if (!(await isTenantLocation(tenantId, parsed.value.locationId))) return invalid("unknown_storage_location");
         const result = await prisma.$transaction((tx) =>
           consumeStock(tx, { ...actor, itemId, ...parsed.value, sourceType: "stock_loss" })
         );
         return NextResponse.json({ data: result, success: true }, { status: 201 });
+      }
+      if (input.kind === "transfer") {
+        const parsed = parseTransfer(input);
+        if (!parsed.ok) return invalid(parsed.error);
+        if (!(await isTenantLocation(tenantId, parsed.value.toLocationId))) return invalid("unknown_storage_location");
+        const lot = await prisma.$transaction((tx) => transferStock(tx, { ...actor, itemId, ...parsed.value }));
+        return NextResponse.json({ data: lot, success: true }, { status: 201 });
       }
       if (input.kind === "count") {
         const parsed = parseCount(input);

@@ -5,7 +5,22 @@ import { requireModulePermission } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
 import { ageInDaysAt } from "@/lib/patients/age";
 import { randomUUID } from "node:crypto";
-import { StockError, consumeStock, stockErrorResponse } from "@/lib/stock/movements";
+import { StockError, stockErrorResponse } from "@/lib/stock/movements";
+import { administerVaccineDose } from "@/lib/stock/vaccines";
+
+// The form sends a calendar date: today means "now" (the order of the doses matters for
+// multi-dose vials), an earlier day is recorded at noon UTC. Never in the future.
+function administrationDate(value: unknown, now: Date): Date | null {
+  if (value === undefined || value === null || value === "") return now;
+  if (typeof value !== "string") return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    if (value === now.toISOString().slice(0, 10)) return now;
+    const day = new Date(`${value}T12:00:00Z`);
+    return Number.isNaN(day.getTime()) || day > now ? null : day;
+  }
+  const at = new Date(value);
+  return Number.isNaN(at.getTime()) || at.getTime() > now.getTime() + 5 * 60_000 ? null : at;
+}
 
 // ── GET /api/v1/patients/:id/immunizations ──────────────────────────────────
 // Immunization history for a patient, most recent first.
@@ -97,9 +112,9 @@ export async function POST(
       return NextResponse.json({ error: "Unknown antigen code", success: false }, { status: 400 });
     }
 
-    const eventDate = administeredAt ? new Date(administeredAt) : new Date();
-    if (Number.isNaN(eventDate.getTime())) {
-      return NextResponse.json({ error: "Invalid administeredAt", success: false }, { status: 400 });
+    const eventDate = administrationDate(administeredAt, new Date());
+    if (!eventDate) {
+      return NextResponse.json({ error: "invalid_date", code: "invalid_date", success: false }, { status: 400 });
     }
 
     // Is this antigen supplied from the stock? Then the lot must be one of its lots.
@@ -143,20 +158,17 @@ export async function POST(
     try {
       immunization = await prisma.$transaction(async (tx) => {
         if (!stockLot) return tx.immunization.create({ data });
-        const { allocations } = await consumeStock(tx, {
+        // One dose: a unit of the lot, or the next dose of the lot's open multi-dose vial.
+        const dose = await administerVaccineDose(tx, {
           tenantId,
           userId: session.user.id,
           itemId: stockLot.itemId,
           lotId: stockLot.id,
-          quantity: 1,
-          type: "vaccination",
-          sourceType: "immunization",
-          sourceId: immunizationId,
-          occurredAt: eventDate,
+          immunizationId,
+          at: eventDate,
         });
-        const [taken] = allocations;
         return tx.immunization.create({
-          data: { ...data, stockLotId: stockLot.id, lotNumber: taken.lotNumber, expiryDate: taken.expiryDate },
+          data: { ...data, stockLotId: stockLot.id, stockOpenVialId: dose.openVialId, lotNumber: dose.lotNumber, expiryDate: dose.expiryDate },
         });
       });
     } catch (error) {

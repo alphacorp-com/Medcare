@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { parseCount, parseItemFields, parseLoss, parseReceipt } from "@/lib/stock/input";
+import { parseCount, parseItemFields, parseLoss, parseReceipt, parseTransfer } from "@/lib/stock/input";
 
 const now = new Date("2026-10-22T09:30:00Z");
 const LOT_ID = "3f2c1a9e-5b6d-4c7e-8f90-1a2b3c4d5e6f";
@@ -71,5 +71,23 @@ describe("parseItemFields", () => {
   it("only touches the fields sent on update", () => {
     const r = parseItemFields({ threshold: 5 }, { partial: true });
     assert.deepEqual(r, { ok: true, value: { threshold: 5 } });
+  });
+});
+
+describe("parseTransfer", () => {
+  it("requires a lot, a destination depot and a quantity", () => {
+    assert.deepEqual(parseTransfer({ toLocationId: LOT_ID, quantity: 1 }, now), { ok: false, error: "invalid_lot" });
+    assert.deepEqual(parseTransfer({ lotId: LOT_ID, quantity: 1 }, now), { ok: false, error: "invalid_location" });
+    assert.ok(parseTransfer({ lotId: LOT_ID, toLocationId: LOT_ID, quantity: 4 }, now).ok);
+  });
+});
+
+describe("multi-dose vials", () => {
+  it("require the use-by time of an opened vial", () => {
+    assert.deepEqual(parseItemFields({ name: "VPO", dosesPerUnit: 20 }, { partial: false }), { ok: false, error: "open_vial_hours_required" });
+    assert.deepEqual(parseItemFields({ name: "VPO", dosesPerUnit: 0 }, { partial: false }), { ok: false, error: "invalid_doses_per_unit" });
+    const r = parseItemFields({ name: "VPO", dosesPerUnit: 20, openVialHours: 672 }, { partial: false });
+    assert.ok(r.ok);
+    assert.equal(r.value.dosesPerUnit, 20);
   });
 });

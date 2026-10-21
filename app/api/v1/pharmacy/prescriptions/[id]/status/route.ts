@@ -8,13 +8,11 @@ import prisma from "@/lib/prisma";
 import { Prisma, type PrescriptionStatus } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import { StockError, consumeStock, stockErrorResponse } from "@/lib/stock/movements";
+import { lineDrugName, lineUnits, parseStoredLines, resolveLineArticle, type StoredPrescriptionLine } from "@/lib/stock/prescription-items";
 
-interface PharmacyPrescriptionItem {
-  drug?: string;
-  name?: string;
-  quantity?: number | string;
-  unit?: string;
-}
+// A line the prescriber marked as a drug the pharmacy does not stock (inventoryId: null):
+// neither billed nor dispensed by the pharmacy.
+const isUnstockedLine = (line: StoredPrescriptionLine) => "inventoryId" in line && !line.inventoryId;
 
 function slugifyDrugName(name: string): string {
   return name
@@ -65,14 +63,7 @@ export async function PATCH(
 
     const tenantId = session.user.tenantId;
 
-    let itemsList: PharmacyPrescriptionItem[] = [];
-    try {
-      if (typeof currentRx.items === 'string') {
-        itemsList = JSON.parse(currentRx.items);
-      } else if (Array.isArray(currentRx.items)) {
-        itemsList = currentRx.items as unknown as PharmacyPrescriptionItem[];
-      }
-    } catch (e) {}
+    const itemsList = parseStoredLines(currentRx.items);
 
     let billing: unknown = null;
 
@@ -97,11 +88,12 @@ export async function PATCH(
           where: { isActive: true, tenantId },
           select: { id: true, name: true, unitPrice: true }
         });
-        const inventoryMap = new Map(inventory.map(i => [i.name.toLowerCase(), i]));
+        const inventoryById = new Map(inventory.map((i) => [i.id, i]));
+        const inventoryByName = new Map(inventory.map((i) => [i.name.toLowerCase(), i]));
 
-        const lines = itemsList.map((item) => {
-          const drugName = item.drug || item.name || '';
-          const invItem = inventoryMap.get(drugName.toLowerCase());
+        const lines = itemsList.filter((item) => !isUnstockedLine(item)).map((item) => {
+          const drugName = lineDrugName(item);
+          const invItem = resolveLineArticle(item, inventoryById, inventoryByName);
           const drugCode = invItem?.id || slugifyDrugName(drugName);
           const quantity = parseFloat(String(item.quantity)) || 0;
           return {
@@ -159,29 +151,33 @@ export async function PATCH(
             where: { isActive: true, tenantId },
             select: { id: true, name: true },
           });
-          const inventoryMap = new Map(inventory.map((i) => [i.name.toLowerCase(), i]));
+          const inventoryById = new Map(inventory.map((i) => [i.id, i]));
+          const inventoryByName = new Map(inventory.map((i) => [i.name.toLowerCase(), i]));
 
           const dispensings: Prisma.DrugDispensingCreateManyInput[] = [];
           const dispensedAt = new Date();
+          // The article comes from the line's inventoryId (name only for pre-rule lines).
           // Articles are locked in id order, so two dispensings sharing drugs always lock them
           // in the same order and can't deadlock.
-          const inventoryIdOf = (item: PharmacyPrescriptionItem) => inventoryMap.get((item.drug || item.name || '').toLowerCase())?.id ?? '';
-          const orderedItems = [...itemsList].sort((a, b) => inventoryIdOf(a).localeCompare(inventoryIdOf(b)));
-          for (const item of orderedItems) {
-            const drugName = item.drug || item.name || '';
-            const invItem = inventoryMap.get(drugName.toLowerCase());
+          const resolved = itemsList
+            .filter((item) => !isUnstockedLine(item))
+            .map((item) => ({ item, article: resolveLineArticle(item, inventoryById, inventoryByName) }))
+            .sort((a, b) => (a.article?.id ?? '').localeCompare(b.article?.id ?? ''));
+          for (const { item, article: invItem } of resolved) {
+            const drugName = lineDrugName(item);
             const quantity = parseFloat(String(item.quantity)) || 0;
             const dispensingId = randomUUID();
             let lot: { lotNumber: string; expiryDate: Date | null } | null = null;
 
-            if (invItem && quantity > 0) {
+            const units = lineUnits(item);
+            if (invItem && units > 0) {
               // Stock is counted in whole units: a fractional quantity consumes the unit it
               // was taken from (never overstate what's left on the shelf).
               const { allocations } = await consumeStock(tx, {
                 tenantId,
                 userId: session.user.id,
                 itemId: invItem.id,
-                quantity: Math.ceil(quantity),
+                quantity: units,
                 type: "dispensing",
                 sourceType: "drug_dispensing",
                 sourceId: dispensingId,

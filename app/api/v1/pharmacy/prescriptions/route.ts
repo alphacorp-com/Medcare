@@ -5,13 +5,8 @@ import { requireModulePermission } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
 import { parsePagination } from "@/lib/pagination";
 import type { Prisma, PrescriptionStatus } from "@prisma/client";
-
-interface PharmacyPrescriptionItem {
-  drug?: string;
-  name?: string;
-  quantity?: number | string;
-  unit?: string;
-}
+import { loadDispensableStock } from "@/lib/stock/availability";
+import { lineDrugName, parseStoredLines, resolveLineArticle } from "@/lib/stock/prescription-items";
 
 // The pharmacy queue's three tabs, as stored statuses.
 const LIST_STATUSES: PrescriptionStatus[] = ["pending", "validated", "dispensed"];
@@ -69,15 +64,11 @@ export async function GET(req: Request) {
       prisma.prescription.groupBy({ by: ["status"], where: tenantScope, _count: true }),
     ]);
 
-    const parseItems = (items: unknown): PharmacyPrescriptionItem[] => {
-      try {
-        if (typeof items === "string") return JSON.parse(items);
-        return Array.isArray(items) ? (items as PharmacyPrescriptionItem[]) : [];
-      } catch {
-        return [];
-      }
-    };
-    const drugNames = [...new Set(prescriptions.flatMap((rx) => parseItems(rx.items).map((i) => (i.drug || i.name || "").trim()).filter(Boolean)))];
+    const parseItems = parseStoredLines;
+    const allLines = prescriptions.flatMap((rx) => parseItems(rx.items));
+    // Pre-rule lines are matched by name; current ones (and seed lines) by article id.
+    const drugNames = [...new Set(allLines.filter((l) => !("inventoryId" in l)).map(lineDrugName).filter(Boolean))];
+    const articleIds = [...new Set(allLines.flatMap((l) => [l.inventoryId, l.drugCode]).filter((id): id is string => typeof id === "string" && /^[0-9a-f-]{36}$/i.test(id)))];
     const prescriberIds = [...new Set(prescriptions.map((rx) => rx.prescriberId))];
     const rxIds = prescriptions.map((rx) => rx.id);
 
@@ -92,14 +83,17 @@ export async function GET(req: Request) {
             select: { id: true, fullName: true },
           })
         : [],
-      drugNames.length
+      drugNames.length || articleIds.length
         ? prisma.medicationInventory.findMany({
             where: {
               isActive: true,
               tenantId: session.user.tenantId,
-              OR: drugNames.map((name) => ({ name: { equals: name, mode: "insensitive" as const } })),
+              OR: [
+                ...(articleIds.length ? [{ id: { in: articleIds } }] : []),
+                ...drugNames.map((name) => ({ name: { equals: name, mode: "insensitive" as const } })),
+              ],
             },
-            select: { id: true, name: true, stock: true, unitPrice: true },
+            select: { id: true, name: true, stock: true, unitPrice: true, storageLocationId: true },
           })
         : [],
       rxIds.length
@@ -114,7 +108,10 @@ export async function GET(req: Request) {
     ]);
 
     const doctorMap = new Map(doctors.map(d => [d.id, d.fullName]));
-    const inventoryMap = new Map(inventory.map(i => [i.name.toLowerCase(), i]));
+    const inventoryById = new Map(inventory.map((i) => [i.id, i]));
+    const inventoryByName = new Map(inventory.map((i) => [i.name.toLowerCase(), i]));
+    // What can really be handed out: non-expired lots of the article's dispensing depot.
+    const dispensable = session.user.tenantId ? await loadDispensableStock(session.user.tenantId, inventory) : new Map<string, number>();
 
     const invoiceLinesByRx = new Map<string, typeof invoiceLines>();
     for (const line of invoiceLines) {
@@ -131,8 +128,7 @@ export async function GET(req: Request) {
 
       // Enrich items with stock status and pricing
       const enrichedItems = itemsList.map((item) => {
-        const drugName = item.drug || item.name || '';
-        const invItem = inventoryMap.get(drugName.toLowerCase());
+        const invItem = resolveLineArticle(item, inventoryById, inventoryByName);
         let stockStatus: 'in_stock' | 'out_of_stock' | 'not_in_inventory' = 'not_in_inventory';
         let inventoryStock = 0;
         let unitPrice: number | null = null;
@@ -140,9 +136,11 @@ export async function GET(req: Request) {
 
         if (invItem) {
           inventoryId = invItem.id;
-          inventoryStock = invItem.stock;
+          inventoryStock = dispensable.get(invItem.id) ?? 0;
           unitPrice = invItem.unitPrice ? parseFloat(invItem.unitPrice.toString()) : null;
-          stockStatus = invItem.stock > 0 ? 'in_stock' : 'out_of_stock';
+          // Enough for this line (whole units), not merely "some left".
+          const needed = Math.ceil(parseFloat(String(item.quantity)) || 0);
+          stockStatus = inventoryStock > 0 && inventoryStock >= needed ? 'in_stock' : 'out_of_stock';
         }
 
         return {

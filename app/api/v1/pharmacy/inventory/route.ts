@@ -7,13 +7,16 @@ import { recordAuditEvent, extractRequestMeta } from "@/lib/audit";
 import { isExpired } from "@/lib/stock/fefo";
 import { parseItemFields } from "@/lib/stock/input";
 import { checkItemReferences } from "@/lib/stock/item-references";
+import { loadDispensableStock } from "@/lib/stock/availability";
+import { ensureDefaultLocation } from "@/lib/stock/locations";
 
 // Lots expiring within this many days are flagged in the inventory.
 const EXPIRY_WARNING_DAYS = 90;
 
 // ── GET /api/v1/pharmacy/inventory ──────────────────────────────────────────
 // Active articles with, per article, the expired quantity still on the shelf, the quantity
-// expiring within 90 days and the nearest expiry date of the usable lots.
+// expiring within 90 days, the nearest expiry date of the usable lots and the dispensable
+// stock (non-expired lots of the dispensing depot).
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
@@ -53,8 +56,10 @@ export async function GET() {
       summary.set(lot.itemId, s);
     }
 
+    const dispensable = await loadDispensableStock(tenantId, inventory, now);
     const data = inventory.map((item) => ({
       ...item,
+      dispensableStock: dispensable.get(item.id) ?? 0,
       expiredQuantity: summary.get(item.id)?.expiredQuantity ?? 0,
       expiringSoonQuantity: summary.get(item.id)?.expiringSoonQuantity ?? 0,
       nearestExpiry: summary.get(item.id)?.nearestExpiry ?? null,
@@ -99,9 +104,12 @@ export async function POST(request: Request) {
     }
 
     const { name, ...fields } = parsed.value;
-    const item = await prisma.medicationInventory.create({
-      data: { tenantId, name: name!, ...fields, stock: 0 },
-    });
+    // Every article has a dispensing depot (the main one when none is chosen).
+    const item = await prisma.$transaction(async (tx) =>
+      tx.medicationInventory.create({
+        data: { tenantId, name: name!, ...fields, storageLocationId: fields.storageLocationId ?? (await ensureDefaultLocation(tx, tenantId)), stock: 0 },
+      })
+    );
 
     await recordAuditEvent({
       tenantId,

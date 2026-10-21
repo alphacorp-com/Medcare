@@ -12,7 +12,7 @@ import { PaginationBar } from "@/components/shared/pagination-bar";
 import { useStockErrorMessage } from "@/components/shared/use-stock-error-message";
 import { apiFetch } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
-import type { InventoryRow, StockLotRow, StockMovementRow, SupplierOption } from "../types";
+import type { InventoryRow, OpenVialRow, StockLotRow, StockMovementRow, StorageLocationOption, SupplierOption } from "../types";
 
 // Receipt, loss and stock detail (lots, inventory count, journal) of one article. Every
 // quantity is applied server-side by lib/stock; these sheets only collect the input.
@@ -21,7 +21,9 @@ const INVENTORY_KEY = ["pharmacy", "inventory"];
 const movementsKey = (itemId: string | undefined) => ["pharmacy", "inventory", itemId, "movements"];
 
 interface MovementsResponse {
+  dispensingLocationId: string | null;
   lots: StockLotRow[];
+  openVials: OpenVialRow[];
   data: StockMovementRow[];
   total: number;
 }
@@ -75,15 +77,18 @@ function useLotsAndMovements(item: InventoryRow | null, page = 1, pageSize = 10)
 export function ReceiptSheet({
   item,
   suppliers,
+  locations,
   onOpenChange,
 }: {
   item: InventoryRow | null;
   suppliers: SupplierOption[];
+  locations: StorageLocationOption[];
   onOpenChange: (open: boolean) => void;
 }) {
   const t = useTranslations("stock");
   const tc = useTranslations("common");
-  const empty = { lotNumber: "", expiryDate: "", quantity: "", unitCost: "", supplierId: "", occurredAt: today(), reason: "" };
+  // locationId "" = the article's dispensing depot (resolved by the server).
+  const empty = { locationId: "", lotNumber: "", expiryDate: "", quantity: "", unitCost: "", supplierId: "", occurredAt: today(), reason: "" };
   const [form, setForm] = useState(empty);
   const close = () => {
     setForm(empty);
@@ -126,6 +131,14 @@ export function ReceiptSheet({
               </select>
             </Field>
           </div>
+          <Field label={t("receiving_location")}>
+            <select value={form.locationId} onChange={(e) => setForm({ ...form, locationId: e.target.value })} className={selectClass}>
+              <option value="">{t("dispensing_location_default")}</option>
+              {locations.filter((l) => l.id !== item?.storageLocationId).map((l) => (
+                <option key={l.id} value={l.id}>{l.name}</option>
+              ))}
+            </select>
+          </Field>
           <Field label={t("reference")} hint={t("reference_hint")}>
             <Input value={form.reason} maxLength={255} onChange={(e) => setForm({ ...form, reason: e.target.value })} className={fieldClass} />
           </Field>
@@ -164,7 +177,9 @@ export function LossSheet({ item, onOpenChange }: { item: InventoryRow | null; o
   const lots = lotsQuery.data?.lots ?? [];
   const selectedLot = lots.find((l) => l.id === form.lotId);
   const quantity = Number(form.quantity);
-  const max = selectedLot ? selectedLot.quantity : item?.stock ?? 0;
+  // Without a lot, the loss is taken FEFO from the dispensing depot's lots.
+  const dispensingLots = lots.filter((l) => l.locationId === lotsQuery.data?.dispensingLocationId);
+  const max = selectedLot ? selectedLot.quantity : dispensingLots.reduce((sum, l) => sum + l.quantity, 0);
   const valid = Number.isInteger(quantity) && quantity > 0 && quantity <= max && form.reason.trim() !== "";
 
   return (
@@ -196,7 +211,7 @@ export function LossSheet({ item, onOpenChange }: { item: InventoryRow | null; o
               <option value="">{t("lot_auto")}</option>
               {lots.map((lot) => (
                 <option key={lot.id} value={lot.id}>
-                  {lot.lotNumber} — {lot.quantity} · {lot.expiryDate ? format.dateTime(new Date(lot.expiryDate), { dateStyle: "short", timeZone: "UTC" }) : t("no_expiry")}
+                  {lot.lotNumber} · {lot.locationName} — {lot.quantity} · {lot.expiryDate ? format.dateTime(new Date(lot.expiryDate), { dateStyle: "short", timeZone: "UTC" }) : t("no_expiry")}
                   {lot.isExpired ? ` (${t("expired_badge")})` : ""}
                 </option>
               ))}
@@ -222,6 +237,122 @@ export function LossSheet({ item, onOpenChange }: { item: InventoryRow | null; o
         </SheetFooter>
       </SheetContent>
     </Sheet>
+  );
+}
+
+// ── Transfer between depots ─────────────────────────────────────────────────
+
+export function TransferSheet({
+  item,
+  locations,
+  onOpenChange,
+}: {
+  item: InventoryRow | null;
+  locations: StorageLocationOption[];
+  onOpenChange: (open: boolean) => void;
+}) {
+  const t = useTranslations("stock");
+  const tc = useTranslations("common");
+  const format = useFormatter();
+  const empty = { lotId: "", toLocationId: "", quantity: "", reason: "", occurredAt: today() };
+  const [form, setForm] = useState(empty);
+  const close = () => {
+    setForm(empty);
+    onOpenChange(false);
+  };
+  const mutation = useRecordMovement(item, close);
+  const lotsQuery = useLotsAndMovements(item, 1, 1);
+  const lots = lotsQuery.data?.lots ?? [];
+  const lot = lots.find((l) => l.id === form.lotId);
+  const quantity = Number(form.quantity);
+  const valid = Boolean(lot) && form.toLocationId !== "" && form.toLocationId !== lot?.locationId && Number.isInteger(quantity) && quantity > 0 && quantity <= (lot?.quantity ?? 0);
+
+  return (
+    <Sheet open={Boolean(item)} onOpenChange={(open) => (open ? null : close())}>
+      <SheetContent className="sm:max-w-md w-full p-0 flex flex-col bg-slate-50">
+        <SheetHeader className="p-4 border-b border-slate-200 bg-white shrink-0">
+          <SheetTitle className="text-lg">{t("transfer_title")}</SheetTitle>
+          <SheetDescription className="text-xs">{t("transfer_desc", { name: item?.name ?? "" })}</SheetDescription>
+        </SheetHeader>
+        <div className="p-4 flex-1 overflow-y-auto space-y-4">
+          <Field label={t("lot")}>
+            <select value={form.lotId} onChange={(e) => setForm({ ...form, lotId: e.target.value, toLocationId: "" })} className={selectClass}>
+              <option value="">{tc("select_placeholder")}</option>
+              {lots.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.lotNumber} · {l.locationName} — {l.quantity} · {l.expiryDate ? format.dateTime(new Date(l.expiryDate), { dateStyle: "short", timeZone: "UTC" }) : t("no_expiry")}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label={t("destination")}>
+            <select value={form.toLocationId} onChange={(e) => setForm({ ...form, toLocationId: e.target.value })} className={selectClass} disabled={!lot}>
+              <option value="">{tc("select_placeholder")}</option>
+              {locations.filter((l) => l.id !== lot?.locationId).map((l) => (
+                <option key={l.id} value={l.id}>{l.name}{l.id === item?.storageLocationId ? ` (${t("dispensing_badge")})` : ""}</option>
+              ))}
+            </select>
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label={t("quantity_lost", { max: lot?.quantity ?? 0 })}>
+              <Input type="number" min={1} max={lot?.quantity ?? 0} step={1} value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} className={cn(fieldClass, "font-mono")} />
+            </Field>
+            <Field label={t("occurred_on")}>
+              <Input type="date" max={today()} value={form.occurredAt} onChange={(e) => setForm({ ...form, occurredAt: e.target.value })} className={fieldClass} />
+            </Field>
+          </div>
+          <Field label={t("reference")}>
+            <Input value={form.reason} maxLength={255} onChange={(e) => setForm({ ...form, reason: e.target.value })} className={fieldClass} />
+          </Field>
+        </div>
+        <SheetFooter className="p-4 border-t border-slate-200 bg-white shrink-0">
+          <Button variant="outline" className="text-xs h-8" onClick={close} disabled={mutation.isPending}>{tc("cancel")}</Button>
+          <Button className="text-xs h-8 bg-blue-600 hover:bg-blue-700" disabled={!valid || mutation.isPending} onClick={() => mutation.mutate({ kind: "transfer", ...form })}>
+            {mutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : t("record_transfer")}
+          </Button>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+// Open multi-dose vials of the article, with a discard action (doses left = wastage).
+function OpenVials({ vials }: { vials: OpenVialRow[] }) {
+  const t = useTranslations("stock");
+  const format = useFormatter();
+  const queryClient = useQueryClient();
+  const stockError = useStockErrorMessage();
+  const discard = useMutation({
+    mutationFn: (id: string) => apiFetch(`/api/v1/stock/open-vials/${id}/discard`, { method: "POST" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: INVENTORY_KEY }),
+    onError: (error) => toast.error(stockError(error instanceof Error ? error.message : null) ?? t("save_error")),
+  });
+  if (vials.length === 0) return null;
+  return (
+    <section className="space-y-2">
+      <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{t("open_vials_title")}</h3>
+      <ul className="space-y-1">
+        {vials.map((vial) => (
+          <li key={vial.id} className="flex flex-wrap items-center justify-between gap-2 rounded border border-slate-200 bg-white px-3 py-2 text-xs">
+            <span>
+              <span className="font-mono font-semibold">{vial.lotNumber}</span> — {t("open_vial_doses", { left: vial.dosesLeft, total: vial.dosesPerVial })} ·{" "}
+              {t("open_vial_until", { at: format.dateTime(new Date(vial.discardAt), { dateStyle: "short", timeStyle: "short" }) })}
+            </span>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 px-2 text-[11px] text-red-600"
+              disabled={discard.isPending}
+              onClick={() => {
+                if (window.confirm(t("open_vial_discard_confirm", { left: vial.dosesLeft }))) discard.mutate(vial.id);
+              }}
+            >
+              {t("open_vial_discard")}
+            </Button>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -292,6 +423,7 @@ export function StockDetailSheet({ item, onOpenChange }: { item: InventoryRow | 
                       <thead className="bg-slate-50 text-[10px] uppercase text-slate-500">
                         <tr>
                           <th className="px-3 py-2">{t("lot_number")}</th>
+                          <th className="px-3 py-2">{t("location")}</th>
                           <th className="px-3 py-2">{t("expiry_date")}</th>
                           <th className="px-3 py-2 text-right">{t("quantity")}</th>
                           <th className="px-3 py-2 text-right">{t("count_column")}</th>
@@ -301,6 +433,12 @@ export function StockDetailSheet({ item, onOpenChange }: { item: InventoryRow | 
                         {lots.map((lot) => (
                           <tr key={lot.id} className={cn(lot.isExpired && "bg-red-50/60")}>
                             <td className="px-3 py-2 font-mono">{lot.lotNumber}</td>
+                            <td className="px-3 py-2">
+                              {lot.locationName}
+                              {lot.locationId === query.data?.dispensingLocationId && (
+                                <span className="ml-1 rounded bg-blue-50 px-1 py-0.5 text-[10px] font-semibold text-blue-700">{t("dispensing_badge")}</span>
+                              )}
+                            </td>
                             <td className="px-3 py-2">
                               {lot.expiryDate ? date(lot.expiryDate) : t("no_expiry")}
                               {lot.isExpired && <span className="ml-2 rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-700">{t("expired_badge")}</span>}
@@ -314,6 +452,8 @@ export function StockDetailSheet({ item, onOpenChange }: { item: InventoryRow | 
                   </div>
                 )}
               </section>
+
+              <OpenVials vials={query.data?.openVials ?? []} />
 
               <section className="space-y-2">
                 <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{t("journal_title")}</h3>
@@ -340,7 +480,10 @@ export function StockDetailSheet({ item, onOpenChange }: { item: InventoryRow | 
                               <span className="font-semibold text-slate-700">{t(`movement_${m.type}`)}</span>
                               {m.reason && <span className="block text-[10px] text-slate-400">{m.reason}</span>}
                             </td>
-                            <td className="px-3 py-2 font-mono">{m.lotNumber ?? "—"}</td>
+                            <td className="px-3 py-2">
+                              <span className="font-mono">{m.lotNumber ?? "—"}</span>
+                              <span className="block text-[10px] text-slate-400">{m.locationName}</span>
+                            </td>
                             <td className={cn("px-3 py-2 text-right font-mono font-semibold", m.quantity > 0 ? "text-green-700" : "text-red-700")}>
                               {m.quantity > 0 ? `+${m.quantity}` : m.quantity}
                             </td>

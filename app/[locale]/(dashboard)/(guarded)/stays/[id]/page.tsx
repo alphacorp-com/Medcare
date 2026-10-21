@@ -14,7 +14,7 @@ import { StayTabs } from "./_components/StayTabs";
 import { TransferSheet } from "./_components/TransferSheet";
 import { RetriageSheet } from "./_components/RetriageSheet";
 import { DischargeSheet, dischargePayload } from "./_components/DischargeSheet";
-import { PrescriptionSheet } from "./_components/PrescriptionSheet";
+import { EMPTY_RX_ITEM, PrescriptionSheet, prescriptionPayloadItems, usePrescriptionErrorMessage, type RxItem } from "./_components/PrescriptionSheet";
 import { MedicalOrderSheet } from "./_components/MedicalOrderSheet";
 import { VitalsSheet } from "./_components/VitalsSheet";
 import { HospitalizationSheet } from "./_components/HospitalizationSheet";
@@ -27,7 +27,7 @@ import { EMPTY_VITALS, VitalsForm } from "@/components/shared/vitals-fields";
 import { notifyBillingGenerated } from "@/lib/billing/client";
 
 // Types
-import { StayDetail, Doctor, Department, InventoryItem, Bed, CatalogOption, MedicalActOption, OrderItem } from "./types";
+import { StayDetail, Doctor, Department, Bed, CatalogOption, MedicalActOption, OrderItem } from "./types";
 import type { TriageAcuity } from "@/components/shared/triage-badge";
 
 export default function AdmissionDetailPage() {
@@ -49,7 +49,6 @@ export default function AdmissionDetailPage() {
   // Reference Data
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [beds, setBeds] = useState<Bed[]>([]);
   const [labCatalog, setLabCatalog] = useState<CatalogOption[]>([]);
   const [radiologyCatalog, setRadiologyCatalog] = useState<CatalogOption[]>([]);
@@ -66,7 +65,8 @@ export default function AdmissionDetailPage() {
   const [noteOpen, setNoteOpen] = useState(false);
   const [recordPdf, setRecordPdf] = useState<MedicalRecordData | null>(null);
   const [vitalsForm, setVitalsForm] = useState<VitalsForm>(EMPTY_VITALS);
-  const [rxItems, setRxItems] = useState([{ drug: "", dosage: "", frequency: "", duration: "" }]);
+  const [rxItems, setRxItems] = useState<RxItem[]>([{ ...EMPTY_RX_ITEM }]);
+  const prescriptionError = usePrescriptionErrorMessage();
   const [orderItems, setOrderItems] = useState<OrderItem[]>([{ source: "laboratory", code: "", urgency: "routine" }]);
 
   const fetchStay = async () => {
@@ -84,19 +84,17 @@ export default function AdmissionDetailPage() {
 
   const fetchData = async () => {
     try {
-      const [docsRes, deptsRes, invRes, bedsRes, labRes, radioRes, actsRes] = await Promise.all([
+      const [docsRes, deptsRes, bedsRes, labRes, radioRes, actsRes] = await Promise.all([
         fetch('/api/v1/doctors'),
         fetch('/api/v1/departments'),
-        fetch('/api/v1/pharmacy/inventory'),
         fetch('/api/v1/settings/beds'),
         fetch('/api/v1/exam-catalog?domain=laboratory'),
         fetch('/api/v1/exam-catalog?domain=radiology'),
         fetch('/api/v1/medical-acts'),
       ]);
-      const [docsJson, deptsJson, invJson, bedsJson, labJson, radioJson, actsJson] = await Promise.all([
+      const [docsJson, deptsJson, bedsJson, labJson, radioJson, actsJson] = await Promise.all([
         docsRes.json(),
         deptsRes.json(),
-        invRes.json(),
         bedsRes.json(),
         labRes.json(),
         radioRes.json(),
@@ -104,7 +102,6 @@ export default function AdmissionDetailPage() {
       ]);
       if (docsJson.success) setDoctors(docsJson.data);
       if (deptsJson.success) setDepartments(deptsJson.data);
-      if (invJson.success) setInventory(invJson.data);
       if (Array.isArray(bedsJson)) setBeds(bedsJson);
       if (Array.isArray(labJson)) setLabCatalog(labJson);
       if (Array.isArray(radioJson)) setRadiologyCatalog(radioJson);
@@ -201,7 +198,7 @@ export default function AdmissionDetailPage() {
     const data = {
       prescriberId: formData.get("prescriberId"),
       notes: formData.get("notes"),
-      items: rxItems.filter(item => item.drug !== ""),
+      items: prescriptionPayloadItems(rxItems),
     };
 
     try {
@@ -211,10 +208,10 @@ export default function AdmissionDetailPage() {
         body: JSON.stringify(data),
       });
       const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json.error ?? t('error_save'));
+      if (!res.ok || !json.success) throw new Error(prescriptionError(json) ?? json.error ?? t('error_save'));
       toast.success(t('save_prescription'));
       setPrescriptionOpen(false);
-      setRxItems([{ drug: "", dosage: "", frequency: "", duration: "" }]);
+      setRxItems([{ ...EMPTY_RX_ITEM }]);
       fetchStay();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t('error_save'));
@@ -412,7 +409,6 @@ export default function AdmissionDetailPage() {
         open={prescriptionOpen} 
         onOpenChange={setPrescriptionOpen} 
         doctors={doctors} 
-        inventory={inventory} 
         rxItems={rxItems} 
         setRxItems={setRxItems} 
         submitting={submitting} 

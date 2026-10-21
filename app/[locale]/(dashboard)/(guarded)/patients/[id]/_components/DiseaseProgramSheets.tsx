@@ -1,7 +1,7 @@
 "use client";
 
 import { useFormatter, useTranslations } from "next-intl";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,7 +34,15 @@ interface NewImmunizationSheetProps {
   onSubmit: () => Promise<void>;
 }
 
-type VaccineLotOption = { id: string; itemName: string; lotNumber: string; expiryDate: string | null; quantity: number };
+type VaccineLotOption = {
+  id: string;
+  itemName: string;
+  lotNumber: string;
+  expiryDate: string | null;
+  quantity: number;
+  dosesPerUnit: number;
+  openVial: { id: string; dosesLeft: number; discardAt: string } | null;
+};
 
 export function NewImmunizationSheet({
   open, onOpenChange, form, onUpdateForm, antigens, saving, error, onSubmit,
@@ -52,6 +60,12 @@ export function NewImmunizationSheet({
   });
   const managed = lotsQuery.data?.managed ?? false;
   const lots = lotsQuery.data?.data ?? [];
+  const selectedLot = lots.find((lot) => lot.id === form.stockLotId);
+  // End of session / contamination: the vial's remaining doses are recorded as wasted.
+  const discardVial = useMutation({
+    mutationFn: (vialId: string) => apiFetch(`/api/v1/stock/open-vials/${vialId}/discard`, { method: "POST" }),
+    onSuccess: () => lotsQuery.refetch(),
+  });
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -105,12 +119,35 @@ export function NewImmunizationSheet({
                   <option value="">{tc('select_placeholder')}</option>
                   {lots.map((lot) => (
                     <option key={lot.id} value={lot.id}>
-                      {lot.lotNumber} — {lot.itemName} · {lot.quantity} · {lot.expiryDate ? format.dateTime(new Date(lot.expiryDate), { dateStyle: "short", timeZone: "UTC" }) : ts('no_expiry')}
+                      {lot.lotNumber} — {lot.itemName} · {lot.openVial ? ts('vaccine_open_vial_option', { doses: lot.openVial.dosesLeft }) : ts('vaccine_vials_option', { vials: lot.quantity })} · {lot.expiryDate ? format.dateTime(new Date(lot.expiryDate), { dateStyle: "short", timeZone: "UTC" }) : ts('no_expiry')}
                     </option>
                   ))}
                 </select>
               )}
               <p className="text-[10px] text-slate-400">{ts('vaccine_lot_hint')}</p>
+              {selectedLot?.openVial && (
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded border border-blue-100 bg-blue-50 p-2 text-[11px] text-blue-800">
+                  <span>
+                    {ts('vaccine_open_vial_info', {
+                      doses: selectedLot.openVial.dosesLeft,
+                      at: format.dateTime(new Date(selectedLot.openVial.discardAt), { dateStyle: "short", timeStyle: "short" }),
+                    })}
+                  </span>
+                  <button
+                    type="button"
+                    className="font-semibold text-red-600 hover:underline disabled:opacity-50"
+                    disabled={discardVial.isPending}
+                    onClick={() => {
+                      if (window.confirm(ts('open_vial_discard_confirm', { left: selectedLot.openVial!.dosesLeft }))) discardVial.mutate(selectedLot.openVial!.id);
+                    }}
+                  >
+                    {ts('open_vial_discard')}
+                  </button>
+                </div>
+              )}
+              {selectedLot && !selectedLot.openVial && selectedLot.dosesPerUnit > 1 && (
+                <p className="text-[11px] text-slate-500">{ts('vaccine_opens_vial', { doses: selectedLot.dosesPerUnit })}</p>
+              )}
             </div>
           ) : (
             <div className="space-y-1">
