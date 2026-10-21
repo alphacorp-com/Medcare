@@ -1,4 +1,5 @@
 import type { VitalsForm } from "@/components/shared/vitals-fields";
+import type { DiagnosisDraft } from "@/components/shared/diagnosis-editor";
 
 export type EmergencyContact = { name?: string; relation?: string; phone?: string };
 
@@ -74,8 +75,9 @@ export type NewMedRecordForm = {
   title: string;
   content: string;
   stayId: string;
-  authorId: string;
   isSigned: boolean;
+  // Coded diagnoses — required (principal) to sign a consultation.
+  diagnoses: DiagnosisDraft[];
 };
 
 export type StayRow = {
@@ -198,6 +200,8 @@ export type NewImmunizationForm = {
   antigenCode: string;
   doseNumber: string;
   administeredAt: string;
+  // Lot taken from the stock when the antigen is managed in stock; free text otherwise.
+  stockLotId: string;
   lotNumber: string;
   notes: string;
 };

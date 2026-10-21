@@ -14,19 +14,18 @@ import { TriageBadge } from "@/components/shared/triage-badge";
 import { cn } from "@/lib/utils";
 import { notifyBillingGeneratedMany } from "@/lib/billing/client";
 import { ExamParametersTable } from "@/components/shared/exam-parameters-editor";
-import { PrescriptionSheet } from "../../stays/[id]/_components/PrescriptionSheet";
+import { DiagnosisEditor, toDiagnosisPayload, type DiagnosisDraft, useDiagnosisErrorMessage } from "@/components/shared/diagnosis-editor";
+import { EMPTY_RX_ITEM, PrescriptionSheet, prescriptionPayloadItems, usePrescriptionErrorMessage, type RxItem } from "../../stays/[id]/_components/PrescriptionSheet";
 import { MedicalOrderSheet } from "../../stays/[id]/_components/MedicalOrderSheet";
 import type {
   CatalogOption,
   Doctor,
-  InventoryItem,
   MedicalActOption,
   OrderItem,
   StayDetail,
   StayExamRequest,
 } from "../../stays/[id]/types";
 
-const EMPTY_RX = { drug: "", dosage: "", frequency: "", duration: "" };
 const EMPTY_ORDER: OrderItem = { source: "laboratory", code: "", urgency: "routine" };
 
 // The doctor's consultation workspace for one admission: the reason recorded at admission,
@@ -36,6 +35,7 @@ const EMPTY_ORDER: OrderItem = { source: "laboratory", code: "", urgency: "routi
 // consultation and takes the patient out of the queue.
 export default function ConsultationWorkspacePage() {
   const t = useTranslations("consultations");
+  const diagnosisError = useDiagnosisErrorMessage();
   const ta = useTranslations("admissions");
   const tc = useTranslations("common");
   const router = useRouter();
@@ -47,18 +47,20 @@ export default function ConsultationWorkspacePage() {
   const [error, setError] = useState<string | null>(null);
 
   const [doctors, setDoctors] = useState<Doctor[]>([]);
-  const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [labCatalog, setLabCatalog] = useState<CatalogOption[]>([]);
   const [radiologyCatalog, setRadiologyCatalog] = useState<CatalogOption[]>([]);
   const [medicalActs, setMedicalActs] = useState<MedicalActOption[]>([]);
 
   const [noteTitle, setNoteTitle] = useState("");
   const [noteContent, setNoteContent] = useState("");
+  // Coded diagnoses (ICD-10): the principal one is required to sign (RMA3 causes of consultation).
+  const [diagnoses, setDiagnoses] = useState<DiagnosisDraft[]>([]);
   const [signing, setSigning] = useState(false);
 
   const [prescriptionOpen, setPrescriptionOpen] = useState(false);
   const [orderOpen, setOrderOpen] = useState(false);
-  const [rxItems, setRxItems] = useState([{ ...EMPTY_RX }]);
+  const [rxItems, setRxItems] = useState<RxItem[]>([{ ...EMPTY_RX_ITEM }]);
+  const prescriptionError = usePrescriptionErrorMessage();
   const [orderItems, setOrderItems] = useState<OrderItem[]>([{ ...EMPTY_ORDER }]);
   const [submitting, setSubmitting] = useState(false);
 
@@ -85,14 +87,12 @@ export default function ConsultationWorkspacePage() {
     void fetchStay();
     Promise.all([
       fetch("/api/v1/doctors").then((r) => r.json()),
-      fetch("/api/v1/pharmacy/inventory").then((r) => r.json()),
       fetch("/api/v1/exam-catalog?domain=laboratory").then((r) => r.json()),
       fetch("/api/v1/exam-catalog?domain=radiology").then((r) => r.json()),
       fetch("/api/v1/medical-acts").then((r) => r.json()),
     ])
-      .then(([docsJson, invJson, labJson, radioJson, actsJson]) => {
+      .then(([docsJson, labJson, radioJson, actsJson]) => {
         if (docsJson.success) setDoctors(docsJson.data);
-        if (invJson.success) setInventory(invJson.data);
         if (Array.isArray(labJson)) setLabCatalog(labJson);
         if (Array.isArray(radioJson)) setRadiologyCatalog(radioJson);
         if (Array.isArray(actsJson)) setMedicalActs(actsJson);
@@ -107,6 +107,7 @@ export default function ConsultationWorkspacePage() {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setNoteTitle(saved.title ?? "");
         setNoteContent(saved.content ?? "");
+        if (Array.isArray(saved.diagnoses)) setDiagnoses(saved.diagnoses);
       }
     } catch {
       // Storage unavailable — the draft simply isn't restored.
@@ -115,12 +116,13 @@ export default function ConsultationWorkspacePage() {
 
   useEffect(() => {
     try {
-      if (noteTitle || noteContent) localStorage.setItem(draftKey, JSON.stringify({ title: noteTitle, content: noteContent }));
-      else localStorage.removeItem(draftKey);
+      if (noteTitle || noteContent || diagnoses.length) {
+        localStorage.setItem(draftKey, JSON.stringify({ title: noteTitle, content: noteContent, diagnoses }));
+      } else localStorage.removeItem(draftKey);
     } catch {
       // Storage unavailable — nothing to persist to.
     }
-  }, [draftKey, noteTitle, noteContent]);
+  }, [draftKey, noteTitle, noteContent, diagnoses]);
 
   // Defaults to the signed-in doctor when the sheet's prescriber picker is left empty.
   const prescriberFrom = (formData: FormData) => (formData.get("prescriberId") as string) || session?.user?.id;
@@ -136,14 +138,14 @@ export default function ConsultationWorkspacePage() {
         body: JSON.stringify({
           prescriberId: prescriberFrom(formData),
           notes: formData.get("notes"),
-          items: rxItems.filter((item) => item.drug !== ""),
+          items: prescriptionPayloadItems(rxItems),
         }),
       });
       const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json.error ?? ta("error_save"));
+      if (!res.ok || !json.success) throw new Error(prescriptionError(json) ?? json.error ?? ta("error_save"));
       toast.success(t("prescription_saved"));
       setPrescriptionOpen(false);
-      setRxItems([{ ...EMPTY_RX }]);
+      setRxItems([{ ...EMPTY_RX_ITEM }]);
       void fetchStay();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : ta("error_save"));
@@ -181,8 +183,10 @@ export default function ConsultationWorkspacePage() {
     }
   };
 
+  const hasPrincipalDiagnosis = diagnoses.some((d) => d.kind === "principal");
+
   const handleSign = async () => {
-    if (!stay || !session?.user?.id || !noteContent.trim()) return;
+    if (!stay || !session?.user?.id || !noteContent.trim() || !hasPrincipalDiagnosis) return;
     if (!window.confirm(t("confirm_sign"))) return;
     setSigning(true);
     try {
@@ -199,10 +203,11 @@ export default function ConsultationWorkspacePage() {
           isSigned: true,
           signedAt: now,
           signedBy: session.user.id,
+          diagnoses: toDiagnosisPayload(diagnoses),
         }),
       });
       const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json.error ?? ta("error_save"));
+      if (!res.ok || !json.success) throw new Error(diagnosisError(json) ?? json.error ?? ta("error_save"));
       try {
         localStorage.removeItem(draftKey);
       } catch {
@@ -412,11 +417,15 @@ export default function ConsultationWorkspacePage() {
               disabled={readOnly}
               className="min-h-[280px] w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400 disabled:bg-slate-50"
             />
+            <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-3 space-y-2">
+              <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t("diagnoses_title")}</h3>
+              <DiagnosisEditor value={diagnoses} onChange={setDiagnoses} required={!readOnly} disabled={readOnly} />
+            </div>
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-[11px] text-slate-400">{t("draft_hint")}</p>
               <Button
                 className="bg-blue-600 hover:bg-blue-700"
-                disabled={readOnly || signing || !noteContent.trim()}
+                disabled={readOnly || signing || !noteContent.trim() || !hasPrincipalDiagnosis}
                 onClick={handleSign}
               >
                 {signing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <FileSignature className="h-4 w-4 mr-2" />}
@@ -449,7 +458,6 @@ export default function ConsultationWorkspacePage() {
         open={prescriptionOpen}
         onOpenChange={setPrescriptionOpen}
         doctors={doctors}
-        inventory={inventory}
         rxItems={rxItems}
         setRxItems={setRxItems}
         submitting={submitting}

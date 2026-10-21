@@ -17,14 +17,13 @@ import { PrescriptionQueue } from "./_components/PrescriptionQueue";
 import { InventoryTab } from "./_components/InventoryTab";
 import { RxDetailSheet } from "./_components/RxDetailSheet";
 import { useDeepLinkedValue } from "@/hooks/use-deep-linked-item";
-import { 
-  AddMedicationSheet, 
-  EditMedicationSheet, 
-  RestockSheet 
-} from "./_components/InventorySheets";
+import { AddMedicationSheet, EditMedicationSheet, useInventoryReferences } from "./_components/InventorySheets";
+import { LossSheet, ReceiptSheet, StockDetailSheet, TransferSheet } from "./_components/StockSheets";
+import { StockReportTab } from "./_components/StockReportTab";
+import { useStockErrorMessage } from "@/components/shared/use-stock-error-message";
 
 // Types
-import { PrescriptionRow, InventoryRow, MedForm } from "./types";
+import { PrescriptionRow, InventoryRow, MedForm, PharmacyTab } from "./types";
 import { notifyBillingGeneratedMany } from "@/lib/billing/client";
 
 type PrescriptionListResponse = PagedResponse<PrescriptionRow, Partial<Record<"pending" | "validated" | "dispensed", number>>>;
@@ -34,6 +33,7 @@ const RX_FILTER_STATUS: Record<string, string | undefined> = {
   Validated: "validated",
   Dispensed: "dispensed",
 };
+const EMPTY_MED_FORM: MedForm = { name: '', manufacturer: '', category: '', threshold: 0, unit: '', unitPrice: null, storageLocationId: null, supplierId: null, rma3Category: null, vaccineAntigenCode: null, dosesPerUnit: 1, openVialHours: null };
 const rxKeys = {
   all: ["pharmacy", "prescriptions"] as const,
   one: (id: string | null) => ["pharmacy", "prescriptions", "one", id] as const,
@@ -43,11 +43,12 @@ function PharmacyPageContent() {
   const hasModule = useAppStore((state) => state.hasModule);
   const t = useTranslations('pharmacy');
   const tc = useTranslations('common');
+  const stockError = useStockErrorMessage();
 
   // UI State
   // ?tab=inventory (dashboard stock alerts) opens the inventory tab directly.
-  const linkedTab = useDeepLinkedValue("tab", ["prescriptions", "inventory"] as const);
-  const [activeTab, setActiveTab] = useState<"prescriptions" | "inventory">(linkedTab ?? "prescriptions");
+  const linkedTab = useDeepLinkedValue("tab", ["prescriptions", "inventory", "report"] as const);
+  const [activeTab, setActiveTab] = useState<PharmacyTab>(linkedTab ?? "prescriptions");
   const [rxFilter, setRxFilter] = useState("All");
   const [rxSearch, setRxSearch] = useState("");
   const [invSearch, setInvSearch] = useState("");
@@ -93,19 +94,23 @@ function PharmacyPageContent() {
 
   // Medication Sheets State
   const [isAddMedOpen, setIsAddMedOpen] = useState(false);
-  const [medForm, setMedForm] = useState<MedForm>({ name: '', manufacturer: '', category: '', stock: 0, threshold: 0, unit: '', unitPrice: null, storageLocationId: null, supplierId: null });
+  const [medForm, setMedForm] = useState<MedForm>(EMPTY_MED_FORM);
   const [savingMed, setSavingMed] = useState(false);
+  const [medError, setMedError] = useState<string | null>(null);
 
   const [editMedOpen, setEditMedOpen] = useState(false);
   const [editMedForm, setEditMedForm] = useState<InventoryRow | null>(null);
   const [savingEditMed, setSavingEditMed] = useState(false);
+  const [editMedError, setEditMedError] = useState<string | null>(null);
 
-  const [restockOpen, setRestockOpen] = useState(false);
-  const [restockMed, setRestockMed] = useState<InventoryRow | null>(null);
-  const [restockAmount, setRestockAmount] = useState(0);
-  const [savingRestock, setSavingRestock] = useState(false);
+  // Stock movements of one article (receipt, loss) and its lots/journal.
+  const [receiptItem, setReceiptItem] = useState<InventoryRow | null>(null);
+  const [lossItem, setLossItem] = useState<InventoryRow | null>(null);
+  const [detailItem, setDetailItem] = useState<InventoryRow | null>(null);
+  const [transferItem, setTransferItem] = useState<InventoryRow | null>(null);
+  const { suppliers, locations } = useInventoryReferences();
 
-  // Called after adding, editing or restocking a medication.
+  // Called after adding or editing a medication.
   const fetchInventory = () => queryClient.invalidateQueries({ queryKey: ["pharmacy", "inventory"] });
 
   // ── Handlers ───────────────────────────────────────────────────────────────
@@ -138,9 +143,10 @@ function PharmacyPageContent() {
         body: JSON.stringify({ status: 'dispensed' })
       });
       if (!res.ok) {
-        // e.g. 409 when it was already dispensed, or 400 while the invoice is unpaid.
+        // e.g. 409 when it was already dispensed or a drug lacks usable stock, or 400 while
+        // the invoice is unpaid.
         const json = await res.json().catch(() => ({}));
-        toast.error(json?.error || tc("unknown_error"));
+        toast.error(stockError(json) ?? (json?.error || tc("unknown_error")));
       }
       await refreshPrescriptions();
     } catch {
@@ -150,6 +156,7 @@ function PharmacyPageContent() {
 
   const handleSaveMed = async () => {
     setSavingMed(true);
+    setMedError(null);
     try {
       const res = await fetch('/api/v1/pharmacy/inventory', {
         method: 'POST',
@@ -158,9 +165,14 @@ function PharmacyPageContent() {
       });
       if (res.ok) {
         setIsAddMedOpen(false);
-        setMedForm({ name: '', manufacturer: '', category: '', stock: 0, threshold: 0, unit: '', unitPrice: null, storageLocationId: null, supplierId: null });
+        setMedForm(EMPTY_MED_FORM);
         fetchInventory();
+      } else {
+        const json = await res.json().catch(() => ({}));
+        setMedError(stockError(json) ?? (json?.error || tc("unknown_error")));
       }
+    } catch {
+      setMedError(tc("unknown_error"));
     } finally {
       setSavingMed(false);
     }
@@ -169,6 +181,7 @@ function PharmacyPageContent() {
   const handleUpdateMed = async () => {
     if (!editMedForm) return;
     setSavingEditMed(true);
+    setEditMedError(null);
     try {
       const res = await fetch(`/api/v1/pharmacy/inventory/${editMedForm.id}`, {
         method: 'PATCH',
@@ -178,7 +191,12 @@ function PharmacyPageContent() {
       if (res.ok) {
         setEditMedOpen(false);
         fetchInventory();
+      } else {
+        const json = await res.json().catch(() => ({}));
+        setEditMedError(stockError(json) ?? (json?.error || tc("unknown_error")));
       }
+    } catch {
+      setEditMedError(tc("unknown_error"));
     } finally {
       setSavingEditMed(false);
     }
@@ -192,24 +210,6 @@ function PharmacyPageContent() {
   const handleExportInventory = () => {
     // TODO: Export inventory to PDF
     console.log('Export inventory');
-  };
-
-  const handleRestock = async () => {
-    if (!restockMed) return;
-    setSavingRestock(true);
-    try {
-      const res = await fetch(`/api/v1/pharmacy/inventory/${restockMed.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stock: restockMed.stock + restockAmount })
-      });
-      if (res.ok) {
-        setRestockOpen(false);
-        fetchInventory();
-      }
-    } finally {
-      setSavingRestock(false);
-    }
   };
 
   // ── Guard ──────────────────────────────────────────────────────────────────
@@ -231,22 +231,22 @@ function PharmacyPageContent() {
   return (
     <div className="flex flex-col h-full space-y-4">
       {/* Header */}
-      <PharmacyHeader 
-        tab={activeTab} 
-        onTabChange={setActiveTab} 
-        onAddMedication={() => setIsAddMedOpen(true)}
+      <PharmacyHeader
+        tab={activeTab}
+        onTabChange={setActiveTab}
+        onAddMedication={() => { setMedError(null); setIsAddMedOpen(true); }}
         onExportRx={handleExportRx}
         onExportInventory={handleExportInventory}
       />
 
       {/* Main Content */}
       {activeTab === "prescriptions" && (
-        <PrescriptionQueue 
-          prescriptions={prescriptions} 
-          filter={rxFilter} 
-          search={rxSearch} 
-          onSelectRx={(rx) => setSelectedRxId(rx.id)} 
-          onAction={(rx) => setSelectedRxId(rx.id)} 
+        <PrescriptionQueue
+          prescriptions={prescriptions}
+          filter={rxFilter}
+          search={rxSearch}
+          onSelectRx={(rx) => setSelectedRxId(rx.id)}
+          onAction={(rx) => setSelectedRxId(rx.id)}
           counts={rxQuery.data?.counts}
           setFilter={(next) => { setRxFilter(next); setRxPage(1); }}
           setSearch={(next) => { setRxSearch(next); setRxPage(1); }}
@@ -263,12 +263,15 @@ function PharmacyPageContent() {
       )}
 
       {activeTab === "inventory" && (
-        <InventoryTab 
-          inventory={inventory} 
-          search={invSearch} 
-          setSearch={setInvSearch} 
-          onRestock={(item) => { setRestockMed(item); setRestockAmount(0); setRestockOpen(true); }} 
-          onEdit={(item) => { setEditMedForm(item); setEditMedOpen(true); }} 
+        <InventoryTab
+          inventory={inventory}
+          search={invSearch}
+          setSearch={setInvSearch}
+          onReceipt={setReceiptItem}
+          onLoss={setLossItem}
+          onDetail={setDetailItem}
+          onTransfer={setTransferItem}
+          onEdit={(item) => { setEditMedForm(item); setEditMedError(null); setEditMedOpen(true); }}
         />
       )}
 
@@ -283,33 +286,32 @@ function PharmacyPageContent() {
         onDispense={handleDispenseRx}
       />
 
-      <AddMedicationSheet 
-        open={isAddMedOpen} 
-        onOpenChange={setIsAddMedOpen} 
-        form={medForm} 
-        onUpdateForm={setMedForm} 
-        saving={savingMed} 
-        onSubmit={handleSaveMed} 
+      <AddMedicationSheet
+        open={isAddMedOpen}
+        onOpenChange={setIsAddMedOpen}
+        form={medForm}
+        onUpdateForm={setMedForm}
+        saving={savingMed}
+        error={medError}
+        onSubmit={handleSaveMed}
       />
 
-      <EditMedicationSheet 
-        open={editMedOpen} 
-        onOpenChange={setEditMedOpen} 
-        form={editMedForm} 
-        onUpdateForm={setEditMedForm} 
-        saving={savingEditMed} 
-        onSubmit={handleUpdateMed} 
+      <EditMedicationSheet
+        open={editMedOpen}
+        onOpenChange={setEditMedOpen}
+        form={editMedForm}
+        onUpdateForm={setEditMedForm}
+        saving={savingEditMed}
+        error={editMedError}
+        onSubmit={handleUpdateMed}
       />
 
-      <RestockSheet 
-        open={restockOpen} 
-        onOpenChange={setRestockOpen} 
-        med={restockMed} 
-        amount={restockAmount} 
-        onAmountChange={setRestockAmount} 
-        saving={savingRestock} 
-        onSubmit={handleRestock} 
-      />
+      {activeTab === "report" && <StockReportTab />}
+
+      <ReceiptSheet item={receiptItem} suppliers={suppliers} locations={locations} onOpenChange={() => setReceiptItem(null)} />
+      <TransferSheet item={transferItem} locations={locations} onOpenChange={() => setTransferItem(null)} />
+      <LossSheet item={lossItem} onOpenChange={() => setLossItem(null)} />
+      <StockDetailSheet item={detailItem} onOpenChange={() => setDetailItem(null)} />
     </div>
   );
 }

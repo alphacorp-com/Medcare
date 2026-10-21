@@ -6,13 +6,13 @@ import { isModuleActiveForTenant } from "@/lib/tenant-licensing";
 import { suggestInvoiceLines } from "@/lib/billing/suggestCharge";
 import prisma from "@/lib/prisma";
 import { Prisma, type PrescriptionStatus } from "@prisma/client";
+import { randomUUID } from "node:crypto";
+import { StockError, consumeStock, stockErrorResponse } from "@/lib/stock/movements";
+import { lineDrugName, lineUnits, parseStoredLines, resolveLineArticle, type StoredPrescriptionLine } from "@/lib/stock/prescription-items";
 
-interface PharmacyPrescriptionItem {
-  drug?: string;
-  name?: string;
-  quantity?: number | string;
-  unit?: string;
-}
+// A line the prescriber marked as a drug the pharmacy does not stock (inventoryId: null):
+// neither billed nor dispensed by the pharmacy.
+const isUnstockedLine = (line: StoredPrescriptionLine) => "inventoryId" in line && !line.inventoryId;
 
 function slugifyDrugName(name: string): string {
   return name
@@ -63,14 +63,7 @@ export async function PATCH(
 
     const tenantId = session.user.tenantId;
 
-    let itemsList: PharmacyPrescriptionItem[] = [];
-    try {
-      if (typeof currentRx.items === 'string') {
-        itemsList = JSON.parse(currentRx.items);
-      } else if (Array.isArray(currentRx.items)) {
-        itemsList = currentRx.items as unknown as PharmacyPrescriptionItem[];
-      }
-    } catch (e) {}
+    const itemsList = parseStoredLines(currentRx.items);
 
     let billing: unknown = null;
 
@@ -95,11 +88,12 @@ export async function PATCH(
           where: { isActive: true, tenantId },
           select: { id: true, name: true, unitPrice: true }
         });
-        const inventoryMap = new Map(inventory.map(i => [i.name.toLowerCase(), i]));
+        const inventoryById = new Map(inventory.map((i) => [i.id, i]));
+        const inventoryByName = new Map(inventory.map((i) => [i.name.toLowerCase(), i]));
 
-        const lines = itemsList.map((item) => {
-          const drugName = item.drug || item.name || '';
-          const invItem = inventoryMap.get(drugName.toLowerCase());
+        const lines = itemsList.filter((item) => !isUnstockedLine(item)).map((item) => {
+          const drugName = lineDrugName(item);
+          const invItem = resolveLineArticle(item, inventoryById, inventoryByName);
           const drugCode = invItem?.id || slugifyDrugName(drugName);
           const quantity = parseFloat(String(item.quantity)) || 0;
           return {
@@ -137,9 +131,14 @@ export async function PATCH(
         }
       }
 
-      // Stock decrements, dispensing records and the status change commit together or not
-      // at all. Decrements are atomic (no read-then-write), so concurrent dispensings of the
-      // same drug can't overwrite each other; stock is clamped at 0 as before.
+      if (!tenantId) {
+        return NextResponse.json({ error: "A facility account is required", success: false }, { status: 403 });
+      }
+
+      // Stock exits (FEFO across the lots, see lib/stock), dispensing records and the status
+      // change commit together or not at all. A drug without enough usable (non-expired) stock
+      // refuses the whole dispensing (409 insufficient_stock): the pharmacist records the
+      // receipt or the inventory count first, so the stock is never wrong.
       try {
         await prisma.$transaction(async (tx) => {
           const claimed = await tx.prescription.updateMany({
@@ -152,28 +151,47 @@ export async function PATCH(
             where: { isActive: true, tenantId },
             select: { id: true, name: true },
           });
-          const inventoryMap = new Map(inventory.map((i) => [i.name.toLowerCase(), i]));
+          const inventoryById = new Map(inventory.map((i) => [i.id, i]));
+          const inventoryByName = new Map(inventory.map((i) => [i.name.toLowerCase(), i]));
 
           const dispensings: Prisma.DrugDispensingCreateManyInput[] = [];
-          for (const item of itemsList) {
-            const drugName = item.drug || item.name || '';
-            const invItem = inventoryMap.get(drugName.toLowerCase());
+          const dispensedAt = new Date();
+          // The article comes from the line's inventoryId (name only for pre-rule lines).
+          // Articles are locked in id order, so two dispensings sharing drugs always lock them
+          // in the same order and can't deadlock.
+          const resolved = itemsList
+            .filter((item) => !isUnstockedLine(item))
+            .map((item) => ({ item, article: resolveLineArticle(item, inventoryById, inventoryByName) }))
+            .sort((a, b) => (a.article?.id ?? '').localeCompare(b.article?.id ?? ''));
+          for (const { item, article: invItem } of resolved) {
+            const drugName = lineDrugName(item);
             const quantity = parseFloat(String(item.quantity)) || 0;
+            const dispensingId = randomUUID();
+            let lot: { lotNumber: string; expiryDate: Date | null } | null = null;
 
-            if (invItem && quantity > 0) {
+            const units = lineUnits(item);
+            if (invItem && units > 0) {
               // Stock is counted in whole units: a fractional quantity consumes the unit it
               // was taken from (never overstate what's left on the shelf).
-              const units = Math.ceil(quantity);
-              const decremented = await tx.medicationInventory.updateMany({
-                where: { id: invItem.id, stock: { gte: units } },
-                data: { stock: { decrement: units } },
+              const { allocations } = await consumeStock(tx, {
+                tenantId,
+                userId: session.user.id,
+                itemId: invItem.id,
+                quantity: units,
+                type: "dispensing",
+                sourceType: "drug_dispensing",
+                sourceId: dispensingId,
+                occurredAt: dispensedAt,
               });
-              if (decremented.count === 0) {
-                await tx.medicationInventory.update({ where: { id: invItem.id }, data: { stock: 0 } });
-              }
+              // Taken from several lots: each lot is in the stock movements, not on the row.
+              if (allocations.length === 1) lot = allocations[0];
             }
 
             dispensings.push({
+              id: dispensingId,
+              lotNumber: lot?.lotNumber ?? null,
+              expiryDate: lot?.expiryDate ?? null,
+              dispensedAt,
               tenantId,
               prescriptionId: currentRx.id,
               patientId: currentRx.patientId,
@@ -188,6 +206,10 @@ export async function PATCH(
           if (dispensings.length > 0) await tx.drugDispensing.createMany({ data: dispensings });
         });
       } catch (error) {
+        if (error instanceof StockError) {
+          const { status: httpStatus, body: errorBody } = stockErrorResponse(error);
+          return NextResponse.json(errorBody, { status: httpStatus });
+        }
         if (error instanceof Error && error.message === "RX_NOT_DISPENSABLE") {
           return NextResponse.json(
             { error: "Only a validated prescription can be dispensed", success: false },

@@ -3,15 +3,18 @@
 import { useTranslations } from "next-intl";
 import { format } from "date-fns";
 import { User, MapPin, Phone, HeartPulse } from "lucide-react";
+import { DiagnosisList, type RecordedDiagnosis } from "@/components/shared/diagnosis-list";
 import { PatientDetail, VitalSignsRow } from "../types";
 
 interface PatientQuickProfileProps {
   patient: PatientDetail;
   latestVitals: VitalSignsRow | null;
+  diagnoses: RecordedDiagnosis[];
 }
 
-export function PatientQuickProfile({ patient, latestVitals }: PatientQuickProfileProps) {
+export function PatientQuickProfile({ patient, latestVitals, diagnoses }: PatientQuickProfileProps) {
   const t = useTranslations('patients');
+  const td = useTranslations('diagnoses');
   const tc = useTranslations('common');
 
   const ec = patient.emergencyContact ?? {};
@@ -78,6 +81,11 @@ export function PatientQuickProfile({ patient, latestVitals }: PatientQuickProfi
         ) : (
           <div className="text-xs text-slate-500 italic">{t('no_vitals_recorded')}</div>
         )}
+      </div>
+
+      <div className="bg-white rounded border border-slate-200 shadow-sm p-4">
+        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4 border-b border-slate-100 pb-2">{td('recorded_title')}</div>
+        <DiagnosisList diagnoses={diagnoses} showDate />
       </div>
 
       <div className="bg-white rounded border border-slate-200 shadow-sm p-4">

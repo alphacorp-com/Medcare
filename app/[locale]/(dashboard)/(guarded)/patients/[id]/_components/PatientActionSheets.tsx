@@ -1,6 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -16,6 +17,7 @@ import { VitalsFields } from "@/components/shared/vitals-fields";
 import { TRIAGE_ACUITIES } from "@/components/shared/triage-badge";
 import { MedicalActSelect, useMedicalActs, isVitalEmergencyTriage } from "@/components/shared/medical-act-select";
 import { TagInput } from "@/components/shared/tag-input";
+import { DiagnosisEditor } from "@/components/shared/diagnosis-editor";
 import {
   EditPatientForm,
   NewStayForm,
@@ -377,7 +379,6 @@ interface NewMedicalRecordSheetProps {
   form: NewMedRecordForm;
   onUpdateForm: <K extends keyof NewMedRecordForm>(key: K, value: NewMedRecordForm[K]) => void;
   stays: StayRow[];
-  doctors: Doctor[];
   saving: boolean;
   error: string | null;
   onSubmit: () => Promise<void>;
@@ -389,7 +390,6 @@ export function NewMedicalRecordSheet({
   form,
   onUpdateForm,
   stays,
-  doctors,
   saving,
   error,
   onSubmit,
@@ -397,6 +397,8 @@ export function NewMedicalRecordSheet({
   const t = useTranslations('patients');
   const tc = useTranslations('common');
   const trec = useTranslations('record');
+  const { data: session } = useSession();
+  const authorName = session?.user?.name ?? session?.user?.email ?? "—";
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -465,18 +467,8 @@ export function NewMedicalRecordSheet({
 
           <div className="space-y-1">
             <label className="text-[10px] font-bold text-slate-500 uppercase">{tc('author')}</label>
-            <select
-              value={form.authorId}
-              onChange={(e) => onUpdateForm("authorId", e.target.value)}
-              className="flex h-8 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-xs shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
-            >
-              <option value="">{tc('select_placeholder')}</option>
-              {doctors.map((d) => (
-                <option key={d.id} value={d.id}>
-                  Dr. {d.fullName}{d.specialty ? ` — ${d.specialty}` : ""}
-                </option>
-              ))}
-            </select>
+            {/* Always the signed-in user: the server records the session user as author/signer. */}
+            <p className="flex h-8 items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-xs text-slate-700">{authorName}</p>
           </div>
 
           <div className="flex items-center space-x-2 pt-2">
@@ -491,10 +483,17 @@ export function NewMedicalRecordSheet({
               {trec('sign_record')}
             </label>
           </div>
+
+          {/* Signing a consultation requires its coded principal diagnosis (RMA3 V.3). */}
+          {form.type === "consultation" && form.isSigned && (
+            <div className="space-y-2 rounded-md border border-slate-200 bg-slate-50/60 p-3">
+              <DiagnosisEditor value={form.diagnoses} onChange={(next) => onUpdateForm("diagnoses", next)} required />
+            </div>
+          )}
         </div>
         <SheetFooter className="p-4 border-t border-slate-200 bg-white shrink-0 shadow-[0_-4px_6px_-1px_rgb(0,0,0,0.05)]">
           <Button variant="outline" className="text-xs h-8" onClick={() => onOpenChange(false)} disabled={saving}>{tc('cancel')}</Button>
-          <Button className="text-xs h-8 bg-blue-600 hover:bg-blue-700" onClick={onSubmit} disabled={saving || !form.content || !form.authorId}>
+          <Button className="text-xs h-8 bg-blue-600 hover:bg-blue-700" onClick={onSubmit} disabled={saving || !form.content || (form.type === "consultation" && form.isSigned && !form.diagnoses.some((d) => d.kind === "principal"))}>
             {saving ? tc('saving') : trec('save_record')}
           </Button>
         </SheetFooter>

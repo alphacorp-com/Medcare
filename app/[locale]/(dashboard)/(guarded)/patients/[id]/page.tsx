@@ -1,5 +1,8 @@
 "use client";
 
+import { toDiagnosisPayload, useDiagnosisErrorMessage } from "@/components/shared/diagnosis-editor";
+import type { RecordedDiagnosis } from "@/components/shared/diagnosis-list";
+import { useStockErrorMessage } from "@/components/shared/use-stock-error-message";
 import { Link } from "@/i18n/routing";
 import { useParams, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -58,6 +61,8 @@ import {
 
 export default function PatientDetailPage() {
   const t = useTranslations('patients');
+  const diagnosisError = useDiagnosisErrorMessage();
+  const stockError = useStockErrorMessage();
   const tc = useTranslations('common');
   const params = useParams();
   const id = params.id as string;
@@ -68,6 +73,7 @@ export default function PatientDetailPage() {
 
   // Data State
   const [patient, setPatient] = useState<PatientDetail | null>(null);
+  const [diagnoses, setDiagnoses] = useState<RecordedDiagnosis[]>([]);
   const [stays, setStays] = useState<StayRow[]>([]);
   const [prescriptions, setPrescriptions] = useState<PrescriptionRow[]>([]);
   const [exams, setExams] = useState<ExamRow[]>([]);
@@ -116,13 +122,13 @@ export default function PatientDetailPage() {
   const [stayError, setStayError] = useState<string | null>(null);
 
   const [recordForm, setRecordForm] = useState<NewMedRecordForm>({
-    type: "consultation", title: "", content: "", stayId: "", authorId: "", isSigned: false
+    type: "consultation", title: "", content: "", stayId: "", isSigned: false, diagnoses: []
   });
   const [savingRecord, setSavingRecord] = useState(false);
   const [recordError, setRecordError] = useState<string | null>(null);
 
   const [immunizationForm, setImmunizationForm] = useState<NewImmunizationForm>({
-    antigenCode: "", doseNumber: "1", administeredAt: new Date().toISOString().slice(0, 10), lotNumber: "", notes: ""
+    antigenCode: "", doseNumber: "1", administeredAt: new Date().toISOString().slice(0, 10), stockLotId: "", lotNumber: "", notes: ""
   });
   const [savingImmunization, setSavingImmunization] = useState(false);
   const [immunizationError, setImmunizationError] = useState<string | null>(null);
@@ -149,7 +155,7 @@ export default function PatientDetailPage() {
 
   const fetchData = async () => {
     try {
-      const [pRes, sRes, rxRes, exRes, recRes, billRes, vitRes, surgRes, pregRes, immRes, malRes, tbRes] = await Promise.all([
+      const [pRes, sRes, rxRes, exRes, recRes, billRes, vitRes, surgRes, pregRes, immRes, malRes, tbRes, dxRes] = await Promise.all([
         fetch(`/api/v1/patients/${id}`),
         fetch(`/api/v1/patients/${id}/stays`),
         fetch(`/api/v1/patients/${id}/prescriptions`),
@@ -162,9 +168,10 @@ export default function PatientDetailPage() {
         fetch(`/api/v1/patients/${id}/immunizations`),
         fetch(`/api/v1/patients/${id}/malaria-cases`),
         fetch(`/api/v1/patients/${id}/tb-cases`),
+        fetch(`/api/v1/patients/${id}/diagnoses`),
       ]);
-      const [pJson, sJson, rxJson, exJson, recJson, billJson, vitJson, surgJson, pregJson, immJson, malJson, tbJson] = await Promise.all([
-        pRes.json(), sRes.json(), rxRes.json(), exRes.json(), recRes.json(), billRes.json(), vitRes.json(), surgRes.json(), pregRes.json(), immRes.json(), malRes.json(), tbRes.json()
+      const [pJson, sJson, rxJson, exJson, recJson, billJson, vitJson, surgJson, pregJson, immJson, malJson, tbJson, dxJson] = await Promise.all([
+        pRes.json(), sRes.json(), rxRes.json(), exRes.json(), recRes.json(), billRes.json(), vitRes.json(), surgRes.json(), pregRes.json(), immRes.json(), malRes.json(), tbRes.json(), dxRes.json()
       ]);
 
       if (!pRes.ok || !pJson.success) throw new Error(pJson.error ?? "Failed to load patient");
@@ -180,6 +187,7 @@ export default function PatientDetailPage() {
       if (immJson.success) setImmunizations(immJson.data);
       if (malJson.success) setMalariaCases(malJson.data);
       if (tbJson.success) setTbCases(tbJson.data);
+      if (dxJson.success) setDiagnoses(dxJson.data);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load");
     } finally {
@@ -214,7 +222,6 @@ export default function PatientDetailPage() {
       ...prev,
       type: "consultation",
       stayId: stayIdParam,
-      authorId: session?.user?.id || prev.authorId,
     }));
     setIsRecordOpen(true);
   }, [searchParams, session?.user?.id]);
@@ -306,15 +313,24 @@ export default function PatientDetailPage() {
     setRecordError(null);
     try {
       const res = await fetch(`/api/v1/patients/${id}/records`, {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(recordForm)
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...recordForm, diagnoses: toDiagnosisPayload(recordForm.diagnoses) })
       });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        setRecordError(diagnosisError(json) ?? json?.error ?? "Failed to create record");
+        return;
+      }
       if (res.ok) {
         const json = await res.json().catch(() => ({}));
         notifyBillingGenerated(json?.billing, tc("invoice_generated"));
         setIsRecordOpen(false);
-        const recRes = await fetch(`/api/v1/patients/${id}/records`);
-        const recJson = await recRes.json();
+        const [recJson, dxJson] = await Promise.all([
+          fetch(`/api/v1/patients/${id}/records`).then((r) => r.json()),
+          fetch(`/api/v1/patients/${id}/diagnoses`).then((r) => r.json()),
+        ]);
         if (recJson.success) setRecords(recJson.data);
+        if (dxJson.success) setDiagnoses(dxJson.data);
       }
     } catch (e) {
       setRecordError("Failed to create record");
@@ -329,12 +345,12 @@ export default function PatientDetailPage() {
     try {
       const res = await fetch(`/api/v1/patients/${id}/immunizations`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...immunizationForm, doseNumber: Number(immunizationForm.doseNumber) || 1 }),
+        body: JSON.stringify({ ...immunizationForm, doseNumber: Number(immunizationForm.doseNumber) || 1, stockLotId: immunizationForm.stockLotId || undefined }),
       });
       const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json.error ?? "Failed to record immunization");
+      if (!res.ok || !json.success) throw new Error(stockError(json) ?? json.error ?? "Failed to record immunization");
       setIsImmunizationOpen(false);
-      setImmunizationForm({ antigenCode: "", doseNumber: "1", administeredAt: new Date().toISOString().slice(0, 10), lotNumber: "", notes: "" });
+      setImmunizationForm({ antigenCode: "", doseNumber: "1", administeredAt: new Date().toISOString().slice(0, 10), stockLotId: "", lotNumber: "", notes: "" });
       const immRes = await fetch(`/api/v1/patients/${id}/immunizations`);
       const immJson = await immRes.json();
       if (immJson.success) setImmunizations(immJson.data);
@@ -446,7 +462,7 @@ export default function PatientDetailPage() {
 
         <div className={`grid gap-4 flex-1 ${isMobile ? "grid-cols-1" : "grid-cols-12 overflow-hidden"}`}>
           <div className={isMobile ? "w-full" : "col-span-3 overflow-hidden"}>
-            <PatientQuickProfile patient={patient} latestVitals={vitals[0] ?? null} />
+            <PatientQuickProfile patient={patient} latestVitals={vitals[0] ?? null} diagnoses={diagnoses} />
           </div>
 
           <div className={isMobile ? "w-full" : "col-span-9"}>
@@ -462,11 +478,7 @@ export default function PatientDetailPage() {
               immunizations={immunizations}
               malariaCases={malariaCases}
               tbCases={tbCases}
-              onAddRecord={() => {
-                const defaultAuthorId = session?.user?.id || "";
-                setRecordForm(prev => ({ ...prev, authorId: defaultAuthorId }));
-                setIsRecordOpen(true);
-              }}
+              onAddRecord={() => setIsRecordOpen(true)}
               onAddImmunization={() => setIsImmunizationOpen(true)}
               onAddMalariaCase={() => setIsMalariaCaseOpen(true)}
               onAddTbCase={() => setIsTbCaseOpen(true)}
@@ -493,7 +505,7 @@ export default function PatientDetailPage() {
       <NewMedicalRecordSheet
         open={isRecordOpen} onOpenChange={setIsRecordOpen}
         form={recordForm} onUpdateForm={(k, v) => setRecordForm(p => ({ ...p, [k]: v }))}
-        stays={stays} doctors={doctors} saving={savingRecord} error={recordError} onSubmit={handleSaveRecord}
+        stays={stays} saving={savingRecord} error={recordError} onSubmit={handleSaveRecord}
       />
 
       <NewImmunizationSheet

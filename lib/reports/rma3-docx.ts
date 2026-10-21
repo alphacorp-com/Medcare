@@ -12,7 +12,11 @@ import {
   TextRun,
   WidthType,
 } from "docx";
-import { Rma3KeyValueRow, Rma3MalariaRow, Rma3ReportData, Rma3TbRow, Rma3VaccinationRow } from "./rma3";
+import { Rma3CauseTable, Rma3KeyValueRow, Rma3MalariaRow, Rma3MorbidityTable, Rma3ReportData, Rma3TbRow, Rma3VaccinationRow } from "./rma3";
+import { RMA3_CAUSE_SECTIONS } from "./rma3-rubrics-default";
+import { rma3FormSection } from "./rma3-morbidity-default";
+import type { Rma3StockCategory } from "@/lib/stock/input";
+import type { StockReportItemRow } from "@/lib/stock/report-data";
 
 const FRENCH_MONTHS = [
   "janvier", "février", "mars", "avril", "mai", "juin",
@@ -32,16 +36,19 @@ const INCLUDED_SECTIONS = [
   "IV.2 - Lutte contre le Paludisme",
   "IV.3 - Notification et Résultats du Traitement Antituberculeux",
   "V.1 - Activité générale (consultations, hospitalisations, décès, capacité)",
+  "V.3 / V.4 / V.5 - Principales causes de consultation, d'hospitalisation et de décès (diagnostics codés CIM-10)",
+  "II.2, III.7, IV.4, IV.4.9, IV.4.10, IV.4.11, IV.5 - Nouveaux cas issus des diagnostics codés CIM-10 (lignes dérivables d'un diagnostic uniquement, voir la note de chaque tableau)",
+  "V.7, III.5, IV.2.7, V.9, IV.6 - Gestion des stocks des articles classés dans une catégorie RMA3 (stock début/fin, entrées, consommation, pertes, CMM, jours de rupture ; doses et pertes PEV)",
 ];
 
 const EXCLUDED_SECTIONS = [
-  "III.5 Chaîne du froid / gestion des stocks vaccinaux",
+  "III.5 Chaîne du froid (équipements, relevés de température) — le stock des intrants PEV est inclus",
   "IV.1.1 Dépistage VIH en population générale (hors grossesse)",
   "Registre / stock des médicaments antituberculeux",
   "V.6 Banque de sang / transfusion",
-  "V.7 Stock des médicaments traceurs (40 lignes)",
+  "V.7 Médicaments traceurs non encore classés « traceur » dans l'inventaire (seuls les articles classés sont produits)",
   "V.8 Pharmacovigilance",
-  "V.9 Oxygène médical",
+  "V.9 Oxygène : équipements et cas d'hypoxémie (le stock d'oxygène est inclus)",
   "VI.2-VI.6 Gouvernance, finances, ressources humaines, patrimoine",
 ];
 
@@ -160,6 +167,103 @@ function tbTable(rows: Rma3TbRow[], firstColumnLabel: string): Table {
   return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [header, ...body] });
 }
 
+// V.3 / V.4 / V.5: one row per active rubric, then the unclassified diagnoses so the
+// table can be reconciled with the activity.
+function causeTable(table: Rma3CauseTable): Table {
+  const header = new TableRow({
+    tableHeader: true,
+    children: ["Cause", "0-59 mois", "5-14 ans", "15 ans et +", "Total"].map((text) => cell(text, { bold: true, shaded: true })),
+  });
+  const rows = [...table.rows, table.unclassified].map(
+    (r) =>
+      new TableRow({
+        children: [cell(r.label), cell(String(r.age0to59m)), cell(String(r.age5to14)), cell(String(r.age15plus)), cell(String(r.total))],
+      })
+  );
+  return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [header, ...rows] });
+}
+
+// II.2 / III.7 / IV.4 / IV.5: new cases per rubric in the section's RMA3 breakdown, a
+// deaths column where the form has one, then the form rows a diagnosis cannot produce.
+function morbidityTable(table: Rma3MorbidityTable): (Paragraph | Table)[] {
+  const hasDeaths = table.rows.some((r) => r.deaths !== null);
+  const header = new TableRow({
+    tableHeader: true,
+    children: ["Rubrique", ...table.columns.map((c) => c.label), "Total nouveaux cas", ...(hasDeaths ? ["Décès"] : [])].map((text) =>
+      cell(text, { bold: true, shaded: true })
+    ),
+  });
+  const rows = table.rows.map(
+    (r) =>
+      new TableRow({
+        children: [
+          cell(r.label),
+          ...table.columns.map((c) => cell(String(r.cells[c.key] ?? 0))),
+          cell(String(r.total)),
+          ...(hasDeaths ? [cell(String(r.deaths ?? 0))] : []),
+        ],
+      })
+  );
+  return [
+    new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [header, ...rows] }),
+    new Paragraph({
+      children: [new TextRun({ italics: true, size: 16, text: `Non produit (à compléter manuellement) : ${table.notDerivable.join(" ; ")}.` })],
+    }),
+  ];
+}
+
+const STOCK_SECTIONS: { category: Rma3StockCategory; heading: string }[] = [
+  { category: "epi_input", heading: "III.5 - Gestion des intrants PEV" },
+  { category: "antimalarial", heading: "IV.2.7 - Gestion des stocks d'antipaludiques" },
+  { category: "nutrition", heading: "IV.6 - Gestion des intrants nutritionnels" },
+  { category: "tracer", heading: "V.7 - Disponibilité des médicaments traceurs" },
+  { category: "oxygen", heading: "V.9 - Oxygène médical (stock)" },
+];
+
+// One row per article of the category; vaccines add their doses and wastage.
+function stockTable(rows: StockReportItemRow[]): Table {
+  const withVaccine = rows.some((r) => r.vaccine);
+  const header = new TableRow({
+    tableHeader: true,
+    children: [
+      "Article",
+      "Stock début",
+      "Reçu",
+      "Consommé",
+      "Pertes",
+      "Ajustements",
+      "Stock fin",
+      "CMM",
+      "Jours de rupture",
+      ...(withVaccine ? ["Doses administrées", "Doses perdues", "Taux de perte"] : []),
+    ].map((text) => cell(text, { bold: true, shaded: true })),
+  });
+  const body = rows.map(
+    (r) =>
+      new TableRow({
+        children: [
+          cell(r.unit ? `${r.name} (${r.unit})` : r.name),
+          cell(String(r.opening)),
+          cell(String(r.received)),
+          cell(String(r.consumed)),
+          cell(String(r.losses.expired + r.losses.damaged + r.losses.lost)),
+          cell(String(r.adjusted)),
+          cell(String(r.closing)),
+          cell(String(r.cmm)),
+          cell(String(r.stockoutDays)),
+          ...(withVaccine
+            ? [
+                cell(r.vaccine ? String(r.vaccine.dosesAdministered) : "—"),
+                cell(r.vaccine ? String(r.vaccine.dosesWasted) : "—"),
+                cell(r.vaccine?.wastageRate !== null && r.vaccine?.wastageRate !== undefined ? `${r.vaccine.wastageRate} %` : "—"),
+              ]
+            : []),
+        ],
+      })
+  );
+  return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [header, ...body] });
+}
+
 export async function buildRma3Document(
   data: Rma3ReportData,
   meta: { generatedByName: string; generatedByEmail: string }
@@ -244,6 +348,38 @@ export async function buildRma3Document(
     tbTable(data.tuberculosis.notifications, "Classification"),
     sectionHeading("IV.3.4 - Résultats du Traitement Antituberculeux"),
     tbTable(data.tuberculosis.outcomes, "Issue du traitement"),
+    ...data.causes.flatMap((table) => [sectionHeading(`${table.section} - ${RMA3_CAUSE_SECTIONS[table.section]}`), causeTable(table)]),
+    new Paragraph({
+      spacing: { before: 200 },
+      children: [
+        new TextRun({
+          italics: true,
+          text:
+            "Tableaux suivants : nouveaux cas = diagnostics de consultation (principaux et secondaires) marqués « nouveau cas », " +
+            "comptés dans chaque rubrique qui couvre leur code ; un total peut inclure des patients de sexe non renseigné.",
+        }),
+      ],
+    }),
+    ...data.morbidity.flatMap((table) => [sectionHeading(`${rma3FormSection(table.section)} - ${table.title}`), ...morbidityTable(table)]),
+    ...STOCK_SECTIONS.flatMap(({ category, heading }) => {
+      const rows = data.stock.filter((r) => r.rma3Category === category);
+      return rows.length ? [sectionHeading(heading), stockTable(rows)] : [];
+    }),
+    ...(data.stock.length
+      ? [
+          new Paragraph({
+            children: [
+              new TextRun({
+                italics: true,
+                size: 16,
+                text:
+                  "Stocks : tous dépôts confondus, en unités de stock (flacons pour les vaccins). CMM = consommation moyenne des 3 derniers mois. " +
+                  "Jour de rupture = journée terminée sans lot non périmé en stock. Taux de perte PEV = doses restées dans des flacons ouverts puis jetés ou périmés.",
+              }),
+            ],
+          }),
+        ]
+      : []),
     sectionHeading("Portée de ce document généré automatiquement"),
     new Paragraph({ children: [new TextRun({ bold: true, text: "Sections incluses (données réelles calculées) :" })] }),
     ...INCLUDED_SECTIONS.map((s) => new Paragraph({ bullet: { level: 0 }, children: [new TextRun({ text: s })] })),

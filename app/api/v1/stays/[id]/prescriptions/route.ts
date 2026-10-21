@@ -3,9 +3,15 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { requireModulePermission } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
+import { parsePrescriptionLines } from "@/lib/stock/prescription-items";
 
 // ── POST /api/v1/stays/:id/prescriptions ────────────────────────────────────
-// Body: { prescriberId, notes?, items: [{ drug, dosage, frequency, duration, instructions? }] }
+// Body: { prescriberId, notes?, items: [{ drug, dosage, frequency, duration, instructions?,
+//         inventoryId?, quantity? }] }
+// A line drawn from the stock names its article (inventoryId, an active article of this
+// tenant) and the units to dispense; its drug name is the article's. A line without
+// inventoryId is a drug the pharmacy does not stock (free text, never dispensed from stock).
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -31,12 +37,25 @@ export async function POST(
         { status: 400 }
       );
     }
-    if (!items || !Array.isArray(items) || items.length === 0) {
+    const parsedLines = parsePrescriptionLines(items);
+    if (!parsedLines.ok) {
       return NextResponse.json(
-        { error: "At least one prescription item is required", success: false },
+        { error: parsedLines.error, code: parsedLines.error, line: parsedLines.index, success: false },
         { status: 400 }
       );
     }
+    const articleIds = [...new Set(parsedLines.lines.map((line) => line.inventoryId).filter((id): id is string => Boolean(id)))];
+    const articles = articleIds.length
+      ? await prisma.medicationInventory.findMany({
+          where: { id: { in: articleIds }, tenantId: session.user.tenantId, isActive: true },
+          select: { id: true, name: true },
+        })
+      : [];
+    if (articles.length !== articleIds.length) {
+      return NextResponse.json({ error: "unknown_article", code: "unknown_article", success: false }, { status: 400 });
+    }
+    const articleNames = new Map(articles.map((a) => [a.id, a.name]));
+    const lines = parsedLines.lines.map((line) => (line.inventoryId ? { ...line, drug: articleNames.get(line.inventoryId)! } : line));
 
     // Fetch the stay to get patientId (scoped to this tenant)
     const stay = await prisma.stay.findFirst({
@@ -57,8 +76,8 @@ export async function POST(
         patientId: stay.patientId,
         stayId: stay.id,
         prescriberId,
-        notes: notes ?? null,
-        items: items,
+        notes: typeof notes === "string" ? notes : null,
+        items: lines as unknown as Prisma.InputJsonValue,
       },
     });
 

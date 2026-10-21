@@ -754,6 +754,7 @@ model Patient {
   immunizations      Immunization[]
   malariaCases       MalariaCase[]
   tbCases            TbCase[]
+  diagnoses          Diagnosis[]
 
   @@unique([tenantId, ipp])
   @@index([tenantId])
@@ -807,6 +808,7 @@ model Stay {
   invoices           PatientInvoice[]
   vitalSigns         VitalSigns[]
   delivery           Delivery?
+  diagnoses          Diagnosis[]
 
   @@unique([tenantId, stayNumber])
   @@index([tenantId])
@@ -1034,11 +1036,84 @@ model MedicalRecord {
   createdAt     DateTime          @default(now()) @map("created_at") @db.Timestamptz
   updatedAt     DateTime          @updatedAt @map("updated_at") @db.Timestamptz
 
-  patient Patient @relation(fields: [patientId], references: [id])
-  stay    Stay?   @relation(fields: [stayId], references: [id])
+  patient   Patient     @relation(fields: [patientId], references: [id])
+  stay      Stay?       @relation(fields: [stayId], references: [id])
+  diagnoses Diagnosis[]
 
   @@index([tenantId])
   @@map("medical_records")
+  @@schema("tenant_template")
+}
+
+// Coded diagnoses (ICD-10). Recorded when a consultation note is signed, when a
+// hospitalized stay is discharged, and as the cause of death when a stay ends with a
+// death. They feed the RMA3 causes of consultation (V.3), hospitalization (V.4) and death
+// (V.5) through Rma3DiagnosisRubric. `label` is a snapshot of the ICD-10 label at the time
+// of recording, so later edits to the catalog don't rewrite history.
+enum DiagnosisKind {
+  principal
+  secondary
+
+  @@schema("tenant_template")
+}
+
+enum DiagnosisContext {
+  consultation
+  discharge
+  death
+
+  @@schema("tenant_template")
+}
+
+model Diagnosis {
+  id              String           @id @default(uuid()) @db.Uuid
+  tenantId        String?          @map("tenant_id") @db.Uuid
+  patientId       String           @map("patient_id") @db.Uuid
+  stayId          String?          @map("stay_id") @db.Uuid
+  medicalRecordId String?          @map("medical_record_id") @db.Uuid
+  context         DiagnosisContext
+  kind            DiagnosisKind
+  icd10Code       String           @map("icd10_code") @db.VarChar(10)
+  label           String           @db.VarChar(255)
+  // New case (first diagnosis of this condition) vs follow-up of a known condition.
+  isNewCase       Boolean          @default(true) @map("is_new_case")
+  recordedById    String           @map("recorded_by_id") @db.Uuid
+  recordedAt      DateTime         @default(now()) @map("recorded_at") @db.Timestamptz
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz
+
+  patient       Patient        @relation(fields: [patientId], references: [id])
+  stay          Stay?          @relation(fields: [stayId], references: [id])
+  medicalRecord MedicalRecord? @relation(fields: [medicalRecordId], references: [id])
+
+  @@index([tenantId, context, recordedAt])
+  @@index([patientId])
+  @@index([stayId])
+  @@map("diagnoses")
+  @@schema("tenant_template")
+}
+
+// Correspondence between ICD-10 codes and the RMA3 cause rubrics, editable by the
+// administrator in Settings (seeded with a standard proposal, see
+// lib/reports/rma3-rubrics-default.ts). `icd10Ranges` is a comma-separated list of codes
+// and category ranges, e.g. "B50-B54" or "A39, G00", validated server-side.
+model Rma3DiagnosisRubric {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String?  @map("tenant_id") @db.Uuid
+  // RMA3 table: "V.3" (consultation), "V.4" (hospitalization), "V.5" (death).
+  section     String   @db.VarChar(10)
+  // Indicator code of the RMA3 dictionary, e.g. "RMA3-V.3-001".
+  code        String   @db.VarChar(30)
+  label       String   @db.VarChar(255)
+  icd10Ranges String   @default("") @map("icd10_ranges")
+  order       Int      @default(0)
+  isActive    Boolean  @default(true) @map("is_active")
+  updatedById String?  @map("updated_by_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([tenantId, code])
+  @@index([tenantId, section])
+  @@map("rma3_diagnosis_rubrics")
   @@schema("tenant_template")
 }
 
@@ -1192,14 +1267,130 @@ model MedicationInventory {
   threshold         Int      @default(0)
   unit              String?  @db.VarChar(50)
   unitPrice         Decimal? @map("unit_price") @db.Decimal(12, 2)
+  // Dispensing depot: dispensings and vaccinations take from the lots stored here; other
+  // depots feed it through transfers. Set for every article (lib/stock/locations).
   storageLocationId String?  @map("storage_location_id") @db.Uuid
   supplierId        String?  @map("supplier_id") @db.Uuid
   isActive          Boolean  @default(true) @map("is_active")
+  // Multi-dose vaccines: doses in one stock unit (vial) and how long an opened vial may be
+  // used, in hours. 1 / null for everything else.
+  dosesPerUnit      Int      @default(1) @map("doses_per_unit")
+  openVialHours     Int?     @map("open_vial_hours")
+  // RMA3 stock category (tracer, EPI input, antimalarial, oxygen, nutrition) — see lib/stock.
+  rma3Category      String?  @map("rma3_category") @db.VarChar(30)
+  // Set when the article is a vaccine: vaccinations of this antigen consume its lots.
+  vaccineAntigenCode String? @map("vaccine_antigen_code") @db.VarChar(40)
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
+  // `stock` is the sum of the lots' quantities, kept in step by lib/stock in the same
+  // transaction as every movement; it is never written directly.
+  lots      StockLot[]
+  movements StockMovement[]
+  openVials StockOpenVial[]
+
   @@index([tenantId])
+  @@index([tenantId, vaccineAntigenCode])
   @@map("medication_inventory")
+  @@schema("tenant_template")
+}
+
+enum StockMovementType {
+  opening_balance
+  receipt
+  dispensing
+  vaccination
+  expired
+  damaged
+  lost
+  adjustment
+  transfer_out
+  transfer_in
+
+  @@schema("tenant_template")
+}
+
+// One batch of an article (lot number + expiry) in one depot. Exits consume lots
+// first-expiry-first-out; a transfer moves quantity to the same lot number in another depot.
+model StockLot {
+  id         String    @id @default(uuid()) @db.Uuid
+  tenantId   String    @map("tenant_id") @db.Uuid
+  itemId     String    @map("item_id") @db.Uuid
+  locationId String    @map("location_id") @db.Uuid
+  lotNumber  String    @map("lot_number") @db.VarChar(60)
+  expiryDate DateTime? @map("expiry_date") @db.Date
+  quantity   Int       @default(0)
+  receivedAt DateTime  @default(now()) @map("received_at") @db.Timestamptz
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  item          MedicationInventory @relation(fields: [itemId], references: [id])
+  location      StorageLocation     @relation(fields: [locationId], references: [id])
+  movements     StockMovement[]
+  immunizations Immunization[]
+  openVials     StockOpenVial[]
+
+  @@unique([itemId, lotNumber, locationId])
+  @@index([tenantId, expiryDate])
+  @@map("stock_lots")
+  @@schema("tenant_template")
+}
+
+// Append-only stock journal: quantity is signed (+ entry, - exit); balanceAfter is the
+// article's total stock right after the movement (gives the stock on any past date).
+model StockMovement {
+  id           String            @id @default(uuid()) @db.Uuid
+  tenantId     String            @map("tenant_id") @db.Uuid
+  itemId       String            @map("item_id") @db.Uuid
+  lotId        String?           @map("lot_id") @db.Uuid
+  locationId   String            @map("location_id") @db.Uuid
+  type         StockMovementType
+  quantity     Int
+  balanceAfter Int               @map("balance_after")
+  reason       String?           @db.VarChar(255)
+  sourceType   String?           @map("source_type") @db.VarChar(40)
+  sourceId     String?           @map("source_id") @db.Uuid
+  supplierId   String?           @map("supplier_id") @db.Uuid
+  unitCost     Decimal?          @map("unit_cost") @db.Decimal(12, 2)
+  occurredAt   DateTime          @default(now()) @map("occurred_at") @db.Timestamptz
+  recordedById String            @map("recorded_by_id") @db.Uuid
+  createdAt    DateTime          @default(now()) @map("created_at") @db.Timestamptz
+
+  item     MedicationInventory @relation(fields: [itemId], references: [id])
+  lot      StockLot?           @relation(fields: [lotId], references: [id])
+  location StorageLocation     @relation(fields: [locationId], references: [id])
+
+  @@index([tenantId, itemId, occurredAt])
+  @@index([tenantId, occurredAt])
+  @@index([sourceType, sourceId])
+  @@map("stock_movements")
+  @@schema("tenant_template")
+}
+
+// A multi-dose vial opened for vaccinations: the vial left the stock when it was opened
+// (one "vaccination" movement); its doses are then used until it is empty or reaches
+// discardAt. Doses left in a vial closed early or expired are the EPI wastage.
+model StockOpenVial {
+  id           String    @id @default(uuid()) @db.Uuid
+  tenantId     String    @map("tenant_id") @db.Uuid
+  itemId       String    @map("item_id") @db.Uuid
+  lotId        String    @map("lot_id") @db.Uuid
+  dosesPerVial Int       @map("doses_per_vial")
+  dosesUsed    Int       @default(0) @map("doses_used")
+  openedAt     DateTime  @map("opened_at") @db.Timestamptz
+  discardAt    DateTime  @map("discard_at") @db.Timestamptz
+  closedAt     DateTime? @map("closed_at") @db.Timestamptz
+  // emptied | expired | discarded
+  closedReason String?   @map("closed_reason") @db.VarChar(20)
+  openedById   String    @map("opened_by_id") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  item          MedicationInventory @relation(fields: [itemId], references: [id])
+  lot           StockLot            @relation(fields: [lotId], references: [id])
+  immunizations Immunization[]
+
+  @@index([tenantId, lotId, closedAt])
+  @@index([tenantId, openedAt])
+  @@map("stock_open_vials")
   @@schema("tenant_template")
 }
 
@@ -1687,6 +1878,9 @@ model StorageLocation {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
+  stockLots      StockLot[]
+  stockMovements StockMovement[]
+
   @@unique([tenantId, code])
   @@index([tenantId])
   @@map("storage_locations")
@@ -1765,10 +1959,16 @@ model Immunization {
   ageInDaysAtAdministration Int       @map("age_in_days_at_administration")
   lotNumber                 String?   @map("lot_number") @db.VarChar(60)
   expiryDate                DateTime? @map("expiry_date") @db.Date
+  // The stock lot the dose was taken from (null for antigens not managed in stock), and the
+  // opened vial for multi-dose vaccines.
+  stockLotId                String?   @map("stock_lot_id") @db.Uuid
+  stockOpenVialId           String?   @map("stock_open_vial_id") @db.Uuid
   isOutOfSchedule           Boolean   @default(false) @map("is_out_of_schedule")
   notes                     String?
 
-  patient Patient @relation(fields: [patientId], references: [id])
+  patient       Patient        @relation(fields: [patientId], references: [id])
+  stockLot      StockLot?      @relation(fields: [stockLotId], references: [id])
+  stockOpenVial StockOpenVial? @relation(fields: [stockOpenVialId], references: [id])
 
   @@index([tenantId])
   @@index([patientId, administeredAt(sort: Desc)])

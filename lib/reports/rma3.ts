@@ -1,6 +1,13 @@
 import prisma from "@/lib/prisma";
 import { computeMonthlyIndicators, periodToDateRange, Dhis2Period } from "@/lib/dhis2/indicators";
 import { Dhis2MetricKey, Dhis2MetricValue } from "@/lib/dhis2/types";
+import { computeCauseTables, type Rma3CauseTable } from "@/lib/reports/rma3-rubrics";
+import { computeMorbidityTables, type Rma3MorbidityTable } from "@/lib/reports/rma3-morbidity";
+import { computeStockReport, type StockReportItemRow } from "@/lib/stock/report-data";
+import { RMA3_AGE_SCHEMES, ageBand, bandOrPregnant, rma3Sex } from "@/lib/reports/age-bands";
+
+export type { Rma3CauseRow, Rma3CauseTable } from "@/lib/reports/rma3-rubrics";
+export type { Rma3MorbidityRow, Rma3MorbidityTable } from "@/lib/reports/rma3-morbidity";
 
 export interface Rma3Identification {
   facilityName: string;
@@ -62,6 +69,13 @@ export interface Rma3ReportData {
   vaccination: Rma3VaccinationRow[];
   malaria: Rma3MalariaRow[];
   tuberculosis: Rma3TbSection;
+  // V.3 / V.4 / V.5 — from coded diagnoses and the tenant's ICD-10 → RMA3 correspondence.
+  causes: Rma3CauseTable[];
+  // II.2, III.7, IV.4, IV.4.9-11, IV.5 — new cases from coded consultation diagnoses.
+  morbidity: Rma3MorbidityTable[];
+  // V.7 tracers, III.5 EPI inputs, IV.2.7 antimalarials, V.9 oxygen, IV.6 nutrition: the
+  // monthly stock report of the articles given an RMA3 category.
+  stock: StockReportItemRow[];
 }
 
 function pickMetrics(values: Dhis2MetricValue[]): Record<Dhis2MetricKey, number> {
@@ -127,9 +141,9 @@ async function computeVaccinationSection(tenantId: string, period: Dhis2Period):
         antigenCode: true,
         antigenName: true,
         doseNumber: true,
-        ageInDaysAtAdministration: true,
+        administeredAt: true,
         isOutOfSchedule: true,
-        patient: { select: { gender: true } },
+        patient: { select: { gender: true, birthDate: true } },
       },
     }),
     prisma.referenceCatalogItem.findMany({
@@ -166,16 +180,15 @@ async function computeVaccinationSection(tenantId: string, period: Dhis2Period):
       grouped.set(key, entry);
     }
 
-    if (row.patient.gender === "M") entry.boys += 1;
-    else if (row.patient.gender === "F") entry.girls += 1;
+    const sex = rma3Sex(row.patient.gender);
+    if (sex === "M") entry.boys += 1;
+    else if (sex === "F") entry.girls += 1;
     else entry.unknownSex += 1;
     entry.total += 1;
 
-    const ageDays = row.ageInDaysAtAdministration;
-    if (ageDays < 365) entry.ageUnder12m += 1;
-    else if (ageDays < 730) entry.age12to23m += 1;
-    else if (ageDays < 1826) entry.age24to59m += 1;
-    else entry.age5yPlus += 1;
+    // Calendar age at the administration date (open-ended scheme: always a band).
+    const band = ageBand(RMA3_AGE_SCHEMES.vaccination, row.patient.birthDate, row.administeredAt);
+    if (band) entry[band] += 1;
 
     if (row.isOutOfSchedule) entry.outOfSchedule += 1;
   }
@@ -188,11 +201,9 @@ async function computeVaccinationSection(tenantId: string, period: Dhis2Period):
   });
 }
 
-const MALARIA_AGE_5_YEARS_DAYS = 1826;
-
-function malariaBucket(c: { isPregnantAtDiagnosis: boolean; ageInDaysAtDiagnosis: number }): "under5" | "over5" | "pregnant" {
-  if (c.isPregnantAtDiagnosis) return "pregnant";
-  return c.ageInDaysAtDiagnosis < MALARIA_AGE_5_YEARS_DAYS ? "under5" : "over5";
+// "< 5 ans / 5 ans et + / Femmes enceintes": a pregnant woman is counted in her own column.
+function malariaBucket(c: { isPregnantAtDiagnosis: boolean; diagnosedAt: Date; patient: { birthDate: Date } }) {
+  return bandOrPregnant(ageBand(RMA3_AGE_SCHEMES.under5, c.patient.birthDate, c.diagnosedAt), c.isPregnantAtDiagnosis);
 }
 
 async function computeMalariaSection(tenantId: string, period: Dhis2Period): Promise<Rma3MalariaRow[]> {
@@ -204,8 +215,9 @@ async function computeMalariaSection(tenantId: string, period: Dhis2Period): Pro
       result: true,
       severity: true,
       isPregnantAtDiagnosis: true,
-      ageInDaysAtDiagnosis: true,
+      diagnosedAt: true,
       treatedWithAct: true,
+      patient: { select: { birthDate: true } },
     },
   });
 
@@ -219,6 +231,7 @@ async function computeMalariaSection(tenantId: string, period: Dhis2Period): Pro
 
   for (const c of cases) {
     const bucket = malariaBucket(c);
+    if (!bucket) continue; // unreachable: the scheme is open-ended from birth
     if (c.testType === "rdt") rows[0][bucket] += 1;
     if (c.testType === "microscopy") rows[1][bucket] += 1;
     if (c.result === "positive") rows[2][bucket] += 1;
@@ -233,11 +246,9 @@ async function computeMalariaSection(tenantId: string, period: Dhis2Period): Pro
   return rows;
 }
 
-function tbAgeBracket(birthDate: Date, asOf: Date): "age0to4" | "age5to14" | "age15Plus" {
-  const ageYears = (asOf.getTime() - birthDate.getTime()) / (365.25 * 24 * 3600 * 1000);
-  if (ageYears < 5) return "age0to4";
-  if (ageYears < 15) return "age5to14";
-  return "age15Plus";
+// 0-4 / 5-14 / 15 ans et +, calendar age at the notification / outcome date.
+function tbAgeBracket(birthDate: Date, asOf: Date) {
+  return ageBand(RMA3_AGE_SCHEMES.tuberculosis, birthDate, asOf)!; // open-ended from birth: never null
 }
 
 const TB_CLASSIFICATION_LABELS: Record<string, string> = {
@@ -300,13 +311,17 @@ async function computeTuberculosisSection(tenantId: string, period: Dhis2Period)
 }
 
 export async function computeRma3Report(tenantId: string, period: Dhis2Period): Promise<Rma3ReportData> {
-  const [rawMetrics, identification, vaccination, malaria, tuberculosis, bedCount] = await Promise.all([
+  const { start, end } = periodToDateRange(period);
+  const [rawMetrics, identification, vaccination, malaria, tuberculosis, bedCount, causes, morbidity, stockReport] = await Promise.all([
     computeMonthlyIndicators(tenantId, period),
     computeIdentificationSection(tenantId),
     computeVaccinationSection(tenantId, period),
     computeMalariaSection(tenantId, period),
     computeTuberculosisSection(tenantId, period),
     prisma.bed.count({ where: { tenantId, isActive: true } }),
+    computeCauseTables(tenantId, start, end),
+    computeMorbidityTables(tenantId, start, end),
+    computeStockReport(tenantId, period),
   ]);
 
   const metrics = pickMetrics(rawMetrics);
@@ -319,5 +334,8 @@ export async function computeRma3Report(tenantId: string, period: Dhis2Period): 
     vaccination,
     malaria,
     tuberculosis,
+    causes,
+    morbidity,
+    stock: (stockReport?.rows ?? []).filter((row) => row.rma3Category !== null),
   };
 }

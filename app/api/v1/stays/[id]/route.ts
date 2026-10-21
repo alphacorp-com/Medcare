@@ -3,9 +3,11 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { requireModulePermission } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
-import type { StayStatus, TriageAcuity } from "@prisma/client";
+import { StayStatus, type TriageAcuity } from "@prisma/client";
 import { isVitalEmergency, regularizeHospitalizationCharge, removeUnpaidCharge } from "@/lib/billing/paymentGate";
 import { completeAppointmentForStay } from "@/lib/scheduling/appointments";
+import { parseDiagnosisInput } from "@/lib/diagnoses/diagnosis-input";
+import { diagnosisRows, resolveDiagnoses, type ResolvedDiagnosis } from "@/lib/diagnoses/diagnoses";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const toUuid = (v: unknown): string | null =>
@@ -89,6 +91,11 @@ export async function GET(
         },
         medicalRecords: {
           orderBy: { createdAt: "desc" },
+        },
+        // Coded diagnoses recorded on this stay (consultation, discharge, cause of death).
+        diagnoses: {
+          orderBy: { recordedAt: "asc" },
+          select: { id: true, icd10Code: true, label: true, kind: true, context: true, isNewCase: true, recordedAt: true },
         },
         prescriptions: {
           orderBy: { prescribedAt: "desc" },
@@ -174,7 +181,10 @@ export async function GET(
 }
 
 // ── PATCH /api/v1/stays/:id ─────────────────────────────────────────────────
-// Body: { status?, dischargeDate?, dischargeSummary?, bedId?, departmentId?, attendingDoctorId? }
+// Body: { status?, dischargeDate?, dischargeSummary?, bedId?, departmentId?, attendingDoctorId?,
+//         dischargeDiagnoses?: [{ code, kind, isNewCase? }], causeOfDeath?: { code } }
+// Ending a stay records its coded diagnoses: the principal discharge diagnosis is required
+// for a hospitalized stay, and the cause of death for a death (RMA3 V.4 / V.5).
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -200,7 +210,13 @@ export async function PATCH(
       departmentId,
       attendingDoctorId,
       triageAcuity,
+      dischargeDiagnoses,
+      causeOfDeath,
     } = body;
+
+    if (status !== undefined && !(Object.values(StayStatus) as string[]).includes(status)) {
+      return NextResponse.json({ error: "Invalid status", success: false }, { status: 400 });
+    }
 
     if (triageAcuity !== undefined && triageAcuity !== null && !TRIAGE_ACUITIES.includes(triageAcuity as TriageAcuity)) {
       return NextResponse.json({ error: "Invalid triageAcuity", success: false }, { status: 400 });
@@ -209,7 +225,7 @@ export async function PATCH(
     const existingStay = await prisma.stay.findFirst({
       where: { id, tenantId: session.user.tenantId },
       select: {
-        id: true, bedId: true, departmentId: true, status: true, triagedAt: true, type: true, consultationStatus: true,
+        id: true, patientId: true, bedId: true, departmentId: true, status: true, triagedAt: true, type: true, consultationStatus: true,
         hospitalizationStatus: true, hospitalizationBedId: true, hospitalizedAt: true,
       },
     });
@@ -226,6 +242,36 @@ export async function PATCH(
     const newStatus: StayStatus = status !== undefined ? status : existingStay.status;
     const bedProvided = bedId !== undefined;
     const isEnding = TERMINAL_STATUSES.includes(newStatus);
+    // Only the transition into a terminal status records diagnoses (re-saving a closed
+    // stay doesn't duplicate them).
+    const isClosing = isEnding && !TERMINAL_STATUSES.includes(existingStay.status);
+    let closingDischargeDiagnoses: ResolvedDiagnosis[] = [];
+    let closingCauseOfDeath: ResolvedDiagnosis | null = null;
+    if (isClosing) {
+      const isHospitalized = existingStay.hospitalizationStatus === "admitted";
+      const isDeath = newStatus === "deceased";
+      const parsedDischarge = parseDiagnosisInput(dischargeDiagnoses, { principalRequired: isHospitalized && !isDeath });
+      if (!parsedDischarge.ok) {
+        return NextResponse.json({ error: "Invalid discharge diagnoses", code: parsedDischarge.error, success: false }, { status: 400 });
+      }
+      const parsedDeath = isDeath
+        ? parseDiagnosisInput(causeOfDeath ? [{ ...causeOfDeath, kind: "principal" }] : undefined, { principalRequired: true })
+        : { ok: true as const, value: [] };
+      if (!parsedDeath.ok) {
+        // A missing cause gets its own code so the UI does not talk about a "principal diagnosis".
+        const code = parsedDeath.error === "principal_required" ? "cause_of_death_required" : parsedDeath.error;
+        return NextResponse.json({ error: "Cause of death required", code, success: false }, { status: 400 });
+      }
+      const resolved = await resolveDiagnoses(session.user.tenantId, [...parsedDischarge.value, ...parsedDeath.value]);
+      if (!resolved.ok) {
+        return NextResponse.json(
+          { error: "Unknown ICD-10 code", code: "unknown_code", codes: resolved.unknownCodes, success: false },
+          { status: 400 }
+        );
+      }
+      closingDischargeDiagnoses = resolved.value.slice(0, parsedDischarge.value.length);
+      closingCauseOfDeath = resolved.value[parsedDischarge.value.length] ?? null;
+    }
     let newBedId = bedProvided ? toUuid(bedId) : existingStay.bedId;
     if (isEnding) newBedId = null;
     const resolvedDepartmentId = departmentId !== undefined ? toUuid(departmentId) : existingStay.departmentId;
@@ -321,12 +367,29 @@ export async function PATCH(
         }
       }
 
+      if (isClosing) {
+        const recordedAt = updated.dischargeDate ?? new Date();
+        const base = { tenantId: session.user.tenantId, patientId: existingStay.patientId, stayId: id, recordedById: session.user.id, recordedAt };
+        const rows = [
+          ...diagnosisRows(closingDischargeDiagnoses, { ...base, context: "discharge" }),
+          ...(closingCauseOfDeath ? diagnosisRows([closingCauseOfDeath], { ...base, context: "death" }) : []),
+        ];
+        if (rows.length > 0) await tx.diagnosis.createMany({ data: rows });
+        // A death on the ward is the patient's death: the record follows the stay.
+        if (newStatus === "deceased") {
+          await tx.patient.update({
+            where: { id: existingStay.patientId },
+            data: { isDeceased: true, deceasedAt: recordedAt },
+          });
+        }
+      }
+
       return updated;
     });
 
     // Leaving the hospital settles the hospitalisation bill — only on the transition into a
     // terminal status, so re-saving a discharged stay never regularises twice.
-    const isLeaving = isEnding && !TERMINAL_STATUSES.includes(existingStay.status);
+    const isLeaving = isClosing;
     const billing = isLeaving ? await settleHospitalizationOnLeave(existingStay, id, stay.dischargeDate ?? new Date()) : null;
 
     return NextResponse.json({ data: stay, billing, success: true });
