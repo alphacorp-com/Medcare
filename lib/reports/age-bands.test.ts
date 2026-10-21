@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   PREGNANT,
+  PROVISIONAL_AGE_SCHEMES,
   RMA3_AGE_SCHEMES,
   ageBand,
   ageInCompletedMonths,
@@ -115,5 +116,18 @@ describe("sex, pregnancy and columns", () => {
     assert.equal(disaggregationKey({ bands: null, bySex: true }, adult, at), "F");
     assert.equal(disaggregationKey({ bands: null, bySex: false }, adult, at), "");
     assert.deepEqual(emptyCells(disaggregationColumns({ bands: null, bySex: true })), { M: 0, F: 0 });
+  });
+});
+
+describe("provisional HIV / hepatitis bands", () => {
+  it("have 13 and 9 contiguous bands from birth", () => {
+    const { hiv13, hep9 } = PROVISIONAL_AGE_SCHEMES;
+    assert.equal(hiv13.length, 13);
+    assert.equal(hep9.length, 9);
+    for (const bands of [hiv13, hep9]) {
+      assert.equal(bands[0].fromMonths, 0);
+      assert.equal(bands[bands.length - 1].toMonths, null);
+      for (let i = 1; i < bands.length; i++) assert.equal(bands[i].fromMonths, bands[i - 1].toMonths);
+    }
   });
 });

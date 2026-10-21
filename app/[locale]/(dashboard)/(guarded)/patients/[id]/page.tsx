@@ -27,6 +27,8 @@ import {
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
   NewImmunizationSheet,
+  AefiSheet,
+  useEpiErrorMessage,
   NewMalariaCaseSheet,
   NewTbCaseSheet,
   NewTbFollowUpSheet,
@@ -54,15 +56,22 @@ import {
   NewStayForm,
   NewMedRecordForm,
   NewImmunizationForm,
+  NewAefiForm,
   NewMalariaCaseForm,
   NewTbCaseForm,
   NewTbFollowUpForm
 } from "./types";
 
+const emptyImmunizationForm = (): NewImmunizationForm => ({
+  antigenCode: "", doseNumber: "1", administeredAt: new Date().toISOString().slice(0, 10), stockLotId: "", lotNumber: "", notes: "",
+  strategy: "fixed", populationGroup: "", sessionId: "",
+});
+
 export default function PatientDetailPage() {
   const t = useTranslations('patients');
   const diagnosisError = useDiagnosisErrorMessage();
   const stockError = useStockErrorMessage();
+  const epiError = useEpiErrorMessage();
   const tc = useTranslations('common');
   const params = useParams();
   const id = params.id as string;
@@ -127,9 +136,11 @@ export default function PatientDetailPage() {
   const [savingRecord, setSavingRecord] = useState(false);
   const [recordError, setRecordError] = useState<string | null>(null);
 
-  const [immunizationForm, setImmunizationForm] = useState<NewImmunizationForm>({
-    antigenCode: "", doseNumber: "1", administeredAt: new Date().toISOString().slice(0, 10), stockLotId: "", lotNumber: "", notes: ""
-  });
+  const [immunizationForm, setImmunizationForm] = useState<NewImmunizationForm>(emptyImmunizationForm);
+  // AEFI (MAPI) declared on a dose of this patient.
+  const [aefiDose, setAefiDose] = useState<ImmunizationRow | null>(null);
+  const [savingAefi, setSavingAefi] = useState(false);
+  const [aefiError, setAefiError] = useState<string | null>(null);
   const [savingImmunization, setSavingImmunization] = useState(false);
   const [immunizationError, setImmunizationError] = useState<string | null>(null);
 
@@ -242,7 +253,7 @@ export default function PatientDetailPage() {
         allergies: patient.allergies || [],
         chronicConditions: patient.chronicConditions || []
       },
-      medicalSummary: records.length > 0 
+      medicalSummary: records.length > 0
         ? records[0].content.substring(0, 500) + (records[0].content.length > 500 ? "..." : "")
         : "No recent medical notes available.",
       recentVisits: stays.slice(0, 5).map(s => ({
@@ -345,12 +356,18 @@ export default function PatientDetailPage() {
     try {
       const res = await fetch(`/api/v1/patients/${id}/immunizations`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...immunizationForm, doseNumber: Number(immunizationForm.doseNumber) || 1, stockLotId: immunizationForm.stockLotId || undefined }),
+        body: JSON.stringify({
+          ...immunizationForm,
+          doseNumber: Number(immunizationForm.doseNumber) || 1,
+          stockLotId: immunizationForm.stockLotId || undefined,
+          populationGroup: immunizationForm.populationGroup || undefined,
+          sessionId: immunizationForm.sessionId || undefined,
+        }),
       });
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(stockError(json) ?? json.error ?? "Failed to record immunization");
       setIsImmunizationOpen(false);
-      setImmunizationForm({ antigenCode: "", doseNumber: "1", administeredAt: new Date().toISOString().slice(0, 10), stockLotId: "", lotNumber: "", notes: "" });
+      setImmunizationForm(emptyImmunizationForm());
       const immRes = await fetch(`/api/v1/patients/${id}/immunizations`);
       const immJson = await immRes.json();
       if (immJson.success) setImmunizations(immJson.data);
@@ -358,6 +375,28 @@ export default function PatientDetailPage() {
       setImmunizationError(e instanceof Error ? e.message : "Failed to record immunization");
     } finally {
       setSavingImmunization(false);
+    }
+  };
+
+  const handleSaveAefi = async (form: NewAefiForm) => {
+    if (!aefiDose) return;
+    setSavingAefi(true);
+    setAefiError(null);
+    try {
+      const res = await fetch("/api/v1/aefi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...form, immunizationId: aefiDose.id, onsetAt: new Date(form.onsetAt).toISOString() }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) throw new Error(epiError(json) ?? json.error ?? tc("unknown_error"));
+      setAefiDose(null);
+      const immJson = await fetch(`/api/v1/patients/${id}/immunizations`).then((r) => r.json());
+      if (immJson.success) setImmunizations(immJson.data);
+    } catch (e) {
+      setAefiError(e instanceof Error ? e.message : tc("unknown_error"));
+    } finally {
+      setSavingAefi(false);
     }
   };
 
@@ -444,9 +483,9 @@ export default function PatientDetailPage() {
   const detailContent = (
     <>
       <div className="flex flex-col h-full space-y-4">
-        <PatientDetailHeader 
-          patient={patient} 
-          onExport={handleExportFile} 
+        <PatientDetailHeader
+          patient={patient}
+          onExport={handleExportFile}
           onEdit={() => {
             setEditForm({
               firstName: patient.firstName, lastName: patient.lastName, birthDate: patient.birthDate, gender: patient.gender,
@@ -456,8 +495,8 @@ export default function PatientDetailPage() {
               allergies: patient.allergies || [], chronicConditions: patient.chronicConditions || []
             });
             setIsEditOpen(true);
-          }} 
-          onNewAdmission={() => setIsStayOpen(true)} 
+          }}
+          onNewAdmission={() => setIsStayOpen(true)}
         />
 
         <div className={`grid gap-4 flex-1 ${isMobile ? "grid-cols-1" : "grid-cols-12 overflow-hidden"}`}>
@@ -480,6 +519,7 @@ export default function PatientDetailPage() {
               tbCases={tbCases}
               onAddRecord={() => setIsRecordOpen(true)}
               onAddImmunization={() => setIsImmunizationOpen(true)}
+              onReportAefi={(dose) => { setAefiError(null); setAefiDose(dose); }}
               onAddMalariaCase={() => setIsMalariaCaseOpen(true)}
               onAddTbCase={() => setIsTbCaseOpen(true)}
               onAddTbFollowUp={(tbCaseId) => { setActiveTbCaseId(tbCaseId); setIsTbFollowUpOpen(true); }}
@@ -512,6 +552,14 @@ export default function PatientDetailPage() {
         open={isImmunizationOpen} onOpenChange={setIsImmunizationOpen}
         form={immunizationForm} onUpdateForm={(k, v) => setImmunizationForm(p => ({ ...p, [k]: v }))}
         antigens={antigens} saving={savingImmunization} error={immunizationError} onSubmit={handleSaveImmunization}
+      />
+
+      <AefiSheet
+        dose={aefiDose}
+        onOpenChange={(open) => { if (!open) { setAefiDose(null); setAefiError(null); } }}
+        saving={savingAefi}
+        error={aefiError}
+        onSubmit={handleSaveAefi}
       />
 
       <NewMalariaCaseSheet

@@ -1,6 +1,7 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import { ModulePermission } from "./store/useAppStore";
+import { SUB_MODULE_PARENT } from "./sub-modules";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -21,7 +22,8 @@ export function mergeModulePermissions(
 
   // Process user modules, intersecting with tenant permissions
   for (const userModule of userModules) {
-    const tenantActions = tenantMap.get(userModule.moduleId);
+    // A sub-module (e.g. MODULE_HIV) is licensed through its parent module.
+    const tenantActions = tenantMap.get(userModule.moduleId) ?? tenantMap.get(SUB_MODULE_PARENT[userModule.moduleId] ?? "");
     if (tenantActions) {
       // Intersect user actions with tenant actions
       const allowedActions = userModule.actions.filter(action => tenantActions.includes(action));

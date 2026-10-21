@@ -19,6 +19,9 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Link } from "@/i18n/routing";
 import { StayPhaseBadge } from "@/components/shared/stay-phase-badge";
+import { useParams } from "next/navigation";
+import { useAppStore } from "@/lib/store/useAppStore";
+import { HivPatientPanel } from "@/components/hiv/HivPatientPanel";
 import {
   StayRow,
   MedicalRecordRow,
@@ -48,6 +51,7 @@ interface PatientTabsProps {
   tbCases: TbCaseRow[];
   onAddRecord: () => void;
   onAddImmunization: () => void;
+  onReportAefi: (dose: ImmunizationRow) => void;
   onAddMalariaCase: () => void;
   onAddTbCase: () => void;
   onAddTbFollowUp: (tbCaseId: string) => void;
@@ -67,6 +71,7 @@ export function PatientTabs({
   tbCases,
   onAddRecord,
   onAddImmunization,
+  onReportAefi,
   onAddMalariaCase,
   onAddTbCase,
   onAddTbFollowUp,
@@ -76,6 +81,10 @@ export function PatientTabs({
   const trx = useTranslations('pharmacy');
   const trad = useTranslations('radiology');
   const tdp = useTranslations('diseasePrograms');
+  const patientId = useParams<{ id: string }>().id;
+  const hasPermission = useAppStore((state) => state.hasPermission);
+  const canReadHiv = hasPermission("MODULE_HIV", "read");
+  const canEditHiv = hasPermission("MODULE_HIV", "create");
 
   const stayTypeLabel = (st: string) => {
     if (st === "emergency") return tc("status_emergency");
@@ -163,7 +172,7 @@ export function PatientTabs({
             </TabsTrigger>
           </TabsList>
         </div>
-        
+
         <div className="flex-1 overflow-auto bg-white p-0">
           <TabsContent value="admissions" className="m-0 border-none outline-none">
             <table className="w-full text-left">
@@ -355,7 +364,7 @@ export function PatientTabs({
                 <tr className="bg-slate-50/50 text-[10px] text-slate-500 uppercase font-bold border-b border-slate-200">
                   <th className="px-4 py-2">{tc('scan_id')}</th>
                   <th className="px-4 py-2">{tc('date')}</th>
-                  <th className="px-4 py-2">{trad('modality') || "Modality"}</th> 
+                  <th className="px-4 py-2">{trad('modality') || "Modality"}</th>
                   <th className="px-4 py-2">{trad('region') || "Region"}</th>
                   <th className="px-4 py-2 text-right">{tc('actions')}</th>
                 </tr>
@@ -500,11 +509,13 @@ export function PatientTabs({
                     <th className="px-3 py-2">{tdp('vaccination.antigen')}</th>
                     <th className="px-3 py-2">{tdp('vaccination.dose_number')}</th>
                     <th className="px-3 py-2">{tdp('vaccination.lot_number')}</th>
+                    <th className="px-3 py-2">{tdp('epi.strategy')}</th>
+                    <th className="px-3 py-2 text-right">{tdp('epi.aefi_column')}</th>
                   </tr>
                 </thead>
                 <tbody className="text-xs divide-y divide-slate-100">
                   {immunizations.length === 0 && (
-                    <tr><td colSpan={4} className="px-3 py-4 text-center text-slate-500 italic">{tdp('vaccination.no_items')}</td></tr>
+                    <tr><td colSpan={6} className="px-3 py-4 text-center text-slate-500 italic">{tdp('vaccination.no_items')}</td></tr>
                   )}
                   {immunizations.map((im) => (
                     <tr key={im.id} className="hover:bg-slate-50">
@@ -512,11 +523,31 @@ export function PatientTabs({
                       <td className="px-3 py-2 font-medium text-slate-900">{im.antigenName}{im.isOutOfSchedule && <span className="ml-1 text-[9px] text-orange-600 uppercase font-bold">{tdp('vaccination.out_of_schedule')}</span>}</td>
                       <td className="px-3 py-2">{im.doseNumber}</td>
                       <td className="px-3 py-2 font-mono text-slate-500">{im.lotNumber ?? '—'}</td>
+                      <td className="px-3 py-2 text-slate-600">
+                        {tdp(`epi.strategy_${im.strategy}`)}
+                        {im.populationGroup !== 'general' && <span className="ml-1 text-[10px] text-slate-400">· {tdp(`epi.population_${im.populationGroup}`)}</span>}
+                      </td>
+                      <td className="px-3 py-2 text-right whitespace-nowrap">
+                        {(im._count?.aefiReports ?? 0) > 0 && (
+                          <span className="mr-2 rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-700">{tdp('epi.aefi_count', { count: im._count?.aefiReports ?? 0 })}</span>
+                        )}
+                        <button type="button" className="text-[11px] font-semibold text-red-600 hover:underline" onClick={() => onReportAefi(im)}>
+                          {tdp('epi.aefi_report_action')}
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+
+            {/* VIH / PTME / hépatites / IST: only for staff granted MODULE_HIV (checked again by every route). */}
+            {canReadHiv && patientId && (
+              <div>
+                <h4 className="mb-2 text-[11px] font-bold text-slate-900 uppercase tracking-wider">{tdp('hiv.panel_title')}</h4>
+                <HivPatientPanel patientId={patientId} canEdit={canEditHiv} />
+              </div>
+            )}
 
             {/* Paludisme */}
             <div>

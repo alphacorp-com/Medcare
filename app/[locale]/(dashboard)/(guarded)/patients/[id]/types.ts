@@ -194,6 +194,9 @@ export type ImmunizationRow = {
   lotNumber: string | null;
   isOutOfSchedule: boolean;
   notes: string | null;
+  strategy: "fixed" | "outreach";
+  populationGroup: "general" | "nomad" | "pygmy" | "refugee";
+  _count?: { aefiReports: number };
 };
 
 export type NewImmunizationForm = {
@@ -204,6 +207,19 @@ export type NewImmunizationForm = {
   stockLotId: string;
   lotNumber: string;
   notes: string;
+  strategy: "fixed" | "outreach";
+  // "" = same status as the patient's previous dose (server side).
+  populationGroup: "" | "general" | "nomad" | "pygmy" | "refugee";
+  sessionId: string;
+};
+
+// AEFI (MAPI) declared on one dose.
+export type NewAefiForm = {
+  onsetAt: string; // datetime-local
+  seriousness: "minor" | "serious";
+  outcome: "unknown" | "recovering" | "recovered" | "sequelae" | "death";
+  hospitalized: boolean;
+  description: string;
 };
 
 export type MalariaCaseRow = {

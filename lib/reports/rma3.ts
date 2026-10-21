@@ -4,6 +4,10 @@ import { Dhis2MetricKey, Dhis2MetricValue } from "@/lib/dhis2/types";
 import { computeCauseTables, type Rma3CauseTable } from "@/lib/reports/rma3-rubrics";
 import { computeMorbidityTables, type Rma3MorbidityTable } from "@/lib/reports/rma3-morbidity";
 import { computeStockReport, type StockReportItemRow } from "@/lib/stock/report-data";
+import { computeEpiSections, type Rma3EpiSections } from "@/lib/epi/rma3-epi-data";
+import { computeHivReport } from "@/lib/hiv/rma3-hiv-data";
+import type { Rma3HivReport } from "@/lib/hiv/rma3-hiv";
+import type { Rma3VaccinationRow } from "@/lib/epi/rma3-epi";
 import { RMA3_AGE_SCHEMES, ageBand, bandOrPregnant, rma3Sex } from "@/lib/reports/age-bands";
 
 export type { Rma3CauseRow, Rma3CauseTable } from "@/lib/reports/rma3-rubrics";
@@ -25,20 +29,7 @@ export interface Rma3KeyValueRow {
   value: number;
 }
 
-export interface Rma3VaccinationRow {
-  antigenCode: string;
-  antigenName: string;
-  doseNumber: number;
-  boys: number;
-  girls: number;
-  unknownSex: number;
-  total: number;
-  ageUnder12m: number;
-  age12to23m: number;
-  age24to59m: number;
-  age5yPlus: number;
-  outOfSchedule: number;
-}
+export type { Rma3VaccinationRow, Rma3HpvRow, Rma3AefiRow, Rma3ColdChain, Rma3SessionCounts } from "@/lib/epi/rma3-epi";
 
 export interface Rma3MalariaRow {
   label: string;
@@ -67,6 +58,8 @@ export interface Rma3ReportData {
   facilityActivity: Rma3KeyValueRow[];
   maternalHealth: Rma3KeyValueRow[];
   vaccination: Rma3VaccinationRow[];
+  // III.1 sessions, III.3 HPV, III.4 cold chain, III.6 AEFI.
+  epi: Omit<Rma3EpiSections, "vaccination">;
   malaria: Rma3MalariaRow[];
   tuberculosis: Rma3TbSection;
   // V.3 / V.4 / V.5 — from coded diagnoses and the tenant's ICD-10 → RMA3 correspondence.
@@ -76,6 +69,8 @@ export interface Rma3ReportData {
   // V.7 tracers, III.5 EPI inputs, IV.2.7 antimalarials, V.9 oxygen, IV.6 nutrition: the
   // monthly stock report of the articles given an RMA3 category.
   stock: StockReportItemRow[];
+  // II.3 PMTCT, II.1.1 antenatal syphilis / hepatitis B, IV.1 HIV and hepatitis / STI.
+  hiv: Rma3HivReport;
 }
 
 function pickMetrics(values: Dhis2MetricValue[]): Record<Dhis2MetricKey, number> {
@@ -129,76 +124,6 @@ function buildMaternalHealthRows(metrics: Record<Dhis2MetricKey, number>): Rma3K
     { label: "Doses de TPI/prévention du paludisme données en CPN", value: metrics.malaria_prevention_doses_given ?? 0 },
     { label: "Dépistages VIH réalisés chez les femmes enceintes (PTME)", value: metrics.hiv_tests_pregnancy_completed ?? 0 },
   ];
-}
-
-async function computeVaccinationSection(tenantId: string, period: Dhis2Period): Promise<Rma3VaccinationRow[]> {
-  const { start, end } = periodToDateRange(period);
-
-  const [rows, catalog] = await Promise.all([
-    prisma.immunization.findMany({
-      where: { tenantId, administeredAt: { gte: start, lt: end } },
-      select: {
-        antigenCode: true,
-        antigenName: true,
-        doseNumber: true,
-        administeredAt: true,
-        isOutOfSchedule: true,
-        patient: { select: { gender: true, birthDate: true } },
-      },
-    }),
-    prisma.referenceCatalogItem.findMany({
-      where: { catalogType: "vaccine_antigen", OR: [{ tenantId }, { tenantId: null }] },
-      orderBy: { order: "asc" },
-      select: { code: true, order: true },
-    }),
-  ]);
-
-  const order = new Map<string, number>();
-  catalog.forEach((item, index) => {
-    if (!order.has(item.code)) order.set(item.code, item.order * 1000 + index);
-  });
-
-  const grouped = new Map<string, Rma3VaccinationRow>();
-  for (const row of rows) {
-    const key = `${row.antigenCode}:${row.doseNumber}`;
-    let entry = grouped.get(key);
-    if (!entry) {
-      entry = {
-        antigenCode: row.antigenCode,
-        antigenName: row.antigenName,
-        doseNumber: row.doseNumber,
-        boys: 0,
-        girls: 0,
-        unknownSex: 0,
-        total: 0,
-        ageUnder12m: 0,
-        age12to23m: 0,
-        age24to59m: 0,
-        age5yPlus: 0,
-        outOfSchedule: 0,
-      };
-      grouped.set(key, entry);
-    }
-
-    const sex = rma3Sex(row.patient.gender);
-    if (sex === "M") entry.boys += 1;
-    else if (sex === "F") entry.girls += 1;
-    else entry.unknownSex += 1;
-    entry.total += 1;
-
-    // Calendar age at the administration date (open-ended scheme: always a band).
-    const band = ageBand(RMA3_AGE_SCHEMES.vaccination, row.patient.birthDate, row.administeredAt);
-    if (band) entry[band] += 1;
-
-    if (row.isOutOfSchedule) entry.outOfSchedule += 1;
-  }
-
-  return Array.from(grouped.values()).sort((a, b) => {
-    const orderA = order.get(a.antigenCode) ?? Number.MAX_SAFE_INTEGER;
-    const orderB = order.get(b.antigenCode) ?? Number.MAX_SAFE_INTEGER;
-    if (orderA !== orderB) return orderA - orderB;
-    return a.antigenCode.localeCompare(b.antigenCode) || a.doseNumber - b.doseNumber;
-  });
 }
 
 // "< 5 ans / 5 ans et + / Femmes enceintes": a pregnant woman is counted in her own column.
@@ -312,19 +237,21 @@ async function computeTuberculosisSection(tenantId: string, period: Dhis2Period)
 
 export async function computeRma3Report(tenantId: string, period: Dhis2Period): Promise<Rma3ReportData> {
   const { start, end } = periodToDateRange(period);
-  const [rawMetrics, identification, vaccination, malaria, tuberculosis, bedCount, causes, morbidity, stockReport] = await Promise.all([
+  const [rawMetrics, identification, epiSections, malaria, tuberculosis, bedCount, causes, morbidity, stockReport, hiv] = await Promise.all([
     computeMonthlyIndicators(tenantId, period),
     computeIdentificationSection(tenantId),
-    computeVaccinationSection(tenantId, period),
+    computeEpiSections(tenantId, start, end),
     computeMalariaSection(tenantId, period),
     computeTuberculosisSection(tenantId, period),
     prisma.bed.count({ where: { tenantId, isActive: true } }),
     computeCauseTables(tenantId, start, end),
     computeMorbidityTables(tenantId, start, end),
     computeStockReport(tenantId, period),
+    computeHivReport(tenantId, start, end),
   ]);
 
   const metrics = pickMetrics(rawMetrics);
+  const { vaccination, ...epi } = epiSections;
 
   return {
     period,
@@ -332,10 +259,12 @@ export async function computeRma3Report(tenantId: string, period: Dhis2Period): 
     facilityActivity: buildFacilityActivityRows(metrics, bedCount),
     maternalHealth: buildMaternalHealthRows(metrics),
     vaccination,
+    epi,
     malaria,
     tuberculosis,
     causes,
     morbidity,
     stock: (stockReport?.rows ?? []).filter((row) => row.rma3Category !== null),
+    hiv,
   };
 }

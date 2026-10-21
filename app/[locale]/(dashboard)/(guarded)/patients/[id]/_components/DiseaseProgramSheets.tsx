@@ -1,6 +1,7 @@
 "use client";
 
 import { useFormatter, useTranslations } from "next-intl";
+import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,8 @@ import {
 } from "@/components/ui/sheet";
 import {
   VaccineAntigen,
+  ImmunizationRow,
+  NewAefiForm,
   NewImmunizationForm,
   NewMalariaCaseForm,
   NewTbCaseForm,
@@ -22,6 +25,32 @@ import {
 } from "../types";
 
 // ── Immunization ─────────────────────────────────────────────────────────────
+
+const EPI_ERROR_CODES = [
+  "invalid_strategy",
+  "invalid_population",
+  "invalid_session",
+  "invalid_immunization",
+  "onset_before_dose",
+  "future_date",
+  "invalid_date",
+  "invalid_seriousness",
+  "invalid_outcome",
+  "invalid_description",
+] as const;
+
+// Translates the EPI 400 codes (vaccination, AEFI); null for other errors.
+export function useEpiErrorMessage() {
+  const t = useTranslations("diseasePrograms.epi.errors");
+  return (body: unknown): string | null => {
+    const code = body && typeof body === "object" ? (body as { code?: unknown }).code : null;
+    return typeof code === "string" && (EPI_ERROR_CODES as readonly string[]).includes(code) ? t(code) : null;
+  };
+}
+
+type SessionOption = { id: string; scheduledDate: string; strategy: "fixed" | "outreach"; site: string; status: "planned" | "held" | "cancelled" };
+
+const selectClass = "flex h-8 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-xs shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-400";
 
 interface NewImmunizationSheetProps {
   open: boolean;
@@ -48,9 +77,21 @@ export function NewImmunizationSheet({
   open, onOpenChange, form, onUpdateForm, antigens, saving, error, onSubmit,
 }: NewImmunizationSheetProps) {
   const t = useTranslations('diseasePrograms.vaccination');
+  const te = useTranslations('diseasePrograms.epi');
   const ts = useTranslations('stock');
   const tc = useTranslations('common');
   const format = useFormatter();
+
+  // Sessions planned or held on the day of the dose: linking one sets the strategy.
+  const sessionsQuery = useQuery({
+    queryKey: ["vaccination-sessions", form.administeredAt.slice(0, 7)],
+    queryFn: () => apiFetch<{ data: SessionOption[] }>(`/api/v1/vaccination-sessions?month=${form.administeredAt.slice(0, 7)}`),
+    enabled: open && /^\d{4}-\d{2}-\d{2}$/.test(form.administeredAt),
+  });
+  const daySessions = (sessionsQuery.data?.data ?? []).filter(
+    (s) => s.status !== "cancelled" && s.scheduledDate.slice(0, 10) === form.administeredAt
+  );
+  const linkedSession = daySessions.find((s) => s.id === form.sessionId);
 
   // Is the antigen supplied from the stock? Then the dose must come from one of its lots.
   const lotsQuery = useQuery({
@@ -101,7 +142,66 @@ export function NewImmunizationSheet({
             </div>
             <div className="space-y-1">
               <label className="text-[10px] font-bold text-slate-500 uppercase">{tc('date')}</label>
-              <Input type="date" value={form.administeredAt} onChange={(e) => onUpdateForm("administeredAt", e.target.value)} className="h-8 text-xs bg-white border-slate-200" />
+              <Input
+                type="date"
+                max={new Date().toISOString().slice(0, 10)}
+                value={form.administeredAt}
+                onChange={(e) => {
+                  onUpdateForm("administeredAt", e.target.value);
+                  onUpdateForm("sessionId", "");
+                }}
+                className="h-8 text-xs bg-white border-slate-200"
+              />
+            </div>
+          </div>
+
+          {daySessions.length > 0 && (
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-500 uppercase">{te('session')}</label>
+              <select
+                value={form.sessionId}
+                onChange={(e) => {
+                  const chosen = daySessions.find((s) => s.id === e.target.value);
+                  onUpdateForm("sessionId", e.target.value);
+                  if (chosen) onUpdateForm("strategy", chosen.strategy);
+                }}
+                className={selectClass}
+              >
+                <option value="">{te('no_session')}</option>
+                {daySessions.map((s) => (
+                  <option key={s.id} value={s.id}>{s.site} — {te(`strategy_${s.strategy}`)}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-500 uppercase">{te('strategy')}</label>
+              <div className="grid grid-cols-2 gap-1 rounded-md bg-slate-200/50 p-1" role="radiogroup">
+                {(["fixed", "outreach"] as const).map((strategy) => (
+                  <button
+                    key={strategy}
+                    type="button"
+                    role="radio"
+                    aria-checked={form.strategy === strategy}
+                    disabled={Boolean(linkedSession)}
+                    onClick={() => onUpdateForm("strategy", strategy)}
+                    className={`rounded px-2 py-1 text-[11px] font-semibold disabled:opacity-60 ${form.strategy === strategy ? "bg-white shadow-sm text-slate-800" : "text-slate-500"}`}
+                  >
+                    {te(`strategy_${strategy}`)}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-500 uppercase">{te('population')}</label>
+              <select value={form.populationGroup} onChange={(e) => onUpdateForm("populationGroup", e.target.value as NewImmunizationForm["populationGroup"])} className={selectClass}>
+                <option value="">{te('population_previous')}</option>
+                {(["general", "nomad", "pygmy", "refugee"] as const).map((group) => (
+                  <option key={group} value={group}>{te(`population_${group}`)}</option>
+                ))}
+              </select>
             </div>
           </div>
 
@@ -411,6 +511,88 @@ export function NewTbFollowUpSheet({
           <Button variant="outline" className="text-xs h-8" onClick={() => onOpenChange(false)} disabled={saving}>{tc('cancel')}</Button>
           <Button className="text-xs h-8 bg-blue-600 hover:bg-blue-700" onClick={onSubmit} disabled={saving}>
             {saving ? tc('saving') : tc('save')}
+          </Button>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+// ── AEFI (MAPI) ──────────────────────────────────────────────────────────────
+
+const nowLocal = () => {
+  const d = new Date();
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 16);
+};
+
+interface AefiSheetProps {
+  dose: ImmunizationRow | null;
+  onOpenChange: (open: boolean) => void;
+  saving: boolean;
+  error: string | null;
+  onSubmit: (form: NewAefiForm) => Promise<void>;
+}
+
+// Declares an adverse event following the given dose (the dose is the link, not a choice).
+export function AefiSheet({ dose, onOpenChange, saving, error, onSubmit }: AefiSheetProps) {
+  const te = useTranslations('diseasePrograms.epi');
+  const tc = useTranslations('common');
+  const empty = (): NewAefiForm => ({ onsetAt: nowLocal(), seriousness: "minor", outcome: "unknown", hospitalized: false, description: "" });
+  const [form, setForm] = useState<NewAefiForm>(empty);
+  const valid = form.onsetAt !== "" && form.description.trim() !== "";
+
+  return (
+    <Sheet open={Boolean(dose)} onOpenChange={(open) => { if (!open) setForm(empty()); onOpenChange(open); }}>
+      <SheetContent className="sm:max-w-md w-full right-0 p-0 flex flex-col bg-slate-50">
+        <SheetHeader className="p-4 border-b border-slate-200 bg-white shrink-0">
+          <SheetTitle className="text-lg">{te('aefi_title')}</SheetTitle>
+          <SheetDescription className="text-xs">
+            {dose ? te('aefi_desc', { antigen: dose.antigenName, dose: dose.doseNumber, date: new Date(dose.administeredAt).toLocaleDateString() }) : ""}
+          </SheetDescription>
+        </SheetHeader>
+        <div className="p-4 flex-1 overflow-y-auto space-y-4">
+          {error && <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded p-2">{error}</div>}
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-slate-500 uppercase">{te('aefi_onset')}</label>
+            <Input type="datetime-local" max={nowLocal()} value={form.onsetAt} onChange={(e) => setForm({ ...form, onsetAt: e.target.value })} className="h-8 text-xs bg-white border-slate-200" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-500 uppercase">{te('aefi_seriousness')}</label>
+              <select value={form.seriousness} onChange={(e) => setForm({ ...form, seriousness: e.target.value as NewAefiForm["seriousness"] })} className={selectClass}>
+                <option value="minor">{te('aefi_minor')}</option>
+                <option value="serious">{te('aefi_serious')}</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-500 uppercase">{te('aefi_outcome')}</label>
+              <select value={form.outcome} onChange={(e) => setForm({ ...form, outcome: e.target.value as NewAefiForm["outcome"] })} className={selectClass}>
+                {(["unknown", "recovering", "recovered", "sequelae", "death"] as const).map((o) => (
+                  <option key={o} value={o}>{te(`aefi_outcome_${o}`)}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          {form.seriousness === "serious" && <p className="text-[11px] text-orange-700 bg-orange-50 border border-orange-100 rounded p-2">{te('aefi_serious_hint')}</p>}
+          <label className="flex items-center gap-2 text-xs text-slate-700">
+            <input type="checkbox" checked={form.hospitalized} onChange={(e) => setForm({ ...form, hospitalized: e.target.checked })} className="rounded border-slate-300" />
+            {te('aefi_hospitalized')}
+          </label>
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-slate-500 uppercase">{te('aefi_description')}</label>
+            <textarea
+              value={form.description}
+              maxLength={2000}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              className="flex min-h-[90px] w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400"
+            />
+          </div>
+        </div>
+        <SheetFooter className="p-4 border-t border-slate-200 bg-white shrink-0">
+          <Button variant="outline" className="text-xs h-8" onClick={() => onOpenChange(false)} disabled={saving}>{tc('cancel')}</Button>
+          <Button className="text-xs h-8 bg-red-600 hover:bg-red-700" onClick={() => onSubmit(form).then(() => setForm(empty()))} disabled={saving || !valid}>
+            {saving ? tc('saving') : te('aefi_submit')}
           </Button>
         </SheetFooter>
       </SheetContent>

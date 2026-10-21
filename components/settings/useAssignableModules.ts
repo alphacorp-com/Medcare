@@ -18,6 +18,8 @@ export const ASSIGNABLE_MODULE_IDS = [
   "MODULE_PLANNING",
   "MODULE_MATERNITY",
   "MODULE_DISEASE_PROGRAMS",
+  // Sub-module of MODULE_DISEASE_PROGRAMS (lib/sub-modules.ts): not in MODULE_CATALOG.
+  "MODULE_HIV",
 ] as const;
 
 export function useAssignableModules(): Array<{ id: string; name: string }> {
@@ -45,6 +47,7 @@ export function useAssignableModules(): Array<{ id: string; name: string }> {
     MODULE_PLANNING: tplan("title"),
     MODULE_MATERNITY: tmat("title"),
     MODULE_DISEASE_PROGRAMS: tdp("module_title"),
+    MODULE_HIV: tdp("hiv.module_title"),
   };
 
   return ASSIGNABLE_MODULE_IDS.map((id) => ({ id, name: names[id] }));

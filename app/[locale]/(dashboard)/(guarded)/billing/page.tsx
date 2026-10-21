@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
+import { useUrlTab } from "@/hooks/use-url-tab";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import type { PagedResponse } from "@/lib/pagination";
@@ -24,7 +25,8 @@ type InvoiceListResponse = PagedResponse<InvoiceListItem, Partial<Record<Billing
   outstandingBalance: number;
 };
 
-export default function BillingPage() {
+function BillingPageContent() {
+  const [billingTab, setBillingTab] = useUrlTab(["invoices", "fee_schedule"] as const, "invoices");
   const t = useTranslations("billing");
   const tc = useTranslations("common");
   const hasModule = useAppStore((state) => state.hasModule);
@@ -123,7 +125,7 @@ export default function BillingPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="invoices" className="flex-1 flex flex-col overflow-hidden">
+      <Tabs value={billingTab} onValueChange={(v) => setBillingTab(v as typeof billingTab)} className="flex-1 flex flex-col overflow-hidden">
         <TabsList className="bg-white border border-slate-200 shadow-sm h-auto p-1 w-fit shrink-0 flex-wrap">
           <TabsTrigger value="invoices" className="text-xs data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700">
             {t("invoices")}
@@ -223,5 +225,14 @@ export default function BillingPage() {
         </div>
       </Tabs>
     </div>
+  );
+}
+
+// The active tab lives in the URL (?tab=, see useUrlTab), which needs a Suspense boundary.
+export default function BillingPage() {
+  return (
+    <Suspense fallback={null}>
+      <BillingPageContent />
+    </Suspense>
   );
 }

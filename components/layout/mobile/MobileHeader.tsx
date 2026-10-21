@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { MedcareLogo, PoweredByAlphaCorp } from "@/components/brand/logos";
-import { NAV_ITEMS, NAV_GROUP_LABEL_KEY, isNavHrefActive, type NavGroup } from "../navigation";
+import { NAV_ITEMS, NAV_GROUP_LABEL_KEY, isNavHrefActive, isNavItemActive, type NavGroup } from "../navigation";
 import { useOrganizationInfo, useUnreadMessagesCount, type OrganizationInfo } from "../use-layout-data";
 
 const LOCALES = [
@@ -65,7 +65,7 @@ export function MobileHeader() {
   const locale = useLocale();
   const pathname = usePathname();
   const router = useRouter();
-  const { currentUser, hasModule, setUser, setActiveModules } = useAppStore();
+  const { currentUser, hasModule, hasPermission, setUser, setActiveModules } = useAppStore();
   const organization = useOrganizationInfo();
   const unreadMessages = useUnreadMessagesCount();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -147,12 +147,27 @@ export function MobileHeader() {
               <div key={group}>
                 <p className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">{tc(NAV_GROUP_LABEL_KEY[group])}</p>
                 <div className="space-y-1">
-                  {items.map((item) => (
-                    <Link key={item.href} href={item.href} onClick={() => setMenuOpen(false)} className={menuLinkClass(isNavHrefActive(item.href, pathname))}>
-                      <item.icon className="h-5 w-5 shrink-0" />
-                      <span className="truncate">{tc(item.name)}</span>
-                    </Link>
-                  ))}
+                  {items.map((item) => {
+                    const subItems = (item.children ?? []).filter((c) => !c.permission || hasPermission(c.permission.module, c.permission.action));
+                    return (
+                      <div key={item.href}>
+                        <Link href={subItems[0]?.href ?? item.href} onClick={() => setMenuOpen(false)} className={menuLinkClass(isNavItemActive(item, pathname))}>
+                          <item.icon className="h-5 w-5 shrink-0" />
+                          <span className="truncate">{tc(item.name)}</span>
+                        </Link>
+                        {/* Sub-items of the module (pages and tabs), as in the desktop sidebar. */}
+                        {subItems.length > 0 && (
+                          <div className="ml-8 border-l border-slate-100 pl-2">
+                            {subItems.map((child) => (
+                              <Link key={child.href} href={child.href} onClick={() => setMenuOpen(false)} className="block rounded-lg px-3 py-1.5 text-[13px] text-slate-600 hover:bg-slate-100">
+                                {tc(child.name)}
+                              </Link>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             ))}

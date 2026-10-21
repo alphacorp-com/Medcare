@@ -5,6 +5,7 @@ import { requireTenantAdmin } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
 import { validateExamParameters } from "@/lib/exam-catalog/validate-parameters";
 import { syncExamFeeSchedule, deactivateExamFeeSchedule } from "@/lib/billing/syncFeeSchedule";
+import { SCREENING_TEST_TYPES } from "@/lib/hiv/input";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -24,12 +25,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const body = await request.json();
     const {
       code, nameFr, nameEn, price, parameters,
-      imagingCatalogItemId, anatomicalZoneId, requiresContrast, isActive,
+      imagingCatalogItemId, anatomicalZoneId, requiresContrast, isActive, screeningTestType,
     } = body as {
       code?: string; nameFr?: string; nameEn?: string; price?: number | string | null;
       parameters?: unknown;
       imagingCatalogItemId?: string | null; anatomicalZoneId?: string | null; requiresContrast?: boolean | null; isActive?: boolean;
+      screeningTestType?: unknown;
     };
+    // Which program screening test a validated result of this exam feeds (null = none).
+    if (screeningTestType !== undefined && screeningTestType !== null && screeningTestType !== "" && !(SCREENING_TEST_TYPES as readonly unknown[]).includes(screeningTestType)) {
+      return NextResponse.json({ error: "Invalid screening test type", code: "invalid_screening_test_type" }, { status: 400 });
+    }
 
     // The sheet drives result entry and automatic (critical) flags — validated server-side.
     const parsedParameters = parameters === undefined ? undefined : validateExamParameters(parameters);
@@ -50,6 +56,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (anatomicalZoneId !== undefined) data.anatomicalZoneId = anatomicalZoneId || null;
     if (requiresContrast !== undefined) data.requiresContrast = requiresContrast;
     if (isActive !== undefined) data.isActive = isActive;
+    if (screeningTestType !== undefined) data.screeningTestType = screeningTestType || null;
 
     const updated = await prisma.examCatalogEntry.update({ where: { id }, data });
 

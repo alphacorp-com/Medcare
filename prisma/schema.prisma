@@ -755,6 +755,11 @@ model Patient {
   malariaCases       MalariaCase[]
   tbCases            TbCase[]
   diagnoses          Diagnosis[]
+  screeningTests     ScreeningTest[]
+  hivEnrolments      HivCareEnrolment[]
+  viralLoads         ViralLoadResult[]
+  hepatitisCases     HepatitisCase[]
+  hivExposure        HivExposedInfant?
 
   @@unique([tenantId, ipp])
   @@index([tenantId])
@@ -909,6 +914,8 @@ model Pregnancy {
   para                Int
   status              PregnancyStatus @default(ongoing)
   riskFactors         Json            @default("[]") @map("risk_factors")
+  // Whether a community health worker / organization referred the woman (RMA3 II.3.3).
+  referralSource      ReferralSource  @default(none) @map("referral_source")
   notes               String?
   createdAt           DateTime        @default(now()) @map("created_at") @db.Timestamptz
   updatedAt           DateTime        @updatedAt @map("updated_at") @db.Timestamptz
@@ -917,6 +924,8 @@ model Pregnancy {
   antenatalVisits AntenatalVisit[]
   delivery        Delivery?
   examRequests    ExamRequest[]
+  // HIV-sensitive: in its own table so the maternity routes never return it.
+  pmtctStatus     PmtctPregnancyStatus?
 
   @@index([tenantId])
   @@index([patientId])
@@ -1838,6 +1847,8 @@ model ExamCatalogEntry {
   imagingCatalogItemId String?  @map("imaging_catalog_item_id") @db.Uuid
   anatomicalZoneId     String?  @map("anatomical_zone_id") @db.Uuid
   requiresContrast     Boolean? @map("requires_contrast")
+  // A validated result of this exam feeds the screening register (HIV, syphilis, HBsAg…).
+  screeningTestType    ScreeningTestType? @map("screening_test_type")
   isActive             Boolean  @default(true) @map("is_active")
   createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz
@@ -1959,6 +1970,12 @@ model Immunization {
   ageInDaysAtAdministration Int       @map("age_in_days_at_administration")
   lotNumber                 String?   @map("lot_number") @db.VarChar(60)
   expiryDate                DateTime? @map("expiry_date") @db.Date
+  // RMA3 III.2 / III.3 breakdowns: where the dose was given (fixed post or outreach /
+  // mobile strategy) and the population status of the child at that time.
+  strategy                  VaccinationStrategy @default(fixed)
+  populationGroup           PopulationGroup     @default(general) @map("population_group")
+  // Session the dose was given in (optional; its strategy then applies).
+  sessionId                 String?   @map("session_id") @db.Uuid
   // The stock lot the dose was taken from (null for antigens not managed in stock), and the
   // opened vial for multi-dose vaccines.
   stockLotId                String?   @map("stock_lot_id") @db.Uuid
@@ -1966,14 +1983,436 @@ model Immunization {
   isOutOfSchedule           Boolean   @default(false) @map("is_out_of_schedule")
   notes                     String?
 
-  patient       Patient        @relation(fields: [patientId], references: [id])
-  stockLot      StockLot?      @relation(fields: [stockLotId], references: [id])
-  stockOpenVial StockOpenVial? @relation(fields: [stockOpenVialId], references: [id])
+  patient       Patient             @relation(fields: [patientId], references: [id])
+  stockLot      StockLot?           @relation(fields: [stockLotId], references: [id])
+  stockOpenVial StockOpenVial?      @relation(fields: [stockOpenVialId], references: [id])
+  session       VaccinationSession? @relation(fields: [sessionId], references: [id])
+  aefiReports   AefiReport[]
 
   @@index([tenantId])
   @@index([patientId, administeredAt(sort: Desc)])
   @@index([antigenCode])
   @@map("immunizations")
+  @@schema("tenant_template")
+}
+
+enum VaccinationStrategy {
+  fixed
+  outreach
+
+  @@schema("tenant_template")
+}
+
+enum PopulationGroup {
+  general
+  nomad
+  pygmy
+  refugee
+
+  @@schema("tenant_template")
+}
+
+enum VaccinationSessionStatus {
+  planned
+  held
+  cancelled
+
+  @@schema("tenant_template")
+}
+
+// A planned vaccination session (RMA3 III.1: sessions planned / held, fixed or outreach).
+model VaccinationSession {
+  id            String                   @id @default(uuid()) @db.Uuid
+  tenantId      String                   @map("tenant_id") @db.Uuid
+  scheduledDate DateTime                 @map("scheduled_date") @db.Date
+  strategy      VaccinationStrategy
+  // Village, neighbourhood, school… (outreach), or the fixed post.
+  site          String                   @db.VarChar(150)
+  status        VaccinationSessionStatus @default(planned)
+  heldAt        DateTime?                @map("held_at") @db.Timestamptz
+  notes         String?                  @db.VarChar(500)
+  createdById   String                   @map("created_by_id") @db.Uuid
+  createdAt     DateTime                 @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime                 @updatedAt @map("updated_at") @db.Timestamptz
+
+  immunizations Immunization[]
+
+  @@index([tenantId, scheduledDate])
+  @@map("vaccination_sessions")
+  @@schema("tenant_template")
+}
+
+enum AefiSeriousness {
+  minor
+  serious
+
+  @@schema("tenant_template")
+}
+
+enum AefiOutcome {
+  unknown
+  recovering
+  recovered
+  sequelae
+  death
+
+  @@schema("tenant_template")
+}
+
+// Adverse event following immunization (MAPI), always tied to the dose that preceded it
+// (RMA3 III.6: minor / serious per vaccine).
+model AefiReport {
+  id             String          @id @default(uuid()) @db.Uuid
+  tenantId       String          @map("tenant_id") @db.Uuid
+  patientId      String          @map("patient_id") @db.Uuid
+  immunizationId String          @map("immunization_id") @db.Uuid
+  onsetAt        DateTime        @map("onset_at") @db.Timestamptz
+  seriousness    AefiSeriousness
+  outcome        AefiOutcome     @default(unknown)
+  hospitalized   Boolean         @default(false)
+  description    String          @db.VarChar(2000)
+  reportedById   String          @map("reported_by_id") @db.Uuid
+  reportedAt     DateTime        @default(now()) @map("reported_at") @db.Timestamptz
+  updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz
+
+  immunization Immunization @relation(fields: [immunizationId], references: [id])
+
+  @@index([tenantId, onsetAt])
+  @@index([immunizationId])
+  @@map("aefi_reports")
+  @@schema("tenant_template")
+}
+
+enum ColdChainEquipmentType {
+  refrigerator
+  freezer
+  cold_box
+  vaccine_carrier
+
+  @@schema("tenant_template")
+}
+
+enum ColdChainEquipmentStatus {
+  functional
+  needs_repair
+  out_of_service
+
+  @@schema("tenant_template")
+}
+
+// Cold chain equipment (RMA3 III.4) with the temperature range its vaccines must stay in.
+model ColdChainEquipment {
+  id         String                   @id @default(uuid()) @db.Uuid
+  tenantId   String                   @map("tenant_id") @db.Uuid
+  code       String                   @db.VarChar(40)
+  type       ColdChainEquipmentType
+  label      String                   @db.VarChar(150)
+  locationId String?                  @map("location_id") @db.Uuid
+  minTempC   Decimal                  @map("min_temp_c") @db.Decimal(4, 1)
+  maxTempC   Decimal                  @map("max_temp_c") @db.Decimal(4, 1)
+  status     ColdChainEquipmentStatus @default(functional)
+  isActive   Boolean                  @default(true) @map("is_active")
+  createdAt  DateTime                 @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime                 @updatedAt @map("updated_at") @db.Timestamptz
+
+  readings ColdChainReading[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@map("cold_chain_equipment")
+  @@schema("tenant_template")
+}
+
+// One temperature reading (usually morning and evening); out of the equipment's range =
+// an alarm in the RMA3.
+model ColdChainReading {
+  id           String   @id @default(uuid()) @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  equipmentId  String   @map("equipment_id") @db.Uuid
+  readAt       DateTime @map("read_at") @db.Timestamptz
+  temperatureC Decimal  @map("temperature_c") @db.Decimal(4, 1)
+  notes        String?  @db.VarChar(255)
+  recordedById String   @map("recorded_by_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  equipment ColdChainEquipment @relation(fields: [equipmentId], references: [id])
+
+  @@index([tenantId, readAt])
+  @@index([equipmentId, readAt])
+  @@map("cold_chain_readings")
+  @@schema("tenant_template")
+}
+
+// ── HIV / PMTCT, hepatitis and STI programs (RMA3 II.3, IV.1) ─────────────────
+
+enum ScreeningTestType {
+  hiv
+  hiv_pcr
+  syphilis
+  hbsag
+  hcv
+  hdv
+  chlamydia
+  mycoplasma
+  gonorrhea
+  other_sti
+
+  @@schema("tenant_template")
+}
+
+enum ScreeningResult {
+  positive
+  negative
+  indeterminate
+  invalid
+
+  @@schema("tenant_template")
+}
+
+// Where the person was tested / enrolled ("porte d'entrée").
+enum ScreeningEntryPoint {
+  index_case
+  emergency
+  antenatal
+  maternity
+  postnatal
+  pediatric
+  inpatient
+  outpatient
+  vct
+  tb
+  sti
+  family_planning
+  community
+  other
+
+  @@schema("tenant_template")
+}
+
+enum ReferralSource {
+  none
+  asc
+  obc
+
+  @@schema("tenant_template")
+}
+
+// One screening test (rapid test, lab test, PCR): the register the RMA3 counts. Created by
+// hand (tests done outside the lab) or from a validated lab result (examResultId, unique:
+// a result never feeds the register twice).
+model ScreeningTest {
+  id                   String              @id @default(uuid()) @db.Uuid
+  tenantId             String              @map("tenant_id") @db.Uuid
+  patientId            String              @map("patient_id") @db.Uuid
+  testType             ScreeningTestType   @map("test_type")
+  testedAt             DateTime            @map("tested_at") @db.Timestamptz
+  result               ScreeningResult
+  entryPoint           ScreeningEntryPoint @map("entry_point")
+  // A re-test of someone previously tested negative (e.g. HIV at ANC 2-4, at delivery).
+  isRetest             Boolean             @default(false) @map("is_retest")
+  resultCollectedAt    DateTime?           @map("result_collected_at") @db.Timestamptz
+  // Test during this pregnancy, or of the partner of this pregnant woman.
+  pregnancyId          String?             @map("pregnancy_id") @db.Uuid
+  partnerOfPregnancyId String?             @map("partner_of_pregnancy_id") @db.Uuid
+  referralSource       ReferralSource      @default(none) @map("referral_source")
+  // Treatment of a positive syphilis / STI test.
+  treatedAt            DateTime?           @map("treated_at") @db.Timestamptz
+  examResultId         String?             @unique @map("exam_result_id") @db.Uuid
+  notes                String?             @db.VarChar(500)
+  recordedById         String              @map("recorded_by_id") @db.Uuid
+  createdAt            DateTime            @default(now()) @map("created_at") @db.Timestamptz
+
+  patient Patient @relation(fields: [patientId], references: [id])
+
+  @@index([tenantId, testedAt])
+  @@index([patientId, testType])
+  @@index([pregnancyId])
+  @@map("screening_tests")
+  @@schema("tenant_template")
+}
+
+enum HivCareStatus {
+  active
+  transferred_out
+  dead
+  stopped
+
+  @@schema("tenant_template")
+}
+
+enum TransferScope {
+  in_country
+  abroad
+
+  @@schema("tenant_template")
+}
+
+// PMTCT status at the first antenatal contact (RMA3 II.3.1-005/013, II.1.1-021). Kept out of
+// Pregnancy on purpose: only the HIV routes (MODULE_HIV) read it.
+model PmtctPregnancyStatus {
+  id                      String   @id @default(uuid()) @db.Uuid
+  tenantId                String   @map("tenant_id") @db.Uuid
+  pregnancyId             String   @unique @map("pregnancy_id") @db.Uuid
+  hivKnownPositiveAtEntry Boolean  @default(false) @map("hiv_known_positive_at_entry")
+  onArtAtEntry            Boolean  @default(false) @map("on_art_at_entry")
+  hbvKnownPositiveAtEntry Boolean  @default(false) @map("hbv_known_positive_at_entry")
+  updatedById             String   @map("updated_by_id") @db.Uuid
+  updatedAt               DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  pregnancy Pregnancy @relation(fields: [pregnancyId], references: [id])
+
+  @@index([tenantId])
+  @@map("pmtct_pregnancy_status")
+  @@schema("tenant_template")
+}
+
+// A person living with HIV followed in this facility's ART clinic (one per patient).
+// Lost to follow-up is never stored: it is computed from the last appointment date.
+model HivCareEnrolment {
+  id               String              @id @default(uuid()) @db.Uuid
+  tenantId         String              @map("tenant_id") @db.Uuid
+  patientId        String              @map("patient_id") @db.Uuid
+  hivDiagnosisDate DateTime?           @map("hiv_diagnosis_date") @db.Date
+  // ART initiation (possibly elsewhere, for a transfer in) and enrolment in this facility.
+  artStartDate     DateTime            @map("art_start_date") @db.Date
+  enrolledAt       DateTime            @map("enrolled_at") @db.Date
+  entryPoint       ScreeningEntryPoint @map("entry_point")
+  transferIn       TransferScope?      @map("transfer_in")
+  pregnancyId      String?             @map("pregnancy_id") @db.Uuid
+  status           HivCareStatus       @default(active)
+  statusChangedAt  DateTime?           @map("status_changed_at") @db.Date
+  transferOut      TransferScope?      @map("transfer_out")
+  notes            String?             @db.VarChar(500)
+  createdById      String              @map("created_by_id") @db.Uuid
+  createdAt        DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime            @updatedAt @map("updated_at") @db.Timestamptz
+
+  patient Patient    @relation(fields: [patientId], references: [id])
+  visits  ArtVisit[]
+
+  @@unique([tenantId, patientId])
+  @@index([tenantId, status])
+  @@map("hiv_care_enrolments")
+  @@schema("tenant_template")
+}
+
+// One ART pick-up / follow-up visit: regimen dispensed, days covered, next appointment and
+// the TB / IPT screening done that day.
+model ArtVisit {
+  id                  String   @id @default(uuid()) @db.Uuid
+  tenantId            String   @map("tenant_id") @db.Uuid
+  enrolmentId         String   @map("enrolment_id") @db.Uuid
+  visitDate           DateTime @map("visit_date") @db.Date
+  regimenCode         String   @map("regimen_code") @db.VarChar(40)
+  regimenLine         Int      @map("regimen_line")
+  daysDispensed       Int      @map("days_dispensed")
+  nextAppointmentDate DateTime @map("next_appointment_date") @db.Date
+  // "Aide ponctuelle / dépannage": a patient of another site served once.
+  isEmergencySupply   Boolean  @default(false) @map("is_emergency_supply")
+  tbScreened          Boolean  @default(false) @map("tb_screened")
+  tbSymptomsPositive  Boolean  @default(false) @map("tb_symptoms_positive")
+  tbTested            Boolean  @default(false) @map("tb_tested")
+  tbConfirmed         Boolean  @default(false) @map("tb_confirmed")
+  tbTreatmentStarted  Boolean  @default(false) @map("tb_treatment_started")
+  iptStarted          Boolean  @default(false) @map("ipt_started")
+  notes               String?  @db.VarChar(500)
+  recordedById        String   @map("recorded_by_id") @db.Uuid
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  enrolment HivCareEnrolment @relation(fields: [enrolmentId], references: [id])
+
+  @@index([enrolmentId, visitDate])
+  @@index([tenantId, visitDate])
+  @@map("art_visits")
+  @@schema("tenant_template")
+}
+
+enum ViralLoadProgram {
+  hiv
+  hbv
+  hcv
+
+  @@schema("tenant_template")
+}
+
+model ViralLoadResult {
+  id             String           @id @default(uuid()) @db.Uuid
+  tenantId       String           @map("tenant_id") @db.Uuid
+  patientId      String           @map("patient_id") @db.Uuid
+  program        ViralLoadProgram
+  sampledAt      DateTime         @map("sampled_at") @db.Date
+  // copies/mL (HIV) or IU/mL (hepatitis); null when below the detection threshold.
+  value          Int?
+  belowDetection Boolean          @default(false) @map("below_detection")
+  pregnancyId    String?          @map("pregnancy_id") @db.Uuid
+  recordedById   String           @map("recorded_by_id") @db.Uuid
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz
+
+  patient Patient @relation(fields: [patientId], references: [id])
+
+  @@index([tenantId, sampledAt])
+  @@index([patientId, program])
+  @@map("viral_load_results")
+  @@schema("tenant_template")
+}
+
+// Follow-up of a child born to an HIV-positive mother (PCR / serology are screening tests
+// of the child: hiv_pcr and hiv).
+model HivExposedInfant {
+  id                     String    @id @default(uuid()) @db.Uuid
+  tenantId               String    @map("tenant_id") @db.Uuid
+  patientId              String    @unique @map("patient_id") @db.Uuid
+  motherPatientId        String?   @map("mother_patient_id") @db.Uuid
+  bornInFacility         Boolean   @default(true) @map("born_in_facility")
+  firstSeenAt            DateTime  @map("first_seen_at") @db.Date
+  nevirapineStartedAt    DateTime? @map("nevirapine_started_at") @db.Date
+  cotrimoxazoleStartedAt DateTime? @map("cotrimoxazole_started_at") @db.Date
+  visit6to8WeeksAt       DateTime? @map("visit_6_8_weeks_at") @db.Date
+  notes                  String?   @db.VarChar(500)
+  createdById            String    @map("created_by_id") @db.Uuid
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  patient Patient @relation(fields: [patientId], references: [id])
+
+  @@index([tenantId, firstSeenAt])
+  @@map("hiv_exposed_infants")
+  @@schema("tenant_template")
+}
+
+enum HepatitisType {
+  hbv
+  hcv
+
+  @@schema("tenant_template")
+}
+
+// Follow-up of a chronic hepatitis B or C case (one per patient and type).
+model HepatitisCase {
+  id                 String        @id @default(uuid()) @db.Uuid
+  tenantId           String        @map("tenant_id") @db.Uuid
+  patientId          String        @map("patient_id") @db.Uuid
+  type               HepatitisType
+  diagnosedAt        DateTime      @map("diagnosed_at") @db.Date
+  deltaPositive      Boolean?      @map("delta_positive")
+  eligibleAt         DateTime?     @map("eligible_at") @db.Date
+  treatmentStartedAt DateTime?     @map("treatment_started_at") @db.Date
+  treatmentStoppedAt DateTime?     @map("treatment_stopped_at") @db.Date
+  curedAt            DateTime?     @map("cured_at") @db.Date
+  // Complications, dated so the month they were diagnosed can be reported.
+  cirrhosisAt        DateTime?     @map("cirrhosis_at") @db.Date
+  liverCancerAt      DateTime?     @map("liver_cancer_at") @db.Date
+  diedAt             DateTime?     @map("died_at") @db.Date
+  notes              String?       @db.VarChar(500)
+  createdById        String        @map("created_by_id") @db.Uuid
+  createdAt          DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+
+  patient Patient @relation(fields: [patientId], references: [id])
+
+  @@unique([tenantId, patientId, type])
+  @@index([tenantId, diagnosedAt])
+  @@map("hepatitis_cases")
   @@schema("tenant_template")
 }
 
