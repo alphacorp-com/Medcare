@@ -1270,11 +1270,84 @@ model MedicationInventory {
   storageLocationId String?  @map("storage_location_id") @db.Uuid
   supplierId        String?  @map("supplier_id") @db.Uuid
   isActive          Boolean  @default(true) @map("is_active")
+  // RMA3 stock category (tracer, EPI input, antimalarial, oxygen, nutrition) — see lib/stock.
+  rma3Category      String?  @map("rma3_category") @db.VarChar(30)
+  // Set when the article is a vaccine: vaccinations of this antigen consume its lots.
+  vaccineAntigenCode String? @map("vaccine_antigen_code") @db.VarChar(40)
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
+  // `stock` is the sum of the lots' quantities, kept in step by lib/stock in the same
+  // transaction as every movement; it is never written directly.
+  lots      StockLot[]
+  movements StockMovement[]
+
   @@index([tenantId])
+  @@index([tenantId, vaccineAntigenCode])
   @@map("medication_inventory")
+  @@schema("tenant_template")
+}
+
+enum StockMovementType {
+  opening_balance
+  receipt
+  dispensing
+  vaccination
+  expired
+  damaged
+  lost
+  adjustment
+
+  @@schema("tenant_template")
+}
+
+// One batch of an article (lot number + expiry). Exits consume lots first-expiry-first-out.
+model StockLot {
+  id         String    @id @default(uuid()) @db.Uuid
+  tenantId   String    @map("tenant_id") @db.Uuid
+  itemId     String    @map("item_id") @db.Uuid
+  lotNumber  String    @map("lot_number") @db.VarChar(60)
+  expiryDate DateTime? @map("expiry_date") @db.Date
+  quantity   Int       @default(0)
+  receivedAt DateTime  @default(now()) @map("received_at") @db.Timestamptz
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  item         MedicationInventory @relation(fields: [itemId], references: [id])
+  movements    StockMovement[]
+  immunizations Immunization[]
+
+  @@unique([itemId, lotNumber])
+  @@index([tenantId, expiryDate])
+  @@map("stock_lots")
+  @@schema("tenant_template")
+}
+
+// Append-only stock journal: quantity is signed (+ entry, - exit); balanceAfter is the
+// article's total stock right after the movement (gives the stock on any past date).
+model StockMovement {
+  id           String            @id @default(uuid()) @db.Uuid
+  tenantId     String            @map("tenant_id") @db.Uuid
+  itemId       String            @map("item_id") @db.Uuid
+  lotId        String?           @map("lot_id") @db.Uuid
+  type         StockMovementType
+  quantity     Int
+  balanceAfter Int               @map("balance_after")
+  reason       String?           @db.VarChar(255)
+  sourceType   String?           @map("source_type") @db.VarChar(40)
+  sourceId     String?           @map("source_id") @db.Uuid
+  supplierId   String?           @map("supplier_id") @db.Uuid
+  unitCost     Decimal?          @map("unit_cost") @db.Decimal(12, 2)
+  occurredAt   DateTime          @default(now()) @map("occurred_at") @db.Timestamptz
+  recordedById String            @map("recorded_by_id") @db.Uuid
+  createdAt    DateTime          @default(now()) @map("created_at") @db.Timestamptz
+
+  item MedicationInventory @relation(fields: [itemId], references: [id])
+  lot  StockLot?           @relation(fields: [lotId], references: [id])
+
+  @@index([tenantId, itemId, occurredAt])
+  @@index([tenantId, occurredAt])
+  @@index([sourceType, sourceId])
+  @@map("stock_movements")
   @@schema("tenant_template")
 }
 
@@ -1840,10 +1913,13 @@ model Immunization {
   ageInDaysAtAdministration Int       @map("age_in_days_at_administration")
   lotNumber                 String?   @map("lot_number") @db.VarChar(60)
   expiryDate                DateTime? @map("expiry_date") @db.Date
+  // The stock lot the dose was taken from (null for antigens not managed in stock).
+  stockLotId                String?   @map("stock_lot_id") @db.Uuid
   isOutOfSchedule           Boolean   @default(false) @map("is_out_of_schedule")
   notes                     String?
 
-  patient Patient @relation(fields: [patientId], references: [id])
+  patient  Patient   @relation(fields: [patientId], references: [id])
+  stockLot StockLot? @relation(fields: [stockLotId], references: [id])
 
   @@index([tenantId])
   @@index([patientId, administeredAt(sort: Desc)])

@@ -2,6 +2,7 @@
 
 import { toDiagnosisPayload, useDiagnosisErrorMessage } from "@/components/shared/diagnosis-editor";
 import type { RecordedDiagnosis } from "@/components/shared/diagnosis-list";
+import { useStockErrorMessage } from "@/components/shared/use-stock-error-message";
 import { Link } from "@/i18n/routing";
 import { useParams, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -61,6 +62,7 @@ import {
 export default function PatientDetailPage() {
   const t = useTranslations('patients');
   const diagnosisError = useDiagnosisErrorMessage();
+  const stockError = useStockErrorMessage();
   const tc = useTranslations('common');
   const params = useParams();
   const id = params.id as string;
@@ -126,7 +128,7 @@ export default function PatientDetailPage() {
   const [recordError, setRecordError] = useState<string | null>(null);
 
   const [immunizationForm, setImmunizationForm] = useState<NewImmunizationForm>({
-    antigenCode: "", doseNumber: "1", administeredAt: new Date().toISOString().slice(0, 10), lotNumber: "", notes: ""
+    antigenCode: "", doseNumber: "1", administeredAt: new Date().toISOString().slice(0, 10), stockLotId: "", lotNumber: "", notes: ""
   });
   const [savingImmunization, setSavingImmunization] = useState(false);
   const [immunizationError, setImmunizationError] = useState<string | null>(null);
@@ -343,12 +345,12 @@ export default function PatientDetailPage() {
     try {
       const res = await fetch(`/api/v1/patients/${id}/immunizations`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...immunizationForm, doseNumber: Number(immunizationForm.doseNumber) || 1 }),
+        body: JSON.stringify({ ...immunizationForm, doseNumber: Number(immunizationForm.doseNumber) || 1, stockLotId: immunizationForm.stockLotId || undefined }),
       });
       const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json.error ?? "Failed to record immunization");
+      if (!res.ok || !json.success) throw new Error(stockError(json) ?? json.error ?? "Failed to record immunization");
       setIsImmunizationOpen(false);
-      setImmunizationForm({ antigenCode: "", doseNumber: "1", administeredAt: new Date().toISOString().slice(0, 10), lotNumber: "", notes: "" });
+      setImmunizationForm({ antigenCode: "", doseNumber: "1", administeredAt: new Date().toISOString().slice(0, 10), stockLotId: "", lotNumber: "", notes: "" });
       const immRes = await fetch(`/api/v1/patients/${id}/immunizations`);
       const immJson = await immRes.json();
       if (immJson.success) setImmunizations(immJson.data);

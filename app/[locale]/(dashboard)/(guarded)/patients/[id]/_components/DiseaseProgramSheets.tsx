@@ -1,6 +1,8 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
+import { useQuery } from "@tanstack/react-query";
+import { apiFetch } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -32,11 +34,24 @@ interface NewImmunizationSheetProps {
   onSubmit: () => Promise<void>;
 }
 
+type VaccineLotOption = { id: string; itemName: string; lotNumber: string; expiryDate: string | null; quantity: number };
+
 export function NewImmunizationSheet({
   open, onOpenChange, form, onUpdateForm, antigens, saving, error, onSubmit,
 }: NewImmunizationSheetProps) {
   const t = useTranslations('diseasePrograms.vaccination');
+  const ts = useTranslations('stock');
   const tc = useTranslations('common');
+  const format = useFormatter();
+
+  // Is the antigen supplied from the stock? Then the dose must come from one of its lots.
+  const lotsQuery = useQuery({
+    queryKey: ["vaccine-lots", form.antigenCode],
+    queryFn: () => apiFetch<{ managed: boolean; data: VaccineLotOption[] }>(`/api/v1/stock/vaccine-lots?antigenCode=${encodeURIComponent(form.antigenCode)}`),
+    enabled: open && Boolean(form.antigenCode),
+  });
+  const managed = lotsQuery.data?.managed ?? false;
+  const lots = lotsQuery.data?.data ?? [];
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -52,7 +67,10 @@ export function NewImmunizationSheet({
             <label className="text-[10px] font-bold text-slate-500 uppercase">{t('antigen')}</label>
             <select
               value={form.antigenCode}
-              onChange={(e) => onUpdateForm("antigenCode", e.target.value)}
+              onChange={(e) => {
+                onUpdateForm("antigenCode", e.target.value);
+                onUpdateForm("stockLotId", "");
+              }}
               className="flex h-8 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-xs shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
             >
               <option value="">{tc('select_placeholder')}</option>
@@ -73,10 +91,33 @@ export function NewImmunizationSheet({
             </div>
           </div>
 
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-500 uppercase">{t('lot_number')}</label>
-            <Input value={form.lotNumber} onChange={(e) => onUpdateForm("lotNumber", e.target.value)} className="h-8 text-xs bg-white border-slate-200 font-mono" />
-          </div>
+          {managed ? (
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-500 uppercase">{ts('vaccine_lot')} <span className="text-red-600">*</span></label>
+              {lots.length === 0 ? (
+                <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded p-2">{ts('vaccine_no_lot')}</p>
+              ) : (
+                <select
+                  value={form.stockLotId}
+                  onChange={(e) => onUpdateForm("stockLotId", e.target.value)}
+                  className="flex h-8 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-xs shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                >
+                  <option value="">{tc('select_placeholder')}</option>
+                  {lots.map((lot) => (
+                    <option key={lot.id} value={lot.id}>
+                      {lot.lotNumber} — {lot.itemName} · {lot.quantity} · {lot.expiryDate ? format.dateTime(new Date(lot.expiryDate), { dateStyle: "short", timeZone: "UTC" }) : ts('no_expiry')}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <p className="text-[10px] text-slate-400">{ts('vaccine_lot_hint')}</p>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-500 uppercase">{t('lot_number')}</label>
+              <Input value={form.lotNumber} onChange={(e) => onUpdateForm("lotNumber", e.target.value)} className="h-8 text-xs bg-white border-slate-200 font-mono" />
+            </div>
+          )}
 
           <div className="space-y-1">
             <label className="text-[10px] font-bold text-slate-500 uppercase">{tc('notes')}</label>
@@ -89,7 +130,7 @@ export function NewImmunizationSheet({
         </div>
         <SheetFooter className="p-4 border-t border-slate-200 bg-white shrink-0">
           <Button variant="outline" className="text-xs h-8" onClick={() => onOpenChange(false)} disabled={saving}>{tc('cancel')}</Button>
-          <Button className="text-xs h-8 bg-blue-600 hover:bg-blue-700" onClick={onSubmit} disabled={saving || !form.antigenCode}>
+          <Button className="text-xs h-8 bg-blue-600 hover:bg-blue-700" onClick={onSubmit} disabled={saving || !form.antigenCode || lotsQuery.isFetching || (managed && !form.stockLotId)}>
             {saving ? tc('saving') : tc('save')}
           </Button>
         </SheetFooter>

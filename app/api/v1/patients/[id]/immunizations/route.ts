@@ -4,6 +4,8 @@ import { authOptions } from "@/lib/auth";
 import { requireModulePermission } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
 import { ageInDaysAt } from "@/lib/patients/age";
+import { randomUUID } from "node:crypto";
+import { StockError, consumeStock, stockErrorResponse } from "@/lib/stock/movements";
 
 // ── GET /api/v1/patients/:id/immunizations ──────────────────────────────────
 // Immunization history for a patient, most recent first.
@@ -44,8 +46,12 @@ export async function GET(
 }
 
 // ── POST /api/v1/patients/:id/immunizations ─────────────────────────────────
-// Body: { antigenCode, doseNumber?, administeredAt?, lotNumber?, expiryDate?,
+// Body: { antigenCode, doseNumber?, administeredAt?, stockLotId?, lotNumber?, expiryDate?,
 //         isOutOfSchedule?, notes? }
+// When the antigen is managed in stock (an active article has vaccineAntigenCode = antigen),
+// stockLotId is required: the dose is taken from that lot (one unit) in the same transaction,
+// and the lot number / expiry come from the lot, not from the browser. Otherwise the lot
+// stays free text as before.
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -62,10 +68,14 @@ export async function POST(
 
     const { id } = await params;
     const body = await request.json();
-    const { antigenCode, doseNumber, administeredAt, lotNumber, expiryDate, isOutOfSchedule, notes } = body as {
-      antigenCode?: string; doseNumber?: number; administeredAt?: string; lotNumber?: string;
+    const { antigenCode, doseNumber, administeredAt, stockLotId, lotNumber, expiryDate, isOutOfSchedule, notes } = body as {
+      antigenCode?: string; doseNumber?: number; administeredAt?: string; stockLotId?: string; lotNumber?: string;
       expiryDate?: string; isOutOfSchedule?: boolean; notes?: string;
     };
+    const tenantId = session.user.tenantId;
+    if (!tenantId) {
+      return NextResponse.json({ error: "A facility account is required", success: false }, { status: 403 });
+    }
 
     if (!antigenCode) {
       return NextResponse.json({ error: "antigenCode is required", success: false }, { status: 400 });
@@ -88,23 +98,74 @@ export async function POST(
     }
 
     const eventDate = administeredAt ? new Date(administeredAt) : new Date();
+    if (Number.isNaN(eventDate.getTime())) {
+      return NextResponse.json({ error: "Invalid administeredAt", success: false }, { status: 400 });
+    }
 
-    const immunization = await prisma.immunization.create({
-      data: {
-        tenantId: session.user.tenantId,
-        patientId: id,
-        antigenCode: antigen.code,
-        antigenName: antigen.nameFr,
-        doseNumber: doseNumber ?? 1,
-        administeredAt: eventDate,
-        administeredById: session.user.id,
-        ageInDaysAtAdministration: ageInDaysAt(patient.birthDate, eventDate),
-        lotNumber: lotNumber || null,
-        expiryDate: expiryDate ? new Date(expiryDate) : null,
-        isOutOfSchedule: isOutOfSchedule ?? false,
-        notes: notes || null,
-      },
+    // Is this antigen supplied from the stock? Then the lot must be one of its lots.
+    const stockItems = await prisma.medicationInventory.findMany({
+      where: { tenantId, isActive: true, vaccineAntigenCode: antigen.code },
+      select: { id: true },
     });
+    let stockLot: { id: string; itemId: string } | null = null;
+    if (stockItems.length > 0) {
+      if (typeof stockLotId !== "string" || !stockLotId) {
+        return NextResponse.json({ error: "stock_lot_required", code: "stock_lot_required", success: false }, { status: 400 });
+      }
+      stockLot = await prisma.stockLot.findFirst({
+        where: { id: stockLotId, tenantId, itemId: { in: stockItems.map((i) => i.id) } },
+        select: { id: true, itemId: true },
+      });
+      if (!stockLot) {
+        return NextResponse.json({ error: "lot_not_found", code: "lot_not_found", success: false }, { status: 400 });
+      }
+    }
+
+    const immunizationId = randomUUID();
+    // Lot number / expiry typed by the user apply only to antigens not managed in stock.
+    const data = {
+      id: immunizationId,
+      tenantId,
+      patientId: id,
+      antigenCode: antigen.code,
+      antigenName: antigen.nameFr,
+      doseNumber: doseNumber ?? 1,
+      administeredAt: eventDate,
+      administeredById: session.user.id,
+      ageInDaysAtAdministration: ageInDaysAt(patient.birthDate, eventDate),
+      lotNumber: lotNumber || null,
+      expiryDate: expiryDate ? new Date(expiryDate) : null,
+      isOutOfSchedule: isOutOfSchedule ?? false,
+      notes: notes || null,
+    };
+
+    let immunization;
+    try {
+      immunization = await prisma.$transaction(async (tx) => {
+        if (!stockLot) return tx.immunization.create({ data });
+        const { allocations } = await consumeStock(tx, {
+          tenantId,
+          userId: session.user.id,
+          itemId: stockLot.itemId,
+          lotId: stockLot.id,
+          quantity: 1,
+          type: "vaccination",
+          sourceType: "immunization",
+          sourceId: immunizationId,
+          occurredAt: eventDate,
+        });
+        const [taken] = allocations;
+        return tx.immunization.create({
+          data: { ...data, stockLotId: stockLot.id, lotNumber: taken.lotNumber, expiryDate: taken.expiryDate },
+        });
+      });
+    } catch (error) {
+      if (error instanceof StockError) {
+        const { status, body: errorBody } = stockErrorResponse(error);
+        return NextResponse.json(errorBody, { status });
+      }
+      throw error;
+    }
 
     return NextResponse.json({ data: immunization, success: true }, { status: 201 });
   } catch (error) {

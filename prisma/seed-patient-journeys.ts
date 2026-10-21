@@ -57,6 +57,8 @@ import {
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import prisma from '../lib/prisma';
+import { SYSTEM_ACTOR_ID } from '../lib/audit';
+import { consumeStock, receiveStock } from '../lib/stock/movements';
 
 const IPP_PREFIX = 'PJ';
 const STAY_PREFIX = 'STPJ';
@@ -193,7 +195,22 @@ async function ensureMedications(tenantId: string) {
   for (const m of defs) {
     let med = await prisma.medicationInventory.findFirst({ where: { tenantId, name: m.name } });
     if (!med) {
-      med = await prisma.medicationInventory.create({ data: { tenantId, manufacturer: 'Generic', ...m } });
+      // Stock only enters through a receipt (lot + expiry), as in the application.
+      const { stock, ...fields } = m;
+      const created = await prisma.medicationInventory.create({ data: { tenantId, manufacturer: 'Generic', ...fields } });
+      await prisma.$transaction((tx) =>
+        receiveStock(tx, {
+          tenantId,
+          userId: SYSTEM_ACTOR_ID,
+          itemId: created.id,
+          lotNumber: 'SEED-001',
+          expiryDate: new Date(Date.UTC(new Date().getUTCFullYear() + 2, 0, 31)),
+          quantity: stock,
+          reason: 'Stock de démonstration',
+          occurredAt: daysAgo(30, 8, 0),
+        })
+      );
+      med = await prisma.medicationInventory.findUniqueOrThrow({ where: { id: created.id } });
     }
     byName[m.name] = med;
   }
@@ -865,7 +882,9 @@ async function journeyPharmacy(ctx: Ctx, patientId: string, status: Prescription
       await prisma.payment.create({ data: { tenantId: ctx.tenantId, invoiceId: invoice.id, amount: recalced.patientAmount, method: PaymentMethod.cash, status: PaymentStatus.successful, currency: 'XAF', initiatedById: ctx.staff.billingUser.id, initiatedAt: daysAgo(2, 9, 30), completedAt: daysAgo(2, 9, 30) } });
       await recalcInvoicePaid(invoice.id, recalced.patientAmount.toNumber());
       await prisma.drugDispensing.create({ data: { tenantId: ctx.tenantId, prescriptionId: rx.id, patientId, pharmacistId: ctx.staff.pharmacist.id, drugCode: drug.id, drugName: drug.name, quantity: 10, unit: drug.unit ?? 'tablets', dispensedAt: daysAgo(2, 9, 35), status: DispensingStatus.dispensed } });
-      await prisma.medicationInventory.update({ where: { id: drug.id }, data: { stock: { decrement: 10 } } });
+      await prisma.$transaction((tx) =>
+        consumeStock(tx, { tenantId: ctx.tenantId, userId: ctx.staff.pharmacist.id, itemId: drug.id, quantity: 10, type: 'dispensing', sourceType: 'drug_dispensing', occurredAt: daysAgo(2, 9, 35) })
+      );
     }
   }
 }

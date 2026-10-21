@@ -200,6 +200,8 @@ export type NewImmunizationForm = {
   antigenCode: string;
   doseNumber: string;
   administeredAt: string;
+  // Lot taken from the stock when the antigen is managed in stock; free text otherwise.
+  stockLotId: string;
   lotNumber: string;
   notes: string;
 };
