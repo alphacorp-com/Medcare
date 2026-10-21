@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiFetch } from "@/lib/api-client";
 import { useTranslations } from "next-intl";
 import { Clock } from "lucide-react";
 import { useRouter } from "@/i18n/routing";
@@ -30,32 +32,20 @@ export default function ConsultationsPage() {
   const router = useRouter();
   const isMobile = useIsMobile();
 
-  const [queue, setQueue] = useState<QueueItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [claimingId, setClaimingId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  const fetchQueue = useCallback(async () => {
-    try {
-      const res = await fetch("/api/v1/consultations/queue");
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.error || t("failed_load"));
-      setQueue(result.data);
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : tc("unknown_error"));
-    } finally {
-      setLoading(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void fetchQueue();
-    const interval = setInterval(fetchQueue, 30000);
-    return () => clearInterval(interval);
-  }, [fetchQueue]);
+  // Refreshed every 30 s, paused while the tab is hidden; a failed refresh keeps the
+  // last good list on screen.
+  const queueQuery = useQuery({
+    queryKey: ["consultations", "queue"],
+    queryFn: () => apiFetch<{ data: QueueItem[] }>("/api/v1/consultations/queue"),
+    refetchInterval: 30_000,
+  });
+  const queue = queueQuery.data?.data ?? [];
+  const loading = queueQuery.isPending;
+  const error = queueQuery.isError && !queueQuery.data ? queueQuery.error.message || t("failed_load") : null;
+  const fetchQueue = () => queryClient.invalidateQueries({ queryKey: ["consultations", "queue"] });
 
   const goToConsultation = (item: QueueItem) => {
     router.push(`/consultations/${item.id}`);

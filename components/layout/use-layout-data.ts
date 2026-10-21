@@ -37,26 +37,6 @@ export function useOrganizationInfo() {
   return organization;
 }
 
-const UNREAD_POLL_INTERVAL_MS = 15000;
-
-export function useUnreadMessagesCount() {
-  const [count, setCount] = useState(0);
-
-  useEffect(() => {
-    let active = true;
-    const refresh = async () => {
-      const conversations = await fetchJsonShared<Array<{ unreadCount?: number }>>("/api/v1/conversations");
-      if (!active || !conversations) return;
-      setCount(conversations.reduce((sum, conversation) => sum + (conversation.unreadCount ?? 0), 0));
-    };
-
-    refresh();
-    const interval = window.setInterval(refresh, UNREAD_POLL_INTERVAL_MS);
-    return () => {
-      active = false;
-      window.clearInterval(interval);
-    };
-  }, []);
-
-  return count;
-}
+// The unread-messages badge lives in hooks/use-unread-counts.ts (one shared, cached,
+// visibility-aware query); re-exported here so the layout imports stay unchanged.
+export { useUnreadMessagesCount } from "@/hooks/use-unread-counts";

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
+import { useQuery } from "@tanstack/react-query";
+import { apiFetch } from "@/lib/api-client";
 import { useRouter } from "@/i18n/routing";
 import { AlertTriangle, Package, Clock } from "lucide-react";
 
@@ -22,34 +23,16 @@ export function StockAlerts() {
   const t = useTranslations('dashboard');
   const tc = useTranslations('common');
   const router = useRouter();
-  const [alerts, setAlerts] = useState<StockAlert[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchAlerts = async () => {
-      try {
-        const res = await fetch('/api/v1/dashboard/stock-alerts');
-        const result = await res.json();
-
-        if (!res.ok) {
-          throw new Error(result.error || t('failed_fetch_stock_alerts'));
-        }
-
-        setAlerts(result.data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : tc('unknown_error'));
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAlerts();
-
-    // Refresh every 10 minutes
-    const interval = setInterval(fetchAlerts, 10 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, []);
+  // Shared cached query: refreshed every 10 * 60_000 ms, paused while the tab is hidden.
+  const query = useQuery({
+    queryKey: ["dashboard", "stock-alerts"],
+    queryFn: () => apiFetch<{ data: StockAlert[] }>("/api/v1/dashboard/stock-alerts"),
+    refetchInterval: 10 * 60_000,
+    staleTime: 10 * 60_000,
+  });
+  const alerts = query.data?.data ?? [];
+  const loading = query.isPending;
+  const error = query.isError && !query.data;
 
   const getAlertIcon = (type: string, severity: string) => {
     if (type === 'expiring') {

@@ -1,6 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiFetch } from "@/lib/api-client";
 import { useTranslations } from "next-intl";
 import { ArrowLeft, Search } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -14,31 +16,27 @@ const POLL_INTERVAL_MS = 15000;
 export default function MessagesPage() {
   const t = useTranslations("messages");
   const isMobile = useIsMobile();
-  const [conversations, setConversations] = useState<ConversationSummary[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const queryClient = useQueryClient();
+  const conversationsKey = ["messages", "conversations"] as const;
 
-  const loadConversations = useCallback(async () => {
-    try {
-      const res = await fetch("/api/v1/conversations");
-      if (res.ok) {
-        setConversations(await res.json());
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadConversations();
-    const interval = setInterval(loadConversations, POLL_INTERVAL_MS);
-    return () => clearInterval(interval);
-  }, [loadConversations]);
+  // Polled every 15 s, paused while the tab is hidden.
+  const conversationsQuery = useQuery({
+    queryKey: conversationsKey,
+    queryFn: () => apiFetch<ConversationSummary[]>("/api/v1/conversations"),
+    refetchInterval: POLL_INTERVAL_MS,
+  });
+  const conversations = conversationsQuery.data ?? [];
+  const loading = conversationsQuery.isPending;
+  const loadConversations = () => queryClient.invalidateQueries({ queryKey: conversationsKey });
 
   const handleSelect = (id: string) => {
     setSelectedId(id);
-    setConversations((prev) => prev.map((c) => (c.id === id ? { ...c, unreadCount: 0 } : c)));
+    // Optimistic: the thread marks it read on open.
+    queryClient.setQueryData<ConversationSummary[]>(conversationsKey, (prev) =>
+      prev?.map((c) => (c.id === id ? { ...c, unreadCount: 0 } : c))
+    );
   };
 
   const handleCreated = (id: string) => {

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { checkOnPremLicenseGuard } from "@/lib/onprem-license/guard";
+import { getConversationSummaries } from "@/lib/messaging/conversation-summaries";
 
 // GET /api/v1/conversations — current user's conversations, most recently active first.
 export async function GET() {
@@ -11,45 +12,40 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const participations = await prisma.conversationParticipant.findMany({
-    where: { userId: session.user.id },
-    include: {
-      conversation: {
-        include: {
-          participants: {
-            include: { user: { select: { id: true, fullName: true, email: true } } },
+  // Unread counts and last-message previews come from one grouped query; the
+  // conversations themselves (with participants) from one more — constant, whatever the
+  // number of conversations.
+  const [participations, summaries] = await Promise.all([
+    prisma.conversationParticipant.findMany({
+      where: { userId: session.user.id },
+      include: {
+        conversation: {
+          include: {
+            participants: {
+              include: { user: { select: { id: true, fullName: true, email: true } } },
+            },
           },
-          messages: { orderBy: { createdAt: "desc" }, take: 1 },
         },
       },
-    },
-    orderBy: { conversation: { lastMessageAt: "desc" } },
+      orderBy: { conversation: { lastMessageAt: "desc" } },
+    }),
+    getConversationSummaries(session.user.id),
+  ]);
+
+  const result = participations.map(({ conversation }) => {
+    const summary = summaries.get(conversation.id);
+    return {
+      id: conversation.id,
+      title: conversation.title,
+      isGroup: conversation.isGroup,
+      lastMessageAt: conversation.lastMessageAt,
+      lastMessagePreview: summary?.lastMessagePreview ?? null,
+      unreadCount: summary?.unreadCount ?? 0,
+      participants: conversation.participants
+        .filter((p) => p.userId !== session.user.id)
+        .map((p) => p.user),
+    };
   });
-
-  const result = await Promise.all(
-    participations.map(async (participation) => {
-      const conversation = participation.conversation;
-      const unreadCount = await prisma.message.count({
-        where: {
-          conversationId: conversation.id,
-          senderId: { not: session.user.id },
-          createdAt: { gt: participation.lastReadAt ?? new Date(0) },
-        },
-      });
-
-      return {
-        id: conversation.id,
-        title: conversation.title,
-        isGroup: conversation.isGroup,
-        lastMessageAt: conversation.lastMessageAt,
-        lastMessagePreview: conversation.messages[0]?.body ?? null,
-        unreadCount,
-        participants: conversation.participants
-          .filter((p) => p.userId !== session.user.id)
-          .map((p) => p.user),
-      };
-    })
-  );
 
   return NextResponse.json(result);
 }

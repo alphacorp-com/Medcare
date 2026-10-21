@@ -1,6 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { unreadQueryKeys, useUnreadNotificationsCount } from "@/hooks/use-unread-counts";
 import { Bell } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/routing";
@@ -13,33 +15,17 @@ import {
 import { NotificationList } from "./notification-list";
 import type { NotificationEntry } from "./notification-item";
 
-const POLL_INTERVAL_MS = 20000;
-
 export function NotificationBell() {
   const t = useTranslations("notifications");
   const router = useRouter();
-  const [unreadCount, setUnreadCount] = useState(0);
+  const queryClient = useQueryClient();
+  // Shared, cached badge query (polled every 30 s, paused while the tab is hidden).
+  const unreadCount = useUnreadNotificationsCount();
+  const setUnreadCount = (update: (count: number) => number) =>
+    queryClient.setQueryData<{ count: number }>(unreadQueryKeys.notifications, (prev) => ({ count: update(prev?.count ?? 0) }));
   const [notifications, setNotifications] = useState<NotificationEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
-
-  const fetchUnreadCount = useCallback(async () => {
-    try {
-      const res = await fetch("/api/v1/notifications/unread-count");
-      if (res.ok) {
-        const data = await res.json();
-        setUnreadCount(data.count ?? 0);
-      }
-    } catch {
-      // silent — this is a background poll, not a user-initiated action
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchUnreadCount();
-    const interval = setInterval(fetchUnreadCount, POLL_INTERVAL_MS);
-    return () => clearInterval(interval);
-  }, [fetchUnreadCount]);
 
   const fetchNotifications = useCallback(async () => {
     setLoading(true);
@@ -74,7 +60,7 @@ export function NotificationBell() {
 
   const handleMarkAllRead = async () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-    setUnreadCount(0);
+    setUnreadCount(() => 0);
     try {
       await fetch("/api/v1/notifications/read-all", { method: "POST" });
     } catch {

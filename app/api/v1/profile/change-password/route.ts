@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import bcrypt from "bcryptjs";
 import prisma from "@/lib/prisma";
+import { invalidateSessionState } from "@/lib/session-state-cache";
 import { authOptions } from "@/lib/auth";
 import { recordAuditEvent, extractRequestMeta } from "@/lib/audit";
 
@@ -45,6 +46,8 @@ export async function POST(request: NextRequest) {
       where: { id: session.user.id },
       data: { passwordHash, sessionVersion: { increment: 1 } },
     });
+    // Other sessions of this account must stop working now, not after the cache TTL.
+    invalidateSessionState(session.user.id);
 
     const { ipAddress, userAgent } = extractRequestMeta(request.headers);
     await recordAuditEvent({

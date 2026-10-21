@@ -3,6 +3,7 @@ import type { JWT } from "next-auth/jwt";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import prisma from "@/lib/prisma";
+import { getAccountSessionState } from "@/lib/session-state-cache";
 import { ModulePermission } from "./store/useAppStore";
 import { recordAuditEvent, extractAuthRequestMeta, SYSTEM_ACTOR_ID } from "./audit";
 import { getNextAuthSecret } from "./auth-secret";
@@ -186,11 +187,15 @@ export const authOptions: NextAuthOptions = {
             // every authenticated request. Confirms the account is still active and
             // that no password change/forced logout has invalidated this token since
             // it was issued, without waiting up to `maxAge` for it to naturally expire.
+            // The account check is cached for a few seconds per process (see
+            // lib/session-state-cache.ts): writes that revoke sessions invalidate it at once.
             if (token.role !== "revoked") {
-                const tenantUser = await prisma.tenantUser.findUnique({
-                    where: { id: token.id },
-                    select: { isActive: true, sessionVersion: true },
-                });
+                const tenantUser = await getAccountSessionState(token.id, () =>
+                    prisma.tenantUser.findUnique({
+                        where: { id: token.id },
+                        select: { isActive: true, sessionVersion: true },
+                    })
+                );
                 if (!tenantUser || !tenantUser.isActive || tenantUser.sessionVersion !== token.sessionVersion) {
                     return revokeToken(token);
                 }

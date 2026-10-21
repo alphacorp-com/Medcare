@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { apiFetch } from "@/lib/api-client";
 import { useLocale, useTranslations } from "next-intl";
 import { Shield, AlertTriangle, Info, CheckCircle } from "lucide-react";
 import { auditActionLabel, auditActorLabel } from "@/components/shared/audit-format";
@@ -25,36 +26,19 @@ export function AuditActivity() {
   const t = useTranslations('dashboard');
   const ta = useTranslations('audit');
   const locale = useLocale();
-  const [activities, setActivities] = useState<AuditItem[]>([]);
-  // When the list was fetched: relative times ("5 min ago") are computed against it, so
+  // Shared cached query: refreshed every 5 min, paused while the tab is hidden. Relative
+  // times ("5 min ago") are computed against the moment the data was fetched, so
   // rendering stays pure and the labels refresh together with the data.
-  const [fetchedAt, setFetchedAt] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    const fetchActivities = async () => {
-      try {
-        const res = await fetch('/api/v1/dashboard/audit');
-        const result = await res.json();
-        if (!res.ok) throw new Error(result.error ?? `HTTP ${res.status}`);
-        setActivities(result.data);
-        setFetchedAt(Date.now());
-        setFailed(false);
-      } catch (err) {
-        console.error("[dashboard audit activity]", err);
-        setFailed(true);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchActivities();
-
-    // Refresh every 5 minutes
-    const interval = setInterval(fetchActivities, 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, []);
+  const query = useQuery({
+    queryKey: ["dashboard", "audit"],
+    queryFn: () => apiFetch<{ data: AuditItem[] }>("/api/v1/dashboard/audit"),
+    refetchInterval: 5 * 60_000,
+    staleTime: 5 * 60_000,
+  });
+  const activities = query.data?.data ?? [];
+  const fetchedAt = query.dataUpdatedAt;
+  const loading = query.isPending;
+  const failed = query.isError && !query.data;
 
   const formatTimestamp = (timestamp: string) => {
     const date = new Date(timestamp);

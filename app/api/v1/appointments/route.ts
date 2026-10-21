@@ -3,10 +3,15 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { addMonths, addWeeks } from "date-fns";
-import { findAppointmentConflicts, findAvailabilityConflict } from "@/lib/scheduling/conflicts";
+import {
+  appointmentConflictsAt,
+  availabilityIssueAt,
+  loadAppointmentConflictCandidates,
+  loadAvailabilityWindows,
+} from "@/lib/scheduling/conflicts";
 import { isBookableDoctor } from "@/lib/scheduling/doctors";
 import { requireModulePermission } from "@/lib/permissions";
-import { recordAuditEvent, extractRequestMeta } from "@/lib/audit";
+import { recordAuditEvents, extractRequestMeta } from "@/lib/audit";
 import type { AppointmentStatus } from "@prisma/client";
 import { randomUUID } from "crypto";
 
@@ -88,7 +93,7 @@ export async function POST(req: Request) {
 
     const patient = await prisma.patient.findFirst({
       where: { id: patientId, tenantId: session.user.tenantId },
-      select: { id: true },
+      select: PATIENT_SELECT,
     });
     if (!patient) {
       return NextResponse.json({ error: "Patient not found" }, { status: 404 });
@@ -114,44 +119,54 @@ export async function POST(req: Request) {
     }
 
     const seriesId = occurrenceDates.length > 1 ? randomUUID() : null;
-    const created: unknown[] = [];
     const skipped: Array<{ scheduledAt: string; conflicts: unknown[] }> = [];
+    let bookable = occurrenceDates;
 
-    for (const date of occurrenceDates) {
-      if (!force) {
-        const [resourceConflicts, availabilityIssue] = await Promise.all([
-          findAppointmentConflicts({ tenantId: session.user.tenantId, doctorId, scheduledAt: date, durationMinutes: duration }),
-          findAvailabilityConflict(session.user.tenantId, doctorId, date),
-        ]);
-        if (resourceConflicts.length > 0 || availabilityIssue) {
-          skipped.push({
-            scheduledAt: date.toISOString(),
-            conflicts: availabilityIssue ? [{ reason: availabilityIssue }] : resourceConflicts,
-          });
-          continue;
-        }
-      }
-
-      const appointment = await prisma.appointment.create({
-        data: {
-          tenantId: session.user.tenantId,
-          patientId,
-          doctorId,
-          departmentId: departmentId || null,
-          appointmentTypeCode: appointmentTypeCode || null,
-          scheduledAt: date,
-          durationMinutes: duration,
-          reasonForVisit: reasonForVisit || null,
-          notes: notes || null,
-          seriesId,
-          createdBy: session.user.id,
-        },
-        include: { patient: { select: PATIENT_SELECT } },
+    // The whole series is checked against two queries (the doctor's availability windows
+    // and their active appointments over the series' span) instead of two per occurrence.
+    // Occurrences of one series are at least a week apart, so they never conflict with
+    // each other — only with what's already booked.
+    if (!force) {
+      const [windows, candidates] = await Promise.all([
+        loadAvailabilityWindows(session.user.tenantId, doctorId),
+        loadAppointmentConflictCandidates({ tenantId: session.user.tenantId, doctorId, dates: occurrenceDates, durationMinutes: duration }),
+      ]);
+      bookable = occurrenceDates.filter((date) => {
+        const availabilityIssue = availabilityIssueAt(windows, date);
+        const resourceConflicts = appointmentConflictsAt(candidates, date, duration);
+        if (!availabilityIssue && resourceConflicts.length === 0) return true;
+        skipped.push({
+          scheduledAt: date.toISOString(),
+          conflicts: availabilityIssue ? [{ reason: availabilityIssue }] : resourceConflicts,
+        });
+        return false;
       });
-      created.push(appointment);
+    }
 
-      const { ipAddress, userAgent } = extractRequestMeta(req.headers);
-      await recordAuditEvent({
+    // One INSERT for the whole series, one for its audit trail.
+    const createdRows = bookable.length
+      ? await prisma.appointment.createManyAndReturn({
+          data: bookable.map((date) => ({
+            tenantId: session.user.tenantId,
+            patientId,
+            doctorId,
+            departmentId: departmentId || null,
+            appointmentTypeCode: appointmentTypeCode || null,
+            scheduledAt: date,
+            durationMinutes: duration,
+            reasonForVisit: reasonForVisit || null,
+            notes: notes || null,
+            seriesId,
+            createdBy: session.user.id,
+          })),
+        })
+      : [];
+    // Same response shape as before (each appointment with its patient).
+    const created = createdRows.map((appointment) => ({ ...appointment, patient }));
+
+    const { ipAddress, userAgent } = extractRequestMeta(req.headers);
+    await recordAuditEvents(
+      createdRows.map((appointment) => ({
         tenantId: session.user.tenantId,
         actorId: session.user.id,
         actorType: session.user.role === "admin" ? "admin" : "tenant_user",
@@ -160,8 +175,8 @@ export async function POST(req: Request) {
         resourceId: appointment.id,
         ipAddress,
         userAgent,
-      });
-    }
+      }))
+    );
 
     if (created.length === 0) {
       return NextResponse.json({ error: "Scheduling conflict", skipped }, { status: 409 });

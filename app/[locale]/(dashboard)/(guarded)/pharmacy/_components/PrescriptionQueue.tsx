@@ -16,6 +16,8 @@ interface PrescriptionQueueProps {
   setSearch: (search: string) => void;
   onSelectRx: (rx: PrescriptionRow) => void;
   onAction: (rx: PrescriptionRow) => void;
+  // Tenant-wide totals per stored status, from the API (independent of filter and page).
+  counts?: Partial<Record<"pending" | "validated" | "dispensed", number>>;
 }
 
 export function PrescriptionQueue({
@@ -26,31 +28,13 @@ export function PrescriptionQueue({
   setSearch,
   onSelectRx,
   onAction,
+  counts,
 }: PrescriptionQueueProps) {
   const t = useTranslations('pharmacy');
   const tc = useTranslations('common');
 
-  const filteredPrescriptions = prescriptions.filter(rx => {
-    // Status Filter
-    if (filter !== "All") {
-      if (filter === "Pending Queue" && rx.status !== "Pending Queue") return false;
-      if (filter === "Validated" && rx.status !== "Validated") return false;
-      if (filter === "Dispensed" && rx.status !== "Dispensed") return false;
-    }
-
-    // Search
-    if (search) {
-      const s = search.toLowerCase();
-      const matches = 
-        rx.patientName.toLowerCase().includes(s) || 
-        rx.id.toLowerCase().includes(s) ||
-        rx.prescriber.toLowerCase().includes(s) ||
-        rx.ipp.toLowerCase().includes(s);
-      if (!matches) return false;
-    }
-    
-    return true;
-  });
+  // `prescriptions` is already the filtered, searched page returned by the server.
+  const filteredPrescriptions = prescriptions;
 
   return (
     <div className="flex-1 flex flex-col gap-4 overflow-hidden">
@@ -58,13 +42,13 @@ export function PrescriptionQueue({
         <div className="bg-white p-3 rounded border border-slate-200 shadow-sm flex items-end justify-between hover:border-blue-300 transition-colors cursor-pointer sm:p-4" onClick={() => setFilter("Pending Queue")}>
           <div>
             <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1 sm:text-xs">{t('to_validate')}</div>
-            <div className="text-2xl font-bold text-slate-900 sm:text-3xl">{prescriptions.filter(r => r.status === 'Pending Queue').length}</div>
+            <div className="text-2xl font-bold text-slate-900 sm:text-3xl">{counts?.pending ?? 0}</div>
           </div>
         </div>
         <div className="bg-white p-3 rounded border border-slate-200 shadow-sm flex items-end justify-between hover:border-blue-300 transition-colors cursor-pointer sm:p-4" onClick={() => setFilter("Validated")}>
           <div>
             <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1 sm:text-xs">{t('to_dispense')}</div>
-            <div className="text-2xl font-bold text-slate-900 sm:text-3xl">{prescriptions.filter(r => r.status === 'Validated').length}</div>
+            <div className="text-2xl font-bold text-slate-900 sm:text-3xl">{counts?.validated ?? 0}</div>
           </div>
         </div>
         <div className="bg-red-50 p-3 rounded border border-red-200 shadow-sm flex items-end justify-between hover:border-red-400 transition-colors cursor-pointer sm:p-4">

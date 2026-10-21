@@ -9,13 +9,15 @@ import { TONE_BADGE, formatAmount, formatTimestamp } from "@/components/dashboar
 interface ListPanelProps {
   widgetId: string;
   refreshMs: number;
+  // Ids of the widgets fetched together with this one (see widgetRefreshBatches).
+  batchIds: string[];
 }
 
-export function ListPanel({ widgetId, refreshMs }: ListPanelProps) {
+export function ListPanel({ widgetId, refreshMs, batchIds }: ListPanelProps) {
   const t = useTranslations("dashboard");
   const locale = useLocale();
   const router = useRouter();
-  const state = useWidgetData<ListWidgetData>(widgetId, refreshMs);
+  const state = useWidgetData<ListWidgetData>(widgetId, refreshMs, batchIds);
   const viewAllHref = state.status === "ready" ? state.data.viewAllHref : undefined;
 
   return (

@@ -4,6 +4,7 @@ import { getMessages } from 'next-intl/server';
 import { cn } from "@/lib/utils";
 import { AuthInitializer } from '@/components/auth/AuthInitializer';
 import { NextAuthProvider } from '@/components/providers/session-provider';
+import { QueryProvider } from '@/components/providers/query-provider';
 import { Toaster } from "sonner";
 import "../globals.css";
 
@@ -32,9 +33,11 @@ export default async function RootLayout({
       <body className="bg-slate-100 text-slate-800 h-screen w-full min-w-0 flex overflow-x-hidden overflow-y-hidden">
         <NextIntlClientProvider messages={messages} locale={locale}>
           <NextAuthProvider>
-            <AuthInitializer>
-              {children}
-            </AuthInitializer>
+            <QueryProvider>
+              <AuthInitializer>
+                {children}
+              </AuthInitializer>
+            </QueryProvider>
             <Toaster richColors position="top-right" />
           </NextAuthProvider>
         </NextIntlClientProvider>

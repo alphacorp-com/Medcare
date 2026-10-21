@@ -7,6 +7,13 @@ import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useEffect, useMemo, useState } from "react";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiFetch } from "@/lib/api-client";
+import { downloadCsv } from "@/lib/csv";
+import { MAX_PAGE_SIZE, type PagedResponse } from "@/lib/pagination";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { usePdfBranding } from "@/components/templates/usePdfBranding";
+import { DEFAULT_PAGE_SIZE, PaginationBar } from "@/components/shared/pagination-bar";
 import {
   Search, Scissors, Syringe, Clock, CheckCircle2, PlayCircle, ClipboardCheck, Plus,
   AlertCircle, Printer, Download, Mail, XCircle, CalendarClock,
@@ -22,6 +29,17 @@ import { Doctor, Surgery, SurgicalStatus } from "./types";
 
 const STATUS_FILTERS: (SurgicalStatus | "All")[] = ["All", "scheduled", "in_progress", "completed", "cancelled", "postponed"];
 
+type SurgeryListResponse = PagedResponse<Surgery, Partial<Record<SurgicalStatus, number>>>;
+// Upper bound for the CSV export, which walks every page of the current filter.
+const EXPORT_MAX_PAGES = 50;
+
+function surgeryListUrl(filter: SurgicalStatus | "All", search: string, page: number, pageSize: number) {
+  const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+  if (filter !== "All") params.set("status", filter);
+  if (search) params.set("search", search);
+  return `/api/v1/surgeries?${params}`;
+}
+
 export default function SurgeryPage() {
   const t = useTranslations('surgery');
   const tc = useTranslations('common');
@@ -29,9 +47,22 @@ export default function SurgeryPage() {
 
   const [filter, setFilter] = useState<SurgicalStatus | "All">("All");
   const [search, setSearch] = useState("");
-  const [surgeries, setSurgeries] = useState<Surgery[]>([]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const { facility } = usePdfBranding();
+  // Filter, search (debounced) and paging happen on the server.
+  const debouncedSearch = useDebouncedValue(search.trim(), 300);
+  const surgeriesQuery = useQuery({
+    queryKey: ["surgeries", "list", { filter, search: debouncedSearch, page, pageSize }],
+    queryFn: () => apiFetch<SurgeryListResponse>(surgeryListUrl(filter, debouncedSearch, page, pageSize)),
+    enabled: hasModule("MODULE_SURGERY"),
+    placeholderData: keepPreviousData,
+  });
+  const surgeries = surgeriesQuery.data?.data ?? [];
+  const isLoading = surgeriesQuery.isPending;
+  const statusCount = (status: SurgicalStatus) => surgeriesQuery.data?.counts?.[status] ?? 0;
 
   const [isScheduleOpen, setIsScheduleOpen] = useState(false);
   const [checklistSurgery, setChecklistSurgery] = useState<Surgery | null>(null);
@@ -41,20 +72,8 @@ export default function SurgeryPage() {
 
   const doctorsById = useMemo(() => new Map(doctors.map((d) => [d.id, d])), [doctors]);
 
-  const fetchSurgeries = async (): Promise<Surgery[]> => {
-    try {
-      const res = await fetch('/api/v1/surgeries');
-      const data = await res.json();
-      const list: Surgery[] = Array.isArray(data) ? data : [];
-      setSurgeries(list);
-      return list;
-    } catch (err) {
-      console.error("Failed to fetch surgeries", err);
-      return [];
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // Kept as the name every action handler already calls: refreshes list and counters.
+  const fetchSurgeries = () => queryClient.invalidateQueries({ queryKey: ["surgeries"] });
 
   const fetchDoctors = async () => {
     try {
@@ -69,7 +88,7 @@ export default function SurgeryPage() {
   useEffect(() => {
     if (!hasModule("MODULE_SURGERY")) return;
     (async () => {
-      await Promise.all([fetchSurgeries(), fetchDoctors()]);
+      await fetchDoctors();
     })();
   }, [hasModule]);
 
@@ -89,24 +108,25 @@ export default function SurgeryPage() {
     }
   };
 
-  const handleExportCSV = () => {
-     let csvContent = [
-      [`Organization: ${tc('app_name')} HMS`, "123 Health Ave", "+1 234 567 8900", ""],
-      [""],
-      ["ID", tc('patient'), tc('ipp'), t('surgeon'), t('anesthesiologist'), t('room'), t('procedure_type'), tc('status'), tc('date')]
-     ];
-     surgeries.forEach(s => {
-       csvContent.push([
-         s.id, `"${s.patient.firstName} ${s.patient.lastName}"`, s.patient.ipp,
-         `"${doctorName(s.surgeonId)}"`, `"${doctorName(s.anesthesiologistId)}"`, s.roomId ?? "",
-         `"${s.procedureLabel}"`, s.status, s.scheduledAt ?? ""
-       ]);
-     });
-     const blob = new Blob([csvContent.map(e => e.join(",")).join("\n")], { type: 'text/csv;charset=utf-8;' });
-     const link = document.createElement("a");
-     link.href = URL.createObjectURL(blob);
-     link.download = `surgery_schedule_export_${format(new Date(), 'yyyyMMdd')}.csv`;
-     link.click();
+  // Exports every surgery of the current filter/search (not just the visible page),
+  // walking the paged API; values are escaped by lib/csv (incl. formula injection).
+  const handleExportCSV = async () => {
+    const rows: Surgery[] = [];
+    for (let p = 1; p <= EXPORT_MAX_PAGES; p++) {
+      const res = await apiFetch<SurgeryListResponse>(surgeryListUrl(filter, debouncedSearch, p, MAX_PAGE_SIZE));
+      rows.push(...res.data);
+      if (rows.length >= res.total || res.data.length === 0) break;
+    }
+    const organization = [facility.name, facility.address, facility.phone].filter(Boolean).join(" — ");
+    downloadCsv(`surgery_schedule_export_${format(new Date(), 'yyyyMMdd')}.csv`, [
+      ...(organization ? [[organization], []] : []),
+      ["ID", tc('patient'), tc('ipp'), t('surgeon'), t('anesthesiologist'), t('room'), t('procedure_type'), tc('status'), tc('date')],
+      ...rows.map((s) => [
+        s.id, `${s.patient.firstName} ${s.patient.lastName}`, s.patient.ipp,
+        doctorName(s.surgeonId), doctorName(s.anesthesiologistId), s.roomId ?? "",
+        s.procedureLabel, s.status, s.scheduledAt ?? "",
+      ]),
+    ]);
   };
 
   const handlePrint = () => {
@@ -126,13 +146,6 @@ export default function SurgeryPage() {
       </div>
     );
   }
-
-  const filteredSurgeries = surgeries.filter(s => {
-    if (filter !== "All" && s.status !== filter) return false;
-    const patientName = `${s.patient.firstName} ${s.patient.lastName}`.toLowerCase();
-    if (search && !patientName.includes(search.toLowerCase()) && !s.id.toLowerCase().includes(search.toLowerCase())) return false;
-    return true;
-  });
 
   const statusBadgeClass = (status: SurgicalStatus) => cn(
     "inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider",
@@ -166,21 +179,21 @@ export default function SurgeryPage() {
         <div className="bg-white p-4 rounded border border-slate-200 shadow-sm flex items-end justify-between hover:border-blue-300 transition-colors cursor-pointer" onClick={() => setFilter("scheduled")}>
           <div>
             <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">{t('scheduled')}</div>
-            <div className="text-3xl font-bold text-slate-900">{surgeries.filter(e => e.status === 'scheduled').length}</div>
+            <div className="text-3xl font-bold text-slate-900">{statusCount('scheduled')}</div>
           </div>
           <Clock className="h-8 w-8 text-slate-200" />
         </div>
         <div className="bg-white p-4 rounded border border-slate-200 shadow-sm flex items-end justify-between hover:border-blue-300 transition-colors cursor-pointer" onClick={() => setFilter("in_progress")}>
           <div>
             <div className="text-xs font-semibold text-blue-600 uppercase tracking-wider mb-1">{t('in_progress')}</div>
-            <div className="text-3xl font-bold text-blue-600">{surgeries.filter(e => e.status === 'in_progress').length}</div>
+            <div className="text-3xl font-bold text-blue-600">{statusCount('in_progress')}</div>
           </div>
           <Syringe className="h-8 w-8 text-blue-100" />
         </div>
         <div className="bg-white p-4 rounded border border-slate-200 shadow-sm flex items-end justify-between hover:border-blue-300 transition-colors cursor-pointer" onClick={() => setFilter("completed")}>
           <div>
             <div className="text-xs font-semibold text-green-600 uppercase tracking-wider mb-1">{t('completed')}</div>
-            <div className="text-3xl font-bold text-green-600">{surgeries.filter(e => e.status === 'completed').length}</div>
+            <div className="text-3xl font-bold text-green-600">{statusCount('completed')}</div>
           </div>
           <CheckCircle2 className="h-8 w-8 text-green-100" />
         </div>
@@ -194,7 +207,7 @@ export default function SurgeryPage() {
                 type="search"
                 placeholder={tc('search')}
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
                 className="pl-8 h-8 text-xs bg-white border-slate-200 focus:border-blue-400 w-full"
               />
             </div>
@@ -203,7 +216,7 @@ export default function SurgeryPage() {
                 <button
                   key={s}
                   className={cn("px-3 py-1 rounded text-xs font-semibold transition-colors", filter === s ? "bg-white shadow-sm text-slate-800" : "text-slate-500 hover:text-slate-800")}
-                  onClick={() => setFilter(s)}
+                  onClick={() => { setFilter(s); setPage(1); }}
                 >
                   {s === "All" ? tc('all') : t(s)}
                 </button>
@@ -214,7 +227,7 @@ export default function SurgeryPage() {
         <div className="flex-1 overflow-auto">
           {isLoading ? (
              <div className="flex items-center justify-center h-full text-slate-400">{tc('loading')}</div>
-          ) : filteredSurgeries.length === 0 ? (
+          ) : surgeries.length === 0 ? (
              <div className="flex items-center justify-center h-full text-slate-400 text-sm flex-col">
                <Scissors className="h-8 w-8 mb-2 opacity-50" />
                {t('no_interventions')}
@@ -234,7 +247,7 @@ export default function SurgeryPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100/80">
-                {filteredSurgeries.map((surg) => {
+                {surgeries.map((surg) => {
                   const checklist = surg.whoChecklist ?? {};
                   const readyToStart = isPhaseComplete("signIn", checklist.signIn) && isPhaseComplete("timeOut", checklist.timeOut);
                   const readyToComplete = isPhaseComplete("signOut", checklist.signOut);
@@ -318,6 +331,13 @@ export default function SurgeryPage() {
           </div>
         )}
         </div>
+        <PaginationBar
+          page={page}
+          pageSize={pageSize}
+          total={surgeriesQuery.data?.total ?? 0}
+          onPageChange={setPage}
+          onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
+        />
       </div>
 
       <ScheduleSurgerySheet
@@ -332,8 +352,12 @@ export default function SurgeryPage() {
         onOpenChange={(open) => !open && setChecklistSurgery(null)}
         surgery={checklistSurgery}
         onUpdated={async () => {
-          const list = await fetchSurgeries();
-          setChecklistSurgery((prev) => (prev ? list.find((s) => s.id === prev.id) ?? null : null));
+          // Reload just this surgery: with paging it may not be on the visible page.
+          const id = checklistSurgery?.id;
+          void fetchSurgeries();
+          if (!id) return;
+          const fresh = await apiFetch<Surgery>(`/api/v1/surgeries/${encodeURIComponent(id)}`).catch(() => null);
+          setChecklistSurgery((prev) => (prev?.id === id ? fresh : prev));
         }}
       />
       <CompleteSurgerySheet

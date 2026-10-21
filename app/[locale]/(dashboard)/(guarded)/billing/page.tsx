@@ -1,6 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { apiFetch } from "@/lib/api-client";
+import type { PagedResponse } from "@/lib/pagination";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { DEFAULT_PAGE_SIZE, PaginationBar } from "@/components/shared/pagination-bar";
 import { useAppStore } from "@/lib/store/useAppStore";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -15,6 +20,10 @@ import { InvoiceListItem, BillingInvoiceStatus } from "./types";
 
 const FILTERS: (BillingInvoiceStatus | "all")[] = ["all", "pending_payment", "partially_paid", "paid"];
 
+type InvoiceListResponse = PagedResponse<InvoiceListItem, Partial<Record<BillingInvoiceStatus, number>>> & {
+  outstandingBalance: number;
+};
+
 export default function BillingPage() {
   const t = useTranslations("billing");
   const tc = useTranslations("common");
@@ -23,29 +32,29 @@ export default function BillingPage() {
 
   const [filter, setFilter] = useState<BillingInvoiceStatus | "all">("all");
   const [search, setSearch] = useState("");
-  const [invoices, setInvoices] = useState<InvoiceListItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  // The server is queried when typing pauses, not on every keystroke.
+  const debouncedSearch = useDebouncedValue(search.trim(), 300);
 
-  const fetchInvoices = async () => {
-    try {
-      const params = new URLSearchParams();
+  const invoicesQuery = useQuery({
+    queryKey: ["billing", "invoices", { filter, search: debouncedSearch, page, pageSize }],
+    queryFn: () => {
+      const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
       if (filter !== "all") params.set("status", filter);
-      if (search) params.set("search", search);
-      const res = await fetch(`/api/v1/billing?${params.toString()}`);
-      const json = await res.json();
-      setInvoices(Array.isArray(json.data) ? json.data : []);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      if (debouncedSearch) params.set("search", debouncedSearch);
+      return apiFetch<InvoiceListResponse>(`/api/v1/billing?${params}`);
+    },
+    enabled: hasModule("MODULE_BILLING"),
+    placeholderData: keepPreviousData,
+  });
+  const invoices = invoicesQuery.data?.data ?? [];
+  const isLoading = invoicesQuery.isPending;
 
-  useEffect(() => {
-    if (!hasModule("MODULE_BILLING")) return;
-    (async () => {
-      await fetchInvoices();
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasModule, filter, search]);
+  const changeFilter = (next: BillingInvoiceStatus | "all") => {
+    setFilter(next);
+    setPage(1);
+  };
 
   if (!hasModule("MODULE_BILLING")) {
     return (
@@ -61,10 +70,9 @@ export default function BillingPage() {
     );
   }
 
-  const count = (s: BillingInvoiceStatus) => invoices.filter((i) => i.status === s).length;
-  const totalOutstanding = invoices
-    .filter((i) => i.status !== "paid" && i.status !== "cancelled")
-    .reduce((sum, i) => sum + (i.patientAmount - i.paidAmount), 0);
+  // Tenant-wide figures from the server, independent of the current filter and page.
+  const count = (s: BillingInvoiceStatus) => invoicesQuery.data?.counts?.[s] ?? 0;
+  const totalOutstanding = invoicesQuery.data?.outstandingBalance ?? 0;
 
   const statusBadgeClass = (status: BillingInvoiceStatus) =>
     cn(
@@ -85,21 +93,21 @@ export default function BillingPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-4 shrink-0">
-        <div className="bg-white p-4 rounded border border-slate-200 shadow-sm flex items-end justify-between cursor-pointer hover:border-blue-300" onClick={() => setFilter("pending_payment")}>
+        <div className="bg-white p-4 rounded border border-slate-200 shadow-sm flex items-end justify-between cursor-pointer hover:border-blue-300" onClick={() => changeFilter("pending_payment")}>
           <div>
             <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">{t("pending_payment")}</div>
             <div className="text-3xl font-bold text-slate-900">{count("pending_payment")}</div>
           </div>
           <FileClock className="h-8 w-8 text-slate-200" />
         </div>
-        <div className="bg-white p-4 rounded border border-slate-200 shadow-sm flex items-end justify-between cursor-pointer hover:border-blue-300" onClick={() => setFilter("partially_paid")}>
+        <div className="bg-white p-4 rounded border border-slate-200 shadow-sm flex items-end justify-between cursor-pointer hover:border-blue-300" onClick={() => changeFilter("partially_paid")}>
           <div>
             <div className="text-xs font-semibold text-yellow-600 uppercase tracking-wider mb-1">{t("partially_paid")}</div>
             <div className="text-3xl font-bold text-yellow-600">{count("partially_paid")}</div>
           </div>
           <Banknote className="h-8 w-8 text-yellow-100" />
         </div>
-        <div className="bg-white p-4 rounded border border-slate-200 shadow-sm flex items-end justify-between cursor-pointer hover:border-blue-300" onClick={() => setFilter("paid")}>
+        <div className="bg-white p-4 rounded border border-slate-200 shadow-sm flex items-end justify-between cursor-pointer hover:border-blue-300" onClick={() => changeFilter("paid")}>
           <div>
             <div className="text-xs font-semibold text-green-600 uppercase tracking-wider mb-1">{t("paid")}</div>
             <div className="text-3xl font-bold text-green-600">{count("paid")}</div>
@@ -135,7 +143,7 @@ export default function BillingPage() {
                     type="search"
                     placeholder={tc("search")}
                     value={search}
-                    onChange={(e) => setSearch(e.target.value)}
+                    onChange={(e) => { setSearch(e.target.value); setPage(1); }}
                     className="pl-8 h-8 text-xs bg-white border-slate-200 focus:border-blue-400 w-full"
                   />
                 </div>
@@ -143,7 +151,7 @@ export default function BillingPage() {
                   {FILTERS.map((s) => (
                     <button
                       key={s}
-                      onClick={() => setFilter(s)}
+                      onClick={() => changeFilter(s)}
                       className={cn(
                         "px-3 py-1 rounded text-[10px] font-semibold transition-colors",
                         filter === s ? "bg-white shadow-sm text-slate-800" : "text-slate-500 hover:text-slate-800"
@@ -199,6 +207,13 @@ export default function BillingPage() {
                   </table>
                 </div>
               </div>
+              <PaginationBar
+                page={page}
+                pageSize={pageSize}
+                total={invoicesQuery.data?.total ?? 0}
+                onPageChange={setPage}
+                onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
+              />
             </div>
           </TabsContent>
 

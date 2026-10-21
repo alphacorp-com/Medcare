@@ -17,8 +17,10 @@ export async function GET(req: Request, context: { params: Promise<{ id: string 
   }
 
   const { id } = await context.params;
+  // Scoped to this module's exam type too: the module permission only covers its own
+  // exams, so an id from the other module must not be readable here.
   const exam = await prisma.examRequest.findFirst({
-    where: { id, tenantId: session.user.tenantId },
+    where: { id, tenantId: session.user.tenantId, type: "biology" },
     include: {
       patient: { select: PATIENT_SELECT },
       results: { orderBy: { createdAt: "desc" } },

@@ -8,6 +8,8 @@ import { TONE_TEXT, formatAmount } from "@/components/dashboard/widget-format";
 interface TileProps {
   widgetId: string;
   refreshMs: number;
+  // Ids of the widgets fetched together with this one (see widgetRefreshBatches).
+  batchIds: string[];
 }
 
 function TileFrame({ widgetId, children }: { widgetId: string; children: React.ReactNode }) {
@@ -31,9 +33,9 @@ function TilePlaceholder({ failed }: { failed: boolean }) {
   );
 }
 
-export function StatTile({ widgetId, refreshMs }: TileProps) {
+export function StatTile({ widgetId, refreshMs, batchIds }: TileProps) {
   const t = useTranslations("dashboard");
-  const state = useWidgetData<StatWidgetData>(widgetId, refreshMs);
+  const state = useWidgetData<StatWidgetData>(widgetId, refreshMs, batchIds);
 
   return (
     <TileFrame widgetId={widgetId}>
@@ -57,10 +59,10 @@ export function StatTile({ widgetId, refreshMs }: TileProps) {
   );
 }
 
-export function AmountTile({ widgetId, refreshMs }: TileProps) {
+export function AmountTile({ widgetId, refreshMs, batchIds }: TileProps) {
   const t = useTranslations("dashboard");
   const locale = useLocale();
-  const state = useWidgetData<AmountWidgetData>(widgetId, refreshMs);
+  const state = useWidgetData<AmountWidgetData>(widgetId, refreshMs, batchIds);
 
   return (
     <TileFrame widgetId={widgetId}>

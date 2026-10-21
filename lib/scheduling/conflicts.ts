@@ -65,6 +65,63 @@ export interface AppointmentConflict {
   patientName: string;
 }
 
+export const ACTIVE_APPOINTMENT_STATUSES = ["booked", "confirmed", "checked_in"] as const;
+
+export interface AppointmentConflictCandidate {
+  id: string;
+  scheduledAt: Date;
+  patient: { firstName: string; lastName: string };
+}
+
+const conflictWindowMinutes = (durationMinutes: number) => Math.max(durationMinutes, DEFAULT_CONFLICT_WINDOW_MINUTES);
+
+// Pure: the already-loaded active appointments of a doctor that fall within the conflict
+// window around `scheduledAt`. Lets a whole recurring series be checked against one
+// query instead of one query per occurrence.
+export function appointmentConflictsAt(
+  candidates: readonly AppointmentConflictCandidate[],
+  scheduledAt: Date,
+  durationMinutes = 30
+): AppointmentConflict[] {
+  const windowMs = conflictWindowMinutes(durationMinutes) * 60_000;
+  return candidates
+    .filter((c) => Math.abs(c.scheduledAt.getTime() - scheduledAt.getTime()) <= windowMs)
+    .map((c) => ({
+      appointmentId: c.id,
+      scheduledAt: c.scheduledAt.toISOString(),
+      patientName: `${c.patient.firstName} ${c.patient.lastName}`,
+    }));
+}
+
+// Loads the doctor's active appointments that could conflict with any of `dates`.
+export async function loadAppointmentConflictCandidates({
+  tenantId,
+  doctorId,
+  dates,
+  durationMinutes = 30,
+  excludeId,
+}: {
+  tenantId: string | null;
+  doctorId: string;
+  dates: readonly Date[];
+  durationMinutes?: number;
+  excludeId?: string;
+}): Promise<AppointmentConflictCandidate[]> {
+  if (dates.length === 0) return [];
+  const windowMs = conflictWindowMinutes(durationMinutes) * 60_000;
+  const times = dates.map((d) => d.getTime());
+  return prisma.appointment.findMany({
+    where: {
+      id: excludeId ? { not: excludeId } : undefined,
+      tenantId,
+      doctorId,
+      status: { in: [...ACTIVE_APPOINTMENT_STATUSES] },
+      scheduledAt: { gte: new Date(Math.min(...times) - windowMs), lte: new Date(Math.max(...times) + windowMs) },
+    },
+    select: { id: true, scheduledAt: true, patient: { select: { firstName: true, lastName: true } } },
+  });
+}
+
 export async function findAppointmentConflicts({
   tenantId,
   doctorId,
@@ -72,40 +129,21 @@ export async function findAppointmentConflicts({
   durationMinutes = 30,
   excludeId,
 }: AppointmentConflictCheck): Promise<AppointmentConflict[]> {
-  const windowMinutes = Math.max(durationMinutes, DEFAULT_CONFLICT_WINDOW_MINUTES);
-  const windowStart = new Date(scheduledAt.getTime() - windowMinutes * 60_000);
-  const windowEnd = new Date(scheduledAt.getTime() + windowMinutes * 60_000);
-
-  const candidates = await prisma.appointment.findMany({
-    where: {
-      id: excludeId ? { not: excludeId } : undefined,
-      tenantId,
-      doctorId,
-      status: { in: ["booked", "confirmed", "checked_in"] },
-      scheduledAt: { gte: windowStart, lte: windowEnd },
-    },
-    include: { patient: { select: { firstName: true, lastName: true } } },
-  });
-
-  return candidates.map((c) => ({
-    appointmentId: c.id,
-    scheduledAt: c.scheduledAt.toISOString(),
-    patientName: `${c.patient.firstName} ${c.patient.lastName}`,
-  }));
+  const candidates = await loadAppointmentConflictCandidates({ tenantId, doctorId, dates: [scheduledAt], durationMinutes, excludeId });
+  return appointmentConflictsAt(candidates, scheduledAt, durationMinutes);
 }
 
-// Checks the requested time against the doctor's configured weekly availability
-// (DoctorAvailability). Returns a human-readable reason when the slot falls outside
-// any configured window for that weekday, or null when it's within bounds — or when
-// the doctor has no availability configured at all (nothing to enforce yet).
-export async function findAvailabilityConflict(
-  tenantId: string | null | undefined,
-  doctorId: string,
-  scheduledAt: Date
-): Promise<string | null> {
-  const windows = await prisma.doctorAvailability.findMany({
-    where: { tenantId: tenantId ?? undefined, doctorId },
-  });
+export interface AvailabilityWindow {
+  weekday: number;
+  startTime: string;
+  endTime: string;
+}
+
+// Pure: checks the requested time against the doctor's configured weekly availability.
+// Returns a human-readable reason when the slot falls outside every configured window
+// for that weekday, or null when it's within bounds — or when the doctor has no
+// availability configured at all (nothing to enforce yet).
+export function availabilityIssueAt(windows: readonly AvailabilityWindow[], scheduledAt: Date): string | null {
   if (windows.length === 0) return null;
 
   const weekday = scheduledAt.getDay();
@@ -116,10 +154,23 @@ export async function findAvailabilityConflict(
   const withinAnyWindow = todaysWindows.some((w) => {
     const [startH, startM] = w.startTime.split(":").map(Number);
     const [endH, endM] = w.endTime.split(":").map(Number);
-    const start = startH * 60 + startM;
-    const end = endH * 60 + endM;
-    return minutesOfDay >= start && minutesOfDay < end;
+    return minutesOfDay >= startH * 60 + startM && minutesOfDay < endH * 60 + endM;
   });
 
   return withinAnyWindow ? null : "Requested time falls outside the doctor's configured availability window.";
+}
+
+export function loadAvailabilityWindows(tenantId: string | null | undefined, doctorId: string): Promise<AvailabilityWindow[]> {
+  return prisma.doctorAvailability.findMany({
+    where: { tenantId: tenantId ?? undefined, doctorId },
+    select: { weekday: true, startTime: true, endTime: true },
+  });
+}
+
+export async function findAvailabilityConflict(
+  tenantId: string | null | undefined,
+  doctorId: string,
+  scheduledAt: Date
+): Promise<string | null> {
+  return availabilityIssueAt(await loadAvailabilityWindows(tenantId, doctorId), scheduledAt);
 }

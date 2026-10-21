@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import bcrypt from "bcryptjs";
 import prisma from "@/lib/prisma";
+import { invalidateSessionState } from "@/lib/session-state-cache";
 import { authOptions } from "@/lib/auth";
 import { isAdminOrTenantAdmin, requireSelfOrAdmin, requireAdminOrTenantAdmin } from "@/lib/permissions";
 import { parseModulePermissions } from "@/lib/module-permissions";
@@ -142,6 +143,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       },
       include: { role: { select: { name: true, isSystemAdmin: true } } },
     });
+    // Deactivation or a new password must cut this user's sessions now, not after the cache TTL.
+    invalidateSessionState(id);
 
     const { ipAddress, userAgent } = extractRequestMeta(req.headers);
     const modulesChanged = parsedModules !== undefined &&
@@ -205,6 +208,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     await prisma.tenantUser.delete({
       where: { id },
     });
+    invalidateSessionState(id);
 
     const { ipAddress, userAgent } = extractRequestMeta(req.headers);
     await recordAuditEvent({

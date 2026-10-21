@@ -35,7 +35,6 @@ export async function GET() {
             ipp: true,
           },
         },
-        _count: false, // Remove this line
       },
       orderBy: {
         admissionDate: 'asc',
@@ -43,40 +42,34 @@ export async function GET() {
       take: 10, // Limit to 10 for dashboard
     });
 
-    // Get attending doctor info separately
-    const queueData = await Promise.all(
-      activeStays.map(async (stay) => {
-        let attendingDoctor = null;
-        if (stay.attendingDoctorId) {
-          attendingDoctor = await prisma.tenantUser.findFirst({
-            where: { id: stay.attendingDoctorId, tenantId: session.user.tenantId },
-            select: {
-              id: true,
-              fullName: true,
-              specialty: true,
-            },
-          });
-        }
+    // Attending doctors in one query for the whole queue (was one query per stay).
+    const doctorIds = [...new Set(activeStays.map((stay) => stay.attendingDoctorId).filter((id): id is string => Boolean(id)))];
+    const doctors = doctorIds.length
+      ? await prisma.tenantUser.findMany({
+          where: { id: { in: doctorIds }, tenantId: session.user.tenantId },
+          select: { id: true, fullName: true },
+        })
+      : [];
+    const doctorNames = new Map(doctors.map((doctor) => [doctor.id, doctor.fullName]));
 
-        return {
-          id: stay.id,
-          ipp: stay.patient.ipp,
-          name: `${stay.patient.lastName} ${stay.patient.firstName}`,
-          provider: attendingDoctor
-            ? `Dr. ${attendingDoctor.fullName}`
-            : 'Unassigned',
-          timeIn: stay.admissionDate.toLocaleTimeString('en-US', {
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: false,
-          }),
-          waiting: Math.floor((Date.now() - (stay.triagedAt ?? stay.admissionDate).getTime()) / (1000 * 60)), // minutes
-          status: 'active',
-          type: stay.type,
-          triageAcuity: stay.triageAcuity,
-        };
-      })
-    );
+    const queueData = activeStays.map((stay) => {
+      const doctorName = stay.attendingDoctorId ? doctorNames.get(stay.attendingDoctorId) : undefined;
+      return {
+        id: stay.id,
+        ipp: stay.patient.ipp,
+        name: `${stay.patient.lastName} ${stay.patient.firstName}`,
+        provider: doctorName ? `Dr. ${doctorName}` : 'Unassigned',
+        timeIn: stay.admissionDate.toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+        }),
+        waiting: Math.floor((Date.now() - (stay.triagedAt ?? stay.admissionDate).getTime()) / (1000 * 60)), // minutes
+        status: 'active',
+        type: stay.type,
+        triageAcuity: stay.triageAcuity,
+      };
+    });
 
     return NextResponse.json({
       data: queueData,

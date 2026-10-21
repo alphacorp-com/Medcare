@@ -1,4 +1,4 @@
-// Payload shapes returned by GET /api/v1/dashboard/widgets/[id] and rendered by the
+// Payload shapes returned by GET /api/v1/dashboard/widgets?ids=… and rendered by the
 // generic dashboard components. Kept free of server imports so client code can use it.
 
 export type WidgetTone = "default" | "success" | "warning" | "critical";
@@ -40,5 +40,11 @@ export interface ListWidgetData {
 }
 
 export type WidgetData = StatWidgetData | AmountWidgetData | ListWidgetData;
+
+// GET /api/v1/dashboard/widgets?ids=… — one entry per requested widget. A failed or
+// forbidden widget carries its HTTP-like status instead of failing the whole batch.
+export interface WidgetBatchResponse {
+  results: Record<string, { ok: true; data: WidgetData } | { ok: false; status: 403 | 404 | 500 }>;
+}
 
 export const LIST_LIMIT = 8;

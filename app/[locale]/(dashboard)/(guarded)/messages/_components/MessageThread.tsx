@@ -1,6 +1,9 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiFetch } from "@/lib/api-client";
+import { unreadQueryKeys } from "@/hooks/use-unread-counts";
 import { useLocale, useTranslations } from "next-intl";
 import { Send, MessageSquare, Loader2 } from "lucide-react";
 import { useAppStore } from "@/lib/store/useAppStore";
@@ -34,33 +37,33 @@ export function MessageThread({ conversationId, isGroup = false, onMessageSent }
   const locale = useLocale();
   const isMobile = useIsMobile();
   const currentUser = useAppStore((s) => s.currentUser);
-  const [messages, setMessages] = useState<MessageEntry[]>([]);
-  const [loaded, setLoaded] = useState(false);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const stickToBottom = useRef(true);
 
-  const fetchMessages = useCallback(async () => {
-    if (!conversationId) return;
-    const res = await fetch(`/api/v1/conversations/${conversationId}/messages`);
-    if (res.ok) {
-      setMessages(await res.json());
-    }
-    setLoaded(true);
-  }, [conversationId]);
+  const queryClient = useQueryClient();
+  // Polled while the conversation is open; TanStack pauses polling when the tab is hidden.
+  const threadQuery = useQuery({
+    queryKey: ["messages", "thread", conversationId],
+    queryFn: () => apiFetch<MessageEntry[]>(`/api/v1/conversations/${conversationId}/messages`),
+    enabled: Boolean(conversationId),
+    refetchInterval: POLL_INTERVAL_MS,
+    staleTime: 0,
+  });
+  const messages = threadQuery.data ?? [];
+  const loaded = !threadQuery.isPending;
+  const refreshThread = () => queryClient.invalidateQueries({ queryKey: ["messages", "thread", conversationId] });
 
+  // Opening a conversation marks it read, then refreshes the unread badge.
   useEffect(() => {
-    setMessages([]);
-    setLoaded(false);
     stickToBottom.current = true;
     if (!conversationId) return;
-    fetchMessages();
-    fetch(`/api/v1/conversations/${conversationId}/read`, { method: "POST" }).catch(() => {});
-    const interval = setInterval(fetchMessages, POLL_INTERVAL_MS);
-    return () => clearInterval(interval);
-  }, [conversationId, fetchMessages]);
+    fetch(`/api/v1/conversations/${conversationId}/read`, { method: "POST" })
+      .then(() => queryClient.invalidateQueries({ queryKey: unreadQueryKeys.messages }))
+      .catch(() => {});
+  }, [conversationId, queryClient]);
 
   // Follow new messages only while the reader is already at the bottom — polling must not
   // yank them back down while they scroll through history.
@@ -96,7 +99,7 @@ export function MessageThread({ conversationId, isGroup = false, onMessageSent }
         body: JSON.stringify({ body: text }),
       });
       if (res.ok) {
-        await fetchMessages();
+        await refreshThread();
         onMessageSent();
       } else {
         setDraft(text);

@@ -41,6 +41,31 @@ export async function recordAuditEvent(event: AuditEventInput): Promise<void> {
   }
 }
 
+function toAuditRow(event: AuditEventInput): Prisma.AuditLogCreateManyInput {
+  return {
+    tenantId: event.tenantId ?? null,
+    actorId: event.actorId,
+    actorType: event.actorType,
+    action: event.action,
+    resourceType: event.resourceType,
+    resourceId: event.resourceId,
+    payload: event.payload as unknown as Prisma.InputJsonValue | undefined,
+    ipAddress: event.ipAddress ?? undefined,
+    userAgent: event.userAgent ?? undefined,
+  };
+}
+
+// Writes several AuditLog rows in one INSERT (e.g. every occurrence of a recurring
+// appointment series). Same contract as recordAuditEvent: never throws.
+export async function recordAuditEvents(events: readonly AuditEventInput[]): Promise<void> {
+  if (events.length === 0) return;
+  try {
+    await prisma.auditLog.createMany({ data: events.map(toAuditRow) });
+  } catch (error) {
+    console.error("[recordAuditEvents] failed to write audit logs", error);
+  }
+}
+
 // Extracts client IP/User-Agent from a Fetch API Headers instance (route handlers).
 export function extractRequestMeta(headers: Headers): { ipAddress: string | null; userAgent: string | null } {
   const forwardedFor = headers.get("x-forwarded-for");

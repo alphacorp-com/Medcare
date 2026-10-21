@@ -1,7 +1,14 @@
 "use client";
 
 import { useAppStore } from "@/lib/store/useAppStore";
-import { useState, useEffect, Suspense } from "react";
+import { useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { apiFetch } from "@/lib/api-client";
+import type { PagedResponse } from "@/lib/pagination";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { DEFAULT_PAGE_SIZE, PaginationBar } from "@/components/shared/pagination-bar";
 import { useTranslations } from "next-intl";
 
 // Internal Components
@@ -9,7 +16,7 @@ import { PharmacyHeader } from "./_components/PharmacyHeader";
 import { PrescriptionQueue } from "./_components/PrescriptionQueue";
 import { InventoryTab } from "./_components/InventoryTab";
 import { RxDetailSheet } from "./_components/RxDetailSheet";
-import { useDeepLinkedItem, useDeepLinkedValue } from "@/hooks/use-deep-linked-item";
+import { useDeepLinkedValue } from "@/hooks/use-deep-linked-item";
 import { 
   AddMedicationSheet, 
   EditMedicationSheet, 
@@ -19,6 +26,18 @@ import {
 // Types
 import { PrescriptionRow, InventoryRow, MedForm } from "./types";
 import { notifyBillingGeneratedMany } from "@/lib/billing/client";
+
+type PrescriptionListResponse = PagedResponse<PrescriptionRow, Partial<Record<"pending" | "validated" | "dispensed", number>>>;
+// Queue tab → stored status filter sent to the API.
+const RX_FILTER_STATUS: Record<string, string | undefined> = {
+  "Pending Queue": "pending",
+  Validated: "validated",
+  Dispensed: "dispensed",
+};
+const rxKeys = {
+  all: ["pharmacy", "prescriptions"] as const,
+  one: (id: string | null) => ["pharmacy", "prescriptions", "one", id] as const,
+};
 
 function PharmacyPageContent() {
   const hasModule = useAppStore((state) => state.hasModule);
@@ -32,15 +51,45 @@ function PharmacyPageContent() {
   const [rxFilter, setRxFilter] = useState("All");
   const [rxSearch, setRxSearch] = useState("");
   const [invSearch, setInvSearch] = useState("");
-  const [selectedRx, setSelectedRx] = useState<PrescriptionRow | null>(null);
+  const [rxPage, setRxPage] = useState(1);
+  const [rxPageSize, setRxPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [selectedRxId, setSelectedRxId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  // Data State
-  const [prescriptions, setPrescriptions] = useState<PrescriptionRow[]>([]);
-  const [inventory, setInventory] = useState<InventoryRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  // ?rx=<id> (dashboard panels) opens that prescription once the queue has loaded.
-  const rxLink = useDeepLinkedItem("rx", prescriptions);
-  const openRx = selectedRx ?? rxLink.linked;
+  // Data State — the queue is filtered, searched (debounced) and paged on the server.
+  const debouncedRxSearch = useDebouncedValue(rxSearch.trim(), 300);
+  const rxQuery = useQuery({
+    queryKey: [...rxKeys.all, "list", { rxFilter, search: debouncedRxSearch, rxPage, rxPageSize }],
+    queryFn: () => {
+      const params = new URLSearchParams({ page: String(rxPage), pageSize: String(rxPageSize) });
+      const status = RX_FILTER_STATUS[rxFilter];
+      if (status) params.set("status", status);
+      if (debouncedRxSearch) params.set("search", debouncedRxSearch);
+      return apiFetch<PrescriptionListResponse>(`/api/v1/pharmacy/prescriptions?${params}`);
+    },
+    enabled: hasModule("MODULE_PHARMACY"),
+    placeholderData: keepPreviousData,
+  });
+  const prescriptions = rxQuery.data?.data ?? [];
+  const inventoryQuery = useQuery({
+    queryKey: ["pharmacy", "inventory"],
+    queryFn: () => apiFetch<{ data: InventoryRow[] }>("/api/v1/pharmacy/inventory"),
+    enabled: hasModule("MODULE_PHARMACY"),
+  });
+  const inventory = inventoryQuery.data?.data ?? [];
+
+  // The open prescription is loaded by id (?id= on the list API), so a dashboard link
+  // (?rx=<id>) or an update that moves it to another tab never loses it.
+  const linkedRxId = useSearchParams().get("rx");
+  const [rxLinkDismissed, setRxLinkDismissed] = useState(false);
+  const openRxId = selectedRxId ?? (rxLinkDismissed ? null : linkedRxId);
+  const openRxQuery = useQuery({
+    queryKey: rxKeys.one(openRxId),
+    queryFn: () => apiFetch<PrescriptionListResponse>(`/api/v1/pharmacy/prescriptions?id=${encodeURIComponent(openRxId ?? "")}`),
+    enabled: Boolean(openRxId) && hasModule("MODULE_PHARMACY"),
+  });
+  const openRx = openRxId ? (openRxQuery.data?.data[0] ?? prescriptions.find((rx) => rx.id === openRxId) ?? null) : null;
+  const refreshPrescriptions = () => queryClient.invalidateQueries({ queryKey: rxKeys.all });
 
   // Medication Sheets State
   const [isAddMedOpen, setIsAddMedOpen] = useState(false);
@@ -56,25 +105,8 @@ function PharmacyPageContent() {
   const [restockAmount, setRestockAmount] = useState(0);
   const [savingRestock, setSavingRestock] = useState(false);
 
-  const fetchPrescriptions = async () => {
-    try {
-      const res = await fetch("/api/v1/pharmacy/prescriptions");
-      const json = await res.json();
-      if (json.success) setPrescriptions(json.data);
-    } catch (e) { }
-  };
-
-  const fetchInventory = async () => {
-    try {
-      const res = await fetch("/api/v1/pharmacy/inventory");
-      const json = await res.json();
-      if (json.success) setInventory(json.data);
-    } catch (e) { }
-  };
-
-  useEffect(() => {
-    Promise.all([fetchPrescriptions(), fetchInventory()]).finally(() => setLoading(false));
-  }, []);
+  // Called after adding, editing or restocking a medication.
+  const fetchInventory = () => queryClient.invalidateQueries({ queryKey: ["pharmacy", "inventory"] });
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
@@ -85,15 +117,17 @@ function PharmacyPageContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'validated' })
       });
+      const json = await res.json().catch(() => ({}));
       if (res.ok) {
-        const json = await res.json().catch(() => ({}));
         notifyBillingGeneratedMany(json?.billing, tc("invoice_generated"));
-        fetchPrescriptions();
-        if (selectedRx?.id === id) {
-          setSelectedRx({ ...selectedRx, status: 'Validated' });
-        }
+      } else {
+        // e.g. 409 when it was validated meanwhile (another pharmacist, double click).
+        toast.error(json?.error || tc("unknown_error"));
       }
-    } catch (e) { }
+      await refreshPrescriptions();
+    } catch {
+      toast.error(tc("unknown_error"));
+    }
   };
 
   const handleDispenseRx = async (id: string) => {
@@ -103,13 +137,15 @@ function PharmacyPageContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'dispensed' })
       });
-      if (res.ok) {
-        fetchPrescriptions();
-        if (selectedRx?.id === id) {
-          setSelectedRx({ ...selectedRx, status: 'Dispensed' });
-        }
+      if (!res.ok) {
+        // e.g. 409 when it was already dispensed, or 400 while the invoice is unpaid.
+        const json = await res.json().catch(() => ({}));
+        toast.error(json?.error || tc("unknown_error"));
       }
-    } catch (e) { }
+      await refreshPrescriptions();
+    } catch {
+      toast.error(tc("unknown_error"));
+    }
   };
 
   const handleSaveMed = async () => {
@@ -208,11 +244,21 @@ function PharmacyPageContent() {
         <PrescriptionQueue 
           prescriptions={prescriptions} 
           filter={rxFilter} 
-          setFilter={setRxFilter} 
           search={rxSearch} 
-          setSearch={setRxSearch} 
-          onSelectRx={setSelectedRx} 
-          onAction={setSelectedRx} 
+          onSelectRx={(rx) => setSelectedRxId(rx.id)} 
+          onAction={(rx) => setSelectedRxId(rx.id)} 
+          counts={rxQuery.data?.counts}
+          setFilter={(next) => { setRxFilter(next); setRxPage(1); }}
+          setSearch={(next) => { setRxSearch(next); setRxPage(1); }}
+        />
+      )}
+      {activeTab === "prescriptions" && (
+        <PaginationBar
+          page={rxPage}
+          pageSize={rxPageSize}
+          total={rxQuery.data?.total ?? 0}
+          onPageChange={setRxPage}
+          onPageSizeChange={(size) => { setRxPageSize(size); setRxPage(1); }}
         />
       )}
 
@@ -230,8 +276,8 @@ function PharmacyPageContent() {
       <RxDetailSheet
         rx={openRx}
         onClose={() => {
-          setSelectedRx(null);
-          rxLink.dismiss();
+          setSelectedRxId(null);
+          setRxLinkDismissed(true);
         }}
         onValidate={handleValidateRx}
         onDispense={handleDispenseRx}

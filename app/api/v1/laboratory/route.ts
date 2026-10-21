@@ -3,7 +3,9 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { requireModulePermission } from "@/lib/permissions";
-import type { ExamRequestStatus, ExamUrgency } from "@prisma/client";
+import { listExams } from "@/lib/exams/exam-list";
+import { parsePagination } from "@/lib/pagination";
+import type { ExamUrgency } from "@prisma/client";
 import { chargePrescribedExams, examNeedsPrepayment, isPaymentGateActive } from "@/lib/billing/paymentGate";
 
 const PATIENT_SELECT = { id: true, firstName: true, lastName: true, ipp: true, gender: true } as const;
@@ -20,38 +22,22 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
   }
 
+  // Paged worklist: ?filter=<workflow state>|critical, ?search=, ?page=, ?pageSize=.
+  // Returns { data, total, page, pageSize, counts } — counts feed the state tabs.
   const { searchParams } = new URL(req.url);
-  const status = searchParams.get("status") as ExamRequestStatus | null;
-  const urgency = searchParams.get("urgency") as ExamUrgency | null;
-  const critical = searchParams.get("critical") === "true";
-  const search = searchParams.get("search")?.trim();
-
-  const exams = await prisma.examRequest.findMany({
-    where: {
+  try {
+    const result = await listExams({
       tenantId: session.user.tenantId,
-      type: "biology",
-      status: status ?? undefined,
-      urgency: urgency ?? undefined,
-      results: critical ? { some: { isCritical: true } } : undefined,
-      ...(search
-        ? {
-            OR: [
-              { examLabel: { contains: search, mode: "insensitive" } },
-              { patient: { firstName: { contains: search, mode: "insensitive" } } },
-              { patient: { lastName: { contains: search, mode: "insensitive" } } },
-              { patient: { ipp: { contains: search, mode: "insensitive" } } },
-            ],
-          }
-        : {}),
-    },
-    include: {
-      patient: { select: PATIENT_SELECT },
-      results: { orderBy: { createdAt: "desc" }, take: 1 },
-    },
-    orderBy: { requestedAt: "desc" },
-  });
-
-  return NextResponse.json(exams);
+      domain: "laboratory",
+      filter: searchParams.get("filter"),
+      search: searchParams.get("search"),
+      pagination: parsePagination(searchParams),
+    });
+    return NextResponse.json(result);
+  } catch (error) {
+    console.error("[GET /api/v1/laboratory]", error);
+    return NextResponse.json({ error: "Failed to load exams" }, { status: 500 });
+  }
 }
 
 // ── POST /api/v1/laboratory ─────────────────────────────────────────────────

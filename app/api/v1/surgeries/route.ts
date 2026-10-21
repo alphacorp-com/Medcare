@@ -4,12 +4,16 @@ import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { findSurgeryConflicts } from "@/lib/surgery/conflicts";
 import { requireModulePermission } from "@/lib/permissions";
-import type { SurgicalStatus } from "@prisma/client";
+import { SurgicalStatus, type Prisma } from "@prisma/client";
+import { parsePagination } from "@/lib/pagination";
 
 const PATIENT_SELECT = { id: true, firstName: true, lastName: true, ipp: true } as const;
 
 // ── GET /api/v1/surgeries ───────────────────────────────────────────────────
-// Query params: status, surgeonId, from, to (ISO dates, filters on scheduledAt)
+// Paged list: ?status=, ?search= (patient name/IPP, procedure), ?surgeonId=, ?from=, ?to=
+// (ISO, on scheduledAt), ?page=, ?pageSize=. Also returns per-status counts over the whole
+// tenant for the summary tiles. Upcoming surgeries ("scheduled") are listed soonest first;
+// every other view most recent first, so page 1 never starts with years-old history.
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
@@ -21,26 +25,59 @@ export async function GET(req: Request) {
   }
 
   const { searchParams } = new URL(req.url);
-  const status = searchParams.get("status") as SurgicalStatus | null;
+  const rawStatus = searchParams.get("status");
+  const status = rawStatus && (Object.values(SurgicalStatus) as string[]).includes(rawStatus) ? (rawStatus as SurgicalStatus) : null;
   const surgeonId = searchParams.get("surgeonId");
-  const from = searchParams.get("from");
-  const to = searchParams.get("to");
+  const from = searchParams.get("from") ? new Date(searchParams.get("from") as string) : null;
+  const to = searchParams.get("to") ? new Date(searchParams.get("to") as string) : null;
+  if ((from && Number.isNaN(from.getTime())) || (to && Number.isNaN(to.getTime()))) {
+    return NextResponse.json({ error: "from/to must be ISO dates" }, { status: 400 });
+  }
+  const search = searchParams.get("search")?.trim();
+  const pagination = parsePagination(searchParams);
 
-  const surgeries = await prisma.surgicalProcedure.findMany({
-    where: {
-      tenantId: session.user.tenantId,
-      status: status ?? undefined,
-      surgeonId: surgeonId ?? undefined,
-      scheduledAt:
-        from || to
-          ? { gte: from ? new Date(from) : undefined, lte: to ? new Date(to) : undefined }
-          : undefined,
-    },
-    include: { patient: { select: PATIENT_SELECT } },
-    orderBy: { scheduledAt: "asc" },
-  });
+  const tenantScope: Prisma.SurgicalProcedureWhereInput = { tenantId: session.user.tenantId };
+  const where: Prisma.SurgicalProcedureWhereInput = {
+    ...tenantScope,
+    ...(status ? { status } : {}),
+    ...(surgeonId ? { surgeonId } : {}),
+    ...(from || to ? { scheduledAt: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } } : {}),
+    ...(search
+      ? {
+          OR: [
+            { procedureLabel: { contains: search, mode: "insensitive" } },
+            { patient: { firstName: { contains: search, mode: "insensitive" } } },
+            { patient: { lastName: { contains: search, mode: "insensitive" } } },
+            { patient: { ipp: { contains: search, mode: "insensitive" } } },
+          ],
+        }
+      : {}),
+  };
 
-  return NextResponse.json(surgeries);
+  try {
+    const [surgeries, total, statusGroups] = await Promise.all([
+      prisma.surgicalProcedure.findMany({
+        where,
+        include: { patient: { select: PATIENT_SELECT } },
+        orderBy: { scheduledAt: status === "scheduled" ? "asc" : "desc" },
+        skip: pagination.skip,
+        take: pagination.take,
+      }),
+      prisma.surgicalProcedure.count({ where }),
+      prisma.surgicalProcedure.groupBy({ by: ["status"], where: tenantScope, _count: true }),
+    ]);
+
+    return NextResponse.json({
+      data: surgeries,
+      total,
+      page: pagination.page,
+      pageSize: pagination.pageSize,
+      counts: Object.fromEntries(statusGroups.map((g) => [g.status, g._count])),
+    });
+  } catch (error) {
+    console.error("[GET /api/v1/surgeries]", error);
+    return NextResponse.json({ error: "Failed to load surgeries" }, { status: 500 });
+  }
 }
 
 // ── POST /api/v1/surgeries ──────────────────────────────────────────────────

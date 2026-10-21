@@ -5,7 +5,8 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
-export const DEFAULT_PAGE_SIZE = 20;
+// Same default as the server-side pagination (lib/pagination.ts).
+export { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 
 // Page numbers to show around the current page, with null marking a gap ("…"):
 // 1 … 4 5 [6] 7 8 … 20

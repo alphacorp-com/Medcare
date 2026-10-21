@@ -72,46 +72,56 @@ export async function PATCH(
       }
     } catch (e) {}
 
-    const updateData: Prisma.PrescriptionUpdateInput = {
-      status: status as PrescriptionStatus,
-      ...(status === 'validated' ? { validatedAt: new Date() } : {})
-    };
-
     let billing: unknown = null;
 
-    if (status === 'validated' && tenantId) {
-      const inventory = await prisma.medicationInventory.findMany({
-        where: { isActive: true, tenantId },
-        select: { id: true, name: true, unitPrice: true }
+    // Each transition is claimed with a conditional update (status must still be the one it
+    // comes from), the same pattern as the appointment check-in: two concurrent or repeated
+    // requests can't both validate (double billing) or both dispense (double stock
+    // decrement). The UI only offers pending → validated → dispensed.
+    if (status === 'validated') {
+      const claimed = await prisma.prescription.updateMany({
+        where: { id, tenantId, status: 'pending' },
+        data: { status: 'validated', validatedAt: new Date() },
       });
-      const inventoryMap = new Map(inventory.map(i => [i.name.toLowerCase(), i]));
+      if (claimed.count !== 1) {
+        return NextResponse.json(
+          { error: "Only a pending prescription can be validated", success: false },
+          { status: 409 }
+        );
+      }
 
-      const lines = itemsList.map((item) => {
-        const drugName = item.drug || item.name || '';
-        const invItem = inventoryMap.get(drugName.toLowerCase());
-        const drugCode = invItem?.id || slugifyDrugName(drugName);
-        const quantity = parseFloat(String(item.quantity)) || 0;
-        return {
-          sourceType: "pharmacy_dispensation" as const,
-          sourceId: `${currentRx.id}:${drugCode}`,
-          description: drugName,
-          quantity,
-          feeCode: drugCode,
-          _unitPrice: invItem?.unitPrice ? Number(invItem.unitPrice) : 0,
-        };
-      });
+      if (tenantId) {
+        const inventory = await prisma.medicationInventory.findMany({
+          where: { isActive: true, tenantId },
+          select: { id: true, name: true, unitPrice: true }
+        });
+        const inventoryMap = new Map(inventory.map(i => [i.name.toLowerCase(), i]));
 
-      billing = await suggestInvoiceLines(
-        tenantId,
-        currentRx.patientId,
-        currentRx.stayId,
-        session.user.id,
-        lines,
-        (line) => (line as typeof lines[number])._unitPrice
-      );
-    }
+        const lines = itemsList.map((item) => {
+          const drugName = item.drug || item.name || '';
+          const invItem = inventoryMap.get(drugName.toLowerCase());
+          const drugCode = invItem?.id || slugifyDrugName(drugName);
+          const quantity = parseFloat(String(item.quantity)) || 0;
+          return {
+            sourceType: "pharmacy_dispensation" as const,
+            sourceId: `${currentRx.id}:${drugCode}`,
+            description: drugName,
+            quantity,
+            feeCode: drugCode,
+            _unitPrice: invItem?.unitPrice ? Number(invItem.unitPrice) : 0,
+          };
+        });
 
-    if (status === 'dispensed') {
+        billing = await suggestInvoiceLines(
+          tenantId,
+          currentRx.patientId,
+          currentRx.stayId,
+          session.user.id,
+          lines,
+          (line) => (line as typeof lines[number])._unitPrice
+        );
+      }
+    } else if (status === 'dispensed') {
       if (tenantId && (await isModuleActiveForTenant(tenantId, "MODULE_BILLING"))) {
         const openInvoiceLines = await prisma.patientInvoiceLine.findMany({
           where: { sourceType: "pharmacy_dispensation", sourceId: { startsWith: `${currentRx.id}:` } },
@@ -127,45 +137,70 @@ export async function PATCH(
         }
       }
 
-      const inventory = await prisma.medicationInventory.findMany({
-        where: { isActive: true, tenantId },
-        select: { id: true, name: true, stock: true }
-      });
-      const inventoryMap = new Map(inventory.map(i => [i.name.toLowerCase(), i]));
-
-      for (const item of itemsList) {
-        const drugName = item.drug || item.name || '';
-        const invItem = inventoryMap.get(drugName.toLowerCase());
-        const quantity = parseFloat(String(item.quantity)) || 0;
-
-        if (invItem) {
-          await prisma.medicationInventory.update({
-            where: { id: invItem.id },
-            data: { stock: Math.max(0, invItem.stock - quantity) }
+      // Stock decrements, dispensing records and the status change commit together or not
+      // at all. Decrements are atomic (no read-then-write), so concurrent dispensings of the
+      // same drug can't overwrite each other; stock is clamped at 0 as before.
+      try {
+        await prisma.$transaction(async (tx) => {
+          const claimed = await tx.prescription.updateMany({
+            where: { id, tenantId, status: 'validated' },
+            data: { status: 'dispensed' },
           });
-        }
+          if (claimed.count !== 1) throw new Error("RX_NOT_DISPENSABLE");
 
-        await prisma.drugDispensing.create({
-          data: {
-            tenantId,
-            prescriptionId: currentRx.id,
-            patientId: currentRx.patientId,
-            pharmacistId: session.user.id,
-            drugCode: invItem?.id || slugifyDrugName(drugName),
-            drugName,
-            quantity,
-            unit: item.unit || null,
-            status: "dispensed",
-          },
+          const inventory = await tx.medicationInventory.findMany({
+            where: { isActive: true, tenantId },
+            select: { id: true, name: true },
+          });
+          const inventoryMap = new Map(inventory.map((i) => [i.name.toLowerCase(), i]));
+
+          const dispensings: Prisma.DrugDispensingCreateManyInput[] = [];
+          for (const item of itemsList) {
+            const drugName = item.drug || item.name || '';
+            const invItem = inventoryMap.get(drugName.toLowerCase());
+            const quantity = parseFloat(String(item.quantity)) || 0;
+
+            if (invItem && quantity > 0) {
+              // Stock is counted in whole units: a fractional quantity consumes the unit it
+              // was taken from (never overstate what's left on the shelf).
+              const units = Math.ceil(quantity);
+              const decremented = await tx.medicationInventory.updateMany({
+                where: { id: invItem.id, stock: { gte: units } },
+                data: { stock: { decrement: units } },
+              });
+              if (decremented.count === 0) {
+                await tx.medicationInventory.update({ where: { id: invItem.id }, data: { stock: 0 } });
+              }
+            }
+
+            dispensings.push({
+              tenantId,
+              prescriptionId: currentRx.id,
+              patientId: currentRx.patientId,
+              pharmacistId: session.user.id,
+              drugCode: invItem?.id || slugifyDrugName(drugName),
+              drugName,
+              quantity,
+              unit: item.unit || null,
+              status: "dispensed",
+            });
+          }
+          if (dispensings.length > 0) await tx.drugDispensing.createMany({ data: dispensings });
         });
+      } catch (error) {
+        if (error instanceof Error && error.message === "RX_NOT_DISPENSABLE") {
+          return NextResponse.json(
+            { error: "Only a validated prescription can be dispensed", success: false },
+            { status: 409 }
+          );
+        }
+        throw error;
       }
+    } else {
+      await prisma.prescription.update({ where: { id }, data: { status: status as PrescriptionStatus } });
     }
 
-    const prescription = await prisma.prescription.update({
-      where: { id },
-      data: updateData
-    });
-
+    const prescription = await prisma.prescription.findUnique({ where: { id } });
     return NextResponse.json({ data: prescription, billing, success: true });
   } catch (error) {
     console.error("[PATCH /api/v1/pharmacy/prescriptions/[id]/status]", error);

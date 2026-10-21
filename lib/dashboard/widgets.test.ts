@@ -7,6 +7,7 @@ import {
   canViewWidget,
   findDashboardWidget,
   visibleDashboardWidgets,
+  widgetRefreshBatches,
   type DashboardViewer,
 } from "@/lib/dashboard/widgets";
 import { WIDGET_LOADERS } from "@/lib/dashboard/loaders";
@@ -122,5 +123,38 @@ describe("canViewWidget", () => {
     const admin = session([], true);
     const ids = visibleIds(admin, { ...ALL_LICENSED, isClinicalProvider: true });
     assert.deepEqual(ids, DASHBOARD_WIDGETS.map((w) => w.id));
+  });
+});
+
+describe("widgetRefreshBatches", () => {
+  it("groups generic widgets by refresh interval, with a stable sorted id list", () => {
+    const batches = widgetRefreshBatches(DASHBOARD_WIDGETS);
+    for (const widget of DASHBOARD_WIDGETS) {
+      if (widget.kind === "custom") {
+        assert.equal(batches.has(widget.id), false, `custom widget ${widget.id} must not be batched`);
+        continue;
+      }
+      const group = batches.get(widget.id);
+      assert.ok(group, `widget ${widget.id} has no batch`);
+      assert.ok(group.includes(widget.id));
+      assert.deepEqual(group, [...group].sort());
+      for (const other of group) {
+        assert.equal(findDashboardWidget(other)?.refreshMs, widget.refreshMs);
+        assert.equal(batches.get(other), group, "members must share the same array (same query key)");
+      }
+    }
+  });
+
+  it("makes far fewer requests than widgets", () => {
+    const generic = DASHBOARD_WIDGETS.filter((w) => w.kind !== "custom");
+    const groups = new Set(widgetRefreshBatches(DASHBOARD_WIDGETS).values());
+    assert.ok(groups.size < generic.length / 3, `${groups.size} groups for ${generic.length} widgets`);
+  });
+
+  it("only batches the widgets the viewer can see", () => {
+    const cashier = session([{ moduleId: "MODULE_BILLING", actions: ["read"] }]);
+    const batches = widgetRefreshBatches(visibleDashboardWidgets(cashier, ALL_LICENSED));
+    const allIds = new Set([...batches.values()].flat());
+    assert.deepEqual([...allIds].sort(), ["payments-today", "unpaid-invoices", "unpaid-invoices-list"]);
   });
 });

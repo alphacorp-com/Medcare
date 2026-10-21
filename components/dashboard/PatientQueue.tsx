@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { apiFetch } from "@/lib/api-client";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/routing";
 import { printRegion } from "@/lib/print-region";
@@ -25,34 +27,16 @@ export function PatientQueue() {
   const locale = useLocale();
   const router = useRouter();
   const cardRef = useRef<HTMLDivElement>(null);
-  const [queue, setQueue] = useState<QueueItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchQueue = async () => {
-      try {
-        const res = await fetch('/api/v1/dashboard/queue');
-        const result = await res.json();
-
-        if (!res.ok) {
-          throw new Error(result.error || t('failed_fetch_queue'));
-        }
-
-        setQueue(result.data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : tc('unknown_error'));
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchQueue();
-
-    // Refresh every 30 seconds
-    const interval = setInterval(fetchQueue, 30000);
-    return () => clearInterval(interval);
-  }, []);
+  // Shared cached query: refreshed every 30_000 ms, paused while the tab is hidden.
+  const query = useQuery({
+    queryKey: ["dashboard", "queue"],
+    queryFn: () => apiFetch<{ data: QueueItem[] }>("/api/v1/dashboard/queue"),
+    refetchInterval: 30_000,
+    staleTime: 30_000,
+  });
+  const queue = query.data?.data ?? [];
+  const loading = query.isPending;
+  const error = query.isError && !query.data;
 
   const formatWaitingTime = (minutes: number) => {
     if (minutes < 60) return `${minutes}m`;

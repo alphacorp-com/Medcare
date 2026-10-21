@@ -4,7 +4,7 @@ import { hasModulePermission, isAdminOrTenantAdmin } from "@/lib/permissions";
 
 // Single source of truth for the home dashboard: which widgets exist, what each one
 // requires, and how it is laid out. Both the page (to decide what to render) and
-// GET /api/v1/dashboard/widgets/[id] (to decide what to serve) go through
+// GET /api/v1/dashboard/widgets?ids=… (to decide what to serve) go through
 // canViewWidget() below, so hiding a widget and refusing its data can never drift apart.
 //
 // Widgets are gated on module permissions — never on the role *name*, which is
@@ -107,4 +107,22 @@ export function visibleDashboardWidgets(
   viewer: DashboardViewer
 ): DashboardWidget[] {
   return DASHBOARD_WIDGETS.filter((widget) => canViewWidget(widget, session, viewer));
+}
+
+// Groups the generic (loader-backed) widgets by refresh interval: each group is fetched in
+// one request (GET /api/v1/dashboard/widgets?ids=…). Returns, for every generic widget id,
+// the ids of its group — sorted, so every member builds the same query key. Custom widgets
+// have their own routes and are left out.
+export function widgetRefreshBatches(widgets: readonly DashboardWidget[]): Map<string, string[]> {
+  const byInterval = new Map<number, string[]>();
+  for (const widget of widgets) {
+    if (widget.kind === "custom") continue;
+    byInterval.set(widget.refreshMs, [...(byInterval.get(widget.refreshMs) ?? []), widget.id]);
+  }
+  const batches = new Map<string, string[]>();
+  for (const ids of byInterval.values()) {
+    const sorted = [...ids].sort();
+    for (const id of sorted) batches.set(id, sorted);
+  }
+  return batches;
 }
