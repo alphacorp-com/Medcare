@@ -140,9 +140,14 @@ const VACCINE_ANTIGENS: GenericCatalogSeed[] = [
   { catalogType: 'vaccine_antigen', code: 'RR2', nameFr: 'Rougeole-Rubéole 2ème dose', nameEn: 'Measles-Rubella dose 2', group: 'RR', order: 19 },
   { catalogType: 'vaccine_antigen', code: 'VAA', nameFr: 'Fièvre jaune', nameEn: 'Yellow fever', group: 'VAA', order: 20 },
   { catalogType: 'vaccine_antigen', code: 'MENA', nameFr: 'Méningite A (MenA)', nameEn: 'Meningitis A', group: 'MENA', order: 21 },
-  { catalogType: 'vaccine_antigen', code: 'HPV1', nameFr: 'VPH 1ère dose', nameEn: 'HPV dose 1', group: 'HPV', order: 22 },
-  { catalogType: 'vaccine_antigen', code: 'HPV2', nameFr: 'VPH 2ème dose', nameEn: 'HPV dose 2', group: 'HPV', order: 23 },
-  { catalogType: 'vaccine_antigen', code: 'VITA', nameFr: 'Vitamine A', nameEn: 'Vitamin A', group: 'VITA', order: 24 },
+  // Malaria vaccine (RTS,S / R21), 4 doses: RMA3 III.2-009 to III.2-012.
+  { catalogType: 'vaccine_antigen', code: 'PALU1', nameFr: 'Antipaludique 1ère dose', nameEn: 'Malaria vaccine dose 1', group: 'MALARIA', order: 22 },
+  { catalogType: 'vaccine_antigen', code: 'PALU2', nameFr: 'Antipaludique 2e dose', nameEn: 'Malaria vaccine dose 2', group: 'MALARIA', order: 23 },
+  { catalogType: 'vaccine_antigen', code: 'PALU3', nameFr: 'Antipaludique 3e dose', nameEn: 'Malaria vaccine dose 3', group: 'MALARIA', order: 24 },
+  { catalogType: 'vaccine_antigen', code: 'PALU4', nameFr: 'Antipaludique 4e dose', nameEn: 'Malaria vaccine dose 4', group: 'MALARIA', order: 25 },
+  { catalogType: 'vaccine_antigen', code: 'HPV1', nameFr: 'VPH 1ère dose', nameEn: 'HPV dose 1', group: 'HPV', order: 26 },
+  { catalogType: 'vaccine_antigen', code: 'HPV2', nameFr: 'VPH 2ème dose', nameEn: 'HPV dose 2', group: 'HPV', order: 27 },
+  { catalogType: 'vaccine_antigen', code: 'VITA', nameFr: 'Vitamine A', nameEn: 'Vitamin A', group: 'VITA', order: 28 },
 ];
 
 async function seedGenericCatalogs(prisma: PrismaClient, tenantId: string) {

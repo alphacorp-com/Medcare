@@ -8,7 +8,7 @@ const DAY = 86_400_000;
 const person = { select: { birthDate: true, gender: true } } as const;
 
 export async function computeHivReport(tenantId: string, start: Date, end: Date): Promise<Rma3HivReport> {
-  const [tests, enrolments, pregnancies, infants, viralLoads, hepatitis, tbCases] = await Promise.all([
+  const [tests, enrolments, pregnancies, infants, viralLoads, hepatitis, tbCases, emergencySupplies] = await Promise.all([
     prisma.screeningTest.findMany({
       where: { tenantId, testedAt: { lt: end } },
       select: {
@@ -84,6 +84,7 @@ export async function computeHivReport(tenantId: string, start: Date, end: Date)
       },
     }),
     prisma.tbCase.findMany({ where: { tenantId, notificationDate: { lt: end } }, select: { patientId: true, notificationDate: true, outcomeDate: true } }),
+    prisma.artEmergencySupply.findMany({ where: { tenantId, supplyDate: { gte: start, lt: end } }, select: { patientId: true, supplyDate: true, patient: person } }),
   ]);
 
   return buildHivReport({
@@ -104,5 +105,6 @@ export async function computeHivReport(tenantId: string, start: Date, end: Date)
     viralLoads,
     hepatitis,
     tbCases,
+    emergencySupplies,
   });
 }

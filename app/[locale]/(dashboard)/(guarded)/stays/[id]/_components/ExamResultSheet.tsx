@@ -1,6 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { isConfidentialResult } from "@/lib/hiv/confidential-flag";
 import { format } from "date-fns";
 import { AlertTriangle, ExternalLink, FileCheck2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -127,7 +128,10 @@ export function ExamResultSheet({
                 </a>
               )}
 
-              {!hasDetails && !reportUrl && (
+              {isConfidentialResult(data) && (
+                <p className="text-xs italic text-violet-700 bg-violet-50 border border-violet-100 rounded p-2">{tc("confidential_result")}</p>
+              )}
+              {!hasDetails && !reportUrl && !isConfidentialResult(data) && (
                 <div className="text-center py-8 text-slate-400 italic text-xs">{t("no_result_details")}</div>
               )}
             </div>

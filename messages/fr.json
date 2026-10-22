@@ -1,5 +1,6 @@
 {
   "common": {
+    "confidential_result": "Résultat confidentiel (VIH) : visible du laboratoire, des prescripteurs et des personnes habilitées.",
     "nav_stays": "Séjours",
     "nav_vaccination": "Vaccination",
     "nav_vaccination_sessions": "Séances de vaccination",
@@ -1002,9 +1003,11 @@
       "price": "Prix",
       "imaging_modality": "Modalité d'Imagerie",
       "anatomical_zone": "Zone Anatomique",
-      "screening_test_type": "Alimente le registre de dépistage",
+      "screening_test_type": "Alimente les programmes (dépistage ou charge virale)",
+      "screening_group_tests": "Registre de dépistage",
+      "screening_group_viral_loads": "Charges virales",
       "screening_none": "Non (examen ordinaire)",
-      "screening_hint": "Un résultat validé de cet examen (VIH, syphilis, AgHBs…) est ajouté automatiquement au registre des programmes.",
+      "screening_hint": "Un résultat validé de cet examen est ajouté automatiquement au registre de dépistage ou aux charges virales. Les résultats VIH ne sont visibles que du laboratoire, des prescripteurs et des personnes habilitées VIH.",
       "requires_contrast": "Nécessite un contraste",
       "confirm_delete": "Supprimer « {name} » ? Cette action est irréversible.",
       "tab_general": "Informations",
@@ -1499,6 +1502,15 @@
     "module_title": "Programmes de Santé",
     "module_desc": "Suivi de la vaccination (PEV), des cas de paludisme et de la notification/suivi de la tuberculose pour les rapports des programmes nationaux.",
     "hiv": {
+      "supply_add": "Dépannage",
+      "supply_hint": "ARV servis une fois à un patient suivi dans un autre site : il n'entre pas dans la file active de l'établissement.",
+      "supply_line": "Dépannage le {date} : {regimen}, {days} j (suivi à {site})",
+      "origin_site": "Site de suivi habituel",
+      "form_supply": "Dépannage ARV",
+      "view_report": "Rapport RMA3",
+      "report_csv": "Télécharger (CSV)",
+      "report_hint": "Détail complet âge × sexe des tableaux VIH / PTME / hépatites / IST (le RMA3 Word les présente condensés). Tranches d'âge provisoires.",
+      "viral_load_of": "Charge virale {program}",
       "module_title": "VIH, PTME, hépatites et IST",
       "tab": "VIH / Hépatites",
       "panel_title": "VIH, PTME, hépatites et IST",
@@ -1651,6 +1663,8 @@
       "born_on": "Né(e) le {date}",
       "no_pcr": "Aucune PCR",
       "errors": {
+        "invalid_origin": "Indiquez le site de suivi habituel (150 caractères au plus).",
+        "enrolled_here": "Ce patient est suivi ici : enregistrez une visite TARV plutôt qu'un dépannage.",
         "invalid_body": "Saisie invalide.",
         "invalid_patient": "Patient introuvable.",
         "invalid_test_type": "Type de test invalide.",
@@ -2432,6 +2446,7 @@
   },
   "documents": {
     "medicalRecord": {
+      "confidential_result": "Résultat confidentiel",
       "title": "Dossier médical",
       "stay": "Séjour",
       "identification": "Identification du patient",
@@ -2739,6 +2754,9 @@
         "update": "A modifié un équipement de la chaîne du froid"
       },
       "hiv": {
+        "emergency_supply": {
+          "create": "A enregistré un dépannage ARV"
+        },
         "patient_view": "A consulté un dossier VIH / hépatites",
         "screening_test": {
           "create": "A enregistré un test de dépistage",
@@ -2765,6 +2783,9 @@
         "pmtct_status": {
           "update": "A mis à jour le statut PTME d'une grossesse"
         }
+      },
+      "report": {
+        "rma3_generate": "A généré le rapport RMA3"
       },
       "inventory_item": {
         "create": "A créé un article de stock",

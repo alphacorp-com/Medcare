@@ -5,7 +5,7 @@ import { requireTenantAdmin } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
 import { validateExamParameters } from "@/lib/exam-catalog/validate-parameters";
 import { syncExamFeeSchedule, deactivateExamFeeSchedule } from "@/lib/billing/syncFeeSchedule";
-import { SCREENING_TEST_TYPES } from "@/lib/hiv/input";
+import { SCREENING_TEST_TYPES, VIRAL_LOAD_PROGRAMS } from "@/lib/hiv/input";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -25,13 +25,21 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const body = await request.json();
     const {
       code, nameFr, nameEn, price, parameters,
-      imagingCatalogItemId, anatomicalZoneId, requiresContrast, isActive, screeningTestType,
+      imagingCatalogItemId, anatomicalZoneId, requiresContrast, isActive, screeningTestType, viralLoadProgram,
     } = body as {
       code?: string; nameFr?: string; nameEn?: string; price?: number | string | null;
       parameters?: unknown;
       imagingCatalogItemId?: string | null; anatomicalZoneId?: string | null; requiresContrast?: boolean | null; isActive?: boolean;
       screeningTestType?: unknown;
+      viralLoadProgram?: unknown;
     };
+    if (viralLoadProgram !== undefined && viralLoadProgram !== null && viralLoadProgram !== "" && !(VIRAL_LOAD_PROGRAMS as readonly unknown[]).includes(viralLoadProgram)) {
+      return NextResponse.json({ error: "Invalid viral load program", code: "invalid_viral_load_program" }, { status: 400 });
+    }
+    // An exam feeds either the screening register or the viral loads, not both.
+    if (screeningTestType && viralLoadProgram) {
+      return NextResponse.json({ error: "Screening test and viral load are exclusive", code: "invalid_screening_test_type" }, { status: 400 });
+    }
     // Which program screening test a validated result of this exam feeds (null = none).
     if (screeningTestType !== undefined && screeningTestType !== null && screeningTestType !== "" && !(SCREENING_TEST_TYPES as readonly unknown[]).includes(screeningTestType)) {
       return NextResponse.json({ error: "Invalid screening test type", code: "invalid_screening_test_type" }, { status: 400 });
@@ -57,6 +65,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (requiresContrast !== undefined) data.requiresContrast = requiresContrast;
     if (isActive !== undefined) data.isActive = isActive;
     if (screeningTestType !== undefined) data.screeningTestType = screeningTestType || null;
+    if (viralLoadProgram !== undefined) data.viralLoadProgram = viralLoadProgram || null;
 
     const updated = await prisma.examCatalogEntry.update({ where: { id }, data });
 

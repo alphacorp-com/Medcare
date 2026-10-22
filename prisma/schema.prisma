@@ -760,6 +760,7 @@ model Patient {
   viralLoads         ViralLoadResult[]
   hepatitisCases     HepatitisCase[]
   hivExposure        HivExposedInfant?
+  artEmergencySupplies ArtEmergencySupply[]
 
   @@unique([tenantId, ipp])
   @@index([tenantId])
@@ -1847,8 +1848,10 @@ model ExamCatalogEntry {
   imagingCatalogItemId String?  @map("imaging_catalog_item_id") @db.Uuid
   anatomicalZoneId     String?  @map("anatomical_zone_id") @db.Uuid
   requiresContrast     Boolean? @map("requires_contrast")
-  // A validated result of this exam feeds the screening register (HIV, syphilis, HBsAg…).
+  // A validated result of this exam feeds the screening register (HIV, syphilis, HBsAg…),
+  // or the viral loads of a program.
   screeningTestType    ScreeningTestType? @map("screening_test_type")
+  viralLoadProgram     ViralLoadProgram?  @map("viral_load_program")
   isActive             Boolean  @default(true) @map("is_active")
   createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz
@@ -2345,6 +2348,8 @@ model ViralLoadResult {
   value          Int?
   belowDetection Boolean          @default(false) @map("below_detection")
   pregnancyId    String?          @map("pregnancy_id") @db.Uuid
+  // Set when created from a validated lab result (never twice for the same result).
+  examResultId   String?          @unique @map("exam_result_id") @db.Uuid
   recordedById   String           @map("recorded_by_id") @db.Uuid
   createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz
 
@@ -2353,6 +2358,27 @@ model ViralLoadResult {
   @@index([tenantId, sampledAt])
   @@index([patientId, program])
   @@map("viral_load_results")
+  @@schema("tenant_template")
+}
+
+// ARVs served once to a patient followed elsewhere ("aide ponctuelle / dépannage", RMA3
+// IV.1.2-024): no enrolment, so the patient never enters this facility's active file.
+model ArtEmergencySupply {
+  id            String   @id @default(uuid()) @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  patientId     String   @map("patient_id") @db.Uuid
+  supplyDate    DateTime @map("supply_date") @db.Date
+  regimenCode   String   @map("regimen_code") @db.VarChar(40)
+  regimenLine   Int      @map("regimen_line")
+  daysDispensed Int      @map("days_dispensed")
+  originSite    String   @map("origin_site") @db.VarChar(150)
+  recordedById  String   @map("recorded_by_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  patient Patient @relation(fields: [patientId], references: [id])
+
+  @@index([tenantId, supplyDate])
+  @@map("art_emergency_supplies")
   @@schema("tenant_template")
 }
 

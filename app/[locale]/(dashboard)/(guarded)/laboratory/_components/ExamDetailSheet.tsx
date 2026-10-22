@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { isConfidentialResult } from "@/lib/hiv/confidential-flag";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -187,7 +188,9 @@ export function ExamDetailSheet({
                     </Button>
                   )}
                 </div>
-                {latestResult ? (
+                {latestResult && isConfidentialResult(latestResult.resultData) ? (
+                  <p className="px-4 py-6 text-center text-xs italic text-violet-700">{tc("confidential_result")}</p>
+                ) : latestResult ? (
                   <ExamParametersTable parameters={latestResult.resultData.parameters} />
                 ) : (
                   <p className="px-4 py-6 text-center text-xs text-slate-400 italic">{t("no_results_logged")}</p>

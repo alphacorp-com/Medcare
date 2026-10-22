@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { isConfidentialResult } from "@/lib/hiv/confidential-flag";
 import { useSession } from "next-auth/react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -346,6 +347,9 @@ export default function ConsultationWorkspacePage() {
                       <details className="basis-full mt-1">
                         <summary className="cursor-pointer text-[11px] font-medium text-blue-700">{t("view_result")}</summary>
                         <div className="mt-1 rounded border border-slate-100 overflow-x-auto">
+                          {isConfidentialResult(exam.results[0].resultData) && (
+                            <p className="p-2 text-xs italic text-violet-700">{tc("confidential_result")}</p>
+                          )}
                           {exam.results[0].resultData.parameters?.length ? (
                             <ExamParametersTable parameters={exam.results[0].resultData.parameters} />
                           ) : null}

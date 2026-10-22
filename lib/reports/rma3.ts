@@ -6,12 +6,15 @@ import { computeMorbidityTables, type Rma3MorbidityTable } from "@/lib/reports/r
 import { computeStockReport, type StockReportItemRow } from "@/lib/stock/report-data";
 import { computeEpiSections, type Rma3EpiSections } from "@/lib/epi/rma3-epi-data";
 import { computeHivReport } from "@/lib/hiv/rma3-hiv-data";
+import { computeActivityTables } from "@/lib/reports/rma3-activity-data";
+import type { ActivityTable } from "@/lib/reports/rma3-activity";
 import type { Rma3HivReport } from "@/lib/hiv/rma3-hiv";
 import type { Rma3VaccinationRow } from "@/lib/epi/rma3-epi";
 import { RMA3_AGE_SCHEMES, ageBand, bandOrPregnant, rma3Sex } from "@/lib/reports/age-bands";
 
 export type { Rma3CauseRow, Rma3CauseTable } from "@/lib/reports/rma3-rubrics";
 export type { Rma3MorbidityRow, Rma3MorbidityTable } from "@/lib/reports/rma3-morbidity";
+export type { ActivityTable, ActivityRow } from "@/lib/reports/rma3-activity";
 
 export interface Rma3Identification {
   facilityName: string;
@@ -71,6 +74,9 @@ export interface Rma3ReportData {
   stock: StockReportItemRow[];
   // II.3 PMTCT, II.1.1 antenatal syphilis / hepatitis B, IV.1 HIV and hepatitis / STI.
   hiv: Rma3HivReport;
+  // II.1.1, II.1.2-3, II.1.4, IV.2.1, IV.2.4-5, IV.3, IV.4.4, V.1 — the clinical activity with
+  // the form's age / sex breakdown.
+  activity: ActivityTable[];
 }
 
 function pickMetrics(values: Dhis2MetricValue[]): Record<Dhis2MetricKey, number> {
@@ -119,7 +125,7 @@ function buildMaternalHealthRows(metrics: Record<Dhis2MetricKey, number>): Rma3K
     { label: "CPN4+ (4e visite prénatale et plus)", value: metrics.anc_fourth_visit_plus ?? 0 },
     { label: "Accouchements - total", value: metrics.deliveries_total ?? 0 },
     { label: "dont césariennes", value: metrics.deliveries_cesarean ?? 0 },
-    { label: "Naissances vivantes", value: metrics.newborns_total ?? 0 },
+    { label: "Nouveau-nés enregistrés (vivants et mort-nés)", value: metrics.newborns_total ?? 0 },
     { label: "Doses de VAT (vaccin antitétanique) données en CPN", value: metrics.tetanus_doses_given ?? 0 },
     { label: "Doses de TPI/prévention du paludisme données en CPN", value: metrics.malaria_prevention_doses_given ?? 0 },
     { label: "Dépistages VIH réalisés chez les femmes enceintes (PTME)", value: metrics.hiv_tests_pregnancy_completed ?? 0 },
@@ -237,7 +243,10 @@ async function computeTuberculosisSection(tenantId: string, period: Dhis2Period)
 
 export async function computeRma3Report(tenantId: string, period: Dhis2Period): Promise<Rma3ReportData> {
   const { start, end } = periodToDateRange(period);
-  const [rawMetrics, identification, epiSections, malaria, tuberculosis, bedCount, causes, morbidity, stockReport, hiv] = await Promise.all([
+  const hivReport = computeHivReport(tenantId, start, end);
+  // IV.3-013 needs the ART active file of the HIV report.
+  const activityTables = hivReport.then((report) => computeActivityTables(tenantId, start, end, report.tbHivOnArtPatientIds));
+  const [rawMetrics, identification, epiSections, malaria, tuberculosis, bedCount, causes, morbidity, stockReport, hiv, activity] = await Promise.all([
     computeMonthlyIndicators(tenantId, period),
     computeIdentificationSection(tenantId),
     computeEpiSections(tenantId, start, end),
@@ -247,7 +256,8 @@ export async function computeRma3Report(tenantId: string, period: Dhis2Period): 
     computeCauseTables(tenantId, start, end),
     computeMorbidityTables(tenantId, start, end),
     computeStockReport(tenantId, period),
-    computeHivReport(tenantId, start, end),
+    hivReport,
+    activityTables,
   ]);
 
   const metrics = pickMetrics(rawMetrics);
@@ -266,5 +276,6 @@ export async function computeRma3Report(tenantId: string, period: Dhis2Period): 
     morbidity,
     stock: (stockReport?.rows ?? []).filter((row) => row.rma3Category !== null),
     hiv,
+    activity,
   };
 }

@@ -23,9 +23,10 @@ type ViralLoad = { id: string; program: string; sampledAt: string; value: number
 type Hepatitis = { id: string; type: "hbv" | "hcv"; diagnosedAt: string; deltaPositive: boolean | null; eligibleAt: string | null; treatmentStartedAt: string | null; treatmentStoppedAt: string | null; curedAt: string | null; cirrhosisAt: string | null; liverCancerAt: string | null; diedAt: string | null };
 type Infant = { motherPatientId: string | null; bornInFacility: boolean; firstSeenAt: string; nevirapineStartedAt: string | null; cotrimoxazoleStartedAt: string | null; visit6to8WeeksAt: string | null };
 type PregnancyPmtct = { id: string; lastMenstrualPeriod: string; status: string; referralSource: string; pmtctStatus: { hivKnownPositiveAtEntry: boolean; onArtAtEntry: boolean; hbvKnownPositiveAtEntry: boolean } | null };
-type HivFile = { tests: Test[]; enrolment: Enrolment | null; viralLoads: ViralLoad[]; hepatitisCases: Hepatitis[]; exposedInfant: Infant | null; pregnancies: PregnancyPmtct[] };
+type Supply = { id: string; supplyDate: string; regimenCode: string; daysDispensed: number; originSite: string };
+type HivFile = { tests: Test[]; enrolment: Enrolment | null; viralLoads: ViralLoad[]; hepatitisCases: Hepatitis[]; exposedInfant: Infant | null; pregnancies: PregnancyPmtct[]; emergencySupplies: Supply[] };
 
-type Form = "test" | "enrol" | "visit" | "status" | "viral_load" | "hepatitis" | "infant";
+type Form = "test" | "enrol" | "visit" | "status" | "viral_load" | "hepatitis" | "infant" | "supply";
 
 const today = () => new Date().toISOString().slice(0, 10);
 const dateOnly = (iso: string | null | undefined) => (iso ? iso.slice(0, 10) : "");
@@ -87,6 +88,8 @@ export function HivPatientPanel({ patientId, canEdit }: { patientId: string; can
           return apiFetch("/api/v1/hiv/hepatitis-cases", json(v));
         case "infant":
           return apiFetch("/api/v1/hiv/exposed-infants", json(v));
+        case "supply":
+          return apiFetch("/api/v1/hiv/emergency-supplies", json(v));
         default:
           throw new Error("no_form");
       }
@@ -175,7 +178,14 @@ export function HivPatientPanel({ patientId, canEdit }: { patientId: string; can
                 </Button>
               </div>
             )
-          : addButton(t("enrol"), () => open("enrol", { artStartDate: today(), entryPoint: "vct" })),
+          : (
+              <div className="flex gap-1">
+                {addButton(t("enrol"), () => open("enrol", { artStartDate: today(), entryPoint: "vct" }))}
+                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => open("supply", { supplyDate: today(), regimenCode: "TDF-3TC-DTG", daysDispensed: 30, originSite: "" })}>
+                  {t("supply_add")}
+                </Button>
+              </div>
+            ),
         enrolment ? (
           <div className="space-y-1 text-xs">
             <p>
@@ -196,7 +206,16 @@ export function HivPatientPanel({ patientId, canEdit }: { patientId: string; can
             </ul>
           </div>
         ) : (
-          <p className="text-xs text-slate-500 italic">{t("not_enrolled")}</p>
+          <div className="space-y-1 text-xs">
+            <p className="text-slate-500 italic">{t("not_enrolled")}</p>
+            {file.emergencySupplies.length > 0 && (
+              <ul className="text-[11px] text-slate-600">
+                {file.emergencySupplies.map((s) => (
+                  <li key={s.id}>{t("supply_line", { date: day(s.supplyDate), regimen: s.regimenCode, days: s.daysDispensed, site: s.originSite })}</li>
+                ))}
+              </ul>
+            )}
+          </div>
         )
       )}
 
@@ -370,7 +389,7 @@ export function HivPatientPanel({ patientId, canEdit }: { patientId: string; can
                   </select>
                 </Field>
                 <div className="grid grid-cols-2 gap-2">
-                  {(["tbScreened", "tbSymptomsPositive", "tbTested", "tbConfirmed", "tbTreatmentStarted", "iptStarted", "isEmergencySupply"] as const).map((k) => (
+                  {(["tbScreened", "tbSymptomsPositive", "tbTested", "tbConfirmed", "tbTreatmentStarted", "iptStarted"] as const).map((k) => (
                     <Check key={k} label={t(`visit_${k}`)} checked={values[k] === true} onChange={(v) => set({ [k]: v })} />
                   ))}
                 </div>
@@ -431,6 +450,31 @@ export function HivPatientPanel({ patientId, canEdit }: { patientId: string; can
                   </div>
                 )}
               </div>
+            )}
+            {form === "supply" && (
+              <>
+                <p className="text-[11px] text-slate-500">{t("supply_hint")}</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label={t("date")}>
+                    <Input type="date" max={today()} value={String(values.supplyDate ?? "")} onChange={(e) => set({ supplyDate: e.target.value })} className={fieldClass} />
+                  </Field>
+                  <Field label={t("days_dispensed")}>
+                    <Input type="number" min={1} max={366} value={String(values.daysDispensed ?? "")} onChange={(e) => set({ daysDispensed: Number(e.target.value) })} className={fieldClass} />
+                  </Field>
+                </div>
+                <Field label={t("regimen")}>
+                  <select value={String(values.regimenCode)} onChange={(e) => set({ regimenCode: e.target.value })} className={selectClass}>
+                    {[1, 2, 3].map((line) => (
+                      <optgroup key={line} label={t("line", { line })}>
+                        {ART_REGIMENS.filter((r) => r.line === line).map((r) => <option key={r.code} value={r.code}>{r.label}</option>)}
+                      </optgroup>
+                    ))}
+                  </select>
+                </Field>
+                <Field label={t("origin_site")}>
+                  <Input maxLength={150} value={String(values.originSite ?? "")} onChange={(e) => set({ originSite: e.target.value })} className={fieldClass} />
+                </Field>
+              </>
             )}
             {form === "infant" && (
               <div className="grid grid-cols-2 gap-3">

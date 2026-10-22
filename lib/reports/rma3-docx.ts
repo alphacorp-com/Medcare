@@ -12,7 +12,7 @@ import {
   TextRun,
   WidthType,
 } from "docx";
-import { Rma3AefiRow, Rma3CauseTable, Rma3ColdChain, Rma3HpvRow, Rma3KeyValueRow, Rma3MalariaRow, Rma3MorbidityTable, Rma3ReportData, Rma3TbRow, Rma3VaccinationRow } from "./rma3";
+import { ActivityTable, Rma3AefiRow, Rma3CauseTable, Rma3ColdChain, Rma3HpvRow, Rma3KeyValueRow, Rma3MalariaRow, Rma3MorbidityTable, Rma3ReportData, Rma3TbRow, Rma3VaccinationRow } from "./rma3";
 import { RMA3_CAUSE_SECTIONS } from "./rma3-rubrics-default";
 import { rma3FormSection } from "./rma3-morbidity-default";
 import type { Rma3StockCategory } from "@/lib/stock/input";
@@ -34,6 +34,10 @@ function formatPeriodFr(period: string): string {
 const INCLUDED_SECTIONS = [
   "Identification de la formation sanitaire",
   "II.1 - Consultations Prénatales, Accouchements et Naissances",
+  "II.1.1 / II.1.2 / II.1.3 / II.1.4 - CPN par rang, accouchements, complications, césariennes, décès maternels, séjour de 48 h, naissances vivantes et mort-nés (par tranche d'âge de la mère / sexe)",
+  "IV.2.1 - Contacts CPN et TPI par rang ; IV.2.4-5 - Consultations, hospitalisations, décès toutes causes et cas suspects de paludisme (< 5 ans / 5 ans et + / femmes enceintes, par sexe)",
+  "IV.3 - Nouveaux cas, rechutes, reprises, échecs, statut VIH, mise sous traitement et suivi au laboratoire (âge × forme)",
+  "IV.4.4 - Personnes dépistées pour l'hypertension artérielle",
   "III.1 - Séances de vaccination planifiées / réalisées (stratégie fixe et avancée)",
   "III.2 - Immunisation des Enfants (PEV) par tranche d'âge, stratégie, sexe et populations spéciales",
   "III.3 - Vaccination VPH (9 ans et 10-13 ans)",
@@ -41,7 +45,7 @@ const INCLUDED_SECTIONS = [
   "III.6 - MAPI par vaccin (mineures / graves)",
   "IV.2 - Lutte contre le Paludisme",
   "IV.3 - Notification et Résultats du Traitement Antituberculeux",
-  "V.1 - Activité générale (consultations, hospitalisations, décès, capacité)",
+  "V.1 - Activité générale (consultations, hospitalisations, jours d'hospitalisation, références, interventions, décès péri-opératoires, décès, capacité)",
   "V.3 / V.4 / V.5 - Principales causes de consultation, d'hospitalisation et de décès (diagnostics codés CIM-10)",
   "II.2, III.7, IV.4, IV.4.9, IV.4.10, IV.4.11, IV.5 - Nouveaux cas issus des diagnostics codés CIM-10 (lignes dérivables d'un diagnostic uniquement, voir la note de chaque tableau)",
   "II.3 - PTME (CPN, salle d'accouchement, références ASC/OBC, charge virale, suivi post-natal et enfants exposés)",
@@ -269,6 +273,28 @@ function morbidityTable(table: Rma3MorbidityTable): (Paragraph | Table)[] {
   ];
 }
 
+// Activity tables (rma3-activity.ts): one column per age band / sex / form, then the total.
+function activityTable(table: ActivityTable): (Paragraph | Table)[] {
+  const header = new TableRow({
+    tableHeader: true,
+    children: ["Indicateur", ...table.columns.map((c) => c.label), "Total"].map((t) => cell(t, { bold: true, shaded: true })),
+  });
+  const body = table.rows.map(
+    (r) =>
+      new TableRow({
+        children: [cell(`${r.code} ${r.label}`), ...table.columns.map((c) => cell(String(r.cells[c.key] ?? 0))), cell(String(r.total))],
+      })
+  );
+  return [
+    new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [header, ...body] }),
+    ...(table.note ? [new Paragraph({ children: [new TextRun({ italics: true, size: 16, text: table.note })] })] : []),
+  ];
+}
+
+function activitySections(tables: ActivityTable[], sections: string[]): (Paragraph | Table)[] {
+  return tables.filter((t) => sections.includes(t.section)).flatMap((t) => [sectionHeading(`${t.section} - ${t.title}`), ...activityTable(t)]);
+}
+
 const STOCK_SECTIONS: { category: Rma3StockCategory; heading: string }[] = [
   { category: "epi_input", heading: "III.5 - Gestion des intrants PEV" },
   { category: "antimalarial", heading: "IV.2.7 - Gestion des stocks d'antipaludiques" },
@@ -411,7 +437,6 @@ function hivSections(hiv: Rma3ReportData["hiv"]): (Paragraph | Table)[] {
         ...hiv.artByRegimen.map((r) => new TableRow({ children: [cell(r.label), cell(String(r.line)), cell(String(r.patients))] })),
       ],
     }),
-    note(`IV.3-013 - Patients TB VIH+ sous ARV notifiés dans le mois : ${hiv.tbHivOnArt}.`),
     sectionHeading("IV.1.3 - Hépatites virales et IST"),
     indicatorTable(hiv.hepatitisSti),
     note(
@@ -469,7 +494,8 @@ export async function buildRma3Document(
                       italics: true,
                       text:
                         "Document généré automatiquement par MedCare à partir des données de l'établissement — " +
-                        "brouillon de travail à vérifier et compléter avant toute soumission officielle au MINSANTE.",
+                        "brouillon de travail à vérifier et compléter avant toute soumission officielle au MINSANTE. " +
+                        "Contient des données de santé sensibles (VIH, hépatites) : à ne transmettre qu'aux destinataires habilités.",
                     }),
                   ],
                 }),
@@ -488,6 +514,7 @@ export async function buildRma3Document(
   ];
 
   const landscapeChildren: (Paragraph | Table)[] = [
+    ...activitySections(data.activity, ["II.1.1", "II.1.2", "II.1.4"]),
     sectionHeading("III.1 - Séances de vaccination"),
     sessionsTable(data.epi.sessions),
     sectionHeading("III.2 - Immunisation des Enfants (PEV)"),
@@ -517,10 +544,12 @@ export async function buildRma3Document(
     aefiTable(data.epi.aefi),
     sectionHeading("IV.2 - Lutte contre le Paludisme"),
     malariaTable(data.malaria),
+    ...activitySections(data.activity, ["IV.2.1", "IV.2.4-5"]),
     sectionHeading("IV.3.3 - Notification des Cas de Tuberculose"),
     tbTable(data.tuberculosis.notifications, "Classification"),
     sectionHeading("IV.3.4 - Résultats du Traitement Antituberculeux"),
     tbTable(data.tuberculosis.outcomes, "Issue du traitement"),
+    ...activitySections(data.activity, ["IV.3", "IV.4.4", "V.1"]),
     ...data.causes.flatMap((table) => [sectionHeading(`${table.section} - ${RMA3_CAUSE_SECTIONS[table.section]}`), causeTable(table)]),
     new Paragraph({
       spacing: { before: 200 },

@@ -1,6 +1,7 @@
 import { format } from "date-fns";
 import type { MedicalRecordData } from "@/components/templates/MedicalRecordTemplate";
 import type { StayDetail } from "../types";
+import { isConfidentialResult } from "@/lib/hiv/confidential-flag";
 
 type Translate = (key: string) => string;
 
@@ -86,7 +87,8 @@ export function buildMedicalRecord(stay: StayDetail, ta: Translate, tm: Translat
         date: fmt(exam.requestedAt) ?? "",
         label: exam.examLabel,
         category: ta(`order_type_${exam.type}`),
-        status: result && !validated ? tm("awaiting_validation") : ta(`exam_status_${exam.status}`),
+        // A confidential HIV result (redacted by the API) never reaches the printed record.
+        status: isConfidentialResult(result?.resultData) ? tm("confidential_result") : result && !validated ? tm("awaiting_validation") : ta(`exam_status_${exam.status}`),
         performer: validated ? name(result?.performerId) : null,
         validator: validated ? name(result?.validatedBy) : null,
         validatedAt: validated ? fmt(result?.validatedAt) : null,

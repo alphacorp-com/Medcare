@@ -1,5 +1,6 @@
 {
   "common": {
+    "confidential_result": "Confidential result (HIV): visible to the lab, prescribers and authorized staff.",
     "nav_stays": "Stays",
     "nav_vaccination": "Vaccination",
     "nav_vaccination_sessions": "Vaccination sessions",
@@ -997,9 +998,11 @@
       "price": "Price",
       "imaging_modality": "Imaging Modality",
       "anatomical_zone": "Anatomical Zone",
-      "screening_test_type": "Feeds the screening register",
+      "screening_test_type": "Feeds the programs (screening or viral load)",
+      "screening_group_tests": "Screening register",
+      "screening_group_viral_loads": "Viral loads",
       "screening_none": "No (ordinary exam)",
-      "screening_hint": "A validated result of this exam (HIV, syphilis, HBsAg…) is added automatically to the program register.",
+      "screening_hint": "A validated result of this exam is added automatically to the screening register or to the viral loads. HIV results are only visible to the lab, prescribers and HIV-authorized staff.",
       "requires_contrast": "Requires contrast",
       "confirm_delete": "Delete \"{name}\"? This cannot be undone.",
       "tab_general": "Details",
@@ -1494,6 +1497,15 @@
     "module_title": "Disease Programs",
     "module_desc": "Track immunizations (EPV), malaria cases and TB registration/follow-up for national program reporting.",
     "hiv": {
+      "supply_add": "Emergency supply",
+      "supply_hint": "ARVs served once to a patient followed at another site: they do not enter this facility's active file.",
+      "supply_line": "Emergency supply on {date}: {regimen}, {days} days (followed at {site})",
+      "origin_site": "Usual follow-up site",
+      "form_supply": "ARV emergency supply",
+      "view_report": "RMA3 report",
+      "report_csv": "Download (CSV)",
+      "report_hint": "Full age × sex detail of the HIV / PMTCT / hepatitis / STI tables (the Word RMA3 prints them condensed). Provisional age bands.",
+      "viral_load_of": "{program} viral load",
       "module_title": "HIV, PMTCT, hepatitis and STI",
       "tab": "HIV / Hepatitis",
       "panel_title": "HIV, PMTCT, hepatitis and STI",
@@ -1646,6 +1658,8 @@
       "born_on": "Born on {date}",
       "no_pcr": "No PCR",
       "errors": {
+        "invalid_origin": "Enter the usual follow-up site (150 characters at most).",
+        "enrolled_here": "This patient is followed here: record an ART visit instead of an emergency supply.",
         "invalid_body": "Invalid input.",
         "invalid_patient": "Patient not found.",
         "invalid_test_type": "Invalid test type.",
@@ -2427,6 +2441,7 @@
   },
   "documents": {
     "medicalRecord": {
+      "confidential_result": "Confidential result",
       "title": "Medical record",
       "stay": "Stay",
       "identification": "Patient identification",
@@ -2734,6 +2749,9 @@
         "update": "Updated cold chain equipment"
       },
       "hiv": {
+        "emergency_supply": {
+          "create": "Recorded an ARV emergency supply"
+        },
         "patient_view": "Viewed an HIV / hepatitis file",
         "screening_test": {
           "create": "Recorded a screening test",
@@ -2760,6 +2778,9 @@
         "pmtct_status": {
           "update": "Updated the PMTCT status of a pregnancy"
         }
+      },
+      "report": {
+        "rma3_generate": "Generated the RMA3 report"
       },
       "inventory_item": {
         "create": "Created a stock article",
