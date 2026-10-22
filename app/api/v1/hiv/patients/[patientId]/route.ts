@@ -16,7 +16,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ pati
     if (!isUuid(patientId) || !(await patientInTenant(access.tenantId, patientId))) return hivNotFound();
 
     const tenantId = access.tenantId;
-    const [tests, enrolment, viralLoads, hepatitisCases, exposedInfant, pregnancies] = await Promise.all([
+    const [tests, enrolment, viralLoads, hepatitisCases, exposedInfant, pregnancies, emergencySupplies] = await Promise.all([
       prisma.screeningTest.findMany({ where: { tenantId, patientId }, orderBy: { testedAt: "desc" } }),
       prisma.hivCareEnrolment.findFirst({
         where: { tenantId, patientId },
@@ -30,10 +30,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ pati
         orderBy: { lastMenstrualPeriod: "desc" },
         select: { id: true, lastMenstrualPeriod: true, expectedDueDate: true, status: true, referralSource: true, pmtctStatus: true },
       }),
+      prisma.artEmergencySupply.findMany({ where: { tenantId, patientId }, orderBy: { supplyDate: "desc" } }),
     ]);
 
     await auditHiv(request, access, "hiv.patient_view", "patient", patientId, patientId);
-    return NextResponse.json({ data: { tests, enrolment, viralLoads, hepatitisCases, exposedInfant, pregnancies }, success: true });
+    return NextResponse.json({ data: { tests, enrolment, viralLoads, hepatitisCases, exposedInfant, pregnancies, emergencySupplies }, success: true });
   } catch (error) {
     console.error("[GET /api/v1/hiv/patients/:patientId]", error);
     return NextResponse.json({ error: "Failed to load the program file", success: false }, { status: 500 });

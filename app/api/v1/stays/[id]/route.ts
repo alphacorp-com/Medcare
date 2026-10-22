@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { requireModulePermission } from "@/lib/permissions";
+import { loadHivResultAccess, redactConfidentialExams } from "@/lib/hiv/confidential-results";
 import prisma from "@/lib/prisma";
 import { StayStatus, type TriageAcuity } from "@prisma/client";
 import { isVitalEmergency, regularizeHospitalizationCharge, removeUnpaidCharge } from "@/lib/billing/paymentGate";
@@ -152,9 +153,12 @@ export async function GET(
       ? await prisma.referenceCatalogItem.findFirst({ where: { tenantId, id: hospitalizationBed.roomTypeId }, select: { nameFr: true } })
       : null;
 
+    // HIV results only for lab staff, prescribers and MODULE_HIV (lib/hiv/confidential-results).
+    const resultAccess = tenantId ? await loadHivResultAccess(session, tenantId) : { canSee: true, confidentialCodes: new Set<string>() };
     return NextResponse.json({
       data: {
         ...stay,
+        examRequests: redactConfidentialExams(stay.examRequests, resultAccess),
         medicalAct: medicalAct ? { code: medicalAct.code, label: medicalAct.nameFr, price: Number(medicalAct.basePrice) } : null,
         hospitalization: stay.hospitalizationStatus
           ? {

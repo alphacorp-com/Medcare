@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { requireModulePermission } from "@/lib/permissions";
+import { loadHivResultAccess, redactConfidentialExams } from "@/lib/hiv/confidential-results";
 import { listExams } from "@/lib/exams/exam-list";
 import { parsePagination } from "@/lib/pagination";
 import type { ExamUrgency } from "@prisma/client";
@@ -33,7 +34,9 @@ export async function GET(req: Request) {
       search: searchParams.get("search"),
       pagination: parsePagination(searchParams),
     });
-    return NextResponse.json(result);
+    // HIV results only for lab staff, prescribers and MODULE_HIV (lib/hiv/confidential-results).
+    const access = session.user.tenantId ? await loadHivResultAccess(session, session.user.tenantId) : { canSee: true, confidentialCodes: new Set<string>() };
+    return NextResponse.json({ ...result, data: redactConfidentialExams(result.data, access) });
   } catch (error) {
     console.error("[GET /api/v1/laboratory]", error);
     return NextResponse.json({ error: "Failed to load exams" }, { status: 500 });

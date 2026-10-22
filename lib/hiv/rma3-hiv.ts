@@ -161,6 +161,12 @@ export interface HepatitisRow {
   patient: Person;
 }
 
+export interface EmergencySupplyRow {
+  patientId: string;
+  supplyDate: Date;
+  patient: Person;
+}
+
 export interface TbRow {
   patientId: string;
   notificationDate: Date;
@@ -179,6 +185,8 @@ export interface Rma3HivInput {
   viralLoads: readonly ViralLoadRow[];
   hepatitis: readonly HepatitisRow[];
   tbCases: readonly TbRow[];
+  // ARVs served once to patients followed elsewhere (not in the active file).
+  emergencySupplies: readonly EmergencySupplyRow[];
 }
 
 export interface Rma3HivReport {
@@ -187,6 +195,8 @@ export interface Rma3HivReport {
   artFollowUp: IndicatorRow[]; // IV.1.2
   artByRegimen: { code: string; label: string; line: number; patients: number }[]; // IV.1.4
   tbHivOnArt: number; // IV.3-013
+  // The patients of tbHivOnArt, so the TB table can break IV.3-013 down by age and form.
+  tbHivOnArtPatientIds: string[];
   pmtctAntenatal: IndicatorRow[]; // II.3.1
   antenatalScreening: IndicatorRow[]; // II.1.1-016..023
   pmtctMaternity: IndicatorRow[]; // II.3.2
@@ -309,7 +319,11 @@ export function buildHivReport(input: Rma3HivInput): Rma3HivReport {
     indicator("IV.1.2-021", "Transferts sortants (pays)", "hiv13", outInMonth("transferred_out", "in_country").map(at)),
     indicator("IV.1.2-022", "Transferts sortants (hors pays)", "hiv13", outInMonth("transferred_out", "abroad").map(at)),
     indicator("IV.1.2-023", "Retours sur traitement", "hiv13", follow.filter(returned).map(at)),
-    indicator("IV.1.2-024", "Aides ponctuelles / dépannages", "hiv13", follow.filter((f) => visitFlag(f, "isEmergencySupply")).map(at)),
+    indicator("IV.1.2-024", "Aides ponctuelles / dépannages", "hiv13", [
+      ...input.emergencySupplies.filter((s) => inMonth(s.supplyDate)).map((s) => ev(s.patientId, s.patient, s.supplyDate)),
+      // Visits flagged before the dedicated record existed.
+      ...follow.filter((f) => visitFlag(f, "isEmergencySupply")).map(at),
+    ]),
   ];
 
   const regimenCount = new Map<string, number>();
@@ -317,7 +331,8 @@ export function buildHivReport(input: Rma3HivInput): Rma3HivReport {
   const artByRegimen = ART_REGIMENS.filter((r) => regimenCount.has(r.code)).map((r) => ({ code: r.code, label: r.label, line: r.line, patients: regimenCount.get(r.code)! }));
 
   const activeIds = new Set(activeFile.map((f) => f.e.patientId));
-  const tbHivOnArt = new Set(input.tbCases.filter((c) => inMonth(c.notificationDate) && activeIds.has(c.patientId)).map((c) => c.patientId)).size;
+  const tbHivOnArtPatientIds = [...new Set(input.tbCases.filter((c) => inMonth(c.notificationDate) && activeIds.has(c.patientId)).map((c) => c.patientId))];
+  const tbHivOnArt = tbHivOnArtPatientIds.length;
 
   // ── PMTCT ──────────────────────────────────────────────────────────────
   const pregnancyById = new Map(input.pregnancies.map((p) => [p.id, p]));
@@ -337,6 +352,7 @@ export function buildHivReport(input: Rma3HivInput): Rma3HivReport {
   const fEv = (f: Follow) => ev(f.e.patientId, f.e.patient, monthEnd);
 
   const pmtctAntenatal = [
+    indicator("II.3.1-001", "FEC enregistrées en CPN1", "ptme", firstContact.map(pEv)),
     indicator("II.3.1-002", "FEC ayant fait leur 1er test VIH pendant la grossesse", "ptme", ancHiv.filter((t) => !t.isRetest && read(t)).map(tEv)),
     indicator("II.3.1-003", "FEC ayant retiré le résultat du test VIH", "ptme", ancHiv.filter((t) => t.resultCollectedAt).map(tEv)),
     indicator("II.3.1-004", "FEC dont le 1er test VIH est positif", "ptme", ancHiv.filter((t) => !t.isRetest && t.result === "positive").map(tEv)),
@@ -540,6 +556,7 @@ export function buildHivReport(input: Rma3HivInput): Rma3HivReport {
     artFollowUp,
     artByRegimen,
     tbHivOnArt,
+    tbHivOnArtPatientIds,
     pmtctAntenatal,
     antenatalScreening,
     pmtctMaternity,

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { requireModulePermission } from "@/lib/permissions";
+import { loadHivResultAccess, redactConfidentialExams } from "@/lib/hiv/confidential-results";
 import prisma from "@/lib/prisma";
 import type { ExamType, ExamRequestStatus } from "@prisma/client";
 
@@ -55,8 +56,9 @@ export async function GET(
       },
     });
 
+    const access = session.user.tenantId ? await loadHivResultAccess(session, session.user.tenantId) : { canSee: true, confidentialCodes: new Set<string>() };
     return NextResponse.json({
-      data: examRequests,
+      data: redactConfidentialExams(examRequests, access),
       total: examRequests.length,
       success: true,
     });

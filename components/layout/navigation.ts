@@ -12,6 +12,7 @@ import {
   CalendarDays,
   CalendarClock,
   ShieldPlus,
+  ClipboardList,
 } from "lucide-react";
 
 export type NavGroup = "clinical" | "administrative";
@@ -109,6 +110,18 @@ export const NAV_ITEMS: NavItem[] = [
     children: [
       { name: "nav_rosters", href: "/planning?tab=roster" },
       { name: "nav_departments", href: "/planning?tab=departments" },
+    ],
+  },
+  {
+    // RMA3 monthly form: a sub-module of the core module (lib/sub-modules.ts).
+    name: "rma3_entry",
+    href: "/rma3-entry",
+    icon: ClipboardList,
+    module: "MODULE_RMA3",
+    group: "administrative",
+    children: [
+      { name: "nav_rma3_form", href: "/rma3-entry?tab=form" },
+      { name: "nav_rma3_identification", href: "/rma3-entry?tab=identification" },
     ],
   },
 ];

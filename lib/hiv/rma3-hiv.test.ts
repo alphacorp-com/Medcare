@@ -50,7 +50,7 @@ const enrolment = (o: Partial<EnrolmentRow> & Pick<EnrolmentRow, "patientId">): 
   visits: [],
   ...o,
 });
-const empty: Rma3HivInput = { start, end, tests: [], enrolments: [], pregnancies: [], infants: [], viralLoads: [], hepatitis: [], tbCases: [] };
+const empty: Rma3HivInput = { start, end, tests: [], enrolments: [], pregnancies: [], infants: [], viralLoads: [], hepatitis: [], tbCases: [], emergencySupplies: [] };
 const row = (rows: { code: string; total: number }[], code: string) => rows.find((r) => r.code === code)!.total;
 
 describe("IV.1.1 HIV testing", () => {
@@ -119,6 +119,12 @@ describe("IV.1.2 ART follow-up", () => {
     assert.equal(row(report.artFollowUp, "IV.1.2-023"), 1); // P8
     assert.equal(row(report.artFollowUp, "IV.1.2-009"), 1); // P5 IPT
     assert.equal(row(report.artFollowUp, "IV.1.2-010"), 2); // P4, P5 screened for TB
+  });
+
+  it("counts emergency supplies without putting the patient in the active file", () => {
+    const r = buildHivReport({ ...empty, emergencySupplies: [{ patientId: "X", supplyDate: d("2026-10-12"), patient: adultM }] });
+    assert.equal(row(r.artFollowUp, "IV.1.2-024"), 1);
+    assert.equal(row(r.artFollowUp, "IV.1.2-003"), 0);
   });
 
   it("lists the active file per protocol", () => {

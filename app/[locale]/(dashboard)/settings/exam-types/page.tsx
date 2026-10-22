@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { SCREENING_TEST_TYPES } from "@/lib/hiv/input";
+import { SCREENING_TEST_TYPES, VIRAL_LOAD_PROGRAMS } from "@/lib/hiv/input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,6 +25,7 @@ type ExamEntry = {
   parameters: ExamParameterDefinition[];
   imagingCatalogItemId: string | null; anatomicalZoneId: string | null; requiresContrast: boolean | null; isActive: boolean;
   screeningTestType: string | null;
+  viralLoadProgram: string | null;
 };
 type RefItem = { id: string; code: string; nameFr: string };
 type EntryTab = "general" | "params" | "preview";
@@ -68,6 +69,9 @@ export default function ExamTypesPage() {
   const [entryContrast, setEntryContrast] = useState(false);
   // Laboratory only: the program screening test (HIV, syphilis, HBsAg…) a validated result feeds.
   const [entryScreening, setEntryScreening] = useState("");
+  // Or the viral loads it feeds (HIV, hepatitis B / C): one value for both selects.
+  const programFeed = (entry: { screeningTestType: string | null; viralLoadProgram: string | null }) =>
+    entry.viralLoadProgram ? `vl:${entry.viralLoadProgram}` : entry.screeningTestType ?? "";
   const [entryError, setEntryError] = useState<string | null>(null);
   const [isSavingEntry, setIsSavingEntry] = useState(false);
   // Result sheet being edited (ExamCatalogEntry.parameters) and the row validation rejected.
@@ -165,7 +169,7 @@ export default function ExamTypesPage() {
     setEntryPrice(entry.price !== null ? String(entry.price) : "");
     setEntryImagingId(entry.imagingCatalogItemId ?? ""); setEntryZoneId(entry.anatomicalZoneId ?? "");
     setEntryContrast(entry.requiresContrast ?? false);
-    setEntryScreening(entry.screeningTestType ?? "");
+    setEntryScreening(programFeed(entry));
     setEntryDrafts(draftsFromDefinitions(Array.isArray(entry.parameters) ? entry.parameters : []));
     setEntryTab("general"); setParamErrorIndex(undefined);
     setEntryError(null); setIsEntryFormOpen(true);
@@ -206,7 +210,8 @@ export default function ExamTypesPage() {
         imagingCatalogItemId: domain === "radiology" ? entryImagingId || undefined : undefined,
         anatomicalZoneId: domain === "radiology" ? entryZoneId || undefined : undefined,
         requiresContrast: domain === "radiology" ? entryContrast : undefined,
-        screeningTestType: domain === "laboratory" ? entryScreening || null : undefined,
+        screeningTestType: domain === "laboratory" ? (entryScreening && !entryScreening.startsWith("vl:") ? entryScreening : null) : undefined,
+        viralLoadProgram: domain === "laboratory" ? (entryScreening.startsWith("vl:") ? entryScreening.slice(3) : null) : undefined,
         parameters: sheet.value,
       };
       const res = editingEntry
@@ -392,9 +397,16 @@ export default function ExamTypesPage() {
                     <Label>{t("screening_test_type")}</Label>
                     <select value={entryScreening} onChange={(e) => setEntryScreening(e.target.value)} className="flex h-9 w-full rounded-md border border-slate-200 bg-white px-2 text-xs">
                       <option value="">{t("screening_none")}</option>
-                      {SCREENING_TEST_TYPES.map((type) => (
-                        <option key={type} value={type}>{tdp(`hiv.test_type_${type}`)}</option>
-                      ))}
+                      <optgroup label={t("screening_group_tests")}>
+                        {SCREENING_TEST_TYPES.map((type) => (
+                          <option key={type} value={type}>{tdp(`hiv.test_type_${type}`)}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label={t("screening_group_viral_loads")}>
+                        {VIRAL_LOAD_PROGRAMS.map((program) => (
+                          <option key={program} value={`vl:${program}`}>{tdp("hiv.viral_load_of", { program: tdp(`hiv.program_${program}`) })}</option>
+                        ))}
+                      </optgroup>
                     </select>
                     <p className="text-[11px] text-slate-500">{t("screening_hint")}</p>
                   </div>

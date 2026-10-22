@@ -1,5 +1,9 @@
 {
   "common": {
+    "rma3_entry": "Formulaire RMA3",
+    "nav_rma3_form": "Saisie du mois",
+    "nav_rma3_identification": "Identification MINSANTE",
+    "confidential_result": "Résultat confidentiel (VIH) : visible du laboratoire, des prescripteurs et des personnes habilitées.",
     "nav_stays": "Séjours",
     "nav_vaccination": "Vaccination",
     "nav_vaccination_sessions": "Séances de vaccination",
@@ -1002,9 +1006,11 @@
       "price": "Prix",
       "imaging_modality": "Modalité d'Imagerie",
       "anatomical_zone": "Zone Anatomique",
-      "screening_test_type": "Alimente le registre de dépistage",
+      "screening_test_type": "Alimente les programmes (dépistage ou charge virale)",
+      "screening_group_tests": "Registre de dépistage",
+      "screening_group_viral_loads": "Charges virales",
       "screening_none": "Non (examen ordinaire)",
-      "screening_hint": "Un résultat validé de cet examen (VIH, syphilis, AgHBs…) est ajouté automatiquement au registre des programmes.",
+      "screening_hint": "Un résultat validé de cet examen est ajouté automatiquement au registre de dépistage ou aux charges virales. Les résultats VIH ne sont visibles que du laboratoire, des prescripteurs et des personnes habilitées VIH.",
       "requires_contrast": "Nécessite un contraste",
       "confirm_delete": "Supprimer « {name} » ? Cette action est irréversible.",
       "tab_general": "Informations",
@@ -1499,6 +1505,15 @@
     "module_title": "Programmes de Santé",
     "module_desc": "Suivi de la vaccination (PEV), des cas de paludisme et de la notification/suivi de la tuberculose pour les rapports des programmes nationaux.",
     "hiv": {
+      "supply_add": "Dépannage",
+      "supply_hint": "ARV servis une fois à un patient suivi dans un autre site : il n'entre pas dans la file active de l'établissement.",
+      "supply_line": "Dépannage le {date} : {regimen}, {days} j (suivi à {site})",
+      "origin_site": "Site de suivi habituel",
+      "form_supply": "Dépannage ARV",
+      "view_report": "Rapport RMA3",
+      "report_csv": "Télécharger (CSV)",
+      "report_hint": "Détail complet âge × sexe des tableaux VIH / PTME / hépatites / IST (le RMA3 Word les présente condensés). Tranches d'âge provisoires.",
+      "viral_load_of": "Charge virale {program}",
       "module_title": "VIH, PTME, hépatites et IST",
       "tab": "VIH / Hépatites",
       "panel_title": "VIH, PTME, hépatites et IST",
@@ -1651,6 +1666,8 @@
       "born_on": "Né(e) le {date}",
       "no_pcr": "Aucune PCR",
       "errors": {
+        "invalid_origin": "Indiquez le site de suivi habituel (150 caractères au plus).",
+        "enrolled_here": "Ce patient est suivi ici : enregistrez une visite TARV plutôt qu'un dépannage.",
         "invalid_body": "Saisie invalide.",
         "invalid_patient": "Patient introuvable.",
         "invalid_test_type": "Type de test invalide.",
@@ -2432,6 +2449,7 @@
   },
   "documents": {
     "medicalRecord": {
+      "confidential_result": "Résultat confidentiel",
       "title": "Dossier médical",
       "stay": "Séjour",
       "identification": "Identification du patient",
@@ -2739,6 +2757,9 @@
         "update": "A modifié un équipement de la chaîne du froid"
       },
       "hiv": {
+        "emergency_supply": {
+          "create": "A enregistré un dépannage ARV"
+        },
         "patient_view": "A consulté un dossier VIH / hépatites",
         "screening_test": {
           "create": "A enregistré un test de dépistage",
@@ -2765,6 +2786,15 @@
         "pmtct_status": {
           "update": "A mis à jour le statut PTME d'une grossesse"
         }
+      },
+      "rma3": {
+        "values_update": "A saisi des valeurs du formulaire mensuel RMA3",
+        "period_validate": "A validé le formulaire mensuel RMA3",
+        "period_reopen": "A rouvert le formulaire mensuel RMA3",
+        "identification_update": "A modifié l'identification MINSANTE"
+      },
+      "report": {
+        "rma3_generate": "A généré le rapport RMA3"
       },
       "inventory_item": {
         "create": "A créé un article de stock",
@@ -2979,6 +3009,81 @@
       "unknown_storage_location": "Lieu de stockage inconnu.",
       "unknown_supplier": "Fournisseur inconnu.",
       "unknown_vaccine_antigen": "Antigène inconnu."
+    }
+  },
+  "rma3Entry": {
+    "module_title": "Formulaire mensuel RMA3",
+    "title": "Formulaire mensuel RMA3",
+    "subtitle": "Données que l'application n'enregistre pas au fil de l'activité (communauté, sensibilisation, supervisions, environnement, recettes hors facturation, dépenses). Elles sont reprises dans le RMA3 Word.",
+    "no_access": "Vous n'avez pas accès au formulaire mensuel RMA3.",
+    "tab_form": "Saisie du mois",
+    "tab_identification": "Identification MINSANTE",
+    "month": "Mois",
+    "status_draft": "Brouillon",
+    "status_validated": "Validé",
+    "validated_on": "le {date}",
+    "filled": "{filled} / {total} cases saisies",
+    "not_entered_hint": "Une case vide signifie « non saisi » (imprimé « — » dans le RMA3), différent de 0 : saisissez 0 quand il n'y a rien eu.",
+    "locked_hint": "Ce mois est validé : il ne peut plus être modifié. Un administrateur peut le rouvrir en indiquant un motif.",
+    "indicator": "Indicateur",
+    "value": "Valeur",
+    "yes": "Oui",
+    "no": "Non",
+    "save": "Enregistrer",
+    "saved": "Enregistré",
+    "discard": "Annuler les modifications",
+    "discard_confirm": "Des modifications ne sont pas enregistrées. Changer de mois quand même ?",
+    "save_first": "Enregistrez d'abord vos modifications.",
+    "validate": "Valider le mois",
+    "validate_title": "Valider le formulaire du mois",
+    "validate_confirm": "{filled} cases sur {total} sont saisies. Une fois validé, le mois ne peut plus être modifié (sauf réouverture par un administrateur). Continuer ?",
+    "validated_toast": "Mois validé",
+    "reopen": "Rouvrir",
+    "reopen_title": "Rouvrir le mois",
+    "reopen_hint": "Le mois repasse en brouillon. Le motif est conservé dans le journal d'audit.",
+    "reason": "Motif (5 caractères au moins)",
+    "reopened_toast": "Mois rouvert",
+    "cancel": "Annuler",
+    "identification_hint": "Identification de la formation sanitaire selon la carte sanitaire du MINSANTE, imprimée en tête du RMA3.",
+    "field_region": "Région",
+    "field_department": "Département",
+    "field_arrondissement": "Arrondissement",
+    "field_district": "District de santé",
+    "field_healthArea": "Aire de santé",
+    "field_facilityManagerName": "Responsable de la formation sanitaire",
+    "field_dataManagerName": "Gestionnaire des données",
+    "field_dataManagerPhone": "Téléphone du gestionnaire des données",
+    "field_villagesServed": "Villages / quartiers desservis",
+    "field_villagesOutreach": "dont en stratégie avancée (> 5 km)",
+    "field_ownership": "Statut",
+    "ownership_public": "Public",
+    "ownership_private": "Privé",
+    "ownership_faith_based": "Confessionnel",
+    "ownership_community": "Communautaire",
+    "ownership_other": "Autre",
+    "errors": {
+      "invalid_period": "Mois invalide.",
+      "future_period": "Ce mois n'a pas encore commencé.",
+      "invalid_body": "Requête invalide.",
+      "unknown_indicator": "Indicateur inconnu.",
+      "unknown_breakdown": "Case inconnue pour cet indicateur.",
+      "duplicate_cell": "Une case est envoyée deux fois.",
+      "invalid_value": "Valeur invalide : nombre entier positif, dans les limites de l'indicateur (jours ≤ nombre de jours du mois, oui/non).",
+      "invalid_reason": "Indiquez un motif de 5 à 500 caractères.",
+      "period_validated": "Ce mois est validé : il ne peut plus être modifié.",
+      "period_not_validated": "Ce mois n'est pas validé.",
+      "period_not_found": "Formulaire introuvable.",
+      "invalid_region": "Région : 100 caractères au plus.",
+      "invalid_department": "Département : 100 caractères au plus.",
+      "invalid_arrondissement": "Arrondissement : 100 caractères au plus.",
+      "invalid_district": "District : 100 caractères au plus.",
+      "invalid_healthArea": "Aire de santé : 100 caractères au plus.",
+      "invalid_dataManagerName": "Nom du gestionnaire : 150 caractères au plus.",
+      "invalid_facilityManagerName": "Nom du responsable : 150 caractères au plus.",
+      "invalid_dataManagerPhone": "Téléphone invalide.",
+      "invalid_villagesServed": "Nombre de villages invalide (0 à 10 000).",
+      "invalid_villagesOutreach": "Villages en stratégie avancée invalides (pas plus que les villages desservis).",
+      "invalid_ownership": "Statut invalide."
     }
   }
 }

@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { requireModulePermission } from "@/lib/permissions";
 import { suggestInvoiceLine } from "@/lib/billing/suggestCharge";
-import { recordScreeningFromLab } from "@/lib/hiv/lab-link";
+import { recordScreeningFromLab, recordViralLoadFromLab } from "@/lib/hiv/lab-link";
 import type { ResultData } from "@/lib/laboratory/results";
 
 // PATCH /api/v1/laboratory/[id]/validate
@@ -41,7 +41,7 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
   const tenantId = session.user.tenantId;
   const [catalogEntry, stay] = await Promise.all([
     tenantId
-      ? prisma.examCatalogEntry.findFirst({ where: { tenantId, code: exam.examCode }, select: { screeningTestType: true } })
+      ? prisma.examCatalogEntry.findFirst({ where: { tenantId, code: exam.examCode }, select: { screeningTestType: true, viralLoadProgram: true } })
       : null,
     exam.stayId ? prisma.stay.findFirst({ where: { id: exam.stayId, tenantId }, select: { type: true } }) : null,
   ]);
@@ -52,6 +52,20 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
       where: { id: pendingResult.id },
       data: { validatedAt: now, validatedBy: session.user.id },
     });
+    const parameters = ((pendingResult.resultData ?? {}) as unknown as Partial<ResultData>).parameters ?? [];
+    if (tenantId && catalogEntry?.viralLoadProgram) {
+      // A viral load exam feeds the program's viral loads (lib/hiv/lab-link).
+      await recordViralLoadFromLab(tx, {
+        tenantId,
+        examResultId: pendingResult.id,
+        patientId: exam.patientId,
+        program: catalogEntry.viralLoadProgram,
+        sampledAt: pendingResult.createdAt,
+        pregnancyId: exam.pregnancyId,
+        parameters,
+        validatedById: session.user.id,
+      });
+    }
     if (tenantId && catalogEntry?.screeningTestType) {
       await recordScreeningFromLab(tx, {
         tenantId,
@@ -61,7 +75,7 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
         testedAt: pendingResult.createdAt,
         pregnancyId: exam.pregnancyId,
         stayType: stay?.type ?? null,
-        parameters: ((pendingResult.resultData ?? {}) as unknown as Partial<ResultData>).parameters ?? [],
+        parameters,
         validatedById: session.user.id,
       });
     }

@@ -51,6 +51,7 @@ export type HivInputError =
   | "invalid_status"
   | "invalid_program"
   | "invalid_value"
+  | "invalid_origin"
   | "invalid_type";
 
 type Result<T> = { ok: true; value: T } | { ok: false; error: HivInputError };
@@ -390,4 +391,28 @@ export function parseHepatitisCase(body: Record<string, unknown>, now = new Date
       notes: n,
     },
   };
+}
+
+// ── ARV emergency supply (patient followed elsewhere) ───────────────────────
+
+export interface EmergencySupplyInput {
+  patientId: string;
+  supplyDate: Date;
+  regimenCode: string;
+  regimenLine: 1 | 2 | 3;
+  daysDispensed: number;
+  originSite: string;
+}
+
+export function parseEmergencySupply(body: Record<string, unknown>, now = new Date()): Result<EmergencySupplyInput> {
+  if (!isUuid(body.patientId)) return fail("invalid_patient");
+  const supplyDate = day(body.supplyDate ?? now.toISOString().slice(0, 10), now);
+  if (!(supplyDate instanceof Date)) return fail((supplyDate ?? "invalid_date") as HivInputError);
+  const regimen = typeof body.regimenCode === "string" ? findRegimen(body.regimenCode) : undefined;
+  if (!regimen) return fail("invalid_regimen");
+  const days = typeof body.daysDispensed === "string" ? Number(body.daysDispensed) : body.daysDispensed;
+  if (typeof days !== "number" || !Number.isInteger(days) || days < 1 || days > 366) return fail("invalid_days");
+  const origin = typeof body.originSite === "string" ? body.originSite.trim() : "";
+  if (!origin || origin.length > 150) return fail("invalid_origin");
+  return { ok: true, value: { patientId: body.patientId, supplyDate, regimenCode: regimen.code, regimenLine: regimen.line, daysDispensed: days, originSite: origin } };
 }

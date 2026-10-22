@@ -6,6 +6,7 @@ import { requireTenantAdmin } from "@/lib/permissions";
 import { previousMonthPeriod } from "@/lib/dhis2/indicators";
 import { computeRma3Report } from "@/lib/reports/rma3";
 import { buildRma3Document } from "@/lib/reports/rma3-docx";
+import { recordAuditEvent, extractRequestMeta } from "@/lib/audit";
 
 export const runtime = "nodejs";
 
@@ -43,6 +44,17 @@ export async function GET(request: NextRequest) {
     const buffer = await buildRma3Document(data, {
       generatedByName: session.user.name ?? session.user.email ?? "-",
       generatedByEmail: session.user.email ?? "-",
+    });
+    // The report carries health data (HIV, hepatitis…): who generated which period is logged.
+    await recordAuditEvent({
+      tenantId: session.user.tenantId,
+      actorId: session.user.id,
+      actorType: "tenant_user",
+      action: "report.rma3_generate",
+      resourceType: "rma3_report",
+      resourceId: period,
+      payload: { period },
+      ...extractRequestMeta(request.headers),
     });
 
     return new NextResponse(new Uint8Array(buffer), {

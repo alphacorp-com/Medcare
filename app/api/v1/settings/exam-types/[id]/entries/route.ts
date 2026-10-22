@@ -5,7 +5,8 @@ import { requireTenantAdmin } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { validateExamParameters } from "@/lib/exam-catalog/validate-parameters";
-import { SCREENING_TEST_TYPES, type ScreeningTestType } from "@/lib/hiv/input";
+import { SCREENING_TEST_TYPES, VIRAL_LOAD_PROGRAMS, type ScreeningTestType } from "@/lib/hiv/input";
+import type { ViralLoadProgram } from "@prisma/client";
 import { syncExamFeeSchedule } from "@/lib/billing/syncFeeSchedule";
 
 // GET /api/v1/settings/exam-types/[id]/entries — exams belonging to one exam type
@@ -46,13 +47,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const body = await request.json();
     const {
       code, nameFr, nameEn, price, parameters,
-      imagingCatalogItemId, anatomicalZoneId, requiresContrast, screeningTestType,
+      imagingCatalogItemId, anatomicalZoneId, requiresContrast, screeningTestType, viralLoadProgram,
     } = body as {
       code?: string; nameFr?: string; nameEn?: string; price?: number | string;
       parameters?: unknown;
       imagingCatalogItemId?: string; anatomicalZoneId?: string; requiresContrast?: boolean;
       screeningTestType?: unknown;
+      viralLoadProgram?: unknown;
     };
+    if (viralLoadProgram !== undefined && viralLoadProgram !== null && viralLoadProgram !== "" && !(VIRAL_LOAD_PROGRAMS as readonly unknown[]).includes(viralLoadProgram)) {
+      return NextResponse.json({ error: "Invalid viral load program", code: "invalid_viral_load_program" }, { status: 400 });
+    }
+    if (screeningTestType && viralLoadProgram) {
+      return NextResponse.json({ error: "Screening test and viral load are exclusive", code: "invalid_screening_test_type" }, { status: 400 });
+    }
     if (screeningTestType !== undefined && screeningTestType !== null && screeningTestType !== "" && !(SCREENING_TEST_TYPES as readonly unknown[]).includes(screeningTestType)) {
       return NextResponse.json({ error: "Invalid screening test type", code: "invalid_screening_test_type" }, { status: 400 });
     }
@@ -83,6 +91,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         anatomicalZoneId: anatomicalZoneId || null,
         requiresContrast: requiresContrast ?? null,
         screeningTestType: (screeningTestType || null) as ScreeningTestType | null,
+        viralLoadProgram: (viralLoadProgram || null) as ViralLoadProgram | null,
       },
     });
 

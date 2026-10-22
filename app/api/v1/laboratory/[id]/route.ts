@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { requireModulePermission } from "@/lib/permissions";
+import { loadHivResultAccess, redactConfidentialExams } from "@/lib/hiv/confidential-results";
 
 const PATIENT_SELECT = { id: true, firstName: true, lastName: true, ipp: true, gender: true } as const;
 
@@ -28,5 +29,6 @@ export async function GET(req: Request, context: { params: Promise<{ id: string 
   });
 
   if (!exam) return NextResponse.json({ error: "Exam not found" }, { status: 404 });
-  return NextResponse.json(exam);
+  const access = session.user.tenantId ? await loadHivResultAccess(session, session.user.tenantId) : { canSee: true, confidentialCodes: new Set<string>() };
+  return NextResponse.json(redactConfidentialExams([exam], access)[0]);
 }

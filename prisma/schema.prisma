@@ -760,6 +760,7 @@ model Patient {
   viralLoads         ViralLoadResult[]
   hepatitisCases     HepatitisCase[]
   hivExposure        HivExposedInfant?
+  artEmergencySupplies ArtEmergencySupply[]
 
   @@unique([tenantId, ipp])
   @@index([tenantId])
@@ -1847,8 +1848,10 @@ model ExamCatalogEntry {
   imagingCatalogItemId String?  @map("imaging_catalog_item_id") @db.Uuid
   anatomicalZoneId     String?  @map("anatomical_zone_id") @db.Uuid
   requiresContrast     Boolean? @map("requires_contrast")
-  // A validated result of this exam feeds the screening register (HIV, syphilis, HBsAg…).
+  // A validated result of this exam feeds the screening register (HIV, syphilis, HBsAg…),
+  // or the viral loads of a program.
   screeningTestType    ScreeningTestType? @map("screening_test_type")
+  viralLoadProgram     ViralLoadProgram?  @map("viral_load_program")
   isActive             Boolean  @default(true) @map("is_active")
   createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz
@@ -2345,6 +2348,8 @@ model ViralLoadResult {
   value          Int?
   belowDetection Boolean          @default(false) @map("below_detection")
   pregnancyId    String?          @map("pregnancy_id") @db.Uuid
+  // Set when created from a validated lab result (never twice for the same result).
+  examResultId   String?          @unique @map("exam_result_id") @db.Uuid
   recordedById   String           @map("recorded_by_id") @db.Uuid
   createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz
 
@@ -2353,6 +2358,27 @@ model ViralLoadResult {
   @@index([tenantId, sampledAt])
   @@index([patientId, program])
   @@map("viral_load_results")
+  @@schema("tenant_template")
+}
+
+// ARVs served once to a patient followed elsewhere ("aide ponctuelle / dépannage", RMA3
+// IV.1.2-024): no enrolment, so the patient never enters this facility's active file.
+model ArtEmergencySupply {
+  id            String   @id @default(uuid()) @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  patientId     String   @map("patient_id") @db.Uuid
+  supplyDate    DateTime @map("supply_date") @db.Date
+  regimenCode   String   @map("regimen_code") @db.VarChar(40)
+  regimenLine   Int      @map("regimen_line")
+  daysDispensed Int      @map("days_dispensed")
+  originSite    String   @map("origin_site") @db.VarChar(150)
+  recordedById  String   @map("recorded_by_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  patient Patient @relation(fields: [patientId], references: [id])
+
+  @@index([tenantId, supplyDate])
+  @@map("art_emergency_supplies")
   @@schema("tenant_template")
 }
 
@@ -2570,5 +2596,54 @@ model TbFollowUp {
   @@index([tenantId])
   @@index([tbCaseId, followUpDate])
   @@map("tb_follow_ups")
+  @@schema("tenant_template")
+}
+
+// ── RMA3 monthly form (data no transaction records) ──────────────────────────
+// One row per facility and month: the form is a draft until validated, then locked (a
+// tenant admin can reopen it, with a reason kept in the audit log).
+enum Rma3PeriodStatus {
+  draft
+  validated
+
+  @@schema("tenant_template")
+}
+
+model Rma3ManualPeriod {
+  id            String           @id @default(uuid()) @db.Uuid
+  tenantId      String           @map("tenant_id") @db.Uuid
+  // RMA3 / DHIS2 period "YYYYMM".
+  period        String           @db.Char(6)
+  status        Rma3PeriodStatus @default(draft)
+  validatedById String?          @map("validated_by_id") @db.Uuid
+  validatedAt   DateTime?        @map("validated_at") @db.Timestamptz
+  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+
+  values Rma3ManualValue[]
+
+  @@unique([tenantId, period])
+  @@map("rma3_manual_periods")
+  @@schema("tenant_template")
+}
+
+// One cell of the form: indicator code (lib/rma3-manual/catalog.ts) × breakdown cell ("" when
+// the indicator has none). No row = not entered, which the report tells apart from 0.
+model Rma3ManualValue {
+  id            String   @id @default(uuid()) @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  periodId      String   @map("period_id") @db.Uuid
+  indicatorCode String   @map("indicator_code") @db.VarChar(30)
+  breakdownKey  String   @default("") @map("breakdown_key") @db.VarChar(40)
+  // Counts, days, yes (1) / no (0), or FCFA amounts.
+  value         Decimal  @db.Decimal(15, 0)
+  updatedById   String   @map("updated_by_id") @db.Uuid
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  period Rma3ManualPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+
+  @@unique([periodId, indicatorCode, breakdownKey])
+  @@index([tenantId])
+  @@map("rma3_manual_values")
   @@schema("tenant_template")
 }

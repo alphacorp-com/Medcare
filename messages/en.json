@@ -1,5 +1,9 @@
 {
   "common": {
+    "rma3_entry": "RMA3 form",
+    "nav_rma3_form": "Monthly entry",
+    "nav_rma3_identification": "MINSANTE identification",
+    "confidential_result": "Confidential result (HIV): visible to the lab, prescribers and authorized staff.",
     "nav_stays": "Stays",
     "nav_vaccination": "Vaccination",
     "nav_vaccination_sessions": "Vaccination sessions",
@@ -997,9 +1001,11 @@
       "price": "Price",
       "imaging_modality": "Imaging Modality",
       "anatomical_zone": "Anatomical Zone",
-      "screening_test_type": "Feeds the screening register",
+      "screening_test_type": "Feeds the programs (screening or viral load)",
+      "screening_group_tests": "Screening register",
+      "screening_group_viral_loads": "Viral loads",
       "screening_none": "No (ordinary exam)",
-      "screening_hint": "A validated result of this exam (HIV, syphilis, HBsAg…) is added automatically to the program register.",
+      "screening_hint": "A validated result of this exam is added automatically to the screening register or to the viral loads. HIV results are only visible to the lab, prescribers and HIV-authorized staff.",
       "requires_contrast": "Requires contrast",
       "confirm_delete": "Delete \"{name}\"? This cannot be undone.",
       "tab_general": "Details",
@@ -1494,6 +1500,15 @@
     "module_title": "Disease Programs",
     "module_desc": "Track immunizations (EPV), malaria cases and TB registration/follow-up for national program reporting.",
     "hiv": {
+      "supply_add": "Emergency supply",
+      "supply_hint": "ARVs served once to a patient followed at another site: they do not enter this facility's active file.",
+      "supply_line": "Emergency supply on {date}: {regimen}, {days} days (followed at {site})",
+      "origin_site": "Usual follow-up site",
+      "form_supply": "ARV emergency supply",
+      "view_report": "RMA3 report",
+      "report_csv": "Download (CSV)",
+      "report_hint": "Full age × sex detail of the HIV / PMTCT / hepatitis / STI tables (the Word RMA3 prints them condensed). Provisional age bands.",
+      "viral_load_of": "{program} viral load",
       "module_title": "HIV, PMTCT, hepatitis and STI",
       "tab": "HIV / Hepatitis",
       "panel_title": "HIV, PMTCT, hepatitis and STI",
@@ -1646,6 +1661,8 @@
       "born_on": "Born on {date}",
       "no_pcr": "No PCR",
       "errors": {
+        "invalid_origin": "Enter the usual follow-up site (150 characters at most).",
+        "enrolled_here": "This patient is followed here: record an ART visit instead of an emergency supply.",
         "invalid_body": "Invalid input.",
         "invalid_patient": "Patient not found.",
         "invalid_test_type": "Invalid test type.",
@@ -2427,6 +2444,7 @@
   },
   "documents": {
     "medicalRecord": {
+      "confidential_result": "Confidential result",
       "title": "Medical record",
       "stay": "Stay",
       "identification": "Patient identification",
@@ -2734,6 +2752,9 @@
         "update": "Updated cold chain equipment"
       },
       "hiv": {
+        "emergency_supply": {
+          "create": "Recorded an ARV emergency supply"
+        },
         "patient_view": "Viewed an HIV / hepatitis file",
         "screening_test": {
           "create": "Recorded a screening test",
@@ -2760,6 +2781,15 @@
         "pmtct_status": {
           "update": "Updated the PMTCT status of a pregnancy"
         }
+      },
+      "rma3": {
+        "values_update": "Entered values of the RMA3 monthly form",
+        "period_validate": "Validated the RMA3 monthly form",
+        "period_reopen": "Reopened the RMA3 monthly form",
+        "identification_update": "Updated the MINSANTE identification"
+      },
+      "report": {
+        "rma3_generate": "Generated the RMA3 report"
       },
       "inventory_item": {
         "create": "Created a stock article",
@@ -2974,6 +3004,81 @@
       "unknown_storage_location": "Unknown storage location.",
       "unknown_supplier": "Unknown supplier.",
       "unknown_vaccine_antigen": "Unknown antigen."
+    }
+  },
+  "rma3Entry": {
+    "module_title": "RMA3 monthly form",
+    "title": "RMA3 monthly form",
+    "subtitle": "Figures the app does not record as activity happens (community, awareness, supervisions, environment, income outside billing, expenses). They are included in the Word RMA3.",
+    "no_access": "You do not have access to the RMA3 monthly form.",
+    "tab_form": "Monthly entry",
+    "tab_identification": "MINSANTE identification",
+    "month": "Month",
+    "status_draft": "Draft",
+    "status_validated": "Validated",
+    "validated_on": "on {date}",
+    "filled": "{filled} / {total} cells entered",
+    "not_entered_hint": "An empty cell means \"not entered\" (printed \"—\" in the RMA3), not 0: enter 0 when nothing happened.",
+    "locked_hint": "This month is validated and can no longer be changed. An administrator can reopen it with a reason.",
+    "indicator": "Indicator",
+    "value": "Value",
+    "yes": "Yes",
+    "no": "No",
+    "save": "Save",
+    "saved": "Saved",
+    "discard": "Discard changes",
+    "discard_confirm": "Some changes are not saved. Change month anyway?",
+    "save_first": "Save your changes first.",
+    "validate": "Validate the month",
+    "validate_title": "Validate the monthly form",
+    "validate_confirm": "{filled} of {total} cells are entered. Once validated, the month can no longer be changed (unless an administrator reopens it). Continue?",
+    "validated_toast": "Month validated",
+    "reopen": "Reopen",
+    "reopen_title": "Reopen the month",
+    "reopen_hint": "The month goes back to draft. The reason is kept in the audit log.",
+    "reason": "Reason (at least 5 characters)",
+    "reopened_toast": "Month reopened",
+    "cancel": "Cancel",
+    "identification_hint": "Identification of the facility in the MINSANTE health map, printed at the top of the RMA3.",
+    "field_region": "Region",
+    "field_department": "Department",
+    "field_arrondissement": "Subdivision (arrondissement)",
+    "field_district": "Health district",
+    "field_healthArea": "Health area",
+    "field_facilityManagerName": "Head of the facility",
+    "field_dataManagerName": "Data manager",
+    "field_dataManagerPhone": "Data manager phone",
+    "field_villagesServed": "Villages / neighbourhoods served",
+    "field_villagesOutreach": "of which outreach (> 5 km)",
+    "field_ownership": "Ownership",
+    "ownership_public": "Public",
+    "ownership_private": "Private",
+    "ownership_faith_based": "Faith-based",
+    "ownership_community": "Community",
+    "ownership_other": "Other",
+    "errors": {
+      "invalid_period": "Invalid month.",
+      "future_period": "This month has not started yet.",
+      "invalid_body": "Invalid request.",
+      "unknown_indicator": "Unknown indicator.",
+      "unknown_breakdown": "Unknown cell for this indicator.",
+      "duplicate_cell": "A cell is sent twice.",
+      "invalid_value": "Invalid value: a positive whole number within the indicator's limits (days ≤ days of the month, yes/no).",
+      "invalid_reason": "Enter a reason of 5 to 500 characters.",
+      "period_validated": "This month is validated and can no longer be changed.",
+      "period_not_validated": "This month is not validated.",
+      "period_not_found": "Form not found.",
+      "invalid_region": "Region: 100 characters at most.",
+      "invalid_department": "Department: 100 characters at most.",
+      "invalid_arrondissement": "Subdivision: 100 characters at most.",
+      "invalid_district": "District: 100 characters at most.",
+      "invalid_healthArea": "Health area: 100 characters at most.",
+      "invalid_dataManagerName": "Data manager name: 150 characters at most.",
+      "invalid_facilityManagerName": "Head of facility name: 150 characters at most.",
+      "invalid_dataManagerPhone": "Invalid phone number.",
+      "invalid_villagesServed": "Invalid number of villages (0 to 10,000).",
+      "invalid_villagesOutreach": "Invalid outreach villages (not more than the villages served).",
+      "invalid_ownership": "Invalid ownership."
     }
   }
 }

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useTranslations } from "next-intl";
 import { useAppStore, ModulePermission } from "@/lib/store/useAppStore";
-import { mergeModulePermissions } from "@/lib/utils";
+import { mergeModulePermissions, withSubModules } from "@/lib/utils";
 
 // Note: this only hydrates session/store state (user, module permissions,
 // tenantAccess flag) — it does NOT block rendering when the license is
@@ -91,7 +91,7 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
     const applyTenantAccess = (isActive: boolean, reason: string | null, tenantModules: ModulePermission[]) => {
       setTenantAccess(isActive, reason);
       if (identity.isSystemAdmin) {
-        setActiveModules(tenantModules);
+        setActiveModules(withSubModules(tenantModules));
       } else {
         setActiveModules(isActive ? mergeModulePermissions(tenantModules, identity.modules) : []);
       }

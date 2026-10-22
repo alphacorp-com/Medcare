@@ -8,6 +8,7 @@ import { Link } from "@/i18n/routing";
 import { apiFetch } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import { EpiMonthPicker, currentMonth } from "./epi-shared";
+import { HivReportView } from "./HivReportView";
 
 // Program view of HIV / PMTCT / hepatitis / STI (MODULE_HIV): ART cohort with lateness,
 // screening register, exposed infants and hepatitis cases. Entry happens in the patient file.
@@ -18,7 +19,7 @@ type Test = { id: string; testType: string; testedAt: string; result: string; en
 type Infant = { id: string; patient: PatientRef & { birthDate: string }; firstSeenAt: string; tests: { testType: string; testedAt: string; result: string }[] };
 type HepCase = { id: string; type: string; diagnosedAt: string; treatmentStartedAt: string | null; curedAt: string | null; diedAt: string | null; patient: PatientRef };
 
-type View = "cohort" | "register" | "infants" | "hepatitis";
+type View = "cohort" | "register" | "infants" | "hepatitis" | "report";
 
 function PatientLink({ p }: { p: PatientRef }) {
   return (
@@ -40,7 +41,7 @@ export function HivProgramTab() {
   const register = useQuery({ queryKey: ["hiv", "register", month], queryFn: () => apiFetch<{ data: Test[] }>(`/api/v1/hiv/screening-tests?month=${month}`), enabled: view === "register" });
   const infants = useQuery({ queryKey: ["hiv", "infants"], queryFn: () => apiFetch<{ data: Infant[] }>("/api/v1/hiv/exposed-infants"), enabled: view === "infants" });
   const hepatitis = useQuery({ queryKey: ["hiv", "hepatitis"], queryFn: () => apiFetch<{ data: HepCase[] }>("/api/v1/hiv/hepatitis-cases"), enabled: view === "hepatitis" });
-  const current = { cohort, register, infants, hepatitis }[view];
+  const current = view === "report" ? null : { cohort, register, infants, hepatitis }[view];
 
   const lateBadge = (c: Cohort) => {
     if (c.status !== "active") return <span className="text-slate-500">{t(`status_${c.status}`)}</span>;
@@ -57,7 +58,7 @@ export function HivProgramTab() {
       </p>
       <div className="flex flex-wrap items-end gap-3">
         <div className="inline-flex rounded-md bg-slate-100 p-0.5" role="tablist">
-          {(["cohort", "register", "infants", "hepatitis"] as const).map((v) => (
+          {(["cohort", "register", "infants", "hepatitis", "report"] as const).map((v) => (
             <button
               key={v}
               type="button"
@@ -79,6 +80,9 @@ export function HivProgramTab() {
         )}
       </div>
 
+      {view === "report" || !current ? (
+        <HivReportView />
+      ) : (
       <div className="overflow-x-auto rounded border border-slate-200 bg-white">
         {current.isPending ? (
           <div className="flex justify-center py-8"><Loader2 className="h-4 w-4 animate-spin text-slate-400" /></div>
@@ -132,6 +136,7 @@ export function HivProgramTab() {
           </table>
         )}
       </div>
+      )}
     </div>
   );
 }
