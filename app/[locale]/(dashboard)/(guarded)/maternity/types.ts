@@ -39,6 +39,19 @@ export type AntenatalVisit = {
   tetanusVaccineGiven: boolean;
   malariaPreventionGiven: boolean;
   notes: string | null;
+  strategy: "fixed" | "outreach";
+  hemoglobinGPerDl: string | null;
+  tdImmunization: { doseNumber: number; lotNumber: string | null } | null;
+};
+
+export type PostnatalVisit = {
+  id: string;
+  visitDate: string;
+  vitaminAGiven: boolean;
+  ironFolateGiven: boolean;
+  breastfeedingCounseling: boolean;
+  newbornExamined: boolean;
+  notes: string | null;
 };
 
 export type PtmeExamResult = { id: string; isCritical: boolean; validatedAt: string | null; resultData: unknown };
@@ -77,6 +90,13 @@ export type Newborn = {
   resuscitationNeeded: boolean;
   outcome: string;
   notes: string | null;
+  stillbirthType: "fresh" | "macerated" | null;
+  bagMaskVentilation: boolean;
+  kangarooCare: boolean;
+  incubatorCare: boolean;
+  diedAt: string | null;
+  deathCause: string | null;
+  deathReviewedAt: string | null;
 };
 
 export type Delivery = {
@@ -91,6 +111,9 @@ export type Delivery = {
   placentaDelivered: boolean;
   bloodLossMl: number | null;
   notes: string | null;
+  amtsl: boolean;
+  complicationsManaged: boolean;
+  breastfeedingStart: string | null;
   partograph: PartographEntry[];
   newborns: Newborn[];
 };
@@ -109,6 +132,12 @@ export type PregnancyDetail = {
   antenatalVisits: AntenatalVisit[];
   examRequests: PtmeExam[];
   delivery: Delivery | null;
+  postnatalVisits: PostnatalVisit[];
+  endedAt: string | null;
+  abortionCare: "uncomplicated" | "complicated" | null;
+  maternalDeathAt: string | null;
+  maternalDeathCause: string | null;
+  maternalDeathReviewedAt: string | null;
 };
 
 export type NewPregnancyForm = {

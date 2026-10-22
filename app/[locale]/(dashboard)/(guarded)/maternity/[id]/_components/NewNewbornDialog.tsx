@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { useMaternityError } from "@/components/maternity/use-maternity-error";
+import { NeonatalDeathFields } from "./NeonatalDeathFields";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,6 +33,11 @@ export function NewNewbornDialog({
   const [vitaminKGiven, setVitaminKGiven] = useState(false);
   const [resuscitationNeeded, setResuscitationNeeded] = useState(false);
   const [outcome, setOutcome] = useState("alive");
+  const [stillbirthType, setStillbirthType] = useState("");
+  const [bagMaskVentilation, setBagMaskVentilation] = useState(false);
+  const [diedAt, setDiedAt] = useState("");
+  const [deathCause, setDeathCause] = useState("");
+  const errorMessage = useMaternityError();
   const [notes, setNotes] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,11 +59,15 @@ export function NewNewbornDialog({
           resuscitationNeeded,
           outcome,
           notes: notes || undefined,
+          bagMaskVentilation: resuscitationNeeded && bagMaskVentilation,
+          stillbirthType: outcome === "stillbirth" ? stillbirthType || undefined : undefined,
+          diedAt: outcome === "neonatal_death" ? diedAt || undefined : undefined,
+          deathCause: outcome === "neonatal_death" ? deathCause || undefined : undefined,
         }),
       });
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));
-        setError(payload?.error || t("newborn_save_error"));
+        setError(errorMessage(payload, payload?.error || t("newborn_save_error")));
         return;
       }
       onSaved();
@@ -117,6 +128,12 @@ export function NewNewbornDialog({
             <input type="checkbox" checked={resuscitationNeeded} onChange={(e) => setResuscitationNeeded(e.target.checked)} className="h-4 w-4 rounded border-slate-300" />
             {t("resuscitation_needed")}
           </label>
+          {resuscitationNeeded && (
+            <label className="ml-6 flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
+              <input type="checkbox" checked={bagMaskVentilation} onChange={(e) => setBagMaskVentilation(e.target.checked)} className="h-4 w-4 rounded border-slate-300" />
+              {t("bag_mask_ventilation")}
+            </label>
+          )}
 
           <div className="space-y-1">
             <Label>{t("newborn_outcome")}</Label>
@@ -130,6 +147,20 @@ export function NewNewbornDialog({
               <option value="neonatal_death">{t("outcome_neonatal_death")}</option>
             </select>
           </div>
+
+          {outcome === "stillbirth" && (
+            <div className="space-y-1">
+              <Label>{t("stillbirth_type")}</Label>
+              <select value={stillbirthType} onChange={(e) => setStillbirthType(e.target.value)} className="flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400">
+                <option value="">{tc("select_placeholder")}</option>
+                <option value="fresh">{t("stillbirth_fresh")}</option>
+                <option value="macerated">{t("stillbirth_macerated")}</option>
+              </select>
+            </div>
+          )}
+          {outcome === "neonatal_death" && (
+            <NeonatalDeathFields diedAt={diedAt} onDiedAt={setDiedAt} cause={deathCause} onCause={setDeathCause} />
+          )}
 
           <div className="space-y-1">
             <Label>{t("notes")}</Label>

@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import { TD_GROUP } from "@/lib/maternity/td";
 import {
   buildAefiRows,
   buildHpvRows,
@@ -70,11 +71,13 @@ export async function computeEpiSections(tenantId: string, start: Date, end: Dat
     if (!groupOf.has(item.code)) groupOf.set(item.code, item.group);
   });
   const isHpv = (code: string) => (groupOf.get(code) ?? "").toUpperCase() === HPV_GROUP;
+  // Td is given to women (antenatal care, RMA3 II.1.1), not part of the children's III.2.
+  const isTd = (code: string) => (groupOf.get(code) ?? "").toUpperCase() === TD_GROUP || code === TD_GROUP;
 
   return {
     sessions: countSessions(sessions),
     // HPV has its own table (III.3).
-    vaccination: buildVaccinationRows(doses.filter((d) => !isHpv(d.antigenCode)), order),
+    vaccination: buildVaccinationRows(doses.filter((d) => !isHpv(d.antigenCode) && !isTd(d.antigenCode)), order),
     hpv: buildHpvRows(doses.filter((d) => isHpv(d.antigenCode))),
     coldChain: summarizeColdChain(
       equipment.map((e) => ({ ...e, minTempC: Number(e.minTempC), maxTempC: Number(e.maxTempC) })),

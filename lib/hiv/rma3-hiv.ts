@@ -187,6 +187,8 @@ export interface Rma3HivInput {
   tbCases: readonly TbRow[];
   // ARVs served once to patients followed elsewhere (not in the active file).
   emergencySupplies: readonly EmergencySupplyRow[];
+  // Family planning methods started post-partum (II.3.5-001), from the FP register.
+  fpPostpartumStarts?: readonly { patientId: string; visitDate: Date; patient: Person }[];
 }
 
 export interface Rma3HivReport {
@@ -457,6 +459,12 @@ export function buildHivReport(input: Rma3HivInput): Rma3HivReport {
     follow.filter((f) => isNew(f) && tests.some((t) => t.patientId === f.e.patientId && t.result === "positive")).map(fEv);
   const postnatalHiv = monthTests.filter((t) => t.testType === "hiv" && t.entryPoint === "postnatal");
   const pmtctPostnatal = [
+    indicator(
+      "II.3.5-001",
+      "Femmes VIH+ ayant débuté une méthode PF en post-partum",
+      "ptme",
+      (input.fpPostpartumStarts ?? []).filter((v) => inMonth(v.visitDate) && hivPositiveBy(v.patientId, v.visitDate)).map((v) => ev(v.patientId, v.patient, v.visitDate))
+    ),
     indicator("II.3.5-002", "Enfants nés de mères VIH+ vus en consultation à 6-8 semaines", "none", input.infants.filter((i) => inMonth(i.visit6to8WeeksAt)).map((i) => ev(i.patientId, i.patient, i.visit6to8WeeksAt!))),
     indicator("II.3.5-003", "Enfants nés de mères VIH+ sous cotrimoxazole dès 6 semaines", "none", input.infants.filter((i) => inMonth(i.cotrimoxazoleStartedAt)).map((i) => ev(i.patientId, i.patient, i.cotrimoxazoleStartedAt!))),
     indicator("II.3.5-004", "Enfants nés de mères VIH+ dépistés par PCR à 6-8 semaines", "none", firstPcrEarly.filter(read).map(tEv)),

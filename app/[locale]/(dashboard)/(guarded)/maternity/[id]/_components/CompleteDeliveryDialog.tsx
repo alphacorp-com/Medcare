@@ -9,9 +9,12 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Loader2 } from "lucide-react";
 import { DeliveryMode } from "../../types";
 import { notifyBillingGenerated } from "@/lib/billing/client";
+import { useMaternityError } from "@/components/maternity/use-maternity-error";
 
 const MODES: DeliveryMode[] = ["vaginal", "assisted_vaginal", "cesarean"];
-const COMPLICATION_OPTIONS = ["postpartum_hemorrhage", "perineal_tear", "eclampsia", "obstructed_labour", "none"];
+// RMA3 II.1.2 nomenclature (lib/maternity/input DELIVERY_COMPLICATIONS).
+const COMPLICATION_OPTIONS = ["postpartum_hemorrhage", "obstructed_labour", "eclampsia", "uterine_rupture", "puerperal_infection", "perineal_tear", "none"];
+const BREASTFEEDING_OPTIONS = ["within_30_min", "within_1_hour", "later", "not_started"];
 
 export function CompleteDeliveryDialog({
   open,
@@ -33,11 +36,20 @@ export function CompleteDeliveryDialog({
   const [placentaDelivered, setPlacentaDelivered] = useState(false);
   const [bloodLossMl, setBloodLossMl] = useState("");
   const [notes, setNotes] = useState("");
+  const [amtsl, setAmtsl] = useState(false);
+  const [complicationsManaged, setComplicationsManaged] = useState(false);
+  const [breastfeedingStart, setBreastfeedingStart] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const errorMessage = useMaternityError();
+  const hasComplication = complications.some((c) => c !== "none");
 
+  // "None" excludes the others (and the reverse).
   const toggleComplication = (key: string) => {
-    setComplications((prev) => (prev.includes(key) ? prev.filter((c) => c !== key) : [...prev, key]));
+    setComplications((prev) => {
+      if (prev.includes(key)) return prev.filter((c) => c !== key);
+      return key === "none" ? ["none"] : [...prev.filter((c) => c !== "none"), key];
+    });
   };
 
   const handleSave = async () => {
@@ -54,11 +66,14 @@ export function CompleteDeliveryDialog({
           placentaDelivered,
           bloodLossMl: bloodLossMl || undefined,
           notes: notes || undefined,
+          amtsl,
+          complicationsManaged: hasComplication && complicationsManaged,
+          breastfeedingStart: breastfeedingStart || undefined,
         }),
       });
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(payload?.error || t("complete_delivery_error"));
+        setError(errorMessage(payload, payload?.error || t("complete_delivery_error")));
         return;
       }
       notifyBillingGenerated(payload?.billing, tc("invoice_generated"));
@@ -106,6 +121,31 @@ export function CompleteDeliveryDialog({
                 </label>
               ))}
             </div>
+            {hasComplication && (
+              <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer pt-1">
+                <input type="checkbox" checked={complicationsManaged} onChange={(e) => setComplicationsManaged(e.target.checked)} className="h-4 w-4 rounded border-slate-300" />
+                {t("complications_managed")}
+              </label>
+            )}
+          </div>
+
+          <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
+            <input type="checkbox" checked={amtsl} onChange={(e) => setAmtsl(e.target.checked)} className="h-4 w-4 rounded border-slate-300" />
+            {t("amtsl")}
+          </label>
+
+          <div className="space-y-1">
+            <Label>{t("breastfeeding_start")}</Label>
+            <select
+              value={breastfeedingStart}
+              onChange={(e) => setBreastfeedingStart(e.target.value)}
+              className="flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400"
+            >
+              <option value="">—</option>
+              {BREASTFEEDING_OPTIONS.map((key) => (
+                <option key={key} value={key}>{t(`breastfeeding_${key}`)}</option>
+              ))}
+            </select>
           </div>
 
           <div className="space-y-1">

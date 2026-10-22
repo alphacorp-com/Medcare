@@ -98,6 +98,11 @@ export const RMA3_MANUAL_SECTIONS: readonly Rma3ManualSection[] = [
     ],
   },
   {
+    code: "II.1.5",
+    title: "Planification familiale en communauté",
+    indicators: [i("II.1.5-005", "DMPA-SC (Sayana Press) distribué par les ASC")],
+  },
+  {
     code: "III.1",
     title: "Activités de communication et recherche des perdus de vue (PEV)",
     indicators: [

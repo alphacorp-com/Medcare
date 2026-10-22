@@ -8,22 +8,23 @@ import { buildActivityTables, type ActivityTable, type PregnancyPeriod } from "@
 const DAY = 86_400_000;
 const PERIOPERATIVE_WINDOW_DAYS = 30;
 const person = { select: { birthDate: true, gender: true } } as const;
-const pregnancySelect = {
-  select: { lastMenstrualPeriod: true, expectedDueDate: true, status: true, updatedAt: true, delivery: { select: { deliveryDate: true } } },
+export const pregnancySelect = {
+  select: { lastMenstrualPeriod: true, expectedDueDate: true, status: true, endedAt: true, updatedAt: true, delivery: { select: { deliveryDate: true } } },
 } as const;
 
 interface PregnancyRecord {
   lastMenstrualPeriod: Date;
   expectedDueDate: Date;
   status: string;
+  endedAt: Date | null;
   updatedAt: Date;
   delivery: { deliveryDate: Date | null } | null;
 }
 
-// The end of a pregnancy: its delivery, the last update of a miscarriage / termination
-// (the date it was recorded), or the expected due date.
-function toPeriod(p: PregnancyRecord): PregnancyPeriod {
-  const endedAt = p.delivery?.deliveryDate ?? (p.status === "miscarried" || p.status === "terminated" ? p.updatedAt : p.expectedDueDate);
+// The end of a pregnancy: its delivery, the end date of a miscarriage / termination (or, for
+// records made before that date existed, its last update), or the expected due date.
+export function toPeriod(p: PregnancyRecord): PregnancyPeriod {
+  const endedAt = p.delivery?.deliveryDate ?? (p.status === "miscarried" || p.status === "terminated" ? (p.endedAt ?? p.updatedAt) : p.expectedDueDate);
   return { lastMenstrualPeriod: p.lastMenstrualPeriod, endedAt };
 }
 
@@ -32,7 +33,7 @@ export async function computeActivityTables(tenantId: string, start: Date, end: 
   const asOf = new Date(Math.min(end.getTime(), Date.now()));
   const patientWithPregnancies = { select: { birthDate: true, gender: true, pregnancies: pregnancySelect } } as const;
 
-  const [antenatalVisits, deliveries, newborns, deceasedWomen, stays, deceasedOutsideStay, surgeries, malariaCases, tbCases, bloodPressures] = await Promise.all([
+  const [antenatalVisits, deliveries, newborns, deceasedWomen, stays, deceasedOutsideStay, surgeries, malariaCases, tbCases, bloodPressures, recordedMaternalDeaths] = await Promise.all([
     prisma.antenatalVisit.findMany({
       where: { tenantId, visitDate: { lt: end }, pregnancy: { antenatalVisits: { some: { visitDate: month } } } },
       select: {
@@ -118,6 +119,10 @@ export async function computeActivityTables(tenantId: string, start: Date, end: 
       where: { tenantId, recordedAt: month, bloodPressureSystolic: { not: null }, bloodPressureDiastolic: { not: null } },
       select: { patientId: true, recordedAt: true, patient: person },
     }),
+    prisma.pregnancy.findMany({
+      where: { tenantId, maternalDeathAt: month },
+      select: { patientId: true, maternalDeathAt: true, patient: person },
+    }),
   ]);
 
   const deceasedStays = stays.filter((s) => s.status === "deceased" && s.dischargeDate && s.dischargeDate >= start && s.dischargeDate < end);
@@ -175,5 +180,6 @@ export async function computeActivityTables(tenantId: string, start: Date, end: 
     tbCases: tbCases.map(({ followUps, ...c }) => ({ ...c, labFollowUpDates: followUps.map((f) => f.followUpDate) })),
     tbHivOnArtPatientIds: new Set(tbHivOnArtPatientIds),
     bloodPressures,
+    recordedMaternalDeaths: recordedMaternalDeaths.map((p) => ({ patientId: p.patientId, at: p.maternalDeathAt!, patient: p.patient })),
   });
 }

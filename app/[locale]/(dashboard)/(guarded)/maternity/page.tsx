@@ -6,15 +6,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { Search, Plus, HeartPulse, Baby } from "lucide-react";
 import { useRouter } from "@/i18n/routing";
 import { NewPregnancySheet } from "./_components/NewPregnancySheet";
+import { useUrlTab } from "@/hooks/use-url-tab";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FamilyPlanningRegister } from "@/components/family-planning/FamilyPlanningRegister";
 import { gestationalAgeFromLmp, PregnancyListItem, PregnancyStatus } from "./types";
 
 const FILTERS: (PregnancyStatus | "All")[] = ["All", "ongoing", "delivered", "miscarried", "terminated"];
 
-export default function MaternityPage() {
+function PregnanciesView() {
   const t = useTranslations('maternity');
   const tc = useTranslations('common');
   const hasModule = useAppStore((state) => state.hasModule);
@@ -190,5 +193,37 @@ export default function MaternityPage() {
 
       <NewPregnancySheet open={isNewOpen} onOpenChange={setIsNewOpen} onCreated={fetchPregnancies} />
     </div>
+  );
+}
+
+// Maternity: pregnancies (antenatal care, delivery, newborns, post-natal) and family planning,
+// which is attached to the patient (women without antenatal care and men too), not to a pregnancy.
+function MaternityPageContent() {
+  const t = useTranslations("maternity");
+  const hasModule = useAppStore((state) => state.hasModule);
+  const [tab, setTab] = useUrlTab(["pregnancies", "family-planning"] as const, "pregnancies");
+  if (!hasModule("MODULE_MATERNITY")) return <PregnanciesView />;
+  return (
+    <Tabs value={tab} onValueChange={(value) => setTab(value as typeof tab)} className="flex flex-col h-full">
+      <TabsList className="bg-white border border-slate-200 shadow-sm h-auto p-1 w-full md:w-fit justify-start overflow-x-auto shrink-0">
+        <TabsTrigger value="pregnancies" className="shrink-0 text-xs">{t("tab_pregnancies")}</TabsTrigger>
+        <TabsTrigger value="family-planning" className="shrink-0 text-xs">{t("tab_family_planning")}</TabsTrigger>
+      </TabsList>
+      <TabsContent value="pregnancies" className="flex-1 mt-4">
+        <PregnanciesView />
+      </TabsContent>
+      <TabsContent value="family-planning" className="mt-4">
+        <FamilyPlanningRegister />
+      </TabsContent>
+    </Tabs>
+  );
+}
+
+// The active tab lives in the URL (?tab=, see useUrlTab), which needs a Suspense boundary.
+export default function MaternityPage() {
+  return (
+    <Suspense fallback={null}>
+      <MaternityPageContent />
+    </Suspense>
   );
 }

@@ -22,6 +22,7 @@ import { StayPhaseBadge } from "@/components/shared/stay-phase-badge";
 import { useParams } from "next/navigation";
 import { useAppStore } from "@/lib/store/useAppStore";
 import { HivPatientPanel } from "@/components/hiv/HivPatientPanel";
+import { FamilyPlanningHistory } from "@/components/family-planning/FamilyPlanningRegister";
 import {
   StayRow,
   MedicalRecordRow,
@@ -85,6 +86,8 @@ export function PatientTabs({
   const hasPermission = useAppStore((state) => state.hasPermission);
   const canReadHiv = hasPermission("MODULE_HIV", "read");
   const canEditHiv = hasPermission("MODULE_HIV", "create");
+  // Family planning history (maternity module; the route checks it again).
+  const canReadFp = hasPermission("MODULE_MATERNITY", "read");
 
   const stayTypeLabel = (st: string) => {
     if (st === "emergency") return tc("status_emergency");
@@ -491,6 +494,11 @@ export function PatientTabs({
                 ))}
               </tbody>
             </table>
+            {canReadFp && patientId && (
+              <div className="border-t border-slate-200 p-4">
+                <FamilyPlanningHistory patientId={patientId} />
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="programs" className="m-0 border-none outline-none p-4 space-y-6">

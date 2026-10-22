@@ -761,6 +761,7 @@ model Patient {
   hepatitisCases     HepatitisCase[]
   hivExposure        HivExposedInfant?
   artEmergencySupplies ArtEmergencySupply[]
+  familyPlanningVisits FamilyPlanningVisit[]
 
   @@unique([tenantId, ipp])
   @@index([tenantId])
@@ -922,11 +923,22 @@ model Pregnancy {
   updatedAt           DateTime        @updatedAt @map("updated_at") @db.Timestamptz
 
   patient         Patient          @relation(fields: [patientId], references: [id])
+  // End of a pregnancy that did not reach a delivery (miscarriage / termination), and the
+  // post-abortion care given (RMA3 II.1.2-012 to 014).
+  endedAt                 DateTime?           @map("ended_at") @db.Timestamptz
+  abortionCare            AbortionCareType?   @map("abortion_care")
+  // Maternal death (during pregnancy, at delivery or within 42 days), its cause in the RMA3
+  // list and the date of its maternal death review (II.1.2-015 to 024).
+  maternalDeathAt         DateTime?           @map("maternal_death_at") @db.Timestamptz
+  maternalDeathCause      MaternalDeathCause? @map("maternal_death_cause")
+  maternalDeathReviewedAt DateTime?           @map("maternal_death_reviewed_at") @db.Date
+
   antenatalVisits AntenatalVisit[]
   delivery        Delivery?
   examRequests    ExamRequest[]
   // HIV-sensitive: in its own table so the maternity routes never return it.
   pmtctStatus     PmtctPregnancyStatus?
+  postnatalVisits PostnatalVisit[]
 
   @@index([tenantId])
   @@index([patientId])
@@ -952,7 +964,16 @@ model AntenatalVisit {
   malariaPreventionGiven Boolean  @default(false) @map("malaria_prevention_given")
   notes                  String?
 
-  pregnancy Pregnancy @relation(fields: [pregnancyId], references: [id])
+  // RMA3 II.1.1-005: visit at the fixed post or in outreach (strategie avancee).
+  strategy               VaccinationStrategy @default(fixed)
+  // II.1.1-020: haemoglobin measured at the visit (g/dL, point of care or lab result).
+  hemoglobinGPerDl       Decimal?            @map("hemoglobin_g_per_dl") @db.Decimal(4, 1)
+  // The Td dose given at this visit: an Immunization (the vaccination register is the source
+  // of truth for the dose rank, lot and AEFI).
+  tdImmunizationId       String?             @unique @map("td_immunization_id") @db.Uuid
+
+  pregnancy      Pregnancy     @relation(fields: [pregnancyId], references: [id])
+  tdImmunization Immunization? @relation(fields: [tdImmunizationId], references: [id])
 
   @@index([tenantId])
   @@index([pregnancyId, visitDate])
@@ -977,6 +998,12 @@ model Delivery {
 
   pregnancy  Pregnancy         @relation(fields: [pregnancyId], references: [id])
   stay       Stay?             @relation(fields: [stayId], references: [id])
+  // RMA3 II.1.2: active management of the third stage (GATPA), complications managed on
+  // site, and when breastfeeding started (II.1.2-025, III.9-001).
+  amtsl                Boolean             @default(false)
+  complicationsManaged Boolean             @default(false) @map("complications_managed")
+  breastfeedingStart   BreastfeedingStart? @map("breastfeeding_start")
+
   partograph PartographEntry[]
   newborns   Newborn[]
 
@@ -1020,6 +1047,16 @@ model Newborn {
   resuscitationNeeded Boolean @default(false) @map("resuscitation_needed")
   outcome             String  @default("alive")
   notes               String?
+
+  // RMA3 II.1.4: fresh / macerated stillbirth, bag-and-mask ventilation, kangaroo care,
+  // incubator, and the neonatal death (date, cause, review).
+  stillbirthType      StillbirthType?     @map("stillbirth_type")
+  bagMaskVentilation  Boolean             @default(false) @map("bag_mask_ventilation")
+  kangarooCare        Boolean             @default(false) @map("kangaroo_care")
+  incubatorCare       Boolean             @default(false) @map("incubator_care")
+  diedAt              DateTime?           @map("died_at") @db.Timestamptz
+  deathCause          NeonatalDeathCause? @map("death_cause")
+  deathReviewedAt     DateTime?           @map("death_reviewed_at") @db.Date
 
   delivery Delivery @relation(fields: [deliveryId], references: [id])
   patient  Patient? @relation(fields: [patientId], references: [id])
@@ -1991,6 +2028,7 @@ model Immunization {
   stockOpenVial StockOpenVial?      @relation(fields: [stockOpenVialId], references: [id])
   session       VaccinationSession? @relation(fields: [sessionId], references: [id])
   aefiReports   AefiReport[]
+  antenatalVisit AntenatalVisit?
 
   @@index([tenantId])
   @@index([patientId, administeredAt(sort: Desc)])
@@ -2645,5 +2683,119 @@ model Rma3ManualValue {
   @@unique([periodId, indicatorCode, breakdownKey])
   @@index([tenantId])
   @@map("rma3_manual_values")
+  @@schema("tenant_template")
+}
+
+// -- Mother and child: post-natal care and family planning (RMA3 II.1.3 - II.1.5) --
+
+enum AbortionCareType {
+  uncomplicated
+  complicated
+
+  @@schema("tenant_template")
+}
+
+enum MaternalDeathCause {
+  hemorrhage
+  obstructed_labour
+  preeclampsia_eclampsia
+  uterine_rupture
+  puerperal_infection
+  abortion
+  other
+
+  @@schema("tenant_template")
+}
+
+enum BreastfeedingStart {
+  within_30_min
+  within_1_hour
+  later
+  not_started
+
+  @@schema("tenant_template")
+}
+
+enum StillbirthType {
+  fresh
+  macerated
+
+  @@schema("tenant_template")
+}
+
+enum NeonatalDeathCause {
+  prematurity
+  asphyxia
+  infection
+  other
+
+  @@schema("tenant_template")
+}
+
+// Post-natal consultation of the mother (and of her newborns) after a delivery. The RMA3
+// contact (0-48 h, day 6-10, 6 weeks) is derived from the delivery date.
+model PostnatalVisit {
+  id                      String   @id @default(uuid()) @db.Uuid
+  tenantId                String   @map("tenant_id") @db.Uuid
+  pregnancyId             String   @map("pregnancy_id") @db.Uuid
+  visitDate               DateTime @map("visit_date") @db.Timestamptz
+  vitaminAGiven           Boolean  @default(false) @map("vitamin_a_given")
+  ironFolateGiven         Boolean  @default(false) @map("iron_folate_given")
+  breastfeedingCounseling Boolean  @default(false) @map("breastfeeding_counseling")
+  newbornExamined         Boolean  @default(false) @map("newborn_examined")
+  notes                   String?
+  performedById           String   @map("performed_by_id") @db.Uuid
+  createdAt               DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  pregnancy Pregnancy @relation(fields: [pregnancyId], references: [id])
+
+  @@index([tenantId, visitDate])
+  @@index([pregnancyId])
+  @@map("postnatal_visits")
+  @@schema("tenant_template")
+}
+
+enum FpClientStatus {
+  new_user
+  continuing_user
+
+  @@schema("tenant_template")
+}
+
+enum FpProcedure {
+  implant_insertion
+  implant_removal
+  iud_insertion
+  iud_removal
+
+  @@schema("tenant_template")
+}
+
+// Family planning consultation of a patient (woman or man), independent of any pregnancy.
+// methodCode: lib/family-planning/methods.ts (null = counselling / follow-up only).
+model FamilyPlanningVisit {
+  id                String         @id @default(uuid()) @db.Uuid
+  tenantId          String         @map("tenant_id") @db.Uuid
+  patientId         String         @map("patient_id") @db.Uuid
+  visitDate         DateTime       @map("visit_date") @db.Timestamptz
+  clientStatus      FpClientStatus @map("client_status")
+  counseled         Boolean        @default(false)
+  methodCode        String?        @map("method_code") @db.VarChar(40)
+  procedure         FpProcedure?
+  // Method started after a delivery (post-partum); "immediate" = within 48 h of it.
+  isPostpartum      Boolean        @default(false) @map("is_postpartum")
+  referredByChw     Boolean        @default(false) @map("referred_by_chw")
+  contraindications String?
+  sideEffects       String?        @map("side_effects")
+  nextDueDate       DateTime?      @map("next_due_date") @db.Date
+  notes             String?
+  performedById     String         @map("performed_by_id") @db.Uuid
+  createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz
+
+  patient Patient @relation(fields: [patientId], references: [id])
+
+  @@index([tenantId, visitDate])
+  @@index([patientId, visitDate])
+  @@map("family_planning_visits")
   @@schema("tenant_template")
 }

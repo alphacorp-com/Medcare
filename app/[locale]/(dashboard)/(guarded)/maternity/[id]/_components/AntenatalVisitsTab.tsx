@@ -67,7 +67,13 @@ export function AntenatalVisitsTab({
                   <td className="px-4 py-3">
                     <div className="flex gap-1">
                       {v.ironFolateGiven && <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded text-[9px] font-bold uppercase">Fe/Folate</span>}
-                      {v.tetanusVaccineGiven && <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded text-[9px] font-bold uppercase">VAT</span>}
+                      {v.tdImmunization ? (
+                        <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded text-[9px] font-bold uppercase">Td{v.tdImmunization.doseNumber}</span>
+                      ) : (
+                        v.tetanusVaccineGiven && <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded text-[9px] font-bold uppercase">VAT</span>
+                      )}
+                      {v.hemoglobinGPerDl && <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded text-[9px] font-bold uppercase">Hb {v.hemoglobinGPerDl}</span>}
+                      {v.strategy === "outreach" && <span className="px-1.5 py-0.5 bg-amber-50 text-amber-700 rounded text-[9px] font-bold uppercase">{t("strategy_outreach_short")}</span>}
                       {v.malariaPreventionGiven && <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded text-[9px] font-bold uppercase">TPI</span>}
                     </div>
                   </td>

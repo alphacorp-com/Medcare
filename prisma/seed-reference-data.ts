@@ -148,6 +148,9 @@ const VACCINE_ANTIGENS: GenericCatalogSeed[] = [
   { catalogType: 'vaccine_antigen', code: 'HPV1', nameFr: 'VPH 1ère dose', nameEn: 'HPV dose 1', group: 'HPV', order: 26 },
   { catalogType: 'vaccine_antigen', code: 'HPV2', nameFr: 'VPH 2ème dose', nameEn: 'HPV dose 2', group: 'HPV', order: 27 },
   { catalogType: 'vaccine_antigen', code: 'VITA', nameFr: 'Vitamine A', nameEn: 'Vitamin A', group: 'VITA', order: 28 },
+  // Td of women of childbearing age (doses 1 to 5 = Immunization.doseNumber), given at the
+  // antenatal visit: RMA3 II.1.1-010 to 014, not in the children's III.2 table.
+  { catalogType: 'vaccine_antigen', code: 'TD', nameFr: 'Td (tétanos-diphtérie)', nameEn: 'Td (tetanus-diphtheria)', group: 'TD', order: 29 },
 ];
 
 async function seedGenericCatalogs(prisma: PrismaClient, tenantId: string) {

@@ -157,6 +157,14 @@ export const PROVISIONAL_AGE_SCHEMES = {
     ["45to54", "45-54 ans", years(45), years(55)],
     ["55plus", "55 ans et +", years(55), null],
   ]),
+  // II.1.5 family planning: the dictionary says « Âge × Nouveau/Ancien utilisateur » without
+  // the bands. Adolescent / young adult bands of the RMA3 (III.8), then 25 and over.
+  fp: scheme([
+    ["age10to14", "10-14 ans", years(10), years(15)],
+    ["age15to19", "15-19 ans", years(15), years(20)],
+    ["age20to24", "20-24 ans", years(20), years(25)],
+    ["age25plus", "25 ans et +", years(25), null],
+  ]),
 } as const;
 
 export type Rma3AgeSchemeName = keyof typeof RMA3_AGE_SCHEMES;

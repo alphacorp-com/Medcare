@@ -6,7 +6,8 @@ import { Link } from "@/i18n/routing";
 import { Button } from "@/components/ui/button";
 import { Baby, Plus } from "lucide-react";
 import { NewNewbornDialog } from "./NewNewbornDialog";
-import { PregnancyDetail } from "../../types";
+import { NewbornFollowUpDialog } from "./NewbornFollowUpDialog";
+import { Newborn, PregnancyDetail } from "../../types";
 
 export function NewbornsTab({
   pregnancy,
@@ -17,6 +18,7 @@ export function NewbornsTab({
 }) {
   const t = useTranslations("maternity");
   const [isOpen, setIsOpen] = useState(false);
+  const [followUp, setFollowUp] = useState<Newborn | null>(null);
 
   const delivery = pregnancy.delivery;
 
@@ -75,10 +77,28 @@ export function NewbornsTab({
                   <div className="font-semibold">{n.apgarScore5Min ?? "—"}</div>
                 </div>
               </div>
-              {n.vitaminKGiven && (
-                <span className="inline-block mt-2 px-1.5 py-0.5 bg-green-50 text-green-700 rounded text-[9px] font-bold uppercase">
-                  {t("vitamin_k_given")}
-                </span>
+              <div className="mt-2 flex flex-wrap gap-1">
+                {n.vitaminKGiven && <span className="px-1.5 py-0.5 bg-green-50 text-green-700 rounded text-[9px] font-bold uppercase">{t("vitamin_k_given")}</span>}
+                {n.kangarooCare && <span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded text-[9px] font-bold uppercase">{t("kangaroo_care")}</span>}
+                {n.incubatorCare && <span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded text-[9px] font-bold uppercase">{t("incubator_care")}</span>}
+                {n.outcome === "stillbirth" && (
+                  <span className="px-1.5 py-0.5 bg-slate-100 text-slate-700 rounded text-[9px] font-bold uppercase">
+                    {t("outcome_stillbirth")}
+                    {n.stillbirthType ? ` · ${t(`stillbirth_${n.stillbirthType}`)}` : ""}
+                  </span>
+                )}
+                {n.outcome === "neonatal_death" && (
+                  <span className="px-1.5 py-0.5 bg-red-50 text-red-700 rounded text-[9px] font-bold uppercase">
+                    {t("outcome_neonatal_death")}
+                    {n.deathCause ? ` · ${t(`neonatal_cause_${n.deathCause}`)}` : ""}
+                    {n.deathReviewedAt ? ` · ${t("death_reviewed")}` : ""}
+                  </span>
+                )}
+              </div>
+              {n.outcome !== "stillbirth" && (
+                <Button size="sm" variant="outline" className="mt-3 h-7 text-[11px]" onClick={() => setFollowUp(n)}>
+                  {t("newborn_follow_up")}
+                </Button>
               )}
             </div>
           ))}
@@ -86,6 +106,7 @@ export function NewbornsTab({
       )}
 
       <NewNewbornDialog open={isOpen} onOpenChange={setIsOpen} deliveryId={delivery.id} onSaved={onUpdated} />
+      {followUp && <NewbornFollowUpDialog newborn={followUp} onOpenChange={(open) => !open && setFollowUp(null)} onSaved={onUpdated} />}
     </div>
   );
 }

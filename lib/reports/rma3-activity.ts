@@ -1,63 +1,33 @@
+import { RMA3_AGE_SCHEMES, ageBand, rma3Sex } from "@/lib/reports/age-bands";
 import {
-  RMA3_AGE_SCHEMES,
-  RMA3_SEXES,
-  ageBand,
-  disaggregationColumns,
-  disaggregationKey,
-  emptyCells,
-  rma3Sex,
-  type DisaggregationColumn,
-} from "@/lib/reports/age-bands";
+  DAY,
+  HOUR,
+  ageSexBreakdown,
+  inRange,
+  isPregnantAt,
+  row,
+  sexColumns,
+  type ActivityRow,
+  type ActivityTable,
+  type Breakdown,
+  type Person,
+  type PregnancyPeriod,
+} from "@/lib/reports/activity-rows";
+
+export { isPregnantAt };
+export type { ActivityRow, ActivityTable, Person, PregnancyPeriod };
 
 // RMA3 tables computed from the clinical activity already recorded (antenatal care,
 // deliveries, newborns, stays, surgery, malaria and TB registers, vital signs), with the
-// form's age / sex breakdown. Pure, unit-tested in rma3-activity.test.ts. Conventions:
-//  - ages at the date of the event (age-bands.ts rules);
-//  - an event whose age or sex falls in no column still counts in the total;
-//  - "women / persons" rows count each patient once (first event of the month), the other
-//    rows count events (visits, deliveries, stays, deaths).
+// form's age / sex breakdown. Pure, unit-tested in rma3-activity.test.ts. Counting
+// conventions: lib/reports/activity-rows.ts.
 
-const DAY = 86_400_000;
-const HOUR = 3_600_000;
 // Days after the end of a pregnancy during which a death is still a maternal death (WHO).
 const MATERNAL_DEATH_WINDOW_DAYS = 42;
 // Days after a surgery during which a death is counted as peri-operative.
 const PERIOPERATIVE_WINDOW_DAYS = 30;
 
-export interface Person {
-  birthDate: Date;
-  gender: string | null;
-}
-
-export interface ActivityRow {
-  code: string;
-  label: string;
-  cells: Record<string, number>;
-  total: number;
-}
-
-export interface ActivityTable {
-  section: string;
-  title: string;
-  columns: DisaggregationColumn[];
-  rows: ActivityRow[];
-  note?: string;
-}
-
 // ── Breakdowns ──────────────────────────────────────────────────────────────
-
-// The column of one event: a column key, "" for the total only.
-type KeyOf<E> = (e: E) => string;
-
-interface Breakdown<E> {
-  columns: DisaggregationColumn[];
-  keyOf: KeyOf<E>;
-}
-
-function ageSexBreakdown<E extends { person: Person; at: Date }>(bands: Parameters<typeof disaggregationColumns>[0]["bands"], bySex: boolean): Breakdown<E> {
-  const config = { bands, bySex };
-  return { columns: disaggregationColumns(config), keyOf: (e) => disaggregationKey(config, e.person, e.at) ?? "" };
-}
 
 const PREGNANT_COLUMN = { key: "pregnant", label: "Femmes enceintes" };
 
@@ -92,40 +62,7 @@ const RANK_COLUMNS = [
 ];
 const rankKey = (rank: number) => (rank >= 4 ? "rank4plus" : `rank${Math.max(1, rank)}`);
 
-// Sex only (newborns).
-const sexColumns = RMA3_SEXES.map((s) => ({ key: s.key, label: s.label }));
-
-interface Counted {
-  id: string; // the patient for "persons" rows, the event otherwise
-  at: Date;
-  weight?: number; // hospital days; 1 by default
-}
-
-function row<E extends Counted>(code: string, label: string, breakdown: Breakdown<E>, events: readonly E[], distinct: boolean): ActivityRow {
-  const cells = emptyCells(breakdown.columns);
-  const seen = new Set<string>();
-  let total = 0;
-  for (const e of [...events].sort((a, b) => a.at.getTime() - b.at.getTime())) {
-    if (distinct) {
-      if (seen.has(e.id)) continue;
-      seen.add(e.id);
-    }
-    const weight = e.weight ?? 1;
-    total += weight;
-    const key = breakdown.keyOf(e);
-    if (key && key in cells) cells[key] += weight;
-  }
-  return { code, label, cells, total };
-}
-
 // ── Inputs ──────────────────────────────────────────────────────────────────
-
-// When a pregnancy stops counting as ongoing: delivery, end of a miscarriage /
-// termination, or the expected due date when no end was recorded.
-export interface PregnancyPeriod {
-  lastMenstrualPeriod: Date;
-  endedAt: Date;
-}
 
 export interface AntenatalVisitRow {
   pregnancyId: string;
@@ -231,6 +168,8 @@ export interface Rma3ActivityInput {
   deliveries: DeliveryRow[]; // deliveries of the month
   newborns: NewbornRow[]; // born this month
   deceasedWomen: DeceasedWomanRow[]; // women who died this month, with their pregnancies
+  // Maternal deaths recorded on the pregnancy (Pregnancy.maternalDeathAt), this month.
+  recordedMaternalDeaths?: { patientId: string; at: Date; patient: Person }[];
   stays: StayRow[]; // admitted, hospitalized, discharged or open during the month
   deaths: DeathRow[]; // deaths of the month (deceased stays + deaths outside a stay)
   surgeries: SurgeryRow[]; // completed from PERIOPERATIVE_WINDOW_DAYS before the month
@@ -240,15 +179,11 @@ export interface Rma3ActivityInput {
   bloodPressures: BloodPressureRow[]; // vital signs with a blood pressure, this month
 }
 
-export function isPregnantAt(pregnancies: readonly PregnancyPeriod[], at: Date): boolean {
-  return pregnancies.some((p) => p.lastMenstrualPeriod <= at && at < p.endedAt);
-}
-
 // ── Builder ─────────────────────────────────────────────────────────────────
 
 export function buildActivityTables(input: Rma3ActivityInput): ActivityTable[] {
   const { start, end } = input;
-  const inMonth = (d: Date | null | undefined): d is Date => Boolean(d) && d!.getTime() >= start.getTime() && d!.getTime() < end.getTime();
+  const inMonth = inRange(start, end);
 
   // ── II.1.1 antenatal care ──
   const mother = ageSexBreakdown<{ id: string; at: Date; person: Person }>(RMA3_AGE_SCHEMES.mother, false);
@@ -303,6 +238,7 @@ export function buildActivityTables(input: Rma3ActivityInput): ActivityTable[] {
       .filter((w) => inMonth(w.deceasedAt))
       .filter((w) => w.pregnancies.some((p) => p.lastMenstrualPeriod <= w.deceasedAt && w.deceasedAt.getTime() < p.endedAt.getTime() + MATERNAL_DEATH_WINDOW_DAYS * DAY))
       .map((w) => ({ id: w.patientId, at: w.deceasedAt, person: w.patient })),
+    ...(input.recordedMaternalDeaths ?? []).filter((d) => inMonth(d.at)).map((d) => ({ id: d.patientId, at: d.at, person: d.patient })),
   ];
 
   // At least 48 h in the facility after the delivery (up to the discharge, or `asOf` when the
@@ -323,7 +259,7 @@ export function buildActivityTables(input: Rma3ActivityInput): ActivityTable[] {
       row("II.1.3-001", "Femmes ayant accouché et passé au moins 48 h en FOSA", mother, monthDeliveries.filter(stayed48h).map(deliveryEv), false),
     ],
     note:
-      "Décès maternel = issue maternelle « décédée » à l'accouchement, ou décès d'une femme enceinte ou dans les 42 jours suivant la fin de sa grossesse. " +
+      "Décès maternel = issue maternelle « décédée » à l'accouchement, décès maternel saisi sur la grossesse, ou décès d'une femme enceinte ou dans les 42 jours suivant la fin de sa grossesse. " +
       "48 h en FOSA : du moment de l'accouchement à la sortie du séjour (ou à la date du rapport si elle est encore hospitalisée).",
   };
 

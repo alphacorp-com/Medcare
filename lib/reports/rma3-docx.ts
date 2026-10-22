@@ -35,7 +35,8 @@ function formatPeriodFr(period: string): string {
 const INCLUDED_SECTIONS = [
   "Identification de la formation sanitaire",
   "II.1 - Consultations Prénatales, Accouchements et Naissances",
-  "II.1.1 / II.1.2 / II.1.3 / II.1.4 - CPN par rang, accouchements, complications, césariennes, décès maternels, séjour de 48 h, naissances vivantes et mort-nés (par tranche d'âge de la mère / sexe)",
+  "II.1.1 / II.1.2 / II.1.3 / II.1.4 - CPN par rang, stratégie avancée, doses de Td, hémoglobine ; accouchements, GATPA, complications RMA3, avortements, décès maternels par cause et revus ; consultations post-natales ; nouveau-nés (prématurité, petit poids, kangourou, couveuse, asphyxie, mort-nés frais / macérés, décès néonatals par cause et revus)",
+  "II.1.5 - Planification familiale (visites, conseil, nouvelles acceptantes, références ASC, utilisateurs par méthode, post-partum) ; III.9 - Mise au sein dans l'heure",
   "IV.2.1 - Contacts CPN et TPI par rang ; IV.2.4-5 - Consultations, hospitalisations, décès toutes causes et cas suspects de paludisme (< 5 ans / 5 ans et + / femmes enceintes, par sexe)",
   "IV.3 - Nouveaux cas, rechutes, reprises, échecs, statut VIH, mise sous traitement et suivi au laboratoire (âge × forme)",
   "IV.4.4 - Personnes dépistées pour l'hypertension artérielle",
@@ -58,7 +59,6 @@ const INCLUDED_SECTIONS = [
 ];
 
 const EXCLUDED_SECTIONS = [
-  "II.1.1-020 Femmes en CPN avec taux d'hémoglobine mesuré ; II.3.5-001 Planification familiale post-partum des femmes VIH+",
   "Registre / stock des médicaments antituberculeux",
   "V.6 Banque de sang / transfusion",
   "V.7 Médicaments traceurs non encore classés « traceur » dans l'inventaire (seuls les articles classés sont produits)",
@@ -308,8 +308,9 @@ function activityTable(table: ActivityTable): (Paragraph | Table)[] {
   ];
 }
 
+// The tables of the given sections, in the order of `sections` (a section may have several).
 function activitySections(tables: ActivityTable[], sections: string[]): (Paragraph | Table)[] {
-  return tables.filter((t) => sections.includes(t.section)).flatMap((t) => [sectionHeading(`${t.section} - ${t.title}`), ...activityTable(t)]);
+  return sections.flatMap((section) => tables.filter((t) => t.section === section).flatMap((t) => [sectionHeading(`${t.section} - ${t.title}`), ...activityTable(t)]));
 }
 
 // The RMA3 monthly form: one table per run of indicators sharing a breakdown; "—" = not
@@ -565,7 +566,7 @@ export async function buildRma3Document(
   ];
 
   const landscapeChildren: (Paragraph | Table)[] = [
-    ...activitySections(data.activity, ["II.1.1", "II.1.2", "II.1.4"]),
+    ...activitySections(data.activity, ["II.1.1", "II.1.2", "II.1.3", "II.1.4", "II.1.5", "III.9"]),
     sectionHeading("III.1 - Séances de vaccination"),
     sessionsTable(data.epi.sessions),
     sectionHeading("III.2 - Immunisation des Enfants (PEV)"),

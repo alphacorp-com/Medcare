@@ -7,6 +7,7 @@ import { computeStockReport, type StockReportItemRow } from "@/lib/stock/report-
 import { computeEpiSections, type Rma3EpiSections } from "@/lib/epi/rma3-epi-data";
 import { computeHivReport } from "@/lib/hiv/rma3-hiv-data";
 import { computeActivityTables } from "@/lib/reports/rma3-activity-data";
+import { computeMotherChildTables } from "@/lib/reports/rma3-mother-child-data";
 import type { ActivityTable } from "@/lib/reports/rma3-activity";
 import { loadIdentification, loadManualForm } from "@/lib/rma3-manual/data";
 import { buildManualReport, type Rma3ManualReport } from "@/lib/rma3-manual/report";
@@ -74,8 +75,8 @@ export interface Rma3ReportData {
   stock: StockReportItemRow[];
   // II.3 PMTCT, II.1.1 antenatal syphilis / hepatitis B, IV.1 HIV and hepatitis / STI.
   hiv: Rma3HivReport;
-  // II.1.1, II.1.2-3, II.1.4, IV.2.1, IV.2.4-5, IV.3, IV.4.4, V.1 — the clinical activity with
-  // the form's age / sex breakdown.
+  // II.1.1-II.1.5, III.9, IV.2.1, IV.2.4-5, IV.3, IV.4.4, V.1 — the clinical activity with the
+  // form's age / sex breakdown (rma3-activity.ts, rma3-mother-child.ts).
   activity: ActivityTable[];
   // Community activity, supervisions, environment, income outside billing, expenses: the
   // RMA3 monthly form (lib/rma3-manual).
@@ -249,7 +250,7 @@ export async function computeRma3Report(tenantId: string, period: Dhis2Period): 
   const hivReport = computeHivReport(tenantId, start, end);
   // IV.3-013 needs the ART active file of the HIV report.
   const activityTables = hivReport.then((report) => computeActivityTables(tenantId, start, end, report.tbHivOnArtPatientIds));
-  const [rawMetrics, identification, epiSections, malaria, tuberculosis, bedCount, causes, morbidity, stockReport, hiv, activity, manualForm] = await Promise.all([
+  const [rawMetrics, identification, epiSections, malaria, tuberculosis, bedCount, causes, morbidity, stockReport, hiv, activity, motherChild, manualForm] = await Promise.all([
     computeMonthlyIndicators(tenantId, period),
     computeIdentificationSection(tenantId),
     computeEpiSections(tenantId, start, end),
@@ -261,6 +262,7 @@ export async function computeRma3Report(tenantId: string, period: Dhis2Period): 
     computeStockReport(tenantId, period),
     hivReport,
     activityTables,
+    computeMotherChildTables(tenantId, start, end),
     loadManualForm(tenantId, period),
   ]);
 
@@ -280,7 +282,7 @@ export async function computeRma3Report(tenantId: string, period: Dhis2Period): 
     morbidity,
     stock: (stockReport?.rows ?? []).filter((row) => row.rma3Category !== null),
     hiv,
-    activity,
+    activity: [...activity, ...motherChild],
     manual: buildManualReport(manualForm.values, manualForm.status, manualForm.validatedAt),
   };
 }
