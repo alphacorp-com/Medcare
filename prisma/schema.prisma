@@ -1124,6 +1124,8 @@ model Diagnosis {
   label           String           @db.VarChar(255)
   // New case (first diagnosis of this condition) vs follow-up of a known condition.
   isNewCase       Boolean          @default(true) @map("is_new_case")
+  // Suspected, not confirmed (RMA3 II.2 "cas suspectés"): kept out of the new-case counts.
+  isSuspected     Boolean          @default(false) @map("is_suspected")
   recordedById    String           @map("recorded_by_id") @db.Uuid
   recordedAt      DateTime         @default(now()) @map("recorded_at") @db.Timestamptz
   createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz
@@ -1325,6 +1327,9 @@ model MedicationInventory {
   openVialHours     Int?     @map("open_vial_hours")
   // RMA3 stock category (tracer, EPI input, antimalarial, oxygen, nutrition) — see lib/stock.
   rma3Category      String?  @map("rma3_category") @db.VarChar(30)
+  // RMA3 child treatment this article is (ors / zinc / antibiotic, lib/stock/input): a
+  // diagnosis treated with it in the same stay counts in III.7.
+  rma3Treatment     String?  @map("rma3_treatment") @db.VarChar(20)
   // Set when the article is a vaccine: vaccinations of this antigen consume its lots.
   vaccineAntigenCode String? @map("vaccine_antigen_code") @db.VarChar(40)
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
@@ -1830,6 +1835,9 @@ model MedicalAct {
   defaultPecCoveragePercent Int      @default(0) @map("default_pec_coverage_percent")
   allowsUrgencySurcharge    Boolean  @default(false) @map("allows_urgency_surcharge")
   requiresLabValidation     Boolean  @default(false) @map("requires_lab_validation")
+  // RMA3 act indicator this act counts in (lib/reports/rma3-acts.ts: dental acts, cataract
+  // surgery, cervical cancer screening), null = none.
+  rma3Indicator             String?  @map("rma3_indicator") @db.VarChar(30)
   isActive                  Boolean  @default(true) @map("is_active")
   createdAt                 DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt                 DateTime @updatedAt @map("updated_at") @db.Timestamptz

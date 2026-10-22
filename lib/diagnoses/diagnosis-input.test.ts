@@ -10,14 +10,17 @@ const err = (input: unknown, opts = required) => {
 };
 
 describe("parseDiagnosisInput", () => {
-  it("normalizes codes and defaults isNewCase to true", () => {
-    assert.deepEqual(parseDiagnosisInput([{ code: " b50.9 ", kind: "principal" }, { code: "D50", kind: "secondary", isNewCase: false }], required), {
-      ok: true,
-      value: [
-        { code: "B50.9", kind: "principal", isNewCase: true },
-        { code: "D50", kind: "secondary", isNewCase: false },
-      ],
-    });
+  it("normalizes codes, defaults isNewCase to true and isSuspected to false", () => {
+    assert.deepEqual(
+      parseDiagnosisInput([{ code: " b50.9 ", kind: "principal" }, { code: "D50", kind: "secondary", isNewCase: false, isSuspected: true }], required),
+      {
+        ok: true,
+        value: [
+          { code: "B50.9", kind: "principal", isNewCase: true, isSuspected: false },
+          { code: "D50", kind: "secondary", isNewCase: false, isSuspected: true },
+        ],
+      }
+    );
   });
 
   it("requires a principal diagnosis when asked to", () => {

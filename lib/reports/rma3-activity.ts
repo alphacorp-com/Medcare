@@ -32,7 +32,7 @@ const PERIOPERATIVE_WINDOW_DAYS = 30;
 const PREGNANT_COLUMN = { key: "pregnant", label: "Femmes enceintes" };
 
 // IV.2.4-5: < 5 ans / 5 ans et + by sex, pregnant women in their own column.
-function malariaBreakdown<E extends { person: Person; at: Date; pregnant: boolean }>(): Breakdown<E> {
+export function malariaBreakdown<E extends { person: Person; at: Date; pregnant: boolean }>(): Breakdown<E> {
   const base = ageSexBreakdown<E>(RMA3_AGE_SCHEMES.under5, true);
   return { columns: [...base.columns, PREGNANT_COLUMN], keyOf: (e) => (e.pregnant ? PREGNANT_COLUMN.key : base.keyOf(e)) };
 }

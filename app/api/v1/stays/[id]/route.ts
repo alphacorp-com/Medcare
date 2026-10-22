@@ -96,7 +96,7 @@ export async function GET(
         // Coded diagnoses recorded on this stay (consultation, discharge, cause of death).
         diagnoses: {
           orderBy: { recordedAt: "asc" },
-          select: { id: true, icd10Code: true, label: true, kind: true, context: true, isNewCase: true, recordedAt: true },
+          select: { id: true, icd10Code: true, label: true, kind: true, context: true, isNewCase: true, isSuspected: true, recordedAt: true },
         },
         prescriptions: {
           orderBy: { prescribedAt: "desc" },

@@ -13,6 +13,7 @@ export interface RecordedDiagnosis {
   kind: "principal" | "secondary";
   context: "consultation" | "discharge" | "death";
   isNewCase: boolean;
+  isSuspected?: boolean;
   recordedAt: string;
 }
 
@@ -55,6 +56,9 @@ export function DiagnosisList({ diagnoses, showDate = false }: { diagnoses: Reco
                     >
                       {t(`kind_${d.kind}`)}
                     </span>
+                  )}
+                  {d.isSuspected && (
+                    <span className="shrink-0 rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">{t("suspected")}</span>
                   )}
                   {d.isNewCase && context === "consultation" && (
                     <span className="shrink-0 rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">{t("new_case")}</span>

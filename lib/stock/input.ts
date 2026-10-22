@@ -4,6 +4,10 @@
 
 export const RMA3_STOCK_CATEGORIES = ["tracer", "epi_input", "antimalarial", "oxygen", "nutrition"] as const;
 export type Rma3StockCategory = (typeof RMA3_STOCK_CATEGORIES)[number];
+// RMA3 III.7 child treatments: a diagnosis treated with such an article in the same stay
+// counts as "SRO", "SRO + zinc" or "pneumonia treated with an antibiotic".
+export const RMA3_TREATMENTS = ["ors", "zinc", "antibiotic"] as const;
+export type Rma3Treatment = (typeof RMA3_TREATMENTS)[number];
 
 export const LOSS_TYPES = ["expired", "damaged", "lost"] as const;
 export type LossType = (typeof LOSS_TYPES)[number];
@@ -188,6 +192,7 @@ export interface ItemFields {
   storageLocationId: string | null;
   supplierId: string | null;
   rma3Category: Rma3StockCategory | null;
+  rma3Treatment: Rma3Treatment | null;
   vaccineAntigenCode: string | null;
   dosesPerUnit: number;
   openVialHours: number | null;
@@ -199,6 +204,7 @@ export type ItemFieldError =
   | "invalid_threshold"
   | "invalid_unit_price"
   | "invalid_rma3_category"
+  | "invalid_rma3_treatment"
   | "invalid_doses_per_unit"
   | "open_vial_hours_required"
   | "stock_is_read_only";
@@ -272,6 +278,12 @@ export function parseItemFields(
     if (raw === undefined || raw === null || raw === "") value.rma3Category = null;
     else if (isRma3StockCategory(raw)) value.rma3Category = raw;
     else return { ok: false, error: "invalid_rma3_category" };
+  }
+  if (has("rma3Treatment")) {
+    const raw = body.rma3Treatment;
+    if (raw === undefined || raw === null || raw === "") value.rma3Treatment = null;
+    else if ((RMA3_TREATMENTS as readonly unknown[]).includes(raw)) value.rma3Treatment = raw as Rma3Treatment;
+    else return { ok: false, error: "invalid_rma3_treatment" };
   }
   return { ok: true, value };
 }

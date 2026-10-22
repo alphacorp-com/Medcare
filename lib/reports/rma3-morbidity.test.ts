@@ -26,7 +26,8 @@ describe("default morbidity rubrics", () => {
     for (const r of DEFAULT_MORBIDITY_RUBRICS) assert.ok(parseIcd10Ranges(r.icd10Ranges).ok, `${r.code}: ${r.icd10Ranges}`);
     for (const { section } of RMA3_MORBIDITY_SECTIONS) {
       assert.ok(DEFAULT_MORBIDITY_RUBRICS.some((r) => r.section === section), section);
-      assert.ok(RMA3_NOT_DERIVABLE[section].length > 0, `${section} lists what it cannot produce`);
+      // What the section cannot produce from a diagnosis (empty when fully produced).
+      assert.ok(Array.isArray(RMA3_NOT_DERIVABLE[section]), `${section} lists what it cannot produce`);
     }
   });
 });

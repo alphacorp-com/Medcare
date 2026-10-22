@@ -265,11 +265,16 @@ function causeTable(table: Rma3CauseTable): Table {
 // deaths column where the form has one, then the form rows a diagnosis cannot produce.
 function morbidityTable(table: Rma3MorbidityTable): (Paragraph | Table)[] {
   const hasDeaths = table.rows.some((r) => r.deaths !== null);
+  const deathsByColumn = table.rows.some((r) => r.deathCells);
   const header = new TableRow({
     tableHeader: true,
-    children: ["Rubrique", ...table.columns.map((c) => c.label), "Total nouveaux cas", ...(hasDeaths ? ["Décès"] : [])].map((text) =>
-      cell(text, { bold: true, shaded: true })
-    ),
+    children: [
+      "Rubrique",
+      ...table.columns.map((c) => c.label),
+      "Total nouveaux cas",
+      ...(deathsByColumn ? table.columns.map((c) => `Décès ${c.label}`) : []),
+      ...(hasDeaths ? ["Décès"] : []),
+    ].map((text) => cell(text, { bold: true, shaded: true })),
   });
   const rows = table.rows.map(
     (r) =>
@@ -278,15 +283,16 @@ function morbidityTable(table: Rma3MorbidityTable): (Paragraph | Table)[] {
           cell(r.label),
           ...table.columns.map((c) => cell(String(r.cells[c.key] ?? 0))),
           cell(String(r.total)),
+          ...(deathsByColumn ? table.columns.map((c) => cell(String(r.deathCells?.[c.key] ?? 0))) : []),
           ...(hasDeaths ? [cell(String(r.deaths ?? 0))] : []),
         ],
       })
   );
   return [
     new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [header, ...rows] }),
-    new Paragraph({
-      children: [new TextRun({ italics: true, size: 16, text: `Non produit (à compléter manuellement) : ${table.notDerivable.join(" ; ")}.` })],
-    }),
+    ...(table.notDerivable.length
+      ? [new Paragraph({ children: [new TextRun({ italics: true, size: 16, text: `Non produit par ce tableau : ${table.notDerivable.join(" ; ")}.` })] })]
+      : []),
   ];
 }
 
@@ -566,7 +572,7 @@ export async function buildRma3Document(
   ];
 
   const landscapeChildren: (Paragraph | Table)[] = [
-    ...activitySections(data.activity, ["II.1.1", "II.1.2", "II.1.3", "II.1.4", "II.1.5", "III.9"]),
+    ...activitySections(data.activity, ["II.1.1", "II.1.2", "II.1.3", "II.1.4", "II.1.5", "II.2", "III.7", "III.8", "III.9"]),
     sectionHeading("III.1 - Séances de vaccination"),
     sessionsTable(data.epi.sessions),
     sectionHeading("III.2 - Immunisation des Enfants (PEV)"),
@@ -601,7 +607,7 @@ export async function buildRma3Document(
     tbTable(data.tuberculosis.notifications, "Classification"),
     sectionHeading("IV.3.4 - Résultats du Traitement Antituberculeux"),
     tbTable(data.tuberculosis.outcomes, "Issue du traitement"),
-    ...activitySections(data.activity, ["IV.3", "IV.4.4", "V.1"]),
+    ...activitySections(data.activity, ["IV.3", "IV.4.4", "IV.4.9", "IV.4.10", "IV.4.11", "V.1"]),
     ...data.causes.flatMap((table) => [sectionHeading(`${table.section} - ${RMA3_CAUSE_SECTIONS[table.section]}`), causeTable(table)]),
     new Paragraph({
       spacing: { before: 200 },

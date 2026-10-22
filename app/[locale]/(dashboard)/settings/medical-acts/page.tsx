@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { RMA3_ACT_INDICATORS } from "@/lib/reports/rma3-acts";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,12 +25,13 @@ type MedicalAct = {
   allowsUrgencySurcharge: boolean;
   requiresLabValidation: boolean;
   isActive: boolean;
+  rma3Indicator: string | null;
   category: Category;
 };
 
 const EMPTY_FORM = {
   categoryId: "", code: "", nameFr: "", nameEn: "", basePrice: "", unit: "",
-  defaultPecCoveragePercent: "0", allowsUrgencySurcharge: false, requiresLabValidation: false,
+  defaultPecCoveragePercent: "0", allowsUrgencySurcharge: false, requiresLabValidation: false, rma3Indicator: "",
 };
 
 export default function MedicalActsPage() {
@@ -87,6 +89,7 @@ export default function MedicalActsPage() {
       defaultPecCoveragePercent: String(item.defaultPecCoveragePercent),
       allowsUrgencySurcharge: item.allowsUrgencySurcharge,
       requiresLabValidation: item.requiresLabValidation,
+      rma3Indicator: item.rma3Indicator ?? "",
     });
     setError(null);
     setIsFormOpen(true);
@@ -110,6 +113,7 @@ export default function MedicalActsPage() {
         defaultPecCoveragePercent: Number(form.defaultPecCoveragePercent) || 0,
         allowsUrgencySurcharge: form.allowsUrgencySurcharge,
         requiresLabValidation: form.requiresLabValidation,
+        rma3Indicator: form.rma3Indicator || null,
       };
       const res = editingItem
         ? await fetch(`/api/v1/settings/medical-acts/${editingItem.id}`, {
@@ -303,6 +307,20 @@ export default function MedicalActsPage() {
               <input type="checkbox" checked={form.requiresLabValidation} onChange={(e) => setForm({ ...form, requiresLabValidation: e.target.checked })} className="h-4 w-4 rounded border-slate-300" />
               {t("requires_lab_validation")}
             </label>
+            <div className="space-y-1">
+              <Label>{t("rma3_indicator")}</Label>
+              <select
+                value={form.rma3Indicator}
+                onChange={(e) => setForm({ ...form, rma3Indicator: e.target.value })}
+                className="flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400"
+              >
+                <option value="">{t("rma3_indicator_none")}</option>
+                {RMA3_ACT_INDICATORS.map((i) => (
+                  <option key={i.code} value={i.code}>{i.code} — {i.label}</option>
+                ))}
+              </select>
+              <p className="text-[10px] text-slate-400">{t("rma3_indicator_hint")}</p>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsFormOpen(false)}>{tc("cancel")}</Button>

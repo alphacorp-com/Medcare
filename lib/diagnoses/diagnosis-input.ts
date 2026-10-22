@@ -11,6 +11,8 @@ export interface DiagnosisInput {
   code: string;
   kind: "principal" | "secondary";
   isNewCase: boolean;
+  // Suspected, not confirmed (RMA3 II.2): kept out of the new-case counts.
+  isSuspected: boolean;
 }
 
 export type DiagnosisInputError =
@@ -35,13 +37,13 @@ export function parseDiagnosisInput(input: unknown, { principalRequired }: { pri
   const seen = new Set<string>();
   for (const entry of input) {
     if (typeof entry !== "object" || entry === null) return { ok: false, error: "invalid_entry" };
-    const raw = entry as { code?: unknown; kind?: unknown; isNewCase?: unknown };
+    const raw = entry as { code?: unknown; kind?: unknown; isNewCase?: unknown; isSuspected?: unknown };
     const code = normalizeIcd10Code(raw.code);
     if (!code) return { ok: false, error: "invalid_code" };
     if (raw.kind !== "principal" && raw.kind !== "secondary") return { ok: false, error: "invalid_entry" };
     if (seen.has(code)) return { ok: false, error: "duplicate_code" };
     seen.add(code);
-    value.push({ code, kind: raw.kind, isNewCase: raw.isNewCase === undefined ? true : raw.isNewCase === true });
+    value.push({ code, kind: raw.kind, isNewCase: raw.isNewCase === undefined ? true : raw.isNewCase === true, isSuspected: raw.isSuspected === true });
   }
 
   const principals = value.filter((d) => d.kind === "principal").length;

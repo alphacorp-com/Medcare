@@ -23,11 +23,13 @@ export interface DiagnosisDraft {
   label: string;
   kind: "principal" | "secondary";
   isNewCase: boolean;
+  // Suspected, not confirmed (RMA3: suspected cancers…).
+  isSuspected?: boolean;
 }
 
 // What the API expects (labels are resolved server-side).
 export function toDiagnosisPayload(drafts: DiagnosisDraft[]) {
-  return drafts.map(({ code, kind, isNewCase }) => ({ code, kind, isNewCase }));
+  return drafts.map(({ code, kind, isNewCase, isSuspected }) => ({ code, kind, isNewCase, isSuspected: isSuspected === true }));
 }
 
 const DIAGNOSIS_ERROR_CODES = [
@@ -159,7 +161,19 @@ export function Icd10Search({
   );
 }
 
-function DiagnosisChip({ draft, onRemove, onToggleNew, disabled }: { draft: DiagnosisDraft; onRemove: () => void; onToggleNew: () => void; disabled?: boolean }) {
+function DiagnosisChip({
+  draft,
+  onRemove,
+  onToggleNew,
+  onToggleSuspected,
+  disabled,
+}: {
+  draft: DiagnosisDraft;
+  onRemove: () => void;
+  onToggleNew: () => void;
+  onToggleSuspected: () => void;
+  disabled?: boolean;
+}) {
   const t = useTranslations("diagnoses");
   return (
     <div className="flex items-center gap-3 rounded-md border border-slate-200 bg-white px-3 py-2">
@@ -168,6 +182,10 @@ function DiagnosisChip({ draft, onRemove, onToggleNew, disabled }: { draft: Diag
       <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-xs text-slate-600">
         <input type="checkbox" checked={draft.isNewCase} onChange={onToggleNew} disabled={disabled} className="rounded border-slate-300" />
         {t("new_case")}
+      </label>
+      <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-xs text-slate-600" title={t("suspected_hint")}>
+        <input type="checkbox" checked={draft.isSuspected === true} onChange={onToggleSuspected} disabled={disabled} className="rounded border-slate-300" />
+        {t("suspected")}
       </label>
       {!disabled && (
         <button type="button" onClick={onRemove} aria-label={t("remove")} className="rounded p-0.5 text-slate-400 hover:text-red-600">
@@ -210,7 +228,13 @@ export function DiagnosisEditor({
           {principalLabel ?? t("principal")} {required && <span className="text-red-600">*</span>}
         </p>
         {principal ? (
-          <DiagnosisChip draft={principal} disabled={disabled} onRemove={() => remove(principal.code)} onToggleNew={() => update(principal.code, { isNewCase: !principal.isNewCase })} />
+          <DiagnosisChip
+            draft={principal}
+            disabled={disabled}
+            onRemove={() => remove(principal.code)}
+            onToggleNew={() => update(principal.code, { isNewCase: !principal.isNewCase })}
+            onToggleSuspected={() => update(principal.code, { isSuspected: !principal.isSuspected })}
+          />
         ) : (
           !disabled && <Icd10Search onSelect={(o) => add(o, "principal")} excludeCodes={codes} invalid={required} />
         )}
@@ -221,7 +245,14 @@ export function DiagnosisEditor({
         <div className="space-y-1.5">
           <p className="text-xs font-semibold text-slate-600">{t("secondary")}</p>
           {secondaries.map((d) => (
-            <DiagnosisChip key={d.code} draft={d} disabled={disabled} onRemove={() => remove(d.code)} onToggleNew={() => update(d.code, { isNewCase: !d.isNewCase })} />
+            <DiagnosisChip
+              key={d.code}
+              draft={d}
+              disabled={disabled}
+              onRemove={() => remove(d.code)}
+              onToggleNew={() => update(d.code, { isNewCase: !d.isNewCase })}
+              onToggleSuspected={() => update(d.code, { isSuspected: !d.isSuspected })}
+            />
           ))}
           {!disabled && principal &&
             (addingSecondary ? (

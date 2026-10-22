@@ -33,7 +33,7 @@ const RX_FILTER_STATUS: Record<string, string | undefined> = {
   Validated: "validated",
   Dispensed: "dispensed",
 };
-const EMPTY_MED_FORM: MedForm = { name: '', manufacturer: '', category: '', threshold: 0, unit: '', unitPrice: null, storageLocationId: null, supplierId: null, rma3Category: null, vaccineAntigenCode: null, dosesPerUnit: 1, openVialHours: null };
+const EMPTY_MED_FORM: MedForm = { name: '', manufacturer: '', category: '', threshold: 0, unit: '', unitPrice: null, storageLocationId: null, supplierId: null, rma3Category: null, rma3Treatment: null, vaccineAntigenCode: null, dosesPerUnit: 1, openVialHours: null };
 const rxKeys = {
   all: ["pharmacy", "prescriptions"] as const,
   one: (id: string | null) => ["pharmacy", "prescriptions", "one", id] as const,

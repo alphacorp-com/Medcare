@@ -12,7 +12,7 @@
 
 export type Rma3ValueKind = "count" | "amount" | "days" | "yesNo";
 
-export type Rma3Breakdown = "none" | "plannedHeld" | "mother" | "sex" | "adolescentSex" | "malaria" | "infant" | "iptRank";
+export type Rma3Breakdown = "none" | "plannedHeld" | "mother" | "sex" | "adolescentSex" | "malaria" | "infant" | "iptRank" | "eyeAgeSex";
 
 export interface Rma3ManualIndicator {
   code: string;
@@ -66,6 +66,7 @@ export const BREAKDOWN_COLUMNS: Readonly<Record<Rma3Breakdown, readonly Rma3Brea
     { key: "rank3", label: "TPI3" },
     { key: "rank4plus", label: "TPI4+" },
   ],
+  eyeAgeSex: [...sexes("age0to14", "0-14 ans"), ...sexes("age15to49", "15-49 ans"), ...sexes("age50plus", "50 ans et +")],
 };
 
 const i = (code: string, label: string, breakdown: Rma3Breakdown = "none", kind: Rma3ValueKind = "count"): Rma3ManualIndicator => ({
@@ -188,6 +189,36 @@ export const RMA3_MANUAL_SECTIONS: readonly Rma3ManualSection[] = [
       i("IV.4.5-005", "Personnes dépistées pour le diabète en visite à domicile"),
       i("IV.4.5-006", "Personnes dépistées pour l'HTA en visite à domicile"),
       i("IV.4.5-007", "Personnes dépistées lors des mobilisations"),
+    ],
+  },
+  {
+    code: "IV.4",
+    title: "Violences et pratiques néfastes (sans code CIM-10 dédié)",
+    indicators: [
+      i("IV.4-023", "Mutilations génitales féminines (nouveaux cas)", "sex"),
+      i("IV.4-028", "Harcèlement sexuel (nouveaux cas)", "sex"),
+    ],
+  },
+  {
+    code: "IV.4.11",
+    title: "Affections auditives",
+    indicators: [i("IV.4.11-010", "Cophose (nouveaux cas)", "eyeAgeSex")],
+  },
+  {
+    code: "IV.5",
+    title: "Maladies tropicales négligées : catégories et grades (registres des programmes)",
+    indicators: [
+      i("IV.5-002", "Ulcère de Buruli catégorie 1-2 sans limitation fonctionnelle"),
+      i("IV.5-004", "Ulcère de Buruli catégorie 1-2 avec limitation fonctionnelle"),
+      i("IV.5-006", "Ulcère de Buruli catégorie 3 sans limitation fonctionnelle"),
+      i("IV.5-008", "Ulcère de Buruli catégorie 3 avec limitation fonctionnelle"),
+      i("IV.5-005", "Filariose lymphatique : éléphantiasis (lymphœdème)"),
+      i("IV.5-007", "Filariose lymphatique : hydrocèle"),
+      i("IV.5-009", "Filariose lymphatique : crise aiguë (adénolymphangite)"),
+      i("IV.5-013", "Lèpre paucibacillaire, invalidité de grade < 2"),
+      i("IV.5-015", "Lèpre paucibacillaire, invalidité de grade 2"),
+      i("IV.5-017", "Lèpre multibacillaire, invalidité de grade < 2"),
+      i("IV.5-019", "Lèpre multibacillaire, invalidité de grade 2"),
     ],
   },
   {

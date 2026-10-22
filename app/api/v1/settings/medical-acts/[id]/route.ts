@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { parseRma3ActIndicator } from "@/lib/reports/rma3-acts";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { requireTenantAdmin } from "@/lib/permissions";
@@ -23,11 +24,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const body = await request.json();
     const {
       categoryId, code, nameFr, nameEn, basePrice, unit,
-      defaultPecCoveragePercent, allowsUrgencySurcharge, requiresLabValidation, isActive,
+      defaultPecCoveragePercent, allowsUrgencySurcharge, requiresLabValidation, isActive, rma3Indicator,
     } = body as {
       categoryId?: string; code?: string; nameFr?: string; nameEn?: string;
       basePrice?: number | string; unit?: string;
       defaultPecCoveragePercent?: number; allowsUrgencySurcharge?: boolean; requiresLabValidation?: boolean; isActive?: boolean;
+      rma3Indicator?: unknown;
     };
 
     const data: Record<string, unknown> = {};
@@ -47,6 +49,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (allowsUrgencySurcharge !== undefined) data.allowsUrgencySurcharge = allowsUrgencySurcharge;
     if (requiresLabValidation !== undefined) data.requiresLabValidation = requiresLabValidation;
     if (isActive !== undefined) data.isActive = isActive;
+    if (rma3Indicator !== undefined) {
+      const indicator = parseRma3ActIndicator(rma3Indicator);
+      if (indicator === "invalid") {
+        return NextResponse.json({ error: "invalid_rma3_indicator", code: "invalid_rma3_indicator" }, { status: 400 });
+      }
+      data.rma3Indicator = indicator;
+    }
 
     const updated = await prisma.medicalAct.update({
       where: { id },

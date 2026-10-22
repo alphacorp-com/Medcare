@@ -32,6 +32,7 @@ const STOCK_ERROR_CODES = [
   "invalid_threshold",
   "invalid_unit_price",
   "invalid_rma3_category",
+  "invalid_rma3_treatment",
   "stock_is_read_only",
   "unknown_storage_location",
   "unknown_supplier",

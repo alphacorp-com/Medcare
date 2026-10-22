@@ -14,10 +14,10 @@
 // "suspected" / "taken in charge" statuses, cross-diagnoses such as cirrhosis after
 // hepatitis B) are listed in RMA3_NOT_DERIVABLE instead of being approximated.
 
-export type Rma3MorbiditySection = "II.2" | "III.7" | "IV.4" | "IV.4A" | "IV.4.9" | "IV.4.10" | "IV.4.11" | "IV.5";
+export type Rma3MorbiditySection = "II.2" | "III.7" | "IV.4" | "IV.4A" | "IV.4.1" | "IV.4.4" | "IV.4.9" | "IV.4.10" | "IV.4.11" | "IV.5";
 
 // How a section breaks its counts down (RMA3 form columns). Ages are at the consultation date.
-export type Rma3Breakdown = "none" | "sex" | "under5" | "under5Sex" | "mentalAgeSex" | "eyeAge" | "eyeAgeSex";
+export type Rma3Breakdown = "none" | "sex" | "under5" | "under5Sex" | "diabetesSex" | "hypertensionSex" | "mentalAgeSex" | "eyeAge" | "eyeAgeSex";
 
 export interface Rma3MorbiditySectionConfig {
   section: Rma3MorbiditySection;
@@ -25,6 +25,8 @@ export interface Rma3MorbiditySectionConfig {
   breakdown: Rma3Breakdown;
   // Also count coded causes of death in a "Décès" column (sections whose form has one).
   countDeaths: boolean;
+  // The form breaks the deaths down like the new cases (age at death × sex).
+  deathsByColumn?: boolean;
 }
 
 export const RMA3_MORBIDITY_SECTIONS: readonly Rma3MorbiditySectionConfig[] = [
@@ -32,6 +34,8 @@ export const RMA3_MORBIDITY_SECTIONS: readonly Rma3MorbiditySectionConfig[] = [
   { section: "III.7", title: "PCIMNE (enfants de 0-59 mois)", breakdown: "under5", countDeaths: false },
   { section: "IV.4", title: "Maladies non transmissibles", breakdown: "sex", countDeaths: true },
   { section: "IV.4A", title: "Asthme", breakdown: "under5Sex", countDeaths: true },
+  { section: "IV.4.1", title: "Diabète (type 1 / type 2)", breakdown: "diabetesSex", countDeaths: true, deathsByColumn: true },
+  { section: "IV.4.4", title: "Hypertension artérielle : personnes diagnostiquées", breakdown: "hypertensionSex", countDeaths: false },
   { section: "IV.4.9", title: "Santé mentale", breakdown: "mentalAgeSex", countDeaths: false },
   { section: "IV.4.10", title: "Troubles visuels chroniques", breakdown: "eyeAge", countDeaths: false },
   { section: "IV.4.11", title: "Affections bucco-dentaires et auditives", breakdown: "eyeAgeSex", countDeaths: false },
@@ -74,6 +78,11 @@ const ROWS: Record<Rma3MorbiditySection, Entry[]> = {
     ["Violence du partenaire intime", "Y07"],
   ],
   "IV.4A": [["Asthme (nouveaux cas / décès)", "J45-J46"]],
+  "IV.4.1": [
+    ["Diabète de type 1", "E10"],
+    ["Diabète de type 2", "E11"],
+  ],
+  "IV.4.4": [["Personnes diagnostiquées HTA (nouveaux cas)", "I10-I15"]],
   "IV.4.9": [
     ["Première consultation de santé mentale (tout trouble F00-F99)", "F00-F99"],
     ["Dépression", "F32-F33"],
@@ -99,6 +108,7 @@ const ROWS: Record<Rma3MorbiditySection, Entry[]> = {
     ["Rétinopathie diabétique", "H36"],
     ["Tumeur oculaire / orbitaire", "C69, D31"],
     ["Cécité / malvoyance", "H54"],
+    ["Trachome compliqué (trichiasis)", "H02.0, B94.0"],
   ],
   "IV.4.11": [
     ["Carie dentaire", "K02"],
@@ -127,27 +137,30 @@ const ROWS: Record<Rma3MorbiditySection, Entry[]> = {
     ["Complications de morsures de serpent", "X20"],
     ["Varicelle", "B01"],
     ["Fièvre éruptive", "B09"],
+    // Sub-codes (WHO ICD-10, added to the catalog): the rows above stay as totals.
+    ["Trachome compliqué (trichiasis)", "H02.0, B94.0"],
+    ["Schistosomiase urinaire", "B65.0"],
+    ["Schistosomiase intestinale", "B65.1, B65.2"],
+    ["Leishmaniose cutanée", "B55.1, B55.2"],
+    ["Leishmaniose viscérale", "B55.0"],
+    ["Lèpre paucibacillaire (toutes)", "A30.0, A30.1, A30.2"],
+    ["Lèpre multibacillaire (toutes)", "A30.3, A30.4, A30.5"],
   ],
 };
 
 // Rows of the RMA3 form that a coded diagnosis cannot produce: printed in the report so the
 // reader knows they are not computed (they need the modules listed in the RMA3 dictionary).
 export const RMA3_NOT_DERIVABLE: Record<Rma3MorbiditySection, string[]> = {
-  "II.2": [
-    "Femmes de 30-49 ans dépistées (cancer du col)",
-    "Cas suspectés, pris en charge et référés (sein, col)",
-    "Fistules pris en charge / référées ; cancer de la prostate pris en charge / référé",
-  ],
-  "III.7": ["Enfants ayant reçu SRO / SRO + zinc", "Pneumonies traitées par antibiotique", "Enfants pris en charge selon l'approche PCIMNE"],
-  "IV.4": [
-    "Cirrhose et cancer du foie post-hépatite B, B-Delta et C (croisement de diagnostics)",
-    "Mutilations génitales féminines, harcèlement sexuel (pas de catégorie CIM-10 dédiée)",
-  ],
+  "II.2": ["Dépistage du col, cas suspectés, pris en charge et référés : tableau « Cancers : suspicion, prise en charge, référence » (diagnostics suspectés, séjours transférés, actes)"],
+  "III.7": ["SRO, SRO + zinc, antibiotique : tableau « PCIMNE : traitements » ; enfants pris en charge selon l'approche PCIMNE (module PCIMNE à venir)"],
+  "IV.4": ["Mutilations génitales féminines, harcèlement sexuel : formulaire mensuel RMA3 (pas de catégorie CIM-10 dédiée)"],
   "IV.4A": ["Désagrégation des décès par âge et sexe (le total des décès est produit)"],
-  "IV.4.9": ["Cas référés"],
-  "IV.4.10": ["Cataracte opérée", "Trachome compliqué (trichiasis)"],
-  "IV.4.11": ["Cophose (non distinguable de la surdité au niveau catégorie)", "Actes : extraction, soins conservateurs, pulpectomie, détartrage, dévitalisation"],
-  "IV.5": ["Catégories de l'ulcère de Buruli et grades de la lèpre", "Formes de la filariose et de la schistosomiase (sous-codes CIM-10 non importés)"],
+  "IV.4.1": [],
+  "IV.4.4": [],
+  "IV.4.9": ["Cas référés : tableau « Santé mentale : cas référés »"],
+  "IV.4.10": ["Cataracte opérée : tableau des actes (acte rattaché à l'indicateur dans Paramètres > Actes médicaux)"],
+  "IV.4.11": ["Cophose : formulaire mensuel RMA3", "Actes dentaires : tableau des actes (Paramètres > Actes médicaux)"],
+  "IV.5": ["Catégories de l'ulcère de Buruli, grades de la lèpre, formes de la filariose : formulaire mensuel RMA3"],
 };
 
 export interface DefaultMorbidityRubric {

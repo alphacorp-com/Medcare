@@ -50,6 +50,7 @@ export function diagnosisRows(
     icd10Code: d.code,
     label: d.label,
     isNewCase: d.isNewCase,
+    isSuspected: d.isSuspected,
     recordedById: base.recordedById,
     ...(base.recordedAt ? { recordedAt: base.recordedAt } : {}),
   }));

@@ -928,6 +928,26 @@ const ICD10_CODES: { code: string; labelFr: string; chapter: string }[] = [
   { code: 'Z76', labelFr: "Personnes en contact avec les services de santé dans d'autres circonstances", chapter: "Facteurs influant sur l'état de santé et motifs de recours aux services de santé" },
   { code: 'Z86', labelFr: 'Antécédents personnels de certaines autres maladies', chapter: "Facteurs influant sur l'état de santé et motifs de recours aux services de santé" },
   { code: 'Z87', labelFr: "Antécédents personnels d'autres affections", chapter: "Facteurs influant sur l'état de santé et motifs de recours aux services de santé" },
+  // Sub-codes (and two categories) the RMA3 needs: leprosy PB / MB, leishmaniasis and
+  // schistosomiasis forms, trachoma sequelae / trichiasis, Buruli ulcer.
+  { code: 'A30.0', labelFr: 'Lèpre indéterminée', chapter: 'Maladies infectieuses et parasitaires' },
+  { code: 'A30.1', labelFr: 'Lèpre tuberculoïde', chapter: 'Maladies infectieuses et parasitaires' },
+  { code: 'A30.2', labelFr: 'Lèpre tuberculoïde borderline', chapter: 'Maladies infectieuses et parasitaires' },
+  { code: 'A30.3', labelFr: 'Lèpre borderline', chapter: 'Maladies infectieuses et parasitaires' },
+  { code: 'A30.4', labelFr: 'Lèpre lépromateuse borderline', chapter: 'Maladies infectieuses et parasitaires' },
+  { code: 'A30.5', labelFr: 'Lèpre lépromateuse', chapter: 'Maladies infectieuses et parasitaires' },
+  { code: 'A31', labelFr: "Infections dues à d'autres mycobactéries", chapter: 'Maladies infectieuses et parasitaires' },
+  { code: 'A31.1', labelFr: 'Infection cutanée à mycobactéries (ulcère de Buruli)', chapter: 'Maladies infectieuses et parasitaires' },
+  { code: 'B55.0', labelFr: 'Leishmaniose viscérale', chapter: 'Maladies infectieuses et parasitaires' },
+  { code: 'B55.1', labelFr: 'Leishmaniose cutanée', chapter: 'Maladies infectieuses et parasitaires' },
+  { code: 'B55.2', labelFr: 'Leishmaniose cutanéo-muqueuse', chapter: 'Maladies infectieuses et parasitaires' },
+  { code: 'B65.0', labelFr: 'Schistosomiase à Schistosoma haematobium (bilharziose urinaire)', chapter: 'Maladies infectieuses et parasitaires' },
+  { code: 'B65.1', labelFr: 'Schistosomiase à Schistosoma mansoni (bilharziose intestinale)', chapter: 'Maladies infectieuses et parasitaires' },
+  { code: 'B65.2', labelFr: 'Schistosomiase à Schistosoma japonicum', chapter: 'Maladies infectieuses et parasitaires' },
+  { code: 'B94', labelFr: "Séquelles d'autres maladies infectieuses et parasitaires", chapter: 'Maladies infectieuses et parasitaires' },
+  { code: 'B94.0', labelFr: 'Séquelles de trachome', chapter: 'Maladies infectieuses et parasitaires' },
+  { code: 'H02', labelFr: 'Autres affections des paupières', chapter: "Maladies de l'œil et de ses annexes" },
+  { code: 'H02.0', labelFr: 'Entropion et trichiasis de la paupière', chapter: "Maladies de l'œil et de ses annexes" },
   { code: 'Z88', labelFr: "Antécédents personnels d'allergie à des médicaments", chapter: "Facteurs influant sur l'état de santé et motifs de recours aux services de santé" },
 ];
 
