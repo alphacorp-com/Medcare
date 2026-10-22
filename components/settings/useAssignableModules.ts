@@ -18,8 +18,9 @@ export const ASSIGNABLE_MODULE_IDS = [
   "MODULE_PLANNING",
   "MODULE_MATERNITY",
   "MODULE_DISEASE_PROGRAMS",
-  // Sub-module of MODULE_DISEASE_PROGRAMS (lib/sub-modules.ts): not in MODULE_CATALOG.
+  // Sub-modules (lib/sub-modules.ts): not in MODULE_CATALOG.
   "MODULE_HIV",
+  "MODULE_RMA3",
 ] as const;
 
 export function useAssignableModules(): Array<{ id: string; name: string }> {
@@ -34,6 +35,7 @@ export function useAssignableModules(): Array<{ id: string; name: string }> {
   const tplan = useTranslations("planning");
   const tmat = useTranslations("maternity");
   const tdp = useTranslations("diseasePrograms");
+  const trma3 = useTranslations("rma3Entry");
 
   const names: Record<(typeof ASSIGNABLE_MODULE_IDS)[number], string> = {
     MODULE_CORE_PATIENT: tp("module_title"),
@@ -48,6 +50,7 @@ export function useAssignableModules(): Array<{ id: string; name: string }> {
     MODULE_MATERNITY: tmat("title"),
     MODULE_DISEASE_PROGRAMS: tdp("module_title"),
     MODULE_HIV: tdp("hiv.module_title"),
+    MODULE_RMA3: trma3("module_title"),
   };
 
   return ASSIGNABLE_MODULE_IDS.map((id) => ({ id, name: names[id] }));

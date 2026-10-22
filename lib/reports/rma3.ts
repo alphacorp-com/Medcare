@@ -8,6 +8,9 @@ import { computeEpiSections, type Rma3EpiSections } from "@/lib/epi/rma3-epi-dat
 import { computeHivReport } from "@/lib/hiv/rma3-hiv-data";
 import { computeActivityTables } from "@/lib/reports/rma3-activity-data";
 import type { ActivityTable } from "@/lib/reports/rma3-activity";
+import { loadIdentification, loadManualForm } from "@/lib/rma3-manual/data";
+import { buildManualReport, type Rma3ManualReport } from "@/lib/rma3-manual/report";
+import type { Rma3IdentificationSettings } from "@/lib/rma3-manual/input";
 import type { Rma3HivReport } from "@/lib/hiv/rma3-hiv";
 import type { Rma3VaccinationRow } from "@/lib/epi/rma3-epi";
 import { RMA3_AGE_SCHEMES, ageBand, bandOrPregnant, rma3Sex } from "@/lib/reports/age-bands";
@@ -16,15 +19,12 @@ export type { Rma3CauseRow, Rma3CauseTable } from "@/lib/reports/rma3-rubrics";
 export type { Rma3MorbidityRow, Rma3MorbidityTable } from "@/lib/reports/rma3-morbidity";
 export type { ActivityTable, ActivityRow } from "@/lib/reports/rma3-activity";
 
-export interface Rma3Identification {
+// Facility contact details, plus the MINSANTE identification entered on the RMA3 form page.
+export interface Rma3Identification extends Rma3IdentificationSettings {
   facilityName: string;
   address: string | null;
   phone: string | null;
   email: string | null;
-  region: null;
-  department: null;
-  district: null;
-  healthArea: null;
 }
 
 export interface Rma3KeyValueRow {
@@ -77,6 +77,9 @@ export interface Rma3ReportData {
   // II.1.1, II.1.2-3, II.1.4, IV.2.1, IV.2.4-5, IV.3, IV.4.4, V.1 — the clinical activity with
   // the form's age / sex breakdown.
   activity: ActivityTable[];
+  // Community activity, supervisions, environment, income outside billing, expenses: the
+  // RMA3 monthly form (lib/rma3-manual).
+  manual: Rma3ManualReport;
 }
 
 function pickMetrics(values: Dhis2MetricValue[]): Record<Dhis2MetricKey, number> {
@@ -88,19 +91,19 @@ function pickMetrics(values: Dhis2MetricValue[]): Record<Dhis2MetricKey, number>
 }
 
 async function computeIdentificationSection(tenantId: string): Promise<Rma3Identification> {
-  const tenant = await prisma.tenant.findUnique({
-    where: { id: tenantId },
-    select: { name: true, address: true, contactPhone: true, contactEmail: true },
-  });
+  const [tenant, minsante] = await Promise.all([
+    prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { name: true, address: true, contactPhone: true, contactEmail: true },
+    }),
+    loadIdentification(tenantId),
+  ]);
   return {
+    ...minsante,
     facilityName: tenant?.name ?? "",
     address: tenant?.address ?? null,
     phone: tenant?.contactPhone ?? null,
     email: tenant?.contactEmail ?? null,
-    region: null,
-    department: null,
-    district: null,
-    healthArea: null,
   };
 }
 
@@ -246,7 +249,7 @@ export async function computeRma3Report(tenantId: string, period: Dhis2Period): 
   const hivReport = computeHivReport(tenantId, start, end);
   // IV.3-013 needs the ART active file of the HIV report.
   const activityTables = hivReport.then((report) => computeActivityTables(tenantId, start, end, report.tbHivOnArtPatientIds));
-  const [rawMetrics, identification, epiSections, malaria, tuberculosis, bedCount, causes, morbidity, stockReport, hiv, activity] = await Promise.all([
+  const [rawMetrics, identification, epiSections, malaria, tuberculosis, bedCount, causes, morbidity, stockReport, hiv, activity, manualForm] = await Promise.all([
     computeMonthlyIndicators(tenantId, period),
     computeIdentificationSection(tenantId),
     computeEpiSections(tenantId, start, end),
@@ -258,6 +261,7 @@ export async function computeRma3Report(tenantId: string, period: Dhis2Period): 
     computeStockReport(tenantId, period),
     hivReport,
     activityTables,
+    loadManualForm(tenantId, period),
   ]);
 
   const metrics = pickMetrics(rawMetrics);
@@ -277,5 +281,6 @@ export async function computeRma3Report(tenantId: string, period: Dhis2Period): 
     stock: (stockReport?.rows ?? []).filter((row) => row.rma3Category !== null),
     hiv,
     activity,
+    manual: buildManualReport(manualForm.values, manualForm.status, manualForm.validatedAt),
   };
 }

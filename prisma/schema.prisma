@@ -2598,3 +2598,52 @@ model TbFollowUp {
   @@map("tb_follow_ups")
   @@schema("tenant_template")
 }
+
+// ── RMA3 monthly form (data no transaction records) ──────────────────────────
+// One row per facility and month: the form is a draft until validated, then locked (a
+// tenant admin can reopen it, with a reason kept in the audit log).
+enum Rma3PeriodStatus {
+  draft
+  validated
+
+  @@schema("tenant_template")
+}
+
+model Rma3ManualPeriod {
+  id            String           @id @default(uuid()) @db.Uuid
+  tenantId      String           @map("tenant_id") @db.Uuid
+  // RMA3 / DHIS2 period "YYYYMM".
+  period        String           @db.Char(6)
+  status        Rma3PeriodStatus @default(draft)
+  validatedById String?          @map("validated_by_id") @db.Uuid
+  validatedAt   DateTime?        @map("validated_at") @db.Timestamptz
+  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+
+  values Rma3ManualValue[]
+
+  @@unique([tenantId, period])
+  @@map("rma3_manual_periods")
+  @@schema("tenant_template")
+}
+
+// One cell of the form: indicator code (lib/rma3-manual/catalog.ts) × breakdown cell ("" when
+// the indicator has none). No row = not entered, which the report tells apart from 0.
+model Rma3ManualValue {
+  id            String   @id @default(uuid()) @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  periodId      String   @map("period_id") @db.Uuid
+  indicatorCode String   @map("indicator_code") @db.VarChar(30)
+  breakdownKey  String   @default("") @map("breakdown_key") @db.VarChar(40)
+  // Counts, days, yes (1) / no (0), or FCFA amounts.
+  value         Decimal  @db.Decimal(15, 0)
+  updatedById   String   @map("updated_by_id") @db.Uuid
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  period Rma3ManualPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+
+  @@unique([periodId, indicatorCode, breakdownKey])
+  @@index([tenantId])
+  @@map("rma3_manual_values")
+  @@schema("tenant_template")
+}

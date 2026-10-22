@@ -19,6 +19,7 @@ import type { Rma3StockCategory } from "@/lib/stock/input";
 import type { StockReportItemRow } from "@/lib/stock/report-data";
 import { schemeColumns, type IndicatorRow } from "@/lib/hiv/rma3-hiv";
 import { PROVISIONAL_AGE_SCHEMES, RMA3_AGE_SCHEMES } from "@/lib/reports/age-bands";
+import { formatManualValue, type Rma3ManualReport } from "@/lib/rma3-manual/report";
 
 const FRENCH_MONTHS = [
   "janvier", "février", "mars", "avril", "mai", "juin",
@@ -52,19 +53,20 @@ const INCLUDED_SECTIONS = [
   "II.1.1 - Dépistage de la syphilis et de l'hépatite B en CPN",
   "IV.1.1 / IV.1.2 / IV.1.4 - Dépistage VIH, suivi des PVVIH sous ARV, file active par protocole",
   "IV.1.3 - Hépatites virales et IST",
+  "Formulaire mensuel saisi : accouchements et naissances en communauté, communication et recherche des perdus de vue (III.1), boîtes de sécurité (III.4), supplémentation scolaire (III.8), TPI / TPIn et activité des ASC en communauté (IV.2), communication diabète / HTA (IV.4.5), participation communautaire (V.10), environnement, supervisions, recettes hors facturation, dépenses, fonctionnalité et patrimoine (VI.1-VI.4, VI.6)",
   "V.7, III.5, IV.2.7, V.9, IV.6 - Gestion des stocks des articles classés dans une catégorie RMA3 (stock début/fin, entrées, consommation, pertes, CMM, jours de rupture ; doses et pertes PEV)",
 ];
 
 const EXCLUDED_SECTIONS = [
-  "III.1 Activités de communication (causeries, sensibilisation, visites à domicile, recherche des perdus de vue)",
-  "III.4 Boîtes de sécurité utilisées / détruites",
   "II.1.1-020 Femmes en CPN avec taux d'hémoglobine mesuré ; II.3.5-001 Planification familiale post-partum des femmes VIH+",
   "Registre / stock des médicaments antituberculeux",
   "V.6 Banque de sang / transfusion",
   "V.7 Médicaments traceurs non encore classés « traceur » dans l'inventaire (seuls les articles classés sont produits)",
   "V.8 Pharmacovigilance",
   "V.9 Oxygène : équipements et cas d'hypoxémie (le stock d'oxygène est inclus)",
-  "VI.2-VI.6 Gouvernance, finances, ressources humaines, patrimoine",
+  "VI.3 Recettes issues de la facturation des patients (billet de cession, hospitalisation, examens, chirurgie, pharmacie…) et sous-totaux des recettes",
+  "VI.5 Ressources humaines",
+  "IV.2.4-5 Paludisme traité gratuitement (prise en charge exonérée)",
 ];
 
 function cell(text: string, opts?: { bold?: boolean; shaded?: boolean }): TableCell {
@@ -100,6 +102,14 @@ function sectionHeading(text: string): Paragraph {
   return new Paragraph({ heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 }, children: [new TextRun({ text })] });
 }
 
+const OWNERSHIP_LABELS: Record<NonNullable<Rma3ReportData["identification"]["ownership"]>, string> = {
+  public: "Public",
+  private: "Privé",
+  faith_based: "Confessionnel",
+  community: "Communautaire",
+  other: "Autre",
+};
+
 function identificationTable(data: Rma3ReportData["identification"]): Table {
   const rows: [string, string | null][] = [
     ["Nom de la formation sanitaire", data.facilityName],
@@ -108,8 +118,15 @@ function identificationTable(data: Rma3ReportData["identification"]): Table {
     ["Email", data.email],
     ["Région", data.region],
     ["Département", data.department],
+    ["Arrondissement", data.arrondissement],
     ["District de santé", data.district],
     ["Aire de santé", data.healthArea],
+    ["Villages / quartiers desservis", data.villagesServed === null ? null : String(data.villagesServed)],
+    ["dont en stratégie avancée (> 5 km)", data.villagesOutreach === null ? null : String(data.villagesOutreach)],
+    ["Statut", data.ownership ? OWNERSHIP_LABELS[data.ownership] : null],
+    ["Responsable de la formation sanitaire", data.facilityManagerName],
+    ["Gestionnaire des données", data.dataManagerName],
+    ["Téléphone du gestionnaire des données", data.dataManagerPhone],
   ];
   return new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },
@@ -293,6 +310,40 @@ function activityTable(table: ActivityTable): (Paragraph | Table)[] {
 
 function activitySections(tables: ActivityTable[], sections: string[]): (Paragraph | Table)[] {
   return tables.filter((t) => sections.includes(t.section)).flatMap((t) => [sectionHeading(`${t.section} - ${t.title}`), ...activityTable(t)]);
+}
+
+// The RMA3 monthly form: one table per run of indicators sharing a breakdown; "—" = not
+// entered (never printed as 0).
+function manualSections(manual: Rma3ManualReport): (Paragraph | Table)[] {
+  const statusText =
+    manual.status === "validated"
+      ? `Formulaire mensuel validé le ${manual.validatedAt?.toLocaleDateString("fr-FR") ?? "—"} (${manual.filledCells} / ${manual.totalCells} cases saisies).`
+      : `ATTENTION : formulaire mensuel NON VALIDÉ (brouillon, ${manual.filledCells} / ${manual.totalCells} cases saisies). « — » = non saisi.`;
+  return [
+    sectionHeading("Formulaire mensuel (données saisies)"),
+    new Paragraph({ children: [new TextRun({ bold: manual.status !== "validated", italics: true, text: statusText })] }),
+    ...manual.sections.flatMap((section) => [
+      sectionHeading(`${section.code.replace(/-[RD]$/, "")} - ${section.title}`),
+      ...section.tables.map((table) => {
+        const single = table.columns.length === 1;
+        const header = new TableRow({
+          tableHeader: true,
+          children: ["Indicateur", ...(single ? ["Valeur"] : [...table.columns.map((c) => c.label), "Total"])].map((t) => cell(t, { bold: true, shaded: true })),
+        });
+        const body = table.rows.map(
+          (r) =>
+            new TableRow({
+              children: [
+                cell(`${r.code} ${r.label}`),
+                ...table.columns.map((c) => cell(formatManualValue(r.cells[c.key], r.kind))),
+                ...(single ? [] : [cell(formatManualValue(r.total, r.kind))]),
+              ],
+            })
+        );
+        return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [header, ...body] });
+      }),
+    ]),
+  ];
 }
 
 const STOCK_SECTIONS: { category: Rma3StockCategory; heading: string }[] = [
@@ -583,6 +634,7 @@ export async function buildRma3Document(
           }),
         ]
       : []),
+    ...manualSections(data.manual),
     sectionHeading("Portée de ce document généré automatiquement"),
     new Paragraph({ children: [new TextRun({ bold: true, text: "Sections incluses (données réelles calculées) :" })] }),
     ...INCLUDED_SECTIONS.map((s) => new Paragraph({ bullet: { level: 0 }, children: [new TextRun({ text: s })] })),

@@ -7,6 +7,17 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+// What a facility administrator holds: the licensed modules, plus their sub-modules (e.g.
+// MODULE_HIV, MODULE_RMA3) with the parent's actions. The server lets admins through anyway
+// (hasModulePermission); this only lets the menus show those pages to them.
+export function withSubModules(tenantModules: ModulePermission[]): ModulePermission[] {
+  const byId = new Map(tenantModules.map((m) => [m.moduleId, m.actions]));
+  const subModules = Object.entries(SUB_MODULE_PARENT)
+    .filter(([subModule, parent]) => byId.has(parent) && !byId.has(subModule))
+    .map(([subModule, parent]) => ({ moduleId: subModule, actions: byId.get(parent)! }));
+  return [...tenantModules, ...subModules];
+}
+
 /**
  * Merges tenant-level module permissions with user-specific permissions.
  * User permissions take precedence and are intersected with tenant permissions.
