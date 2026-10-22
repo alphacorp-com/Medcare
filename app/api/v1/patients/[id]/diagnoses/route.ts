@@ -36,7 +36,7 @@ export async function GET(
       where: { patientId: id, tenantId },
       orderBy: { recordedAt: "desc" },
       take: MAX_DIAGNOSES,
-      select: { id: true, icd10Code: true, label: true, kind: true, context: true, isNewCase: true, recordedAt: true, stayId: true },
+      select: { id: true, icd10Code: true, label: true, kind: true, context: true, isNewCase: true, isSuspected: true, recordedAt: true, stayId: true },
     });
 
     return NextResponse.json({ data: diagnoses, total: diagnoses.length, success: true });

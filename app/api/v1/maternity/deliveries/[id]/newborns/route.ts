@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { requireModulePermission } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
 import type { Gender } from "@prisma/client";
+import { parseNewbornExtras } from "@/lib/maternity/input";
 
 const toNumber = (v: unknown): number | null => {
   if (v === undefined || v === null || v === "") return null;
@@ -13,7 +14,9 @@ const toNumber = (v: unknown): number | null => {
 
 // POST /api/v1/maternity/deliveries/[id]/newborns
 // Body: { firstName?, sex, birthWeightGrams?, apgarScore1Min?, apgarScore5Min?,
-//         vitaminKGiven?, resuscitationNeeded?, outcome?, notes? }
+//         vitaminKGiven?, resuscitationNeeded?, outcome? (alive|stillbirth|neonatal_death), notes?,
+//         stillbirthType? (fresh|macerated, required for a stillbirth), bagMaskVentilation?,
+//         diedAt? + deathCause? (required date for a neonatal death, within 28 days) }
 // Creates a real Patient record for the newborn (with an auto-generated IPP) in the
 // same transaction as the birth record, so paediatric follow-up is possible later.
 export async function POST(req: Request, context: { params: Promise<{ id: string }> }) {
@@ -36,7 +39,7 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
     if (!delivery) return NextResponse.json({ error: "Delivery not found" }, { status: 404 });
 
     const body = await req.json();
-    const { firstName, sex, birthWeightGrams, apgarScore1Min, apgarScore5Min, vitaminKGiven, resuscitationNeeded, outcome, notes } = body as {
+    const { firstName, sex, birthWeightGrams, apgarScore1Min, apgarScore5Min, vitaminKGiven, resuscitationNeeded, notes } = body as {
       firstName?: string;
       sex?: Gender;
       birthWeightGrams?: number;
@@ -44,16 +47,17 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
       apgarScore5Min?: number;
       vitaminKGiven?: boolean;
       resuscitationNeeded?: boolean;
-      outcome?: string;
       notes?: string;
     };
 
-    if (!sex) {
+    if (sex !== "M" && sex !== "F" && sex !== "U") {
       return NextResponse.json({ error: "sex is required" }, { status: 400 });
     }
 
     const mother = delivery.pregnancy.patient;
     const birthDate = delivery.deliveryDate ?? new Date();
+    const extras = parseNewbornExtras(body, birthDate);
+    if (!extras.ok) return NextResponse.json({ error: extras.error, code: extras.error }, { status: 400 });
 
     const patientCount = await prisma.patient.count({ where: { tenantId: session.user.tenantId } });
     const ipp = `10${String(patientCount + 1).padStart(7, "0")}`;
@@ -68,7 +72,11 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
         apgarScore5Min: toNumber(apgarScore5Min),
         vitaminKGiven: Boolean(vitaminKGiven),
         resuscitationNeeded: Boolean(resuscitationNeeded),
-        outcome: outcome || "alive",
+        outcome: extras.value.outcome,
+        stillbirthType: extras.value.stillbirthType,
+        bagMaskVentilation: extras.value.bagMaskVentilation,
+        diedAt: extras.value.diedAt,
+        deathCause: extras.value.deathCause,
         notes: notes || null,
         patient: {
           create: {

@@ -7,7 +7,10 @@ import { format } from "date-fns";
 import { Link } from "@/i18n/routing";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { AntenatalVisitsTab } from "./_components/AntenatalVisitsTab";
+import { PostnatalTab } from "./_components/PostnatalTab";
+import { PregnancyOutcomeDialog } from "./_components/PregnancyOutcomeDialog";
 import { DeliveryTab } from "./_components/DeliveryTab";
 import { NewbornsTab } from "./_components/NewbornsTab";
 import { gestationalAgeFromLmp, PregnancyDetail } from "../types";
@@ -20,6 +23,7 @@ export default function PregnancyDetailPage() {
   const [pregnancy, setPregnancy] = useState<PregnancyDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isOutcomeOpen, setIsOutcomeOpen] = useState(false);
 
   const fetchPregnancy = async () => {
     try {
@@ -71,6 +75,11 @@ export default function PregnancyDetailPage() {
               <span className="px-2.5 py-0.5 text-[10px] rounded-full uppercase font-bold tracking-wider bg-pink-100 text-pink-700 ring-1 ring-pink-200">
                 {t(pregnancy.status)}
               </span>
+              {pregnancy.maternalDeathAt && (
+                <span className="px-2.5 py-0.5 text-[10px] rounded-full uppercase font-bold tracking-wider bg-red-100 text-red-700 ring-1 ring-red-200">
+                  {t("maternal_death")}
+                </span>
+              )}
             </div>
             <div className="text-xs text-slate-500 mt-1 flex items-center gap-x-3 gap-y-1 flex-wrap">
               <span className="font-mono">IPP: {pregnancy.patient.ipp}</span>
@@ -83,7 +92,11 @@ export default function PregnancyDetailPage() {
             </div>
           </div>
         </div>
+        <Button size="sm" variant="outline" className="h-8 text-xs shrink-0" onClick={() => setIsOutcomeOpen(true)}>
+          {t("pregnancy_outcome")}
+        </Button>
       </div>
+      {isOutcomeOpen && <PregnancyOutcomeDialog pregnancy={pregnancy} onOpenChange={setIsOutcomeOpen} onSaved={fetchPregnancy} />}
 
       <Tabs defaultValue="visits" className="flex-1 flex flex-col overflow-hidden">
         <TabsList className="bg-white border border-slate-200 shadow-sm h-auto p-1 w-full md:w-fit justify-start overflow-x-auto shrink-0">
@@ -96,6 +109,9 @@ export default function PregnancyDetailPage() {
           <TabsTrigger value="newborns" className="shrink-0 text-xs data-[state=active]:bg-pink-50 data-[state=active]:text-pink-700">
             {t("newborns")}
           </TabsTrigger>
+          <TabsTrigger value="postnatal" className="shrink-0 text-xs data-[state=active]:bg-pink-50 data-[state=active]:text-pink-700">
+            {t("postnatal_visits")}
+          </TabsTrigger>
         </TabsList>
 
         <div className="flex-1 overflow-y-auto mt-4">
@@ -107,6 +123,9 @@ export default function PregnancyDetailPage() {
           </TabsContent>
           <TabsContent value="newborns" className="m-0">
             <NewbornsTab pregnancy={pregnancy} onUpdated={fetchPregnancy} />
+          </TabsContent>
+          <TabsContent value="postnatal" className="m-0">
+            <PostnatalTab pregnancy={pregnancy} onUpdated={fetchPregnancy} />
           </TabsContent>
         </div>
       </Tabs>

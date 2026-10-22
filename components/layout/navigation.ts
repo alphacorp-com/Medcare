@@ -58,7 +58,17 @@ export const NAV_ITEMS: NavItem[] = [
       { name: "discharges", href: "/discharges" },
     ],
   },
-  { name: "maternity", href: "/maternity", icon: HeartPulse, module: "MODULE_MATERNITY", group: "clinical" },
+  {
+    name: "maternity",
+    href: "/maternity",
+    icon: HeartPulse,
+    module: "MODULE_MATERNITY",
+    group: "clinical",
+    children: [
+      { name: "nav_pregnancies", href: "/maternity?tab=pregnancies" },
+      { name: "nav_family_planning", href: "/maternity?tab=family-planning" },
+    ],
+  },
   {
     name: "disease_programs",
     href: "/disease-programs",

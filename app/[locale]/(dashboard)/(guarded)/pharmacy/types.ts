@@ -1,4 +1,4 @@
-import type { Rma3StockCategory } from "@/lib/stock/input";
+import type { Rma3StockCategory, Rma3Treatment } from "@/lib/stock/input";
 
 export type PrescriptionRow = {
   id: string;
@@ -45,6 +45,7 @@ export type InventoryRow = {
   storageLocationId: string | null;
   supplierId: string | null;
   rma3Category: Rma3StockCategory | null;
+  rma3Treatment: Rma3Treatment | null;
   vaccineAntigenCode: string | null;
   dosesPerUnit: number;
   openVialHours: number | null;
@@ -68,6 +69,7 @@ export type MedForm = {
   storageLocationId: string | null;
   supplierId: string | null;
   rma3Category: Rma3StockCategory | null;
+  rma3Treatment: Rma3Treatment | null;
   vaccineAntigenCode: string | null;
   dosesPerUnit: number;
   openVialHours: number | null;

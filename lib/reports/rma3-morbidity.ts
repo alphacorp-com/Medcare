@@ -25,6 +25,8 @@ export interface Rma3MorbidityRow {
   // Every new case of the row, including those outside the columns (sex not recorded).
   total: number;
   deaths: number | null;
+  // Deaths in the same columns (sections with deathsByColumn).
+  deathCells?: Record<string, number>;
 }
 
 export interface Rma3MorbidityTable {
@@ -39,6 +41,8 @@ export interface MorbidityDiagnosis {
   context: DiagnosisContext;
   icd10Code: string;
   isNewCase: boolean;
+  // A suspected diagnosis is not a new case (it may be confirmed or ruled out later).
+  isSuspected?: boolean;
   recordedAt: Date;
   patient: { birthDate: Date; gender: Gender };
 }
@@ -49,6 +53,8 @@ const BREAKDOWNS: Record<Rma3Breakdown, Disaggregation> = {
   sex: { bands: null, bySex: true },
   under5: { bands: RMA3_AGE_SCHEMES.child0to59m, bySex: false }, // older children are not counted at all
   under5Sex: { bands: RMA3_AGE_SCHEMES.under5, bySex: true },
+  diabetesSex: { bands: RMA3_AGE_SCHEMES.diabetes, bySex: true },
+  hypertensionSex: { bands: RMA3_AGE_SCHEMES.hypertension, bySex: true },
   mentalAgeSex: { bands: RMA3_AGE_SCHEMES.mentalHealth, bySex: true },
   eyeAge: { bands: RMA3_AGE_SCHEMES.eyeOral, bySex: false },
   eyeAgeSex: { bands: RMA3_AGE_SCHEMES.eyeOral, bySex: true },
@@ -66,7 +72,7 @@ export function columnFor(breakdown: Rma3Breakdown, birthDate: Date, gender: Gen
 // Pure: counts new-case consultation diagnoses (principal or secondary) in every active
 // rubric covering their code, and causes of death in the "deaths" column where relevant.
 export function buildMorbidityTables(rubrics: readonly CauseRubric[], diagnoses: readonly MorbidityDiagnosis[]): Rma3MorbidityTable[] {
-  return RMA3_MORBIDITY_SECTIONS.map(({ section, title, breakdown, countDeaths }) => {
+  return RMA3_MORBIDITY_SECTIONS.map(({ section, title, breakdown, countDeaths, deathsByColumn }) => {
     const active = rubrics
       .filter((r) => r.section === section && r.isActive)
       .sort((a, b) => a.order - b.order)
@@ -81,17 +87,21 @@ export function buildMorbidityTables(rubrics: readonly CauseRubric[], diagnoses:
       cells: emptyCells(columns),
       total: 0,
       deaths: countDeaths ? 0 : null,
+      ...(deathsByColumn ? { deathCells: emptyCells(columns) } : {}),
     }));
 
     for (const d of diagnoses) {
-      const isNewCase = d.context === "consultation" && d.isNewCase;
+      const isNewCase = d.context === "consultation" && d.isNewCase && !d.isSuspected;
       const isDeath = countDeaths && d.context === "death";
       if (!isNewCase && !isDeath) continue;
-      const column = isNewCase ? columnFor(breakdown, d.patient.birthDate, d.patient.gender, d.recordedAt) : null;
+      const column = isNewCase || (isDeath && deathsByColumn) ? columnFor(breakdown, d.patient.birthDate, d.patient.gender, d.recordedAt) : null;
       active.forEach(({ items }, index) => {
         if (!codeMatchesItems(d.icd10Code, items)) return;
         const row = rows[index];
-        if (isDeath) row.deaths = (row.deaths ?? 0) + 1;
+        if (isDeath) {
+          row.deaths = (row.deaths ?? 0) + 1;
+          if (row.deathCells && column) row.deathCells[column] += 1;
+        }
         if (isNewCase && column !== null) {
           row.total += 1;
           if (column) row.cells[column] += 1;
@@ -115,6 +125,7 @@ export async function computeMorbidityTables(tenantId: string, start: Date, end:
         context: true,
         icd10Code: true,
         isNewCase: true,
+        isSuspected: true,
         recordedAt: true,
         patient: { select: { birthDate: true, gender: true } },
       },

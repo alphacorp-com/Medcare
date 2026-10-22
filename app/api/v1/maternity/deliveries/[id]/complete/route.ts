@@ -5,9 +5,15 @@ import { requireModulePermission } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
 import type { DeliveryMode } from "@prisma/client";
 import { suggestInvoiceLine } from "@/lib/billing/suggestCharge";
+import { parseDeliveryExtras } from "@/lib/maternity/input";
+
+const DELIVERY_MODES: readonly string[] = ["vaginal", "assisted_vaginal", "cesarean"];
 
 // PATCH /api/v1/maternity/deliveries/[id]/complete
-// Body: { mode, complications?, maternalOutcome?, placentaDelivered?, bloodLossMl?, notes? }
+// Body: { mode, complications? (RMA3 list, lib/maternity/input), maternalOutcome? (alive|deceased),
+//         placentaDelivered?, bloodLossMl?, notes?, amtsl?, complicationsManaged?, breastfeedingStart? }
+// A mother who died at delivery gets her maternal death dated on the pregnancy (the cause and
+// the review are added from the pregnancy page).
 export async function PATCH(req: Request, context: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
@@ -22,18 +28,23 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
 
   try {
     const body = await req.json();
-    const { mode, complications, maternalOutcome, placentaDelivered, bloodLossMl, notes } = body as {
+    const { mode, maternalOutcome, placentaDelivered, bloodLossMl, notes } = body as {
       mode?: DeliveryMode;
-      complications?: string[];
       maternalOutcome?: string;
       placentaDelivered?: boolean;
       bloodLossMl?: number | string;
       notes?: string;
     };
 
-    if (!mode) {
+    if (!mode || !DELIVERY_MODES.includes(mode)) {
       return NextResponse.json({ error: "mode is required" }, { status: 400 });
     }
+    if (maternalOutcome !== undefined && maternalOutcome !== "" && maternalOutcome !== "alive" && maternalOutcome !== "deceased") {
+      return NextResponse.json({ error: "invalid_maternal_outcome", code: "invalid_maternal_outcome" }, { status: 400 });
+    }
+    const extras = parseDeliveryExtras(body);
+    if (!extras.ok) return NextResponse.json({ error: extras.error, code: extras.error }, { status: 400 });
+    const motherDied = maternalOutcome === "deceased";
 
     const bloodLossMlValue =
       bloodLossMl === undefined || bloodLossMl === null || bloodLossMl === ""
@@ -60,7 +71,10 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
         data: {
           deliveryDate,
           mode,
-          complications: complications ?? [],
+          complications: extras.value.complications,
+          amtsl: extras.value.amtsl,
+          complicationsManaged: extras.value.complicationsManaged,
+          breastfeedingStart: extras.value.breastfeedingStart,
           maternalOutcome: maternalOutcome || "alive",
           placentaDelivered: Boolean(placentaDelivered),
           bloodLossMl: bloodLossMlValue,
@@ -69,7 +83,7 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
       }),
       prisma.pregnancy.update({
         where: { id: delivery.pregnancyId },
-        data: { status: "delivered" },
+        data: { status: "delivered", ...(motherDied ? { maternalDeathAt: deliveryDate } : {}) },
       }),
       ...(delivery.stayId
         ? [

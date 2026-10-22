@@ -12,7 +12,7 @@ import {
   SheetDescription,
   SheetFooter,
 } from "@/components/ui/sheet";
-import { RMA3_STOCK_CATEGORIES } from "@/lib/stock/input";
+import { RMA3_STOCK_CATEGORIES, RMA3_TREATMENTS } from "@/lib/stock/input";
 import { InventoryRow, MedForm, StorageLocationOption, SupplierOption } from "../types";
 
 type AntigenOption = { id: string; code: string; nameFr: string };
@@ -120,6 +120,19 @@ function ItemFields<F extends MedForm>({ form, onUpdateForm }: { form: F; onUpda
             <option value="">{ts("rma3_category_none")}</option>
             {RMA3_STOCK_CATEGORIES.map((category) => (
               <option key={category} value={category}>{ts(`rma3_category_${category}`)}</option>
+            ))}
+          </select>
+        </div>
+        <div className="space-y-1">
+          <Label>{ts("rma3_treatment")}</Label>
+          <select
+            value={form.rma3Treatment ?? ""}
+            onChange={(e) => onUpdateForm({ ...form, rma3Treatment: (e.target.value || null) as MedForm["rma3Treatment"] })}
+            className={selectClass}
+          >
+            <option value="">{ts("rma3_treatment_none")}</option>
+            {RMA3_TREATMENTS.map((treatment) => (
+              <option key={treatment} value={treatment}>{ts(`rma3_treatment_${treatment}`)}</option>
             ))}
           </select>
         </div>

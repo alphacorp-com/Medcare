@@ -6,7 +6,7 @@ import prisma from "@/lib/prisma";
 import { ageInDaysAt } from "@/lib/patients/age";
 import { randomUUID } from "node:crypto";
 import { StockError, stockErrorResponse } from "@/lib/stock/movements";
-import { administerVaccineDose } from "@/lib/stock/vaccines";
+import { createImmunizationInTx, resolveVaccineStockLot } from "@/lib/epi/record-dose";
 import { isPopulationGroup, isStrategy, isUuid } from "@/lib/epi/input";
 
 // The form sends a calendar date: today means "now" (the order of the doses matters for
@@ -132,23 +132,11 @@ export async function POST(
     }
 
     // Is this antigen supplied from the stock? Then the lot must be one of its lots.
-    const stockItems = await prisma.medicationInventory.findMany({
-      where: { tenantId, isActive: true, vaccineAntigenCode: antigen.code },
-      select: { id: true },
-    });
-    let stockLot: { id: string; itemId: string } | null = null;
-    if (stockItems.length > 0) {
-      if (typeof stockLotId !== "string" || !stockLotId) {
-        return NextResponse.json({ error: "stock_lot_required", code: "stock_lot_required", success: false }, { status: 400 });
-      }
-      stockLot = await prisma.stockLot.findFirst({
-        where: { id: stockLotId, tenantId, itemId: { in: stockItems.map((i) => i.id) } },
-        select: { id: true, itemId: true },
-      });
-      if (!stockLot) {
-        return NextResponse.json({ error: "lot_not_found", code: "lot_not_found", success: false }, { status: 400 });
-      }
+    const lotCheck = await resolveVaccineStockLot(tenantId, antigen.code, stockLotId);
+    if (!lotCheck.ok) {
+      return NextResponse.json({ error: lotCheck.code, code: lotCheck.code, success: false }, { status: 400 });
     }
+    const stockLot = lotCheck.lot;
 
     // Session of this facility, not cancelled: it gives the strategy of the dose.
     const vaccinationSession = typeof sessionId === "string" && sessionId
@@ -190,19 +178,8 @@ export async function POST(
         if (vaccinationSession && vaccinationSession.status === "planned") {
           await tx.vaccinationSession.updateMany({ where: { id: vaccinationSession.id, status: "planned" }, data: { status: "held", heldAt: new Date() } });
         }
-        if (!stockLot) return tx.immunization.create({ data });
         // One dose: a unit of the lot, or the next dose of the lot's open multi-dose vial.
-        const dose = await administerVaccineDose(tx, {
-          tenantId,
-          userId: session.user.id,
-          itemId: stockLot.itemId,
-          lotId: stockLot.id,
-          immunizationId,
-          at: eventDate,
-        });
-        return tx.immunization.create({
-          data: { ...data, stockLotId: stockLot.id, stockOpenVialId: dose.openVialId, lotNumber: dose.lotNumber, expiryDate: dose.expiryDate },
-        });
+        return createImmunizationInTx(tx, data, stockLot, session.user.id);
       });
     } catch (error) {
       if (error instanceof StockError) {

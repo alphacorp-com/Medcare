@@ -148,6 +148,9 @@ const VACCINE_ANTIGENS: GenericCatalogSeed[] = [
   { catalogType: 'vaccine_antigen', code: 'HPV1', nameFr: 'VPH 1ère dose', nameEn: 'HPV dose 1', group: 'HPV', order: 26 },
   { catalogType: 'vaccine_antigen', code: 'HPV2', nameFr: 'VPH 2ème dose', nameEn: 'HPV dose 2', group: 'HPV', order: 27 },
   { catalogType: 'vaccine_antigen', code: 'VITA', nameFr: 'Vitamine A', nameEn: 'Vitamin A', group: 'VITA', order: 28 },
+  // Td of women of childbearing age (doses 1 to 5 = Immunization.doseNumber), given at the
+  // antenatal visit: RMA3 II.1.1-010 to 014, not in the children's III.2 table.
+  { catalogType: 'vaccine_antigen', code: 'TD', nameFr: 'Td (tétanos-diphtérie)', nameEn: 'Td (tetanus-diphtheria)', group: 'TD', order: 29 },
 ];
 
 async function seedGenericCatalogs(prisma: PrismaClient, tenantId: string) {
@@ -925,6 +928,26 @@ const ICD10_CODES: { code: string; labelFr: string; chapter: string }[] = [
   { code: 'Z76', labelFr: "Personnes en contact avec les services de santé dans d'autres circonstances", chapter: "Facteurs influant sur l'état de santé et motifs de recours aux services de santé" },
   { code: 'Z86', labelFr: 'Antécédents personnels de certaines autres maladies', chapter: "Facteurs influant sur l'état de santé et motifs de recours aux services de santé" },
   { code: 'Z87', labelFr: "Antécédents personnels d'autres affections", chapter: "Facteurs influant sur l'état de santé et motifs de recours aux services de santé" },
+  // Sub-codes (and two categories) the RMA3 needs: leprosy PB / MB, leishmaniasis and
+  // schistosomiasis forms, trachoma sequelae / trichiasis, Buruli ulcer.
+  { code: 'A30.0', labelFr: 'Lèpre indéterminée', chapter: 'Maladies infectieuses et parasitaires' },
+  { code: 'A30.1', labelFr: 'Lèpre tuberculoïde', chapter: 'Maladies infectieuses et parasitaires' },
+  { code: 'A30.2', labelFr: 'Lèpre tuberculoïde borderline', chapter: 'Maladies infectieuses et parasitaires' },
+  { code: 'A30.3', labelFr: 'Lèpre borderline', chapter: 'Maladies infectieuses et parasitaires' },
+  { code: 'A30.4', labelFr: 'Lèpre lépromateuse borderline', chapter: 'Maladies infectieuses et parasitaires' },
+  { code: 'A30.5', labelFr: 'Lèpre lépromateuse', chapter: 'Maladies infectieuses et parasitaires' },
+  { code: 'A31', labelFr: "Infections dues à d'autres mycobactéries", chapter: 'Maladies infectieuses et parasitaires' },
+  { code: 'A31.1', labelFr: 'Infection cutanée à mycobactéries (ulcère de Buruli)', chapter: 'Maladies infectieuses et parasitaires' },
+  { code: 'B55.0', labelFr: 'Leishmaniose viscérale', chapter: 'Maladies infectieuses et parasitaires' },
+  { code: 'B55.1', labelFr: 'Leishmaniose cutanée', chapter: 'Maladies infectieuses et parasitaires' },
+  { code: 'B55.2', labelFr: 'Leishmaniose cutanéo-muqueuse', chapter: 'Maladies infectieuses et parasitaires' },
+  { code: 'B65.0', labelFr: 'Schistosomiase à Schistosoma haematobium (bilharziose urinaire)', chapter: 'Maladies infectieuses et parasitaires' },
+  { code: 'B65.1', labelFr: 'Schistosomiase à Schistosoma mansoni (bilharziose intestinale)', chapter: 'Maladies infectieuses et parasitaires' },
+  { code: 'B65.2', labelFr: 'Schistosomiase à Schistosoma japonicum', chapter: 'Maladies infectieuses et parasitaires' },
+  { code: 'B94', labelFr: "Séquelles d'autres maladies infectieuses et parasitaires", chapter: 'Maladies infectieuses et parasitaires' },
+  { code: 'B94.0', labelFr: 'Séquelles de trachome', chapter: 'Maladies infectieuses et parasitaires' },
+  { code: 'H02', labelFr: 'Autres affections des paupières', chapter: "Maladies de l'œil et de ses annexes" },
+  { code: 'H02.0', labelFr: 'Entropion et trichiasis de la paupière', chapter: "Maladies de l'œil et de ses annexes" },
   { code: 'Z88', labelFr: "Antécédents personnels d'allergie à des médicaments", chapter: "Facteurs influant sur l'état de santé et motifs de recours aux services de santé" },
 ];
 

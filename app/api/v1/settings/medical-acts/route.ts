@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { parseRma3ActIndicator } from "@/lib/reports/rma3-acts";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { requireTenantAdmin } from "@/lib/permissions";
@@ -38,12 +39,17 @@ export async function POST(request: Request) {
     const body = await request.json();
     const {
       categoryId, code, nameFr, nameEn, basePrice, unit,
-      defaultPecCoveragePercent, allowsUrgencySurcharge, requiresLabValidation,
+      defaultPecCoveragePercent, allowsUrgencySurcharge, requiresLabValidation, rma3Indicator,
     } = body as {
       categoryId?: string; code?: string; nameFr?: string; nameEn?: string;
       basePrice?: number | string; unit?: string;
-      defaultPecCoveragePercent?: number; allowsUrgencySurcharge?: boolean; requiresLabValidation?: boolean;
+      defaultPecCoveragePercent?: number; allowsUrgencySurcharge?: boolean; requiresLabValidation?: boolean; rma3Indicator?: unknown;
     };
+    // RMA3 act indicator (lib/reports/rma3-acts): optional, one of the known codes.
+    const indicator = rma3Indicator === undefined ? null : parseRma3ActIndicator(rma3Indicator);
+    if (indicator === "invalid") {
+      return NextResponse.json({ error: "invalid_rma3_indicator", code: "invalid_rma3_indicator" }, { status: 400 });
+    }
 
     if (!categoryId || !code?.trim() || !nameFr?.trim() || basePrice === undefined || basePrice === null) {
       return NextResponse.json({ error: "categoryId, code, nameFr and basePrice are required" }, { status: 400 });
@@ -68,6 +74,7 @@ export async function POST(request: Request) {
         defaultPecCoveragePercent: defaultPecCoveragePercent ?? 0,
         allowsUrgencySurcharge: Boolean(allowsUrgencySurcharge),
         requiresLabValidation: Boolean(requiresLabValidation),
+        rma3Indicator: indicator,
       },
       include: { category: { select: { id: true, nameFr: true, nameEn: true, color: true } } },
     });
