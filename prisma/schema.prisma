@@ -324,6 +324,9 @@ enum BillingInvoiceStatus {
 enum PaymentMethod {
   cash
   card
+  // Overpayment of another invoice of the same patient moved here (PatientRefund kind transfer):
+  // no new money, never counted as income.
+  credit_transfer
   insurance
   mobile_money_orange
   mobile_money_mtn
@@ -769,6 +772,7 @@ model Patient {
   chronicEnrolments    ChronicCareEnrolment[]
   drugAdverseReactions DrugAdverseReaction[]
   coverages            PatientCoverage[]
+  heldPolicies         CoveragePolicy[]
   exemptions           PatientExemption[]
 
   @@unique([tenantId, ipp])
@@ -1621,6 +1625,8 @@ model PatientInvoice {
   lines         PatientInvoiceLine[]
   payments      Payment[]
   claimItems    InsuranceClaimItem[]
+  refunds       PatientRefund[]        @relation("RefundSource")
+  creditsIn     PatientRefund[]        @relation("RefundTarget")
 
   @@index([tenantId])
   @@index([patientId])
@@ -1872,7 +1878,9 @@ model MedicalAct {
   nameEn                    String?  @map("name_en") @db.VarChar(200)
   basePrice                 Decimal  @map("base_price") @db.Decimal(12, 2)
   unit                      String?  @db.VarChar(50)
-  defaultPecCoveragePercent Int      @default(0) @map("default_pec_coverage_percent")
+  // Nomenclature coverage rate of the act (0-100 %, null = none): replaces the family rate for
+  // the conventions that apply the nomenclature (CoverageAgreement.useNomenclatureRates).
+  defaultPecCoveragePercent Int?     @map("default_pec_coverage_percent")
   allowsUrgencySurcharge    Boolean  @default(false) @map("allows_urgency_surcharge")
   requiresLabValidation     Boolean  @default(false) @map("requires_lab_validation")
   // RMA3 act indicator this act counts in (lib/reports/rma3-acts.ts: dental acts, cataract
@@ -3338,6 +3346,7 @@ enum CoverageStatus {
   capped                 // applied, limited by a ceiling or the authorization amount
   authorization_required // the convention requires a prior authorization: no payer share
   invalid_coverage       // coverage expired / suspended / convention inactive: no payer share
+  age_limit_exceeded     // child dependant older than the convention allows: no payer share
   frozen                 // claimed to the payer: shares kept as claimed
 
   @@schema("tenant_template")
@@ -3411,9 +3420,15 @@ model CoverageAgreement {
   name                   String    @db.VarChar(150)
   // Rate (0-100 %) for the families without a specific rate.
   defaultRate            Int       @map("default_rate")
-  // Payer share ceilings (FCFA), null = none: per invoice, per beneficiary and calendar year.
+  // Payer share ceilings (FCFA), null = none: per invoice, per beneficiary and calendar year,
+  // and per membership (holder + dependants) and calendar year.
   perInvoiceCeiling      Decimal?  @map("per_invoice_ceiling") @db.Decimal(14, 2)
   annualCeiling          Decimal?  @map("annual_ceiling") @db.Decimal(14, 2)
+  familyAnnualCeiling    Decimal?  @map("family_annual_ceiling") @db.Decimal(14, 2)
+  // Children dependants are covered until this age (years, excluded), null = no limit.
+  childMaxAgeYears       Int?      @map("child_max_age_years")
+  // Apply the acts' nomenclature rates (MedicalAct.defaultPecCoveragePercent) before the family rates.
+  useNomenclatureRates   Boolean   @default(false) @map("use_nomenclature_rates")
   // Prior authorization: required when the payer share exceeds the threshold (null = always).
   requiresAuthorization  Boolean   @default(false) @map("requires_authorization")
   authorizationThreshold Decimal?  @map("authorization_threshold") @db.Decimal(14, 2)
@@ -3424,9 +3439,9 @@ model CoverageAgreement {
   createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
-  payer     Payer                   @relation(fields: [payerId], references: [id])
-  rates     CoverageAgreementRate[]
-  coverages PatientCoverage[]
+  payer    Payer                   @relation(fields: [payerId], references: [id])
+  rates    CoverageAgreementRate[]
+  policies CoveragePolicy[]
 
   @@unique([tenantId, code])
   @@index([payerId])
@@ -3448,33 +3463,71 @@ model CoverageAgreementRate {
   @@schema("tenant_template")
 }
 
-// A patient covered under a convention (member or dependant).
+// Membership ("adhésion") to a convention: a member number held by a person — a patient of the
+// facility or not — and covering beneficiaries (the holder, spouse, children…).
+model CoveragePolicy {
+  id              String    @id @default(uuid()) @db.Uuid
+  tenantId        String    @map("tenant_id") @db.Uuid
+  agreementId     String    @map("agreement_id") @db.Uuid
+  memberNumber    String    @map("member_number") @db.VarChar(60)
+  holderName      String    @map("holder_name") @db.VarChar(150)
+  // The holder when they are a patient of the facility.
+  holderPatientId String?   @map("holder_patient_id") @db.Uuid
+  employer        String?   @db.VarChar(150)
+  validFrom       DateTime  @map("valid_from") @db.Date
+  validTo         DateTime? @map("valid_to") @db.Date
+  // Ended or suspended before validTo: every beneficiary loses the coverage.
+  endedAt         DateTime? @map("ended_at") @db.Timestamptz
+  notes           String?
+  createdById     String    @map("created_by_id") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  agreement     CoverageAgreement @relation(fields: [agreementId], references: [id])
+  holderPatient Patient?          @relation(fields: [holderPatientId], references: [id])
+  beneficiaries PatientCoverage[]
+
+  @@unique([agreementId, memberNumber])
+  @@index([tenantId])
+  @@map("coverage_policies")
+  @@schema("tenant_template")
+}
+
+enum CoverageRelationship {
+  holder
+  spouse
+  child
+  other
+
+  @@schema("tenant_template")
+}
+
+// A patient covered by a membership, as its holder or a dependant.
 model PatientCoverage {
-  id            String    @id @default(uuid()) @db.Uuid
-  tenantId      String    @map("tenant_id") @db.Uuid
-  patientId     String    @map("patient_id") @db.Uuid
-  agreementId   String    @map("agreement_id") @db.Uuid
-  memberNumber  String    @map("member_number") @db.VarChar(60)
-  // Dependant of a member: name of the main insured and relationship.
-  principalName String?   @map("principal_name") @db.VarChar(150)
-  relationship  String?   @db.VarChar(40)
-  employer      String?   @db.VarChar(150)
-  validFrom     DateTime  @map("valid_from") @db.Date
-  validTo       DateTime? @map("valid_to") @db.Date
-  // Ended or suspended before validTo.
-  endedAt       DateTime? @map("ended_at") @db.Timestamptz
-  notes         String?
-  createdById   String    @map("created_by_id") @db.Uuid
-  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  id                String               @id @default(uuid()) @db.Uuid
+  tenantId          String               @map("tenant_id") @db.Uuid
+  patientId         String               @map("patient_id") @db.Uuid
+  policyId          String               @map("policy_id") @db.Uuid
+  relationship      CoverageRelationship @default(holder)
+  // Number of the beneficiary on the membership card (some payers number each dependant).
+  beneficiaryNumber String?              @map("beneficiary_number") @db.VarChar(60)
+  // Within the membership's validity (a dependant added later, removed earlier).
+  validFrom         DateTime             @map("valid_from") @db.Date
+  validTo           DateTime?            @map("valid_to") @db.Date
+  // Removed from the membership before validTo.
+  endedAt           DateTime?            @map("ended_at") @db.Timestamptz
+  notes             String?
+  createdById       String               @map("created_by_id") @db.Uuid
+  createdAt         DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime             @updatedAt @map("updated_at") @db.Timestamptz
 
   patient        Patient                 @relation(fields: [patientId], references: [id])
-  agreement      CoverageAgreement       @relation(fields: [agreementId], references: [id])
+  policy         CoveragePolicy          @relation(fields: [policyId], references: [id])
   authorizations CoverageAuthorization[]
   invoices       PatientInvoice[]
 
+  @@unique([policyId, patientId])
   @@index([tenantId, patientId])
-  @@index([agreementId])
   @@map("patient_coverages")
   @@schema("tenant_template")
 }
@@ -3596,19 +3649,18 @@ model InsuranceClaimItem {
   invoiceId       String   @map("invoice_id") @db.Uuid
   claimedAmount   Decimal  @map("claimed_amount") @db.Decimal(14, 2)
   paidAmount      Decimal  @default(0) @map("paid_amount") @db.Decimal(14, 2)
+  // Sum of the active rejections (InsuranceClaimRejection), kept by lib/coverage/claims.ts.
   rejectedAmount  Decimal  @default(0) @map("rejected_amount") @db.Decimal(14, 2)
-  rejectionReason String?  @map("rejection_reason") @db.VarChar(500)
-  // Rejected part charged back to the patient (else written off by the facility).
-  chargedToPatient Boolean @default(false) @map("charged_to_patient")
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   claim       InsuranceClaim           @relation(fields: [claimId], references: [id], onDelete: Cascade)
   invoice     PatientInvoice           @relation(fields: [invoiceId], references: [id])
   allocations PayerPaymentAllocation[]
+  rejections  InsuranceClaimRejection[]
 
-  @@unique([claimId, invoiceId])
-  @@index([invoiceId])
+  // An invoice is claimed once: a rejected part is reversed or settled on the same item.
+  @@unique([invoiceId])
   @@map("insurance_claim_items")
   @@schema("tenant_template")
 }
@@ -3626,10 +3678,15 @@ model PayerPayment {
   notes       String?
   recordedById String            @map("recorded_by_id") @db.Uuid
   createdAt   DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  // Recorded by mistake: cancelled once nothing is allocated any more (excluded everywhere).
+  status       PayerPaymentStatus @default(recorded)
+  cancelledAt  DateTime?          @map("cancelled_at") @db.Timestamptz
+  cancelReason String?            @map("cancel_reason") @db.VarChar(500)
 
   payer       Payer                    @relation(fields: [payerId], references: [id])
   claim       InsuranceClaim?          @relation(fields: [claimId], references: [id])
   allocations PayerPaymentAllocation[]
+  refunds     PayerPaymentRefund[]
 
   @@index([tenantId, receivedAt])
   @@map("payer_payments")
@@ -3643,11 +3700,96 @@ model PayerPaymentAllocation {
   claimItemId String   @map("claim_item_id") @db.Uuid
   amount      Decimal  @db.Decimal(14, 2)
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  // Allocated by mistake: reversed (the amount goes back to the payment's unallocated balance).
+  reversedAt   DateTime? @map("reversed_at") @db.Timestamptz
+  reversedById String?   @map("reversed_by_id") @db.Uuid
 
   payment   PayerPayment       @relation(fields: [paymentId], references: [id], onDelete: Cascade)
   claimItem InsuranceClaimItem @relation(fields: [claimItemId], references: [id])
 
   @@index([claimItemId])
   @@map("payer_payment_allocations")
+  @@schema("tenant_template")
+}
+
+enum PayerPaymentStatus {
+  recorded
+  cancelled
+
+  @@schema("tenant_template")
+}
+
+// The payer refuses (part of) a claim item. Reversible while the claim is not closed.
+model InsuranceClaimRejection {
+  id               String    @id @default(uuid()) @db.Uuid
+  tenantId         String    @map("tenant_id") @db.Uuid
+  claimItemId      String    @map("claim_item_id") @db.Uuid
+  amount           Decimal   @db.Decimal(14, 2)
+  reason           String    @db.VarChar(500)
+  // Charged back to the patient (added to what they owe), else written off by the facility.
+  chargedToPatient Boolean   @default(false) @map("charged_to_patient")
+  recordedById     String    @map("recorded_by_id") @db.Uuid
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  reversedAt       DateTime? @map("reversed_at") @db.Timestamptz
+  reversedById     String?   @map("reversed_by_id") @db.Uuid
+  reversalReason   String?   @map("reversal_reason") @db.VarChar(500)
+
+  claimItem InsuranceClaimItem @relation(fields: [claimItemId], references: [id], onDelete: Cascade)
+
+  @@index([claimItemId])
+  @@map("insurance_claim_rejections")
+  @@schema("tenant_template")
+}
+
+// Part of a payer payment given back to the payer (overpayment, duplicate transfer…).
+model PayerPaymentRefund {
+  id           String   @id @default(uuid()) @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  paymentId    String   @map("payment_id") @db.Uuid
+  amount       Decimal  @db.Decimal(14, 2)
+  refundedAt   DateTime @map("refunded_at") @db.Timestamptz
+  reference    String?  @db.VarChar(120)
+  reason       String   @db.VarChar(500)
+  recordedById String   @map("recorded_by_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  payment PayerPayment @relation(fields: [paymentId], references: [id])
+
+  @@index([tenantId, refundedAt])
+  @@map("payer_payment_refunds")
+  @@schema("tenant_template")
+}
+
+enum PatientRefundKind {
+  refund   // money given back to the patient
+  transfer // moved to another open invoice of the same patient
+
+  @@schema("tenant_template")
+}
+
+// What a patient paid beyond their share on an invoice, given back or moved to another invoice.
+model PatientRefund {
+  id              String            @id @default(uuid()) @db.Uuid
+  tenantId        String            @map("tenant_id") @db.Uuid
+  invoiceId       String            @map("invoice_id") @db.Uuid
+  kind            PatientRefundKind
+  amount          Decimal           @db.Decimal(14, 2)
+  // Refund: how the money was given back.
+  method          PaymentMethod?
+  reference       String?           @db.VarChar(120)
+  // Transfer: the invoice credited, and the payment created on it.
+  targetInvoiceId String?           @map("target_invoice_id") @db.Uuid
+  targetPaymentId String?           @unique @map("target_payment_id") @db.Uuid
+  reason          String            @db.VarChar(500)
+  refundedAt      DateTime          @map("refunded_at") @db.Timestamptz
+  recordedById    String            @map("recorded_by_id") @db.Uuid
+  createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz
+
+  invoice       PatientInvoice  @relation("RefundSource", fields: [invoiceId], references: [id])
+  targetInvoice PatientInvoice? @relation("RefundTarget", fields: [targetInvoiceId], references: [id])
+
+  @@index([tenantId, refundedAt])
+  @@index([invoiceId])
+  @@map("patient_refunds")
   @@schema("tenant_template")
 }

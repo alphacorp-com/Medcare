@@ -5,6 +5,8 @@ import { releaseIfSettled } from "@/lib/billing/release";
 // flipping the invoice to "paid" once paidAmount covers the patient's share (patientAmount,
 // i.e. after insurance — same rule as recalculateInvoiceTotals), then releases whatever the
 // invoice was holding back (admission waiting for the doctor, exams waiting for the lab).
+// A cancelled invoice stays cancelled (e.g. a mobile money payment confirmed after the
+// cancellation): the money is then refundable (lib/billing/refunds.ts).
 export async function applySuccessfulPayment(invoiceId: string, amount: number) {
   const invoice = await prisma.patientInvoice.findUniqueOrThrow({ where: { id: invoiceId } });
   const paidAmount = Number(invoice.paidAmount) + amount;
@@ -13,8 +15,8 @@ export async function applySuccessfulPayment(invoiceId: string, amount: number) 
   await prisma.patientInvoice.update({
     where: { id: invoiceId },
     data: {
-      paidAmount,
-      status: paidAmount >= patientAmount && patientAmount > 0 ? "paid" : "partially_paid",
+      paidAmount: { increment: amount },
+      ...(invoice.status === "cancelled" ? {} : { status: paidAmount >= patientAmount ? "paid" : "partially_paid" }),
     },
   });
 

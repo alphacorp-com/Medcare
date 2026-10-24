@@ -13,7 +13,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const { id, itemId } = await context.params;
     const parsed = parseRejection(await request.json().catch(() => null));
     if (!parsed.ok) return coverageError(parsed.error);
-    await recordRejection(guard.tenantId, id, itemId, parsed.value);
+    await recordRejection(guard.tenantId, guard.userId, id, itemId, parsed.value);
     await auditCoverage(request, guard, "billing.claim_rejection", "insurance_claim_item", itemId, { claimId: id, ...parsed.value });
     return NextResponse.json({ data: { itemId, ...parsed.value } }, { status: 201 });
   } catch (error) {

@@ -1,3 +1,4 @@
+import { parseNomenclatureRate } from "@/lib/coverage/input";
 import { NextResponse } from "next/server";
 import { parseRma3ActIndicator } from "@/lib/reports/rma3-acts";
 import { getServerSession } from "next-auth";
@@ -28,7 +29,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     } = body as {
       categoryId?: string; code?: string; nameFr?: string; nameEn?: string;
       basePrice?: number | string; unit?: string;
-      defaultPecCoveragePercent?: number; allowsUrgencySurcharge?: boolean; requiresLabValidation?: boolean; isActive?: boolean;
+      defaultPecCoveragePercent?: unknown; allowsUrgencySurcharge?: boolean; requiresLabValidation?: boolean; isActive?: boolean;
       rma3Indicator?: unknown;
     };
 
@@ -45,7 +46,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       data.basePrice = price;
     }
     if (unit !== undefined) data.unit = unit?.trim() || null;
-    if (defaultPecCoveragePercent !== undefined) data.defaultPecCoveragePercent = defaultPecCoveragePercent;
+    if (defaultPecCoveragePercent !== undefined) {
+      // Nomenclature coverage rate (lib/coverage): 0-100, blank = not set.
+      const pecRate = parseNomenclatureRate(defaultPecCoveragePercent);
+      if (pecRate === "invalid") return NextResponse.json({ error: "invalid_pec_rate", code: "invalid_pec_rate" }, { status: 400 });
+      data.defaultPecCoveragePercent = pecRate;
+    }
     if (allowsUrgencySurcharge !== undefined) data.allowsUrgencySurcharge = allowsUrgencySurcharge;
     if (requiresLabValidation !== undefined) data.requiresLabValidation = requiresLabValidation;
     if (isActive !== undefined) data.isActive = isActive;

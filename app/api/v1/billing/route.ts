@@ -29,12 +29,21 @@ export async function GET(req: Request) {
       ? (rawStatus as BillingInvoiceStatus)
       : null;
     const search = searchParams.get("search")?.trim();
+    // Invoices where the patient paid more than their share (all of it on a cancelled invoice):
+    // to refund or move (lib/billing/refunds.ts).
+    const overpaid: Prisma.PatientInvoiceWhereInput = {
+      OR: [
+        { status: "cancelled", paidAmount: { gt: 0 } },
+        { status: { not: "cancelled" }, paidAmount: { gt: prisma.patientInvoice.fields.patientAmount } },
+      ],
+    };
 
     const pagination = parsePagination(searchParams);
     const tenantScope: Prisma.PatientInvoiceWhereInput = { tenantId: session.user.tenantId };
     const where: Prisma.PatientInvoiceWhereInput = {
       ...tenantScope,
       ...(status ? { status } : {}),
+      ...(rawStatus === "overpaid" ? overpaid : {}),
       ...(search
         ? {
             patient: {
@@ -48,7 +57,7 @@ export async function GET(req: Request) {
         : {}),
     };
 
-    const [invoices, total, statusGroups, outstanding] = await Promise.all([
+    const [invoices, total, statusGroups, outstanding, overpaidCount] = await Promise.all([
       prisma.patientInvoice.findMany({
         where,
         orderBy: { createdAt: "desc" },
@@ -67,6 +76,7 @@ export async function GET(req: Request) {
         where: { ...tenantScope, status: { notIn: ["paid", "cancelled"] } },
         _sum: { patientAmount: true, paidAmount: true },
       }),
+      prisma.patientInvoice.count({ where: { ...tenantScope, ...overpaid } }),
     ]);
 
     const data = invoices.map((invoice) => ({
@@ -84,7 +94,7 @@ export async function GET(req: Request) {
       createdAt: invoice.createdAt,
     }));
 
-    const counts = Object.fromEntries(statusGroups.map((g) => [g.status, g._count]));
+    const counts = { ...Object.fromEntries(statusGroups.map((g) => [g.status, g._count])), overpaid: overpaidCount };
     const outstandingBalance = Number(outstanding._sum.patientAmount ?? 0) - Number(outstanding._sum.paidAmount ?? 0);
 
     return NextResponse.json({

@@ -2,7 +2,7 @@ import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import type { ActivityTable } from "@/lib/reports/activity-rows";
 import { buildComplementTables } from "@/lib/reports/rma3-complements";
-import { allocateIncome, defaultRubric, type IncomeLine, type IncomePayment } from "@/lib/reports/rma3-income";
+import { allocateIncome, defaultRubric, UNCLASSIFIED, type IncomeLine, type IncomePayment } from "@/lib/reports/rma3-income";
 import { codeMatchesItems, parseIcd10Ranges } from "@/lib/diagnoses/icd10-ranges";
 import { parseStoredLines, resolveLineArticle } from "@/lib/stock/prescription-items";
 
@@ -84,28 +84,37 @@ const INVOICE_FOR_INCOME = {
   select: { stay: { select: { medicalActCode: true } }, lines: { select: { sourceType: true, sourceId: true, amount: true, quantity: true, payerAmount: true, exemptionAmount: true } } },
 } as const;
 
-// Income of the month per RMA3 rubric (FCFA), from the money received: the patients' payments,
-// spread over the invoice lines in proportion to the patient's share of each line, and the
-// payers' settlements (lib/coverage/claims.ts), in proportion to the payer's share. Free care
-// (exemptions) brings no money and is not income.
+// Income of the month per RMA3 rubric (FCFA), from the money received net of what was given back:
+//  - the patients' payments, spread over the invoice lines in proportion to the patient's share
+//    of each line; a moved overpayment (credit_transfer) is not new money and is left out;
+//  - the payers' settlements received in the month, in full: their allocated part spread over
+//    the lines in proportion to the payer's share, the part not yet allocated unclassified;
+//  - minus the refunds of the month (to patients over their invoice's lines, to payers unclassified).
+// Free care (exemptions) brings no money and is not income.
 export async function computeBillingIncome(tenantId: string, start: Date, end: Date): Promise<Record<string, number>> {
-  const [patientPayments, payerAllocations] = await Promise.all([
+  const month = { gte: start, lt: end };
+  const [patientPayments, payerPayments, patientRefunds, payerRefunds] = await Promise.all([
     prisma.payment.findMany({
-      where: { tenantId, status: "successful", OR: [{ completedAt: { gte: start, lt: end } }, { completedAt: null, initiatedAt: { gte: start, lt: end } }] },
+      where: { tenantId, status: "successful", method: { not: "credit_transfer" }, OR: [{ completedAt: month }, { completedAt: null, initiatedAt: month }] },
       select: { amount: true, invoice: INVOICE_FOR_INCOME },
     }),
-    prisma.payerPaymentAllocation.findMany({
-      where: { tenantId, payment: { receivedAt: { gte: start, lt: end } } },
-      select: { amount: true, claimItem: { select: { invoice: INVOICE_FOR_INCOME } } },
+    prisma.payerPayment.findMany({
+      where: { tenantId, status: "recorded", receivedAt: month },
+      select: { amount: true, allocations: { where: { reversedAt: null }, select: { amount: true, claimItem: { select: { invoice: INVOICE_FOR_INCOME } } } } },
     }),
+    prisma.patientRefund.findMany({ where: { tenantId, kind: "refund", refundedAt: month }, select: { amount: true, invoice: INVOICE_FOR_INCOME } }),
+    prisma.payerPaymentRefund.findMany({ where: { tenantId, refundedAt: month }, select: { amount: true } }),
   ]);
   type IncomeInvoice = (typeof patientPayments)[number]["invoice"];
   const payments: { amount: Prisma.Decimal; invoice: IncomeInvoice; payerShare: boolean }[] = [
     ...patientPayments.map((p) => ({ ...p, payerShare: false })),
-    ...payerAllocations.map((a) => ({ amount: a.amount, invoice: a.claimItem.invoice, payerShare: true })),
+    ...payerPayments.flatMap((p) => p.allocations.map((a) => ({ amount: a.amount, invoice: a.claimItem.invoice, payerShare: true }))),
   ];
-  if (payments.length === 0) return {};
-  const lines = payments.flatMap((p) => p.invoice.lines);
+  const unallocated = payerPayments.reduce((s, p) => s + Number(p.amount) - p.allocations.reduce((a, x) => a + Number(x.amount), 0), 0);
+  const refundedToPayers = payerRefunds.reduce((s, r) => s + Number(r.amount), 0);
+  const refunds: typeof payments = patientRefunds.map((r) => ({ amount: r.amount, invoice: r.invoice, payerShare: false }));
+  if (payments.length === 0 && refunds.length === 0 && unallocated === 0 && refundedToPayers === 0) return {};
+  const lines = [...payments, ...refunds].flatMap((p) => p.invoice.lines);
   const idsOf = (type: string) => [...new Set(lines.filter((l) => l.sourceType === type && l.sourceId && UUID.test(l.sourceId)).map((l) => l.sourceId!))];
   const inventoryIds = [...new Set(lines.filter((l) => l.sourceType === "pharmacy_dispensation" && l.sourceId?.includes(":")).map((l) => l.sourceId!.split(":")[1]).filter((id) => UUID.test(id)))];
 
@@ -138,7 +147,7 @@ export async function computeBillingIncome(tenantId: string, start: Date, end: D
   // payer share charged back to the patient).
   const weightOf = (line: IncomeInvoice["lines"][number], payerShare: boolean) =>
     payerShare ? Number(line.payerAmount) : Math.max(0, Number(line.amount) - Number(line.payerAmount) - Number(line.exemptionAmount));
-  const incomePayments: IncomePayment[] = payments.map((p) => {
+  const toIncome = (p: (typeof payments)[number]): IncomePayment => {
     const patientShareless = !p.payerShare && p.invoice.lines.every((l) => weightOf(l, false) <= 0);
     return {
       amount: Number(p.amount),
@@ -166,6 +175,11 @@ export async function computeBillingIncome(tenantId: string, start: Date, end: D
         return { amount, rubric, purchaseCost: null };
       }),
     };
-  });
-  return allocateIncome(incomePayments);
+  };
+  // Refunds are spread like the payments they give back, then taken off.
+  const totals = allocateIncome(payments.map(toIncome));
+  for (const [rubric, value] of Object.entries(allocateIncome(refunds.map(toIncome)))) totals[rubric] = (totals[rubric] ?? 0) - value;
+  const otherIncome = unallocated - refundedToPayers;
+  if (otherIncome !== 0) totals[UNCLASSIFIED] = (totals[UNCLASSIFIED] ?? 0) + Math.round(otherIncome);
+  return totals;
 }

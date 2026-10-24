@@ -21,7 +21,8 @@ type MedicalAct = {
   nameEn: string | null;
   basePrice: string | number;
   unit: string | null;
-  defaultPecCoveragePercent: number;
+  // Nomenclature coverage rate (lib/coverage), null = not set.
+  defaultPecCoveragePercent: number | null;
   allowsUrgencySurcharge: boolean;
   requiresLabValidation: boolean;
   isActive: boolean;
@@ -31,7 +32,7 @@ type MedicalAct = {
 
 const EMPTY_FORM = {
   categoryId: "", code: "", nameFr: "", nameEn: "", basePrice: "", unit: "",
-  defaultPecCoveragePercent: "0", allowsUrgencySurcharge: false, requiresLabValidation: false, rma3Indicator: "",
+  defaultPecCoveragePercent: "", allowsUrgencySurcharge: false, requiresLabValidation: false, rma3Indicator: "",
 };
 
 export default function MedicalActsPage() {
@@ -86,7 +87,7 @@ export default function MedicalActsPage() {
       nameEn: item.nameEn ?? "",
       basePrice: String(item.basePrice),
       unit: item.unit ?? "",
-      defaultPecCoveragePercent: String(item.defaultPecCoveragePercent),
+      defaultPecCoveragePercent: item.defaultPecCoveragePercent === null ? "" : String(item.defaultPecCoveragePercent),
       allowsUrgencySurcharge: item.allowsUrgencySurcharge,
       requiresLabValidation: item.requiresLabValidation,
       rma3Indicator: item.rma3Indicator ?? "",
@@ -110,7 +111,7 @@ export default function MedicalActsPage() {
         nameEn: form.nameEn.trim() || undefined,
         basePrice: Number(form.basePrice),
         unit: form.unit.trim() || undefined,
-        defaultPecCoveragePercent: Number(form.defaultPecCoveragePercent) || 0,
+        defaultPecCoveragePercent: form.defaultPecCoveragePercent.trim() === "" ? null : Number(form.defaultPecCoveragePercent),
         allowsUrgencySurcharge: form.allowsUrgencySurcharge,
         requiresLabValidation: form.requiresLabValidation,
         rma3Indicator: form.rma3Indicator || null,
@@ -203,7 +204,7 @@ export default function MedicalActsPage() {
                   </span>
                   <SettingsCode>{item.code}</SettingsCode>
                   <span className="w-full font-mono text-slate-700">
-                    {Number(item.basePrice).toLocaleString()} XAF · {t("pec_coverage")} {item.defaultPecCoveragePercent}%
+                    {Number(item.basePrice).toLocaleString()} XAF · {t("pec_coverage")} {item.defaultPecCoveragePercent === null ? "—" : `${item.defaultPecCoveragePercent}%`}
                   </span>
                 </>
               }
@@ -246,7 +247,7 @@ export default function MedicalActsPage() {
                     <td className="px-4 py-2 text-slate-800 font-medium">{item.nameFr}</td>
                     <td className="px-4 py-2 font-mono text-slate-500">{item.code}</td>
                     <td className="px-4 py-2 text-right font-mono">{Number(item.basePrice).toLocaleString()} XAF</td>
-                    <td className="px-4 py-2 text-right font-mono">{item.defaultPecCoveragePercent}%</td>
+                    <td className="px-4 py-2 text-right font-mono">{item.defaultPecCoveragePercent === null ? "—" : `${item.defaultPecCoveragePercent}%`}</td>
                     <td className="px-4 py-2 text-right">
                       <button onClick={() => toggleActive(item)} className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold ${item.isActive ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"}`}>
                         {item.isActive ? tc("active") : tc("inactive")}
@@ -296,7 +297,7 @@ export default function MedicalActsPage() {
 
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1"><Label>{t("base_price")} (XAF)</Label><Input type="number" min="0" value={form.basePrice} onChange={(e) => setForm({ ...form, basePrice: e.target.value })} className="h-9 text-xs" /></div>
-              <div className="space-y-1"><Label>{t("pec_coverage")} (%)</Label><Input type="number" min="0" max="100" value={form.defaultPecCoveragePercent} onChange={(e) => setForm({ ...form, defaultPecCoveragePercent: e.target.value })} className="h-9 text-xs" /></div>
+              <div className="space-y-1"><Label>{t("pec_coverage")} (%)</Label><Input type="number" min="0" max="100" placeholder="—" value={form.defaultPecCoveragePercent} onChange={(e) => setForm({ ...form, defaultPecCoveragePercent: e.target.value })} className="h-9 text-xs" /><p className="text-[11px] text-slate-400">{t("pec_coverage_hint")}</p></div>
             </div>
 
             <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">

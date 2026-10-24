@@ -45,6 +45,34 @@ export interface PdfInvoiceData {
   refundDue?: number;
 }
 
+// Claim to a payer (ClaimTemplate). Labels are translated by the caller.
+export interface PdfClaimData {
+  number: string;
+  status: string;
+  payerName: string;
+  period: string;
+  submittedOn: string | null;
+  currency: string;
+  notes: string | null;
+  items: {
+    date: string;
+    patient: string;
+    ipp: string;
+    memberNumber: string;
+    beneficiary: string;
+    authorization: string | null;
+    invoiceAmount: number;
+    claimed: number;
+    paid: number;
+    rejected: number;
+  }[];
+  labels: Record<
+    | 'title' | 'status' | 'payer' | 'period' | 'submitted_on' | 'invoices' | 'date' | 'patient' | 'member' | 'beneficiary' | 'authorization'
+    | 'invoice_amount' | 'claimed' | 'paid' | 'rejected' | 'totals' | 'outstanding' | 'facility_signature' | 'payer_signature',
+    string
+  >;
+}
+
 export interface PdfReceiptData {
   receiptNumber: string;
   date: string;

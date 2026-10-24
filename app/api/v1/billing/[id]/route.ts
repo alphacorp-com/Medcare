@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { recalculateInvoiceTotals } from "@/lib/billing/suggestCharge";
-import { isLiveClaimItem } from "@/lib/coverage/apply";
-import { isUuid } from "@/lib/coverage/input";
+import { isUuid, refundableAmount } from "@/lib/coverage/input";
+import { transferTargets } from "@/lib/billing/refunds";
 import { auditCoverage, billingGuard, coverageError, handleCoverageError } from "@/lib/coverage/route-auth";
 
 // GET /api/v1/billing/[id] — invoice detail: patient, stay, lines (with the split between the
-// free-care programmes, the payer and the patient), payments, coverage applied, the claims it is
-// in, and the patient's coverages / authorizations the cashier can choose from.
+// free-care programmes, the payer and the patient), payments, coverage applied, the claim it is
+// in, refunds / transfers of an overpayment, and the patient's coverages / authorizations the
+// cashier can choose from.
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const guard = await billingGuard("read");
   if (!guard.ok) return guard.response;
@@ -20,9 +21,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       stay: { select: { id: true, stayNumber: true, admissionDate: true, dischargeDate: true } },
       lines: { orderBy: { createdAt: "asc" }, include: { exemptionProgram: { select: { code: true, name: true } } } },
       payments: { orderBy: { initiatedAt: "desc" } },
-      coverage: { include: { agreement: { include: { payer: { select: { id: true, name: true } } } } } },
+      coverage: { include: { policy: { include: { agreement: { include: { payer: { select: { id: true, name: true } } } } } } } },
       authorization: true,
-      claimItems: { include: { claim: { select: { id: true, number: true, status: true } } } },
+      claimItems: { include: { claim: { select: { id: true, number: true, status: true } }, rejections: { where: { reversedAt: null }, select: { amount: true, reason: true, chargedToPatient: true } } } },
+      refunds: { orderBy: { refundedAt: "desc" }, include: { targetInvoice: { select: { id: true, createdAt: true } } } },
+      creditsIn: { orderBy: { refundedAt: "desc" }, select: { id: true, amount: true, refundedAt: true, invoiceId: true } },
     },
   });
   if (!invoice) return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
@@ -30,13 +33,20 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const coverageOptions = await prisma.patientCoverage.findMany({
     where: { tenantId: guard.tenantId, patientId: invoice.patientId },
     include: {
-      agreement: { select: { name: true, requiresAuthorization: true, payer: { select: { name: true } } } },
+      policy: { select: { memberNumber: true, holderName: true, endedAt: true, agreement: { select: { name: true, requiresAuthorization: true, payer: { select: { name: true } } } } } },
       authorizations: { where: { status: "active" }, orderBy: { validTo: "desc" } },
     },
     orderBy: { validFrom: "desc" },
   });
+  const refundable = refundableAmount({ status: invoice.status, paidAmount: Number(invoice.paidAmount), patientAmount: Number(invoice.patientAmount) });
 
-  return NextResponse.json({ ...invoice, coverageOptions, isClaimed: invoice.claimItems.some(isLiveClaimItem) });
+  return NextResponse.json({
+    ...invoice,
+    coverageOptions,
+    isClaimed: invoice.claimItems.length > 0,
+    refundable,
+    transferTargets: refundable > 0 ? await transferTargets(guard.tenantId, invoice.id) : [],
+  });
 }
 
 // PATCH /api/v1/billing/[id] — Body: { notes?, coverageId? (null = no coverage), authorizationId? (null = none),
@@ -53,10 +63,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     const invoice = await prisma.patientInvoice.findFirst({
       where: { id, tenantId: guard.tenantId },
-      include: { claimItems: { select: { claimedAmount: true, rejectedAmount: true } } },
+      include: { _count: { select: { claimItems: true } } },
     });
     if (!invoice) return coverageError("not_found", 404);
-    const claimed = invoice.claimItems.some(isLiveClaimItem);
+    const claimed = invoice._count.claimItems > 0;
 
     const data: { notes?: string | null; status?: "cancelled"; coverageId?: string | null; authorizationId?: string | null; insuranceAmount?: number } = {};
     if ("notes" in body) {

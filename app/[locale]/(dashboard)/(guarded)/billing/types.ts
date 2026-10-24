@@ -8,7 +8,8 @@ export type BillingSourceType =
   | "delivery"
   | "other";
 // "insurance" only on payments recorded before lib/coverage: payer money now comes through claims.
-export type PaymentMethod = "cash" | "card" | "insurance" | "mobile_money_orange" | "mobile_money_mtn" | "bank_transfer";
+// "credit_transfer": an overpayment of another invoice of the patient moved here.
+export type PaymentMethod = "cash" | "card" | "insurance" | "credit_transfer" | "mobile_money_orange" | "mobile_money_mtn" | "bank_transfer";
 export type PaymentStatus = "pending" | "successful" | "failed" | "cancelled";
 
 export type InvoiceListItem = {
@@ -41,17 +42,28 @@ export type InvoiceLine = {
   exemptionProgram: { code: string; name: string } | null;
 };
 
-export type CoverageStatus = "none" | "applied" | "capped" | "authorization_required" | "invalid_coverage" | "frozen";
+export type CoverageStatus = "none" | "applied" | "capped" | "authorization_required" | "invalid_coverage" | "age_limit_exceeded" | "frozen";
 
 export type CoverageAuthorizationOption = { id: string; number: string; authorizedAmount: string | null; validFrom: string; validTo: string };
 export type CoverageOption = {
   id: string;
-  memberNumber: string;
+  relationship: "holder" | "spouse" | "child" | "other";
   validFrom: string;
   validTo: string | null;
   endedAt: string | null;
-  agreement: { name: string; requiresAuthorization: boolean; payer: { name: string } };
+  policy: { memberNumber: string; holderName: string; endedAt: string | null; agreement: { name: string; requiresAuthorization: boolean; payer: { name: string } } };
   authorizations: CoverageAuthorizationOption[];
+};
+
+export type PatientRefund = {
+  id: string;
+  kind: "refund" | "transfer";
+  amount: string | number;
+  method: PaymentMethod | null;
+  reference: string | null;
+  reason: string;
+  refundedAt: string;
+  targetInvoice: { id: string; createdAt: string } | null;
 };
 
 export type Payment = {
@@ -85,11 +97,21 @@ export type InvoiceDetail = {
   coverageId: string | null;
   authorizationId: string | null;
   coverageStatus: CoverageStatus;
-  coverage: { id: string; memberNumber: string; agreement: { name: string; payer: { id: string; name: string } } } | null;
+  coverage: { id: string; relationship: CoverageOption["relationship"]; policy: { memberNumber: string; holderName: string; agreement: { name: string; payer: { id: string; name: string } } } } | null;
   authorization: CoverageAuthorizationOption | null;
-  claimItems: { id: string; claimedAmount: string | number; paidAmount: string | number; rejectedAmount: string | number; rejectionReason: string | null; claim: { id: string; number: string; status: string } }[];
+  claimItems: {
+    id: string; claimedAmount: string | number; paidAmount: string | number; rejectedAmount: string | number;
+    claim: { id: string; number: string; status: string };
+    rejections: { amount: string | number; reason: string; chargedToPatient: boolean }[];
+  }[];
   coverageOptions: CoverageOption[];
   isClaimed: boolean;
+  // Overpayment: what can be given back / moved, the refunds and transfers made, money received
+  // from other invoices of the patient.
+  refundable: number;
+  refunds: PatientRefund[];
+  creditsIn: { id: string; amount: string | number; refundedAt: string; invoiceId: string }[];
+  transferTargets: { id: string; createdAt: string; stayNumber: string | null; due: number }[];
   patient: { id: string; firstName: string; lastName: string; ipp: string };
   stay: { id: string; stayNumber: string; admissionDate: string; dischargeDate: string | null } | null;
   lines: InvoiceLine[];

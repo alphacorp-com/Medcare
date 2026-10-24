@@ -11,6 +11,7 @@ import { ArrowLeft, Loader2, CreditCard, Printer, ShieldCheck } from "lucide-rea
 import { RecordPaymentDialog } from "./_components/RecordPaymentDialog";
 import { WaivePaymentDialog } from "./_components/WaivePaymentDialog";
 import { InvoiceCoveragePanel } from "./_components/InvoiceCoveragePanel";
+import { OverpaymentPanel } from "./_components/OverpaymentPanel";
 import { InvoiceDetail, Payment } from "../types";
 import { PDFPreviewModal } from "@/components/templates/PDFPreviewModal";
 import { usePdfBranding } from "@/components/templates/usePdfBranding";
@@ -91,7 +92,7 @@ export default function InvoiceDetailPage() {
     subtotal,
     total: subtotal,
     insuranceAmount,
-    payerName: invoice.coverage ? `${invoice.coverage.agreement.payer.name} (${invoice.coverage.memberNumber})` : undefined,
+    payerName: invoice.coverage ? `${invoice.coverage.policy.agreement.payer.name} (${invoice.coverage.policy.memberNumber})` : undefined,
     exemptionAmount,
     rejectedToPatient,
     patientAmount,
@@ -265,7 +266,7 @@ export default function InvoiceDetailPage() {
               </div>
             )}
             <div className="flex justify-between text-xs">
-              <span className="text-slate-500">{invoice.coverage ? `${t("insurance_amount")} — ${invoice.coverage.agreement.payer.name}` : t("insurance_amount")}</span>
+              <span className="text-slate-500">{invoice.coverage ? `${t("insurance_amount")} — ${invoice.coverage.policy.agreement.payer.name}` : t("insurance_amount")}</span>
               <span className="font-mono text-slate-800">{insuranceAmount.toLocaleString()} {invoice.currency}</span>
             </div>
             {rejectedToPatient > 0 && (
@@ -299,6 +300,7 @@ export default function InvoiceDetailPage() {
               </div>
             )}
           </div>
+          <OverpaymentPanel invoice={invoice} onSaved={fetchInvoice} />
           {invoice.notes && (
             <div className="bg-white rounded border border-slate-200 shadow-sm p-4">
               <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">{t("notes")}</div>

@@ -20,7 +20,8 @@ import { cn } from "@/lib/utils";
 type Rate = { family: string; rate: number };
 type Agreement = {
   id: string; payerId: string; code: string; name: string; defaultRate: number; rates: Rate[];
-  perInvoiceCeiling: string | null; annualCeiling: string | null; requiresAuthorization: boolean; authorizationThreshold: string | null;
+  perInvoiceCeiling: string | null; annualCeiling: string | null; familyAnnualCeiling: string | null; childMaxAgeYears: number | null; useNomenclatureRates: boolean;
+  requiresAuthorization: boolean; authorizationThreshold: string | null;
   validFrom: string | null; validTo: string | null; isActive: boolean; notes: string | null;
 };
 type Payer = {
@@ -94,7 +95,9 @@ export default function PayersPage() {
                     {a.rates.map((r) => <span key={r.family} className="ml-2 text-slate-500">· {tf(r.family)} {r.rate} %</span>)}
                   </div>
                   <div className="text-[11px] text-slate-400">
-                    {t("per_invoice_ceiling")}: {a.perInvoiceCeiling ? money(a.perInvoiceCeiling) : "—"} · {t("annual_ceiling")}: {a.annualCeiling ? money(a.annualCeiling) : "—"}
+                    {t("per_invoice_ceiling")}: {a.perInvoiceCeiling ? money(a.perInvoiceCeiling) : "—"} · {t("annual_ceiling")}: {a.annualCeiling ? money(a.annualCeiling) : "—"} · {t("family_annual_ceiling")}: {a.familyAnnualCeiling ? money(a.familyAnnualCeiling) : "—"}
+                    {a.childMaxAgeYears !== null && <> · {t("child_age_limit", { age: a.childMaxAgeYears })}</>}
+                    {a.useNomenclatureRates && <> · {t("nomenclature_applied")}</>}
                     {(a.validFrom || a.validTo) && <> · {dateInput(a.validFrom) || "…"} → {dateInput(a.validTo) || "…"}</>}
                   </div>
                 </div>
@@ -158,6 +161,9 @@ function AgreementDialog({ payer, agreement, onClose }: { payer: Payer; agreemen
     rates: Object.fromEntries(COVERAGE_FAMILIES.map((f) => [f, rateOf(f) === undefined ? "" : String(rateOf(f))])) as Record<string, string>,
     perInvoiceCeiling: agreement?.perInvoiceCeiling ? String(Number(agreement.perInvoiceCeiling)) : "",
     annualCeiling: agreement?.annualCeiling ? String(Number(agreement.annualCeiling)) : "",
+    familyAnnualCeiling: agreement?.familyAnnualCeiling ? String(Number(agreement.familyAnnualCeiling)) : "",
+    childMaxAgeYears: agreement?.childMaxAgeYears?.toString() ?? "",
+    useNomenclatureRates: agreement?.useNomenclatureRates ?? false,
     requiresAuthorization: agreement?.requiresAuthorization ?? false,
     authorizationThreshold: agreement?.authorizationThreshold ? String(Number(agreement.authorizationThreshold)) : "",
     validFrom: dateInput(agreement?.validFrom), validTo: dateInput(agreement?.validTo), isActive: agreement?.isActive ?? true, notes: agreement?.notes ?? "",
@@ -169,7 +175,8 @@ function AgreementDialog({ payer, agreement, onClose }: { payer: Payer; agreemen
     code: form.code, name: form.name, defaultRate: Number(form.defaultRate),
     // A family left blank follows the default rate.
     rates: COVERAGE_FAMILIES.filter((f) => form.rates[f].trim() !== "").map((f) => ({ family: f, rate: Number(form.rates[f]) })),
-    perInvoiceCeiling: optionalAmount(form.perInvoiceCeiling), annualCeiling: optionalAmount(form.annualCeiling),
+    perInvoiceCeiling: optionalAmount(form.perInvoiceCeiling), annualCeiling: optionalAmount(form.annualCeiling), familyAnnualCeiling: optionalAmount(form.familyAnnualCeiling),
+    childMaxAgeYears: form.childMaxAgeYears.trim() === "" ? null : Number(form.childMaxAgeYears), useNomenclatureRates: form.useNomenclatureRates,
     requiresAuthorization: form.requiresAuthorization, authorizationThreshold: form.requiresAuthorization ? optionalAmount(form.authorizationThreshold) : null,
     validFrom: form.validFrom || null, validTo: form.validTo || null, isActive: form.isActive, notes: form.notes || null,
   });
@@ -196,9 +203,13 @@ function AgreementDialog({ payer, agreement, onClose }: { payer: Payer; agreemen
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Field label={t("per_invoice_ceiling")}><Input type="number" min={0} value={form.perInvoiceCeiling} onChange={(e) => set({ perInvoiceCeiling: e.target.value })} className="h-8 text-xs" /></Field>
           <Field label={t("annual_ceiling")}><Input type="number" min={0} value={form.annualCeiling} onChange={(e) => set({ annualCeiling: e.target.value })} className="h-8 text-xs" /></Field>
+          <Field label={t("family_annual_ceiling")}><Input type="number" min={0} value={form.familyAnnualCeiling} onChange={(e) => set({ familyAnnualCeiling: e.target.value })} className="h-8 text-xs" /></Field>
+          <Field label={t("child_max_age")}><Input type="number" min={1} max={99} placeholder={t("no_limit")} value={form.childMaxAgeYears} onChange={(e) => set({ childMaxAgeYears: e.target.value })} className="h-8 text-xs" /></Field>
           <Field label={t("valid_from")}><Input type="date" value={form.validFrom} onChange={(e) => set({ validFrom: e.target.value })} className="h-8 text-xs" /></Field>
           <Field label={t("valid_to")}><Input type="date" value={form.validTo} onChange={(e) => set({ validTo: e.target.value })} className="h-8 text-xs" /></Field>
         </div>
+        <Check label={t("use_nomenclature")} checked={form.useNomenclatureRates} onChange={(v) => set({ useNomenclatureRates: v })} />
+        <p className="-mt-2 text-[11px] text-slate-400">{t("use_nomenclature_hint")}</p>
         <div className="grid grid-cols-2 items-end gap-3">
           <Check label={t("requires_authorization")} checked={form.requiresAuthorization} onChange={(v) => set({ requiresAuthorization: v })} />
           {form.requiresAuthorization && (

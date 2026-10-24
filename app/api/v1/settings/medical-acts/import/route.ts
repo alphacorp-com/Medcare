@@ -1,3 +1,4 @@
+import { parseNomenclatureRate } from "@/lib/coverage/input";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -39,6 +40,12 @@ export async function POST(request: Request) {
       errors.push({ row: i + 1, message: "categoryCode, code, nameFr and a numeric basePrice are required" });
       continue;
     }
+    // Nomenclature coverage rate (lib/coverage): 0-100, blank = not set.
+    const pecRate = parseNomenclatureRate(row.defaultPecCoveragePercent);
+    if (pecRate === "invalid") {
+      errors.push({ row: i + 1, message: "defaultPecCoveragePercent must be a whole number from 0 to 100, or empty" });
+      continue;
+    }
     const categoryId = categoryByCode.get(categoryCode);
     if (!categoryId) {
       errors.push({ row: i + 1, message: `Unknown category code "${row.categoryCode}"` });
@@ -54,7 +61,7 @@ export async function POST(request: Request) {
           nameEn: row.nameEn?.trim() || null,
           basePrice,
           unit: row.unit?.trim() || null,
-          defaultPecCoveragePercent: row.defaultPecCoveragePercent ? Number(row.defaultPecCoveragePercent) || 0 : 0,
+          defaultPecCoveragePercent: pecRate,
         },
         create: {
           tenantId: session.user.tenantId,
@@ -64,7 +71,7 @@ export async function POST(request: Request) {
           nameEn: row.nameEn?.trim() || null,
           basePrice,
           unit: row.unit?.trim() || null,
-          defaultPecCoveragePercent: row.defaultPecCoveragePercent ? Number(row.defaultPecCoveragePercent) || 0 : 0,
+          defaultPecCoveragePercent: pecRate,
         },
       });
       imported++;
