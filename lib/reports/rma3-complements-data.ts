@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import type { ActivityTable } from "@/lib/reports/activity-rows";
 import { buildComplementTables } from "@/lib/reports/rma3-complements";
@@ -79,15 +80,30 @@ export async function computeComplementTables(tenantId: string, start: Date, end
   });
 }
 
-// Income of the month per RMA3 rubric (FCFA), from the payments received.
+const INVOICE_FOR_INCOME = {
+  select: { stay: { select: { medicalActCode: true } }, lines: { select: { sourceType: true, sourceId: true, amount: true, quantity: true, payerAmount: true, exemptionAmount: true } } },
+} as const;
+
+// Income of the month per RMA3 rubric (FCFA), from the money received: the patients' payments,
+// spread over the invoice lines in proportion to the patient's share of each line, and the
+// payers' settlements (lib/coverage/claims.ts), in proportion to the payer's share. Free care
+// (exemptions) brings no money and is not income.
 export async function computeBillingIncome(tenantId: string, start: Date, end: Date): Promise<Record<string, number>> {
-  const payments = await prisma.payment.findMany({
-    where: { tenantId, status: "successful", OR: [{ completedAt: { gte: start, lt: end } }, { completedAt: null, initiatedAt: { gte: start, lt: end } }] },
-    select: {
-      amount: true,
-      invoice: { select: { stay: { select: { medicalActCode: true } }, lines: { select: { sourceType: true, sourceId: true, amount: true, quantity: true } } } },
-    },
-  });
+  const [patientPayments, payerAllocations] = await Promise.all([
+    prisma.payment.findMany({
+      where: { tenantId, status: "successful", OR: [{ completedAt: { gte: start, lt: end } }, { completedAt: null, initiatedAt: { gte: start, lt: end } }] },
+      select: { amount: true, invoice: INVOICE_FOR_INCOME },
+    }),
+    prisma.payerPaymentAllocation.findMany({
+      where: { tenantId, payment: { receivedAt: { gte: start, lt: end } } },
+      select: { amount: true, claimItem: { select: { invoice: INVOICE_FOR_INCOME } } },
+    }),
+  ]);
+  type IncomeInvoice = (typeof patientPayments)[number]["invoice"];
+  const payments: { amount: Prisma.Decimal; invoice: IncomeInvoice; payerShare: boolean }[] = [
+    ...patientPayments.map((p) => ({ ...p, payerShare: false })),
+    ...payerAllocations.map((a) => ({ amount: a.amount, invoice: a.claimItem.invoice, payerShare: true })),
+  ];
   if (payments.length === 0) return {};
   const lines = payments.flatMap((p) => p.invoice.lines);
   const idsOf = (type: string) => [...new Set(lines.filter((l) => l.sourceType === type && l.sourceId && UUID.test(l.sourceId)).map((l) => l.sourceId!))];
@@ -117,28 +133,39 @@ export async function computeBillingIncome(tenantId: string, start: Date, end: D
     return sum && sum.quantity > 0 ? sum.cost / sum.quantity : null;
   };
 
-  const incomePayments: IncomePayment[] = payments.map((p) => ({
-    amount: Number(p.amount),
-    lines: p.invoice.lines.map((line): IncomeLine => {
-      const amount = Number(line.amount);
-      if (line.sourceType === "pharmacy_dispensation") {
-        const itemId = line.sourceId?.split(":")[1] ?? "";
-        const cost = averageCost(itemId);
-        return { amount, rubric: "pharmacy", purchaseCost: cost === null ? null : cost * Number(line.quantity) };
-      }
-      const exam = line.sourceType === "exam" && line.sourceId ? examById.get(line.sourceId) : undefined;
-      // The act behind the line, whose category may carry an RMA3 rubric.
-      const actCode =
-        line.sourceType === "exam"
-          ? exam?.examCode
-          : line.sourceType === "surgery"
-            ? surgeryById.get(line.sourceId ?? "")?.procedureCode ?? undefined
-            : line.sourceType === "consultation"
-              ? p.invoice.stay?.medicalActCode ?? undefined
-              : undefined;
-      const rubric = (actCode && rubricOfAct.get(actCode)) || defaultRubric(line.sourceType, exam?.type);
-      return { amount, rubric, purchaseCost: null };
-    }),
-  }));
+  // Weight of a line in a payment: the payer's share for a settlement, the patient's share for a
+  // patient payment — or the whole line when the patient has no share on the invoice (a rejected
+  // payer share charged back to the patient).
+  const weightOf = (line: IncomeInvoice["lines"][number], payerShare: boolean) =>
+    payerShare ? Number(line.payerAmount) : Math.max(0, Number(line.amount) - Number(line.payerAmount) - Number(line.exemptionAmount));
+  const incomePayments: IncomePayment[] = payments.map((p) => {
+    const patientShareless = !p.payerShare && p.invoice.lines.every((l) => weightOf(l, false) <= 0);
+    return {
+      amount: Number(p.amount),
+      lines: p.invoice.lines.map((line): IncomeLine => {
+        // The purchase cost of a pharmacy line is scaled like the line itself.
+        const full = Number(line.amount);
+        const amount = patientShareless ? full : weightOf(line, p.payerShare);
+        const share = full > 0 ? amount / full : 0;
+        if (line.sourceType === "pharmacy_dispensation") {
+          const itemId = line.sourceId?.split(":")[1] ?? "";
+          const cost = averageCost(itemId);
+          return { amount, rubric: "pharmacy", purchaseCost: cost === null ? null : cost * Number(line.quantity) * share };
+        }
+        const exam = line.sourceType === "exam" && line.sourceId ? examById.get(line.sourceId) : undefined;
+        // The act behind the line, whose category may carry an RMA3 rubric.
+        const actCode =
+          line.sourceType === "exam"
+            ? exam?.examCode
+            : line.sourceType === "surgery"
+              ? surgeryById.get(line.sourceId ?? "")?.procedureCode ?? undefined
+              : line.sourceType === "consultation"
+                ? p.invoice.stay?.medicalActCode ?? undefined
+                : undefined;
+        const rubric = (actCode && rubricOfAct.get(actCode)) || defaultRubric(line.sourceType, exam?.type);
+        return { amount, rubric, purchaseCost: null };
+      }),
+    };
+  });
   return allocateIncome(incomePayments);
 }

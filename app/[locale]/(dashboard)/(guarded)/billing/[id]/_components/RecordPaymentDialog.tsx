@@ -9,7 +9,8 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Loader2, CheckCircle2, XCircle } from "lucide-react";
 import { PaymentMethod } from "../../types";
 
-const METHODS: PaymentMethod[] = ["cash", "card", "insurance", "bank_transfer", "mobile_money_orange", "mobile_money_mtn"];
+// The payer's share is deducted by the coverage and recovered through claims: never recorded here.
+const METHODS: PaymentMethod[] = ["cash", "card", "bank_transfer", "mobile_money_orange", "mobile_money_mtn"];
 const MOBILE_MONEY_METHODS: PaymentMethod[] = ["mobile_money_orange", "mobile_money_mtn"];
 const POLL_INTERVAL_MS = 4000;
 const POLL_TIMEOUT_MS = 120000;

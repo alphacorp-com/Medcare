@@ -9,11 +9,14 @@ import { initiateOrangePayment } from "@/lib/payments/mobile-money/orange";
 import { initiateMtnPayment } from "@/lib/payments/mobile-money/mtn";
 import { applySuccessfulPayment } from "@/lib/billing/applyPayment";
 
-const INSTANT_METHODS: PaymentMethod[] = ["cash", "card", "insurance", "bank_transfer"];
+const INSTANT_METHODS: PaymentMethod[] = ["cash", "card", "bank_transfer"];
 
-// POST /api/v1/billing/[id]/payments — record a payment against an invoice.
-// cash/card/insurance/bank_transfer settle synchronously. mobile_money_* initiate a
+// POST /api/v1/billing/[id]/payments — record a payment of the patient's share.
+// cash/card/bank_transfer settle synchronously. mobile_money_* initiate a
 // real gateway request and come back "pending" until the webhook/status poll confirms.
+// A payer's money never comes through here: the payer share is deducted by the coverage and
+// recovered through the claims (/api/v1/billing/claims, /api/v1/billing/payer-payments) — the
+// old "insurance" method would have counted it as paid by the patient.
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions);
@@ -45,6 +48,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       reference?: string;
     };
 
+    if (method === "insurance") {
+      return NextResponse.json({ error: "insurance_via_claims", code: "insurance_via_claims" }, { status: 400 });
+    }
     const validMethods: PaymentMethod[] = [...INSTANT_METHODS, "mobile_money_orange", "mobile_money_mtn"];
     if (!method || !validMethods.includes(method)) {
       return NextResponse.json({ error: "A valid payment method is required" }, { status: 400 });

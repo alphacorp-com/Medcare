@@ -15,8 +15,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useRouter } from "@/i18n/routing";
-import { Search, FileClock, Banknote, CheckCircle2, Receipt } from "lucide-react";
+import { Search, FileClock, Banknote, CheckCircle2, Receipt, Landmark } from "lucide-react";
 import { FeeScheduleTab } from "./_components/FeeScheduleTab";
+import { ClaimsTab } from "./_components/ClaimsTab";
 import { InvoiceListItem, BillingInvoiceStatus } from "./types";
 
 const FILTERS: (BillingInvoiceStatus | "all")[] = ["all", "pending_payment", "partially_paid", "paid"];
@@ -26,9 +27,10 @@ type InvoiceListResponse = PagedResponse<InvoiceListItem, Partial<Record<Billing
 };
 
 function BillingPageContent() {
-  const [billingTab, setBillingTab] = useUrlTab(["invoices", "fee_schedule"] as const, "invoices");
+  const [billingTab, setBillingTab] = useUrlTab(["invoices", "claims", "fee_schedule"] as const, "invoices");
   const t = useTranslations("billing");
   const tc = useTranslations("common");
+  const tcov = useTranslations("coverage.claims");
   const hasModule = useAppStore((state) => state.hasModule);
   const router = useRouter();
 
@@ -130,6 +132,9 @@ function BillingPageContent() {
           <TabsTrigger value="invoices" className="text-xs data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700">
             {t("invoices")}
           </TabsTrigger>
+          <TabsTrigger value="claims" className="text-xs data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700">
+            <Landmark className="h-3.5 w-3.5 mr-1.5" /> {tcov("tab")}
+          </TabsTrigger>
           <TabsTrigger value="fee_schedule" className="text-xs data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700">
             {t("fee_schedule")}
           </TabsTrigger>
@@ -217,6 +222,10 @@ function BillingPageContent() {
                 onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
               />
             </div>
+          </TabsContent>
+
+          <TabsContent value="claims" className="m-0 flex-1 flex flex-col overflow-hidden">
+            <ClaimsTab />
           </TabsContent>
 
           <TabsContent value="fee_schedule" className="m-0 flex-1 flex flex-col overflow-hidden">

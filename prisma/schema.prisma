@@ -768,6 +768,8 @@ model Patient {
   tbScreenings         TbScreening[]
   chronicEnrolments    ChronicCareEnrolment[]
   drugAdverseReactions DrugAdverseReaction[]
+  coverages            PatientCoverage[]
+  exemptions           PatientExemption[]
 
   @@unique([tenantId, ipp])
   @@index([tenantId])
@@ -1600,16 +1602,32 @@ model PatientInvoice {
   notes           String?
   createdAt       DateTime             @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime             @updatedAt @map("updated_at") @db.Timestamptz
+  // Third-party payment (lib/coverage): the patient's coverage applied to this invoice, the
+  // prior authorization it uses, and the outcome of the computation. insuranceAmount is the
+  // payer's share (sum of the lines' payerAmount), exemptionAmount the free-care programmes'
+  // share; the patient owes subtotal - insuranceAmount - exemptionAmount + insurerRejectedToPatient.
+  coverageId               String?        @map("coverage_id") @db.Uuid
+  authorizationId          String?        @map("authorization_id") @db.Uuid
+  coverageStatus           CoverageStatus @default(none) @map("coverage_status")
+  exemptionAmount          Decimal        @default(0) @map("exemption_amount") @db.Decimal(14, 2)
+  // Settled by the payer (claim allocations), and the rejected part charged back to the patient.
+  insurerPaidAmount        Decimal        @default(0) @map("insurer_paid_amount") @db.Decimal(14, 2)
+  insurerRejectedToPatient Decimal        @default(0) @map("insurer_rejected_to_patient") @db.Decimal(14, 2)
 
-  patient  Patient              @relation(fields: [patientId], references: [id])
-  stay     Stay?                @relation(fields: [stayId], references: [id])
-  lines    PatientInvoiceLine[]
-  payments Payment[]
+  patient       Patient                @relation(fields: [patientId], references: [id])
+  stay          Stay?                  @relation(fields: [stayId], references: [id])
+  coverage      PatientCoverage?       @relation(fields: [coverageId], references: [id])
+  authorization CoverageAuthorization? @relation(fields: [authorizationId], references: [id])
+  lines         PatientInvoiceLine[]
+  payments      Payment[]
+  claimItems    InsuranceClaimItem[]
 
   @@index([tenantId])
   @@index([patientId])
   @@index([stayId])
   @@index([status])
+  @@index([coverageId])
+  @@index([authorizationId])
   @@map("patient_invoices")
   @@schema("tenant_template")
 }
@@ -1625,8 +1643,14 @@ model PatientInvoiceLine {
   unitPrice   Decimal           @map("unit_price") @db.Decimal(12, 2)
   amount      Decimal           @db.Decimal(14, 2)
   createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  // Split of `amount` (lib/coverage/compute.ts): free-care programme first, then the payer's
+  // rate on the rest; the patient pays the remainder.
+  payerAmount        Decimal @default(0) @map("payer_amount") @db.Decimal(14, 2)
+  exemptionAmount    Decimal @default(0) @map("exemption_amount") @db.Decimal(14, 2)
+  exemptionProgramId String? @map("exemption_program_id") @db.Uuid
 
-  invoice PatientInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  invoice          PatientInvoice    @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  exemptionProgram ExemptionProgram? @relation(fields: [exemptionProgramId], references: [id])
 
   @@unique([sourceType, sourceId])
   @@index([invoiceId])
@@ -1793,6 +1817,9 @@ enum ReferenceCatalogType {
 // types, anatomical zones) — same code/name-fr/name-en/active/order shape for all of
 // them, avoiding 7 near-identical models + route sets + settings pages.
 model ReferenceCatalogItem {
+  // Payers of this insurance type (catalogType insurance_type only).
+  payers Payer[]
+
   id          String               @id @default(uuid()) @db.Uuid
   tenantId    String?              @map("tenant_id") @db.Uuid
   catalogType ReferenceCatalogType @map("catalog_type")
@@ -3283,5 +3310,344 @@ model DrugAdverseReaction {
 
   @@index([tenantId, createdAt])
   @@map("drug_adverse_reactions")
+  @@schema("tenant_template")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Third-party payment ("prises en charge") — lib/coverage
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Family of an invoice line, the level at which a convention sets its rates.
+enum CoverageFamily {
+  consultation
+  laboratory
+  imaging
+  pharmacy
+  hospitalization
+  surgery
+  maternity
+  other
+
+  @@schema("tenant_template")
+}
+
+// Outcome of the coverage computation of an invoice.
+enum CoverageStatus {
+  none                   // no coverage on the invoice
+  applied                // the payer's share is applied
+  capped                 // applied, limited by a ceiling or the authorization amount
+  authorization_required // the convention requires a prior authorization: no payer share
+  invalid_coverage       // coverage expired / suspended / convention inactive: no payer share
+  frozen                 // claimed to the payer: shares kept as claimed
+
+  @@schema("tenant_template")
+}
+
+enum CoverageAuthorizationStatus {
+  active
+  cancelled
+
+  @@schema("tenant_template")
+}
+
+enum ExemptionEligibility {
+  automatic // age / sex / pregnancy criteria
+  enrolment // patients enrolled one by one (indigents…)
+
+  @@schema("tenant_template")
+}
+
+enum InsuranceClaimStatus {
+  draft
+  submitted
+  partially_settled
+  settled
+  closed
+
+  @@schema("tenant_template")
+}
+
+enum PayerPaymentMethod {
+  bank_transfer
+  cheque
+  cash
+  mobile_money
+  other
+
+  @@schema("tenant_template")
+}
+
+// Organisation that pays for its members (CNPS, insurer, mutual, employer…).
+model Payer {
+  id              String   @id @default(uuid()) @db.Uuid
+  tenantId        String   @map("tenant_id") @db.Uuid
+  code            String   @db.VarChar(40)
+  name            String   @db.VarChar(150)
+  insuranceTypeId String?  @map("insurance_type_id") @db.Uuid
+  contactName     String?  @map("contact_name") @db.VarChar(150)
+  phone           String?  @db.VarChar(30)
+  email           String?  @db.VarChar(150)
+  address         String?  @db.VarChar(255)
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  insuranceType ReferenceCatalogItem? @relation(fields: [insuranceTypeId], references: [id])
+  agreements    CoverageAgreement[]
+  claims        InsuranceClaim[]
+  payments      PayerPayment[]
+
+  @@unique([tenantId, code])
+  @@map("payers")
+  @@schema("tenant_template")
+}
+
+// Convention signed with a payer: rates per family, ceilings, authorization rule.
+model CoverageAgreement {
+  id                     String    @id @default(uuid()) @db.Uuid
+  tenantId               String    @map("tenant_id") @db.Uuid
+  payerId                String    @map("payer_id") @db.Uuid
+  code                   String    @db.VarChar(40)
+  name                   String    @db.VarChar(150)
+  // Rate (0-100 %) for the families without a specific rate.
+  defaultRate            Int       @map("default_rate")
+  // Payer share ceilings (FCFA), null = none: per invoice, per beneficiary and calendar year.
+  perInvoiceCeiling      Decimal?  @map("per_invoice_ceiling") @db.Decimal(14, 2)
+  annualCeiling          Decimal?  @map("annual_ceiling") @db.Decimal(14, 2)
+  // Prior authorization: required when the payer share exceeds the threshold (null = always).
+  requiresAuthorization  Boolean   @default(false) @map("requires_authorization")
+  authorizationThreshold Decimal?  @map("authorization_threshold") @db.Decimal(14, 2)
+  validFrom              DateTime? @map("valid_from") @db.Date
+  validTo                DateTime? @map("valid_to") @db.Date
+  isActive               Boolean   @default(true) @map("is_active")
+  notes                  String?
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  payer     Payer                   @relation(fields: [payerId], references: [id])
+  rates     CoverageAgreementRate[]
+  coverages PatientCoverage[]
+
+  @@unique([tenantId, code])
+  @@index([payerId])
+  @@map("coverage_agreements")
+  @@schema("tenant_template")
+}
+
+model CoverageAgreementRate {
+  id          String         @id @default(uuid()) @db.Uuid
+  tenantId    String         @map("tenant_id") @db.Uuid
+  agreementId String         @map("agreement_id") @db.Uuid
+  family      CoverageFamily
+  rate        Int
+
+  agreement CoverageAgreement @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+
+  @@unique([agreementId, family])
+  @@map("coverage_agreement_rates")
+  @@schema("tenant_template")
+}
+
+// A patient covered under a convention (member or dependant).
+model PatientCoverage {
+  id            String    @id @default(uuid()) @db.Uuid
+  tenantId      String    @map("tenant_id") @db.Uuid
+  patientId     String    @map("patient_id") @db.Uuid
+  agreementId   String    @map("agreement_id") @db.Uuid
+  memberNumber  String    @map("member_number") @db.VarChar(60)
+  // Dependant of a member: name of the main insured and relationship.
+  principalName String?   @map("principal_name") @db.VarChar(150)
+  relationship  String?   @db.VarChar(40)
+  employer      String?   @db.VarChar(150)
+  validFrom     DateTime  @map("valid_from") @db.Date
+  validTo       DateTime? @map("valid_to") @db.Date
+  // Ended or suspended before validTo.
+  endedAt       DateTime? @map("ended_at") @db.Timestamptz
+  notes         String?
+  createdById   String    @map("created_by_id") @db.Uuid
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  patient        Patient                 @relation(fields: [patientId], references: [id])
+  agreement      CoverageAgreement       @relation(fields: [agreementId], references: [id])
+  authorizations CoverageAuthorization[]
+  invoices       PatientInvoice[]
+
+  @@index([tenantId, patientId])
+  @@index([agreementId])
+  @@map("patient_coverages")
+  @@schema("tenant_template")
+}
+
+// Prior authorization ("bon de prise en charge") issued by the payer.
+model CoverageAuthorization {
+  id               String                      @id @default(uuid()) @db.Uuid
+  tenantId         String                      @map("tenant_id") @db.Uuid
+  coverageId       String                      @map("coverage_id") @db.Uuid
+  number           String                      @db.VarChar(60)
+  // Maximum payer share it allows (FCFA), null = no amount limit.
+  authorizedAmount Decimal?                    @map("authorized_amount") @db.Decimal(14, 2)
+  validFrom        DateTime                    @map("valid_from") @db.Date
+  validTo          DateTime                    @map("valid_to") @db.Date
+  // Restricted to one stay when set.
+  stayId           String?                     @map("stay_id") @db.Uuid
+  status           CoverageAuthorizationStatus @default(active)
+  notes            String?
+  createdById      String                      @map("created_by_id") @db.Uuid
+  createdAt        DateTime                    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime                    @updatedAt @map("updated_at") @db.Timestamptz
+
+  coverage PatientCoverage  @relation(fields: [coverageId], references: [id])
+  invoices PatientInvoice[]
+
+  @@unique([coverageId, number])
+  @@index([tenantId])
+  @@map("coverage_authorizations")
+  @@schema("tenant_template")
+}
+
+// Free-care programme (malaria under 5, PMTCT, TB, indigents…), applied before the payer.
+model ExemptionProgram {
+  id               String               @id @default(uuid()) @db.Uuid
+  tenantId         String               @map("tenant_id") @db.Uuid
+  code             String               @db.VarChar(40)
+  name             String               @db.VarChar(150)
+  // Share of the line it pays (1-100 %).
+  rate             Int
+  families         CoverageFamily[]
+  // Optional restriction to these exam / medical act codes and pharmacy articles; empty = any
+  // line of the families.
+  actCodes         String[]             @map("act_codes")
+  inventoryItemIds String[]             @map("inventory_item_ids")
+  eligibility      ExemptionEligibility
+  // Automatic criteria: age in months [min, max), sex, ongoing pregnancy.
+  minAgeMonths     Int?                 @map("min_age_months")
+  maxAgeMonths     Int?                 @map("max_age_months")
+  sex              Gender?
+  pregnantOnly     Boolean              @default(false) @map("pregnant_only")
+  validFrom        DateTime?            @map("valid_from") @db.Date
+  validTo          DateTime?            @map("valid_to") @db.Date
+  isActive         Boolean              @default(true) @map("is_active")
+  notes            String?
+  createdAt        DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime             @updatedAt @map("updated_at") @db.Timestamptz
+
+  enrolments PatientExemption[]
+  lines      PatientInvoiceLine[]
+
+  @@unique([tenantId, code])
+  @@map("exemption_programs")
+  @@schema("tenant_template")
+}
+
+// A patient enrolled in an "enrolment" programme.
+model PatientExemption {
+  id          String    @id @default(uuid()) @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  patientId   String    @map("patient_id") @db.Uuid
+  programId   String    @map("program_id") @db.Uuid
+  validFrom   DateTime  @map("valid_from") @db.Date
+  validTo     DateTime? @map("valid_to") @db.Date
+  reason      String
+  grantedById String    @map("granted_by_id") @db.Uuid
+  revokedAt   DateTime? @map("revoked_at") @db.Timestamptz
+  revokedById String?   @map("revoked_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  patient Patient          @relation(fields: [patientId], references: [id])
+  program ExemptionProgram @relation(fields: [programId], references: [id])
+
+  @@index([tenantId, patientId])
+  @@map("patient_exemptions")
+  @@schema("tenant_template")
+}
+
+// Claim batch ("bordereau") sent to a payer for a period.
+model InsuranceClaim {
+  id            String               @id @default(uuid()) @db.Uuid
+  tenantId      String               @map("tenant_id") @db.Uuid
+  payerId       String               @map("payer_id") @db.Uuid
+  number        String               @db.VarChar(40)
+  periodStart   DateTime             @map("period_start") @db.Date
+  periodEnd     DateTime             @map("period_end") @db.Date
+  status        InsuranceClaimStatus @default(draft)
+  submittedAt   DateTime?            @map("submitted_at") @db.Timestamptz
+  closedAt      DateTime?            @map("closed_at") @db.Timestamptz
+  notes         String?
+  createdById   String               @map("created_by_id") @db.Uuid
+  createdAt     DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime             @updatedAt @map("updated_at") @db.Timestamptz
+
+  payer    Payer                @relation(fields: [payerId], references: [id])
+  items    InsuranceClaimItem[]
+  payments PayerPayment[]
+
+  @@unique([tenantId, number])
+  @@index([payerId])
+  @@map("insurance_claims")
+  @@schema("tenant_template")
+}
+
+// One invoice in a claim: amount claimed, settled and rejected.
+model InsuranceClaimItem {
+  id              String   @id @default(uuid()) @db.Uuid
+  tenantId        String   @map("tenant_id") @db.Uuid
+  claimId         String   @map("claim_id") @db.Uuid
+  invoiceId       String   @map("invoice_id") @db.Uuid
+  claimedAmount   Decimal  @map("claimed_amount") @db.Decimal(14, 2)
+  paidAmount      Decimal  @default(0) @map("paid_amount") @db.Decimal(14, 2)
+  rejectedAmount  Decimal  @default(0) @map("rejected_amount") @db.Decimal(14, 2)
+  rejectionReason String?  @map("rejection_reason") @db.VarChar(500)
+  // Rejected part charged back to the patient (else written off by the facility).
+  chargedToPatient Boolean @default(false) @map("charged_to_patient")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  claim       InsuranceClaim           @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  invoice     PatientInvoice           @relation(fields: [invoiceId], references: [id])
+  allocations PayerPaymentAllocation[]
+
+  @@unique([claimId, invoiceId])
+  @@index([invoiceId])
+  @@map("insurance_claim_items")
+  @@schema("tenant_template")
+}
+
+// Money received from a payer, allocated to claim items.
+model PayerPayment {
+  id          String             @id @default(uuid()) @db.Uuid
+  tenantId    String             @map("tenant_id") @db.Uuid
+  payerId     String             @map("payer_id") @db.Uuid
+  claimId     String?            @map("claim_id") @db.Uuid
+  amount      Decimal            @db.Decimal(14, 2)
+  receivedAt  DateTime           @map("received_at") @db.Timestamptz
+  method      PayerPaymentMethod
+  reference   String?            @db.VarChar(120)
+  notes       String?
+  recordedById String            @map("recorded_by_id") @db.Uuid
+  createdAt   DateTime           @default(now()) @map("created_at") @db.Timestamptz
+
+  payer       Payer                    @relation(fields: [payerId], references: [id])
+  claim       InsuranceClaim?          @relation(fields: [claimId], references: [id])
+  allocations PayerPaymentAllocation[]
+
+  @@index([tenantId, receivedAt])
+  @@map("payer_payments")
+  @@schema("tenant_template")
+}
+
+model PayerPaymentAllocation {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  paymentId   String   @map("payment_id") @db.Uuid
+  claimItemId String   @map("claim_item_id") @db.Uuid
+  amount      Decimal  @db.Decimal(14, 2)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  payment   PayerPayment       @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  claimItem InsuranceClaimItem @relation(fields: [claimItemId], references: [id])
+
+  @@index([claimItemId])
+  @@map("payer_payment_allocations")
   @@schema("tenant_template")
 }
