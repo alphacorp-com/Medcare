@@ -17,10 +17,13 @@ import { useAppStore } from "@/lib/store/useAppStore";
 // Billing > Receivables: what each payer owes, the claims ("bordereaux") sent to them and the
 // settlements received (lib/coverage/claims.ts).
 
-type Receivable = { id: string; code: string; name: string; isActive: boolean; claimed: number; paid: number; rejected: number; outstanding: number; notYetClaimed: number };
+type Receivable = { id: string; code: string; name: string; isActive: boolean; claimed: number; paid: number; rejected: number; outstanding: number; notYetClaimed: number; unallocated: number };
 type ClaimRow = { id: string; number: string; status: string; periodStart: string; periodEnd: string; payer: { id: string; name: string }; invoiceCount: number; claimed: number; paid: number; rejected: number };
-type PayerPaymentRow = { id: string; amount: string; receivedAt: string; method: string; reference: string | null; allocated: number; payer: { name: string }; claim: { number: string } | null };
-type Eligible = { id: string; createdAt: string; patient: { firstName: string; lastName: string; ipp: string }; memberNumber: string | null; insuranceAmount: number };
+type PayerPaymentRow = {
+  id: string; payerId: string; amount: string; receivedAt: string; method: string; reference: string | null; status: "recorded" | "cancelled"; cancelReason: string | null;
+  allocated: number; refunded: number; unallocated: number; payer: { name: string }; claim: { number: string } | null;
+};
+type Eligible = { id: string; createdAt: string; patient: { firstName: string; lastName: string; ipp: string }; memberNumber: string | null; holderName: string | null; relationship: string | null; insuranceAmount: number };
 
 export const CLAIM_STATUS_TONE: Record<string, string> = {
   draft: "bg-slate-100 text-slate-600",
@@ -45,11 +48,13 @@ export function ClaimsTab() {
   const hasPermission = useAppStore((s) => s.hasPermission);
   const canCreate = hasPermission("MODULE_BILLING", "create");
   const canUpdate = hasPermission("MODULE_BILLING", "update");
+  const canValidate = hasPermission("MODULE_BILLING", "validate");
   const [dialog, setDialog] = useState<"claim" | "payment" | null>(null);
   const claims = useQuery({ queryKey: ["billing", "claims"], queryFn: () => apiFetch<{ data: ClaimRow[]; receivables: Receivable[] }>("/api/v1/billing/claims") });
   const payments = useQuery({ queryKey: ["billing", "payer-payments"], queryFn: () => apiFetch<{ data: PayerPaymentRow[] }>("/api/v1/billing/payer-payments") });
   const date = (iso: string) => format.dateTime(new Date(iso), { dateStyle: "short" });
-  const receivables = (claims.data?.receivables ?? []).filter((r) => r.claimed > 0 || r.notYetClaimed > 0);
+  const receivables = (claims.data?.receivables ?? []).filter((r) => r.claimed > 0 || r.notYetClaimed > 0 || r.unallocated > 0);
+  const [settlementAction, setSettlementAction] = useState<{ kind: "allocate" | "refund" | "cancel"; payment: PayerPaymentRow } | null>(null);
 
   return (
     <div className="flex-1 space-y-4 overflow-auto">
@@ -62,10 +67,10 @@ export function ClaimsTab() {
         <div className="border-b border-slate-200 bg-slate-50 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">{t("receivables")}</div>
         <table className="w-full text-left text-xs">
           <thead className="text-[10px] uppercase text-slate-500">
-            <tr><th className="px-4 py-2">{t("payer")}</th><th className="px-4 py-2 text-right">{t("not_yet_claimed")}</th><th className="px-4 py-2 text-right">{t("claimed")}</th><th className="px-4 py-2 text-right">{t("paid")}</th><th className="px-4 py-2 text-right">{t("rejected")}</th><th className="px-4 py-2 text-right">{t("outstanding")}</th></tr>
+            <tr><th className="px-4 py-2">{t("payer")}</th><th className="px-4 py-2 text-right">{t("not_yet_claimed")}</th><th className="px-4 py-2 text-right">{t("claimed")}</th><th className="px-4 py-2 text-right">{t("paid")}</th><th className="px-4 py-2 text-right">{t("rejected")}</th><th className="px-4 py-2 text-right">{t("outstanding")}</th><th className="px-4 py-2 text-right">{t("unallocated")}</th></tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {receivables.length === 0 && <tr><td colSpan={6} className="px-4 py-4 text-center italic text-slate-400">{t("no_receivable")}</td></tr>}
+            {receivables.length === 0 && <tr><td colSpan={7} className="px-4 py-4 text-center italic text-slate-400">{t("no_receivable")}</td></tr>}
             {receivables.map((r) => (
               <tr key={r.id}>
                 <td className="px-4 py-2 font-semibold text-slate-800">{r.name}</td>
@@ -74,6 +79,7 @@ export function ClaimsTab() {
                 <td className="px-4 py-2 text-right font-mono text-green-700">{money(r.paid)}</td>
                 <td className="px-4 py-2 text-right font-mono text-red-700">{money(r.rejected)}</td>
                 <td className="px-4 py-2 text-right font-mono font-bold text-blue-700">{money(r.outstanding)}</td>
+                <td className="px-4 py-2 text-right font-mono text-amber-700">{r.unallocated > 0 ? money(r.unallocated) : "—"}</td>
               </tr>
             ))}
           </tbody>
@@ -108,19 +114,25 @@ export function ClaimsTab() {
         <div className="border-b border-slate-200 bg-slate-50 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">{t("settlements")}</div>
         <table className="w-full text-left text-xs">
           <thead className="text-[10px] uppercase text-slate-500">
-            <tr><th className="px-4 py-2">{t("received_at")}</th><th className="px-4 py-2">{t("payer")}</th><th className="px-4 py-2">{t("claim")}</th><th className="px-4 py-2">{t("method")}</th><th className="px-4 py-2">{t("reference")}</th><th className="px-4 py-2 text-right">{t("amount")}</th><th className="px-4 py-2 text-right">{t("unallocated")}</th></tr>
+            <tr><th className="px-4 py-2">{t("received_at")}</th><th className="px-4 py-2">{t("payer")}</th><th className="px-4 py-2">{t("claim")}</th><th className="px-4 py-2">{t("method")}</th><th className="px-4 py-2">{t("reference")}</th><th className="px-4 py-2 text-right">{t("amount")}</th><th className="px-4 py-2 text-right">{t("unallocated")}</th><th className="px-4 py-2" /></tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {payments.data?.data.length === 0 && <tr><td colSpan={7} className="px-4 py-4 text-center italic text-slate-400">{t("no_settlement")}</td></tr>}
+            {payments.data?.data.length === 0 && <tr><td colSpan={8} className="px-4 py-4 text-center italic text-slate-400">{t("no_settlement")}</td></tr>}
             {payments.data?.data.map((p) => (
-              <tr key={p.id}>
+              <tr key={p.id} className={p.status === "cancelled" ? "text-slate-400 line-through" : ""} title={p.cancelReason ?? undefined}>
                 <td className="px-4 py-2">{date(p.receivedAt)}</td>
                 <td className="px-4 py-2">{p.payer.name}</td>
                 <td className="px-4 py-2 font-mono">{p.claim?.number ?? "—"}</td>
                 <td className="px-4 py-2">{t(`method_${p.method}`)}</td>
                 <td className="px-4 py-2 font-mono">{p.reference ?? "—"}</td>
                 <td className="px-4 py-2 text-right font-mono">{money(p.amount)}</td>
-                <td className="px-4 py-2 text-right font-mono text-amber-700">{Number(p.amount) - p.allocated > 0 ? money(Number(p.amount) - p.allocated) : "—"}</td>
+                <td className="px-4 py-2 text-right font-mono text-amber-700">{p.unallocated > 0 ? money(p.unallocated) : "—"}{p.refunded > 0 && <span className="block text-[10px] text-slate-500">{t("refunded_to_payer", { amount: money(p.refunded) })}</span>}</td>
+                <td className="space-x-2 whitespace-nowrap px-4 py-2 text-right">
+                  {p.status === "recorded" && canUpdate && p.unallocated > 0 && <button className="text-blue-600 hover:underline" onClick={() => setSettlementAction({ kind: "allocate", payment: p })}>{t("allocate")}</button>}
+                  {p.status === "recorded" && canValidate && p.unallocated > 0 && <button className="text-amber-700 hover:underline" onClick={() => setSettlementAction({ kind: "refund", payment: p })}>{t("refund_payer")}</button>}
+                  {p.status === "recorded" && canUpdate && p.allocated === 0 && p.refunded === 0 && <button className="text-red-600 hover:underline" onClick={() => setSettlementAction({ kind: "cancel", payment: p })}>{t("cancel_settlement")}</button>}
+                  {p.status === "cancelled" && <span className="text-[10px] font-semibold no-underline">{t("cancelled")}</span>}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -129,6 +141,7 @@ export function ClaimsTab() {
 
       {dialog === "claim" && <NewClaimDialog payers={claims.data?.receivables ?? []} onClose={() => setDialog(null)} />}
       {dialog === "payment" && <PayerPaymentDialog payers={claims.data?.receivables ?? []} claims={claims.data?.data ?? []} onClose={() => setDialog(null)} />}
+      {settlementAction && <SettlementActionDialog action={settlementAction} claims={claims.data?.data ?? []} onClose={() => setSettlementAction(null)} />}
     </div>
   );
 }
@@ -182,7 +195,7 @@ function NewClaimDialog({ payers, onClose }: { payers: Receivable[]; onClose: ()
                   <td className="w-8 px-3 py-1.5"><input type="checkbox" checked={!excluded.has(i.id)} onChange={() => toggle(i.id)} className="h-4 w-4" /></td>
                   <td className="px-2 py-1.5">{format.dateTime(new Date(i.createdAt), { dateStyle: "short" })}</td>
                   <td className="px-2 py-1.5">{i.patient.firstName} {i.patient.lastName} <span className="font-mono text-[10px] text-slate-400">{i.patient.ipp}</span></td>
-                  <td className="px-2 py-1.5 font-mono">{i.memberNumber}</td>
+                  <td className="px-2 py-1.5 font-mono">{i.memberNumber}{i.relationship && i.relationship !== "holder" && <span className="ml-1 text-[10px] text-slate-400">({i.holderName})</span>}</td>
                   <td className="px-3 py-1.5 text-right font-mono">{money(i.insuranceAmount)}</td>
                 </tr>
               ))}
@@ -246,6 +259,64 @@ export function PayerPaymentDialog({ payers, claims, fixedClaim, onClose }: { pa
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={onClose}>{tc("cancel")}</Button>
           <Button size="sm" disabled={!form.payerId || !(Number(form.amount) > 0) || save.isPending} onClick={() => save.mutate()}>{tc("save")}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Later actions on a settlement: allocate its unallocated balance (oldest items first, within a
+// claim if chosen), give part of it back to the payer, or cancel a settlement recorded by mistake.
+function SettlementActionDialog({ action, claims, onClose }: { action: { kind: "allocate" | "refund" | "cancel"; payment: PayerPaymentRow }; claims: ClaimRow[]; onClose: () => void }) {
+  const t = useTranslations("coverage.claims");
+  const tc = useTranslations("common");
+  const apiError = useCoverageError();
+  const queryClient = useQueryClient();
+  const { kind, payment } = action;
+  const [form, setForm] = useState({ claimId: "", amount: String(payment.unallocated), refundedAt: today(), reference: "", reason: "" });
+  const openClaims = claims.filter((c) => c.payer.id === payment.payerId && ["submitted", "partially_settled"].includes(c.status));
+  const save = useMutation({
+    mutationFn: () =>
+      kind === "allocate"
+        ? apiFetch(`/api/v1/billing/payer-payments/${payment.id}/allocations`, jsonInit("POST", { claimId: form.claimId || null }))
+        : kind === "refund"
+          ? apiFetch(`/api/v1/billing/payer-payments/${payment.id}/refunds`, jsonInit("POST", { amount: Number(form.amount), refundedAt: form.refundedAt, reference: form.reference || null, reason: form.reason }))
+          : apiFetch(`/api/v1/billing/payer-payments/${payment.id}`, jsonInit("PATCH", { status: "cancelled", reason: form.reason })),
+    onSuccess: () => {
+      toast.success(t("saved"));
+      queryClient.invalidateQueries({ queryKey: ["billing"] });
+      onClose();
+    },
+    onError: (error) => toast.error(apiError(error)),
+  });
+  const valid = kind === "allocate" ? true : kind === "refund" ? Number(form.amount) > 0 && Number(form.amount) <= payment.unallocated && form.reason.trim().length >= 5 : form.reason.trim().length >= 5;
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader><DialogTitle>{kind === "allocate" ? t("allocate") : kind === "refund" ? t("refund_payer") : t("cancel_settlement")} — {payment.payer.name}</DialogTitle></DialogHeader>
+        <p className="text-xs text-slate-600">{t("settlement_summary", { amount: money(payment.amount), unallocated: money(payment.unallocated) })}</p>
+        {kind === "allocate" && (
+          <>
+            <Field label={t("claim")}>
+              <select value={form.claimId} onChange={(e) => setForm((f) => ({ ...f, claimId: e.target.value }))} className={selectClass}>
+                <option value="">{t("all_open_claims")}</option>
+                {openClaims.map((c) => <option key={c.id} value={c.id}>{c.number}</option>)}
+              </select>
+            </Field>
+            <p className="text-[11px] text-slate-500">{t("allocation_hint")}</p>
+          </>
+        )}
+        {kind === "refund" && (
+          <div className="grid grid-cols-2 gap-3">
+            <Field label={`${t("amount")} (max ${money(payment.unallocated)})`}><Input type="number" min={1} max={payment.unallocated} value={form.amount} onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))} className="h-8 text-xs" /></Field>
+            <Field label={t("refunded_at")}><Input type="date" max={today()} value={form.refundedAt} onChange={(e) => setForm((f) => ({ ...f, refundedAt: e.target.value }))} className="h-8 text-xs" /></Field>
+            <Field label={t("reference")} className="col-span-2"><Input value={form.reference} maxLength={120} onChange={(e) => setForm((f) => ({ ...f, reference: e.target.value }))} className="h-8 text-xs" /></Field>
+          </div>
+        )}
+        {kind !== "allocate" && <Field label={t("reason")}><Input value={form.reason} maxLength={500} onChange={(e) => setForm((f) => ({ ...f, reason: e.target.value }))} className="h-8 text-xs" /></Field>}
+        <DialogFooter>
+          <Button variant="outline" size="sm" onClick={onClose}>{tc("cancel")}</Button>
+          <Button size="sm" disabled={!valid || save.isPending} onClick={() => save.mutate()}>{tc("save")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

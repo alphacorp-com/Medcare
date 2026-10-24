@@ -125,7 +125,7 @@ export default function MedicalActsPage() {
           });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        setError(body?.error || t("save_error"));
+        setError(body?.error === "invalid_pec_rate" ? t("pec_coverage_invalid") : body?.error || t("save_error"));
         return;
       }
       setIsFormOpen(false);
