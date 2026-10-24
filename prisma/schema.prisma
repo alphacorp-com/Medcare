@@ -762,6 +762,9 @@ model Patient {
   hivExposure        HivExposedInfant?
   artEmergencySupplies ArtEmergencySupply[]
   familyPlanningVisits FamilyPlanningVisit[]
+  hypoxemiaEpisodes    HypoxemiaEpisode[]
+  nutritionCases       NutritionCase[]
+  growthVisits         GrowthMonitoringVisit[]
 
   @@unique([tenantId, ipp])
   @@index([tenantId])
@@ -962,6 +965,8 @@ model AntenatalVisit {
   ironFolateGiven        Boolean  @default(false) @map("iron_folate_given")
   tetanusVaccineGiven    Boolean  @default(false) @map("tetanus_vaccine_given")
   malariaPreventionGiven Boolean  @default(false) @map("malaria_prevention_given")
+  // RMA3 IV.2.2-3-001: long-lasting insecticidal net (MILDA) given at the visit.
+  itnGiven               Boolean  @default(false) @map("itn_given")
   notes                  String?
 
   // RMA3 II.1.1-005: visit at the fixed post or in outreach (strategie avancee).
@@ -2525,6 +2530,12 @@ model MalariaCase {
   diagnosedById         String           @map("diagnosed_by_id") @db.Uuid
   treatedWithAct        Boolean          @default(false) @map("treated_with_act")
   treatmentDrugName     String?          @map("treatment_drug_name") @db.VarChar(150)
+  // RMA3 IV.2.4-5: species identified by the test, antimalarial given (list), hospitalisation
+  // and free-of-charge treatment.
+  species               MalariaSpecies?   @map("species")
+  treatment             MalariaTreatment? @map("treatment")
+  hospitalized          Boolean           @default(false)
+  freeOfCharge          Boolean           @default(false) @map("free_of_charge")
   treatedAt             DateTime?        @map("treated_at") @db.Timestamptz
   notes                 String?
 
@@ -2805,5 +2816,327 @@ model FamilyPlanningVisit {
   @@index([tenantId, visitDate])
   @@index([patientId, visitDate])
   @@map("family_planning_visits")
+  @@schema("tenant_template")
+}
+
+// -- New RMA3 modules: malaria complements, oxygen, nutrition, blood bank, human resources --
+
+enum MalariaSpecies {
+  falciparum
+  mixed
+  vivax
+  malariae
+  ovale
+  other
+
+  @@schema("tenant_template")
+}
+
+enum MalariaTreatment {
+  asaq
+  al
+  dhap
+  other_act
+  quinine_oral
+  artesunate_inj
+  artemether_inj
+  quinine_inj
+
+  @@schema("tenant_template")
+}
+
+enum BiomedicalEquipmentType {
+  pulse_oximeter
+  oxygen_concentrator
+  ventilator
+  oxygen_cylinder_7500
+  other
+
+  @@schema("tenant_template")
+}
+
+enum BiomedicalEquipmentStatus {
+  functional
+  broken
+  maintenance
+  retired
+
+  @@schema("tenant_template")
+}
+
+// Biomedical equipment park (RMA3 V.9): current state only, like the cold chain.
+model BiomedicalEquipment {
+  id           String                    @id @default(uuid()) @db.Uuid
+  tenantId     String                    @map("tenant_id") @db.Uuid
+  code         String                    @db.VarChar(40)
+  type         BiomedicalEquipmentType
+  label        String                    @db.VarChar(150)
+  serialNumber String?                   @map("serial_number") @db.VarChar(80)
+  location     String?                   @db.VarChar(150)
+  status       BiomedicalEquipmentStatus @default(functional)
+  createdAt    DateTime                  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime                  @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@map("biomedical_equipment")
+  @@schema("tenant_template")
+}
+
+enum HypoxemiaOutcome {
+  cured
+  referred
+  left_against_advice
+  died
+
+  @@schema("tenant_template")
+}
+
+// An episode of hypoxaemia / respiratory distress (RMA3 V.9): SpO2 < 90 % = hypoxaemia.
+model HypoxemiaEpisode {
+  id                  String            @id @default(uuid()) @db.Uuid
+  tenantId            String            @map("tenant_id") @db.Uuid
+  patientId           String            @map("patient_id") @db.Uuid
+  stayId              String?           @map("stay_id") @db.Uuid
+  detectedAt          DateTime          @map("detected_at") @db.Timestamptz
+  spo2                Int?
+  respiratoryDistress Boolean           @default(false) @map("respiratory_distress")
+  deliveryRoom        Boolean           @default(false) @map("delivery_room")
+  oxygenGiven         Boolean           @default(false) @map("oxygen_given")
+  outcome             HypoxemiaOutcome?
+  outcomeAt           DateTime?         @map("outcome_at") @db.Timestamptz
+  notes               String?
+  recordedById        String            @map("recorded_by_id") @db.Uuid
+  createdAt           DateTime          @default(now()) @map("created_at") @db.Timestamptz
+
+  patient Patient @relation(fields: [patientId], references: [id])
+
+  @@index([tenantId, detectedAt])
+  @@map("hypoxemia_episodes")
+  @@schema("tenant_template")
+}
+
+enum NutritionProgram {
+  cna
+  cnti
+
+  @@schema("tenant_template")
+}
+
+enum NutritionAdmissionType {
+  new_case
+  relapse
+  readmission_after_default
+  transfer_in
+
+  @@schema("tenant_template")
+}
+
+enum NutritionCriterion {
+  whz
+  muac
+  oedema
+
+  @@schema("tenant_template")
+}
+
+enum NutritionResidency {
+  resident
+  displaced
+  refugee
+
+  @@schema("tenant_template")
+}
+
+enum NutritionExitReason {
+  cured
+  defaulted
+  died
+  non_responder
+  transfer_out
+
+  @@schema("tenant_template")
+}
+
+// Acute malnutrition case (PCIMA, RMA3 IV.6): CNA = ambulatory, CNTI = inpatient.
+model NutritionCase {
+  id             String                 @id @default(uuid()) @db.Uuid
+  tenantId       String                 @map("tenant_id") @db.Uuid
+  patientId      String                 @map("patient_id") @db.Uuid
+  program        NutritionProgram
+  admittedAt     DateTime               @map("admitted_at") @db.Timestamptz
+  admissionType  NutritionAdmissionType @map("admission_type")
+  criterion      NutritionCriterion?
+  muacMm         Int?                   @map("muac_mm")
+  whz            Decimal?               @db.Decimal(4, 1)
+  residency      NutritionResidency     @default(resident)
+  hivTested      Boolean                @default(false) @map("hiv_tested")
+  anjeCounseling Boolean                @default(false) @map("anje_counseling")
+  exitedAt       DateTime?              @map("exited_at") @db.Timestamptz
+  exitReason     NutritionExitReason?   @map("exit_reason")
+  notes          String?
+  recordedById   String                 @map("recorded_by_id") @db.Uuid
+  createdAt      DateTime               @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime               @updatedAt @map("updated_at") @db.Timestamptz
+
+  patient Patient @relation(fields: [patientId], references: [id])
+
+  @@index([tenantId, admittedAt])
+  @@index([patientId])
+  @@map("nutrition_cases")
+  @@schema("tenant_template")
+}
+
+// Growth monitoring and infant feeding visit of a child (RMA3 III.9).
+model GrowthMonitoringVisit {
+  id                     String   @id @default(uuid()) @db.Uuid
+  tenantId               String   @map("tenant_id") @db.Uuid
+  patientId              String   @map("patient_id") @db.Uuid
+  visitDate              DateTime @map("visit_date") @db.Timestamptz
+  weightKg               Decimal? @map("weight_kg") @db.Decimal(5, 2)
+  heightCm               Decimal? @map("height_cm") @db.Decimal(5, 1)
+  muacMm                 Int?     @map("muac_mm")
+  counseling             Boolean  @default(false)
+  exclusiveBreastfeeding Boolean? @map("exclusive_breastfeeding")
+  receivesWater          Boolean? @map("receives_water")
+  complementaryFood      Boolean? @map("complementary_food")
+  stillBreastfed         Boolean? @map("still_breastfed")
+  multivitaminGiven      Boolean  @default(false) @map("multivitamin_given")
+  recordedById           String   @map("recorded_by_id") @db.Uuid
+  createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  patient Patient @relation(fields: [patientId], references: [id])
+
+  @@index([tenantId, visitDate])
+  @@index([patientId])
+  @@map("growth_monitoring_visits")
+  @@schema("tenant_template")
+}
+
+enum BloodDonorType {
+  voluntary
+  family
+
+  @@schema("tenant_template")
+}
+
+enum BloodTestResult {
+  not_done
+  negative
+  positive
+  indeterminate
+
+  @@schema("tenant_template")
+}
+
+enum BloodBagStatus {
+  quarantine
+  available
+  served
+  transfused
+  destroyed
+
+  @@schema("tenant_template")
+}
+
+model BloodDonor {
+  id        String         @id @default(uuid()) @db.Uuid
+  tenantId  String         @map("tenant_id") @db.Uuid
+  code      String         @db.VarChar(40)
+  fullName  String         @map("full_name") @db.VarChar(150)
+  sex       Gender
+  birthDate DateTime?      @map("birth_date") @db.Date
+  phone     String?        @db.VarChar(30)
+  bloodGroup String?       @map("blood_group") @db.VarChar(5)
+  donorType BloodDonorType @map("donor_type")
+  // The donor's patient file, when there is one (ART follow-up of an HIV-positive donor).
+  patientId String?        @map("patient_id") @db.Uuid
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime       @updatedAt @map("updated_at") @db.Timestamptz
+
+  donations BloodDonation[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@map("blood_donors")
+  @@schema("tenant_template")
+}
+
+// A mobile blood collection (RMA3 V.6-024).
+model BloodCollectionSession {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  heldAt    DateTime @map("held_at") @db.Timestamptz
+  location  String   @db.VarChar(150)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  donations BloodDonation[]
+
+  @@index([tenantId, heldAt])
+  @@map("blood_collection_sessions")
+  @@schema("tenant_template")
+}
+
+// One donation = one bag, its screening tests and what became of it (RMA3 V.6).
+model BloodDonation {
+  id                 String          @id @default(uuid()) @db.Uuid
+  tenantId           String          @map("tenant_id") @db.Uuid
+  donorId            String          @map("donor_id") @db.Uuid
+  // Null = fixed post; set = mobile collection.
+  sessionId          String?         @map("session_id") @db.Uuid
+  bagNumber          String          @map("bag_number") @db.VarChar(40)
+  collectedAt        DateTime        @map("collected_at") @db.Timestamptz
+  hivResult          BloodTestResult @default(not_done) @map("hiv_result")
+  hbvResult          BloodTestResult @default(not_done) @map("hbv_result")
+  hcvResult          BloodTestResult @default(not_done) @map("hcv_result")
+  syphilisResult     BloodTestResult @default(not_done) @map("syphilis_result")
+  status             BloodBagStatus  @default(quarantine)
+  servedAt           DateTime?       @map("served_at") @db.Timestamptz
+  transfusedAt       DateTime?       @map("transfused_at") @db.Timestamptz
+  recipientPatientId String?         @map("recipient_patient_id") @db.Uuid
+  destroyedAt        DateTime?       @map("destroyed_at") @db.Timestamptz
+  destructionReason  String?         @map("destruction_reason") @db.VarChar(200)
+  recordedById       String          @map("recorded_by_id") @db.Uuid
+  createdAt          DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime        @updatedAt @map("updated_at") @db.Timestamptz
+
+  donor   BloodDonor              @relation(fields: [donorId], references: [id])
+  session BloodCollectionSession? @relation(fields: [sessionId], references: [id])
+
+  @@unique([tenantId, bagNumber])
+  @@index([tenantId, collectedAt])
+  @@map("blood_donations")
+  @@schema("tenant_template")
+}
+
+enum StaffPayer {
+  state
+  local
+
+  @@schema("tenant_template")
+}
+
+// Staff register (RMA3 VI.5), independent of user accounts (drivers, guards… have none).
+// cadre: lib/hr/cadres.ts.
+model StaffMember {
+  id             String     @id @default(uuid()) @db.Uuid
+  tenantId       String     @map("tenant_id") @db.Uuid
+  fullName       String     @map("full_name") @db.VarChar(150)
+  sex            Gender
+  cadre          String     @db.VarChar(40)
+  payer          StaffPayer
+  inPost         Boolean    @default(true) @map("in_post")
+  birthDate      DateTime?  @map("birth_date") @db.Date
+  hiredAt        DateTime?  @map("hired_at") @db.Date
+  retirementDate DateTime?  @map("retirement_date") @db.Date
+  // Left the facility (other than retirement): no longer counted.
+  leftAt         DateTime?  @map("left_at") @db.Date
+  tenantUserId   String?    @map("tenant_user_id") @db.Uuid
+  notes          String?
+  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime   @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([tenantId])
+  @@map("staff_members")
   @@schema("tenant_template")
 }

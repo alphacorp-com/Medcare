@@ -1,6 +1,7 @@
 "use client";
 
 import { useFormatter, useTranslations } from "next-intl";
+import { MALARIA_SPECIES, MALARIA_TREATMENTS } from "@/lib/programs/input";
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
@@ -339,17 +340,43 @@ export function NewMalariaCaseSheet({
             <label htmlFor="isPregnant" className="text-xs">{t('is_pregnant')}</label>
           </div>
 
-          <div className="flex items-center gap-2">
-            <input type="checkbox" id="treatedAct" checked={form.treatedWithAct} onChange={(e) => onUpdateForm("treatedWithAct", e.target.checked)} className="rounded border-slate-300 text-blue-600" />
-            <label htmlFor="treatedAct" className="text-xs">{t('treated_with_act')}</label>
-          </div>
-
-          {form.treatedWithAct && (
+          {form.result === "positive" && form.testType !== "clinical_only" && (
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-500 uppercase">{t('treatment_drug')}</label>
-              <Input value={form.treatmentDrugName} onChange={(e) => onUpdateForm("treatmentDrugName", e.target.value)} placeholder="ASAQ, Artéméther-Luméfantrine..." className="h-8 text-xs bg-white border-slate-200" />
+              <label className="text-[10px] font-bold text-slate-500 uppercase">{t('species')}</label>
+              <select value={form.species} onChange={(e) => onUpdateForm("species", e.target.value)} className="flex h-8 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-xs shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-400">
+                <option value="">{tc('select_placeholder')}</option>
+                {MALARIA_SPECIES.map((s) => (
+                  <option key={s} value={s}>{t(`species_${s}`)}</option>
+                ))}
+              </select>
             </div>
           )}
+
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-slate-500 uppercase">{t('treatment')}</label>
+            <select value={form.treatment} onChange={(e) => onUpdateForm("treatment", e.target.value)} className="flex h-8 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-xs shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-400">
+              <option value="">{t('treatment_none')}</option>
+              {MALARIA_TREATMENTS.map((m) => (
+                <option key={m} value={m}>{t(`treatment_${m}`)}</option>
+              ))}
+            </select>
+          </div>
+
+          {form.treatment === "other_act" && (
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-500 uppercase">{t('treatment_drug')}</label>
+              <Input value={form.treatmentDrugName} onChange={(e) => onUpdateForm("treatmentDrugName", e.target.value)} className="h-8 text-xs bg-white border-slate-200" />
+            </div>
+          )}
+
+          <div className="flex items-center gap-2">
+            <input type="checkbox" id="malariaHospitalized" checked={form.hospitalized} onChange={(e) => onUpdateForm("hospitalized", e.target.checked)} className="rounded border-slate-300 text-blue-600" />
+            <label htmlFor="malariaHospitalized" className="text-xs">{t('hospitalized')}</label>
+          </div>
+          <div className="flex items-center gap-2">
+            <input type="checkbox" id="malariaFree" checked={form.freeOfCharge} onChange={(e) => onUpdateForm("freeOfCharge", e.target.checked)} className="rounded border-slate-300 text-blue-600" />
+            <label htmlFor="malariaFree" className="text-xs">{t('free_of_charge')}</label>
+          </div>
 
           <div className="space-y-1">
             <label className="text-[10px] font-bold text-slate-500 uppercase">{tc('notes')}</label>

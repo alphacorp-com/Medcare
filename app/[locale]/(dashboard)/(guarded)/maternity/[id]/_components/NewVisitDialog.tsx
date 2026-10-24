@@ -50,6 +50,7 @@ export function NewVisitDialog({
   const [tdLotId, setTdLotId] = useState("");
   const [tdLotNumber, setTdLotNumber] = useState("");
   const [malariaPreventionGiven, setMalariaPreventionGiven] = useState(false);
+  const [itnGiven, setItnGiven] = useState(false);
   const [notes, setNotes] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -88,6 +89,7 @@ export function NewVisitDialog({
           fetalHeartRate: fetalHeartRate || undefined,
           ironFolateGiven,
           malariaPreventionGiven,
+          itnGiven,
           notes: notes || undefined,
           strategy,
           hemoglobinGPerDl: hemoglobin || undefined,
@@ -198,6 +200,10 @@ export function NewVisitDialog({
             <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
               <input type="checkbox" checked={malariaPreventionGiven} onChange={(e) => setMalariaPreventionGiven(e.target.checked)} className="h-4 w-4 rounded border-slate-300" />
               {t("malaria_prevention_given")}
+            </label>
+            <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
+              <input type="checkbox" checked={itnGiven} onChange={(e) => setItnGiven(e.target.checked)} className="h-4 w-4 rounded border-slate-300" />
+              {t("itn_given")}
             </label>
           </div>
 

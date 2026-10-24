@@ -222,6 +222,21 @@ export const RMA3_MANUAL_SECTIONS: readonly Rma3ManualSection[] = [
     ],
   },
   {
+    code: "III.9",
+    title: "Alimentation du nourrisson en communauté",
+    indicators: [i("III.9-005", "Enfants de 0-6 mois suivis par les ASC, allaités exclusivement")],
+  },
+  {
+    code: "V.6",
+    title: "Transfusion sanguine",
+    indicators: [i("V.6-027", "Malades référés pour défaut de poche de sang")],
+  },
+  {
+    code: "V.9",
+    title: "Oxygène médical",
+    indicators: [i("V.9-012", "Personnels formés à la prise en charge de l'hypoxémie")],
+  },
+  {
     code: "V.10",
     title: "Participation communautaire",
     indicators: [

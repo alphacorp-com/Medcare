@@ -111,6 +111,7 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
             // Kept for the existing reports: true whenever a Td dose was given.
             tetanusVaccineGiven: Boolean(td) || Boolean(body.tetanusVaccineGiven),
             malariaPreventionGiven: Boolean(body.malariaPreventionGiven),
+            itnGiven: body.itnGiven === true,
             notes: body.notes || null,
             strategy,
             hemoglobinGPerDl,

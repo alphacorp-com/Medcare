@@ -241,6 +241,11 @@ export type NewMalariaCaseForm = {
   treatedWithAct: boolean;
   treatmentDrugName: string;
   notes: string;
+  // RMA3 IV.2.4-5 complements.
+  species: string;
+  treatment: string;
+  hospitalized: boolean;
+  freeOfCharge: boolean;
 };
 
 export type TbFollowUpRow = {

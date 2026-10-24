@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { requireModulePermission } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
+import { ACT_TREATMENTS, parseMalariaComplements } from "@/lib/programs/input";
 import { ageInDaysAt } from "@/lib/patients/age";
 import type { MalariaTestType, MalariaResult, MalariaSeverity } from "@prisma/client";
 
@@ -84,6 +85,12 @@ export async function POST(
     if (severity && !SEVERITIES.includes(severity)) {
       return NextResponse.json({ error: "Invalid severity", success: false }, { status: 400 });
     }
+    // RMA3 IV.2.4-5: species (positive test only), antimalarial from the list, hospitalised,
+    // free of charge.
+    const complements = parseMalariaComplements(body, result ?? "pending");
+    if (!complements.ok) {
+      return NextResponse.json({ error: complements.error, code: complements.error, success: false }, { status: 400 });
+    }
 
     const patient = await prisma.patient.findFirst({
       where: { id, tenantId: session.user.tenantId },
@@ -117,7 +124,9 @@ export async function POST(
         ageInDaysAtDiagnosis: ageInDaysAt(patient.birthDate, eventDate),
         diagnosedAt: eventDate,
         diagnosedById: session.user.id,
-        treatedWithAct: treatedWithAct ?? false,
+        // An ACT chosen from the list is an ACT treatment (the legacy flag stays consistent).
+        treatedWithAct: (treatedWithAct ?? false) || (complements.value.treatment !== null && ACT_TREATMENTS.has(complements.value.treatment)),
+        ...complements.value,
         treatmentDrugName: treatmentDrugName || null,
         treatedAt: treatedAt ? new Date(treatedAt) : null,
         notes: notes || null,

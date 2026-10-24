@@ -13,7 +13,9 @@ import { SessionsTab } from "./_components/SessionsTab";
 import { ColdChainTab } from "./_components/ColdChainTab";
 import { AefiTab } from "./_components/AefiTab";
 import { HivProgramTab } from "./_components/HivProgramTab";
-import { HeartPulse } from "lucide-react";
+import { NutritionTab } from "./_components/NutritionTab";
+import { OxygenTab } from "./_components/OxygenTab";
+import { HeartPulse, Apple, Wind } from "lucide-react";
 
 type PatientRef = { id: string; firstName: string; lastName: string; ipp: string };
 type ImmunizationItem = { id: string; antigenName: string; doseNumber: number; administeredAt: string; patient: PatientRef };
@@ -29,7 +31,7 @@ function DiseaseProgramsPageContent() {
   const canEdit = hasPermission("MODULE_DISEASE_PROGRAMS", "create");
   // HIV / hepatitis data: only for staff granted MODULE_HIV (the routes check it too).
   const canReadHiv = hasPermission("MODULE_HIV", "read");
-  const [tab, setTab] = useUrlTab(["vaccination", "malaria", "tuberculosis", "sessions", "cold-chain", "aefi", "hiv"] as const, "vaccination");
+  const [tab, setTab] = useUrlTab(["vaccination", "malaria", "tuberculosis", "sessions", "cold-chain", "aefi", "nutrition", "oxygen", "hiv"] as const, "vaccination");
   // The HIV tab is only shown with MODULE_HIV: a link to it falls back to vaccination.
   const activeTab = tab === "hiv" && !canReadHiv ? "vaccination" : tab;
 
@@ -123,6 +125,12 @@ function DiseaseProgramsPageContent() {
               </TabsTrigger>
               <TabsTrigger value="aefi" className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs px-3">
                 <TriangleAlert className="h-3.5 w-3.5 mr-2" /> {t('epi.aefi_tab')}
+              </TabsTrigger>
+              <TabsTrigger value="nutrition" className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs px-3">
+                <Apple className="h-3.5 w-3.5 mr-2" /> {t('nutrition_tab')}
+              </TabsTrigger>
+              <TabsTrigger value="oxygen" className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs px-3">
+                <Wind className="h-3.5 w-3.5 mr-2" /> {t('oxygen_tab')}
               </TabsTrigger>
               {canReadHiv && (
                 <TabsTrigger value="hiv" className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs px-3">
@@ -269,6 +277,12 @@ function DiseaseProgramsPageContent() {
             </TabsContent>
             <TabsContent value="aefi" className="m-0 flex-1 flex flex-col overflow-hidden">
               <AefiTab canEdit={hasPermission("MODULE_DISEASE_PROGRAMS", "update")} />
+            </TabsContent>
+            <TabsContent value="nutrition" className="m-0 flex-1 flex flex-col overflow-hidden">
+              <NutritionTab canEdit={canEdit} />
+            </TabsContent>
+            <TabsContent value="oxygen" className="m-0 flex-1 flex flex-col overflow-hidden">
+              <OxygenTab canEdit={canEdit} />
             </TabsContent>
             {canReadHiv && (
               <TabsContent value="hiv" className="m-0 flex-1 flex flex-col overflow-hidden">

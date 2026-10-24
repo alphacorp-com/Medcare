@@ -82,6 +82,8 @@ export const NAV_ITEMS: NavItem[] = [
       { name: "nav_aefi", href: "/disease-programs?tab=aefi" },
       { name: "nav_malaria", href: "/disease-programs?tab=malaria" },
       { name: "nav_tuberculosis", href: "/disease-programs?tab=tuberculosis" },
+      { name: "nav_nutrition", href: "/disease-programs?tab=nutrition" },
+      { name: "nav_oxygen", href: "/disease-programs?tab=oxygen" },
       { name: "nav_hiv", href: "/disease-programs?tab=hiv", permission: { module: "MODULE_HIV", action: "read" } },
     ],
   },
@@ -97,7 +99,17 @@ export const NAV_ITEMS: NavItem[] = [
       { name: "nav_stock_report", href: "/pharmacy?tab=report" },
     ],
   },
-  { name: "laboratory", href: "/laboratory", icon: Fingerprint, module: "MODULE_LAB", group: "clinical" },
+  {
+    name: "laboratory",
+    href: "/laboratory",
+    icon: Fingerprint,
+    module: "MODULE_LAB",
+    group: "clinical",
+    children: [
+      { name: "nav_lab_exams", href: "/laboratory" },
+      { name: "nav_blood_bank", href: "/blood-bank" },
+    ],
+  },
   { name: "surgery", href: "/surgery", icon: Syringe, module: "MODULE_SURGERY", group: "clinical" },
   { name: "radiology", href: "/radiology", icon: Activity, module: "MODULE_RADIOLOGY", group: "clinical" },
   {

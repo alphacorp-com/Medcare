@@ -146,7 +146,7 @@ export default function PatientDetailPage() {
 
   const [malariaCaseForm, setMalariaCaseForm] = useState<NewMalariaCaseForm>({
     testType: "rdt", result: "pending", severity: "", isPregnantAtDiagnosis: false,
-    treatedWithAct: false, treatmentDrugName: "", notes: ""
+    treatedWithAct: false, treatmentDrugName: "", notes: "", species: "", treatment: "", hospitalized: false, freeOfCharge: false
   });
   const [savingMalariaCase, setSavingMalariaCase] = useState(false);
   const [malariaCaseError, setMalariaCaseError] = useState<string | null>(null);
@@ -406,12 +406,17 @@ export default function PatientDetailPage() {
     try {
       const res = await fetch(`/api/v1/patients/${id}/malaria-cases`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...malariaCaseForm, severity: malariaCaseForm.severity || undefined }),
+        body: JSON.stringify({
+          ...malariaCaseForm,
+          severity: malariaCaseForm.severity || undefined,
+          species: malariaCaseForm.result === "positive" && malariaCaseForm.species ? malariaCaseForm.species : undefined,
+          treatment: malariaCaseForm.treatment || undefined,
+        }),
       });
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.error ?? "Failed to record malaria case");
       setIsMalariaCaseOpen(false);
-      setMalariaCaseForm({ testType: "rdt", result: "pending", severity: "", isPregnantAtDiagnosis: false, treatedWithAct: false, treatmentDrugName: "", notes: "" });
+      setMalariaCaseForm({ testType: "rdt", result: "pending", severity: "", isPregnantAtDiagnosis: false, treatedWithAct: false, treatmentDrugName: "", notes: "", species: "", treatment: "", hospitalized: false, freeOfCharge: false });
       const malRes = await fetch(`/api/v1/patients/${id}/malaria-cases`);
       const malJson = await malRes.json();
       if (malJson.success) setMalariaCases(malJson.data);

@@ -9,6 +9,7 @@ import { computeHivReport } from "@/lib/hiv/rma3-hiv-data";
 import { computeActivityTables } from "@/lib/reports/rma3-activity-data";
 import { computeMotherChildTables } from "@/lib/reports/rma3-mother-child-data";
 import { computeCodedTables } from "@/lib/reports/rma3-coded-data";
+import { computeProgramTables } from "@/lib/reports/rma3-programs-data";
 import type { ActivityTable } from "@/lib/reports/rma3-activity";
 import { loadIdentification, loadManualForm } from "@/lib/rma3-manual/data";
 import { buildManualReport, type Rma3ManualReport } from "@/lib/rma3-manual/report";
@@ -251,7 +252,7 @@ export async function computeRma3Report(tenantId: string, period: Dhis2Period): 
   const hivReport = computeHivReport(tenantId, start, end);
   // IV.3-013 needs the ART active file of the HIV report.
   const activityTables = hivReport.then((report) => computeActivityTables(tenantId, start, end, report.tbHivOnArtPatientIds));
-  const [rawMetrics, identification, epiSections, malaria, tuberculosis, bedCount, causes, morbidity, stockReport, hiv, activity, motherChild, coded, manualForm] = await Promise.all([
+  const [rawMetrics, identification, epiSections, malaria, tuberculosis, bedCount, causes, morbidity, stockReport, hiv, activity, motherChild, coded, programs, manualForm] = await Promise.all([
     computeMonthlyIndicators(tenantId, period),
     computeIdentificationSection(tenantId),
     computeEpiSections(tenantId, start, end),
@@ -265,6 +266,7 @@ export async function computeRma3Report(tenantId: string, period: Dhis2Period): 
     activityTables,
     computeMotherChildTables(tenantId, start, end),
     computeCodedTables(tenantId, start, end),
+    computeProgramTables(tenantId, start, end),
     loadManualForm(tenantId, period),
   ]);
 
@@ -284,7 +286,7 @@ export async function computeRma3Report(tenantId: string, period: Dhis2Period): 
     morbidity,
     stock: (stockReport?.rows ?? []).filter((row) => row.rma3Category !== null),
     hiv,
-    activity: [...activity, ...motherChild, ...coded],
+    activity: [...activity, ...motherChild, ...coded, ...programs],
     manual: buildManualReport(manualForm.values, manualForm.status, manualForm.validatedAt),
   };
 }
