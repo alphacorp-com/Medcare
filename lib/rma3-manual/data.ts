@@ -110,7 +110,7 @@ export async function reopenManualPeriod(tenantId: string, period: string): Prom
 
 // ── MINSANTE identification (TenantSetting, public schema) ──────────────────
 
-const IDENTIFICATION_KEY = "rma3.identification";
+export const IDENTIFICATION_KEY = "rma3.identification";
 
 export async function loadIdentification(tenantId: string): Promise<Rma3IdentificationSettings> {
   const setting = await prisma.tenantSetting.findUnique({ where: { tenantId_key: { tenantId, key: IDENTIFICATION_KEY } }, select: { value: true } });

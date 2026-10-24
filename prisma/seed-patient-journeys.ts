@@ -1,14 +1,19 @@
-// Seeds 50 patients with genuinely different, fully-digitized care journeys —
+// Seeds 150 patients with genuinely different, fully-digitized care journeys —
 // appointments, emergency/scheduled admissions, surgery, radiology, lab
 // workups, maternity, disease programs (malaria/TB/immunization), pharmacy,
 // and billing — each exercised across every status value it has, so the app
-// has real, varied data to browse instead of empty screens.
+// has real, varied data to browse instead of empty screens. The 50 named
+// patients below are followed by two generated copies of every journey (other
+// names, ages — children and adolescents included — and dates), then the
+// programme and RMA3 module data (prisma/seed-programs.ts) is layered on them.
 //
 // Targets the ONE real tenant an on-prem install actually has (created via
 // /setup) — this is not a demo-tenant script. Creates its own baseline
 // (departments, beds, medications, clinical staff with real Roles) since a
-// fresh install has none of that yet; safe to re-run (skips entirely if
-// patients with the PJ- IPP prefix already exist).
+// fresh install has none of that yet; safe to re-run: patients are keyed by
+// their PJ- IPP and only the missing ones are created (with their journeys and
+// programme data), so an install seeded with the earlier 50 patients gets the
+// 100 new ones.
 //
 // Note: some of these journeys (surgery, radiology) use modules that may not
 // be included in this install's current AlphaCorp license yet — the data is
@@ -59,19 +64,28 @@ import crypto from 'crypto';
 import prisma from '../lib/prisma';
 import { SYSTEM_ACTOR_ID } from '../lib/audit';
 import { consumeStock, receiveStock } from '../lib/stock/movements';
+import { seedPrograms, type SeededPatient } from './seed-programs';
 
 const IPP_PREFIX = 'PJ';
 const STAY_PREFIX = 'STPJ';
 const STAFF_PASSWORD = 'Demo1234!';
 
-function daysAgo(n: number, hour = 9, minute = 0): Date {
+// Days added to every past date of the journey being built: moves the closed journeys of the
+// generated copies into the previous month (the RMA3 month) or earlier in the current one.
+// Future dates (daysFromNow: upcoming appointments, due dates) are never shifted.
+let dateShift = 0;
+
+function atDaysFromToday(offset: number, hour: number, minute: number): Date {
   const d = new Date();
-  d.setDate(d.getDate() - n);
+  d.setDate(d.getDate() + offset);
   d.setHours(hour, minute, 0, 0);
   return d;
 }
+function daysAgo(n: number, hour = 9, minute = 0): Date {
+  return atDaysFromToday(-(n + dateShift), hour, minute);
+}
 function daysFromNow(n: number, hour = 9, minute = 0): Date {
-  return daysAgo(-n, hour, minute);
+  return atDaysFromToday(n, hour, minute);
 }
 function yearsAgo(n: number): Date {
   const d = new Date();
@@ -150,14 +164,21 @@ async function ensureBeds(tenantId: string, departments: Record<string, { id: st
     { code: 'EMER-02', label: 'Urgences - Box 2', deptCode: 'EMER', roomTypeCode: 'EMERGENCY' },
     { code: 'EMER-03', label: 'Urgences - Box 3', deptCode: 'EMER', roomTypeCode: 'EMERGENCY' },
     { code: 'EMER-04', label: 'Urgences - Box 4 (réa)', deptCode: 'EMER', roomTypeCode: 'ICU' },
+    { code: 'EMER-05', label: 'Urgences - Box 5 (réa)', deptCode: 'EMER', roomTypeCode: 'ICU' },
+    { code: 'EMER-06', label: 'Urgences - Box 6 (réa)', deptCode: 'EMER', roomTypeCode: 'ICU' },
     { code: 'SURG-01', label: 'Bloc opératoire 1', deptCode: 'SURG', roomTypeCode: 'SURGICAL' },
     { code: 'SURG-02', label: 'Bloc opératoire 2', deptCode: 'SURG', roomTypeCode: 'SURGICAL' },
     { code: 'MED-01', label: 'Médecine - Lit 1', deptCode: 'MED', roomTypeCode: 'GENERAL' },
     { code: 'MED-02', label: 'Médecine - Lit 2', deptCode: 'MED', roomTypeCode: 'GENERAL' },
     { code: 'MED-03', label: 'Médecine - Lit 3', deptCode: 'MED', roomTypeCode: 'GENERAL' },
     { code: 'MED-04', label: 'Médecine - Lit 4', deptCode: 'MED', roomTypeCode: 'GENERAL' },
+    { code: 'MED-05', label: 'Médecine - Lit 5', deptCode: 'MED', roomTypeCode: 'GENERAL' },
+    { code: 'MED-06', label: 'Médecine - Lit 6', deptCode: 'MED', roomTypeCode: 'GENERAL' },
+    { code: 'MED-07', label: 'Médecine - Lit 7', deptCode: 'MED', roomTypeCode: 'GENERAL' },
+    { code: 'MED-08', label: 'Médecine - Lit 8', deptCode: 'MED', roomTypeCode: 'GENERAL' },
     { code: 'MAT-01', label: 'Maternité - Lit 1', deptCode: 'MAT', roomTypeCode: 'MATERNITY' },
     { code: 'MAT-02', label: 'Maternité - Lit 2', deptCode: 'MAT', roomTypeCode: 'MATERNITY' },
+    { code: 'MAT-03', label: 'Maternité - Lit 3', deptCode: 'MAT', roomTypeCode: 'MATERNITY' },
   ];
   const byCode: Record<string, { id: string }> = {};
   for (const b of defs) {
@@ -207,10 +228,30 @@ async function ensureMedications(tenantId: string) {
           expiryDate: new Date(Date.UTC(new Date().getUTCFullYear() + 2, 0, 31)),
           quantity: stock,
           reason: 'Stock de démonstration',
-          occurredAt: daysAgo(30, 8, 0),
+          // Before every dispensing of the journeys, including the copies moved to the previous month.
+          occurredAt: daysAgo(90, 8, 0),
         })
       );
       med = await prisma.medicationInventory.findUniqueOrThrow({ where: { id: created.id } });
+    } else {
+      // An install seeded by an earlier version received this stock 30 days before that run:
+      // the dispensings moved to the previous month would precede it (refused as a negative
+      // history). A backdated complementary receipt gives them stock to come from.
+      const earlyReceipt = await prisma.stockMovement.findFirst({ where: { tenantId, itemId: med.id, type: 'receipt', occurredAt: { lte: daysAgo(90, 8, 0) } }, select: { id: true } });
+      if (!earlyReceipt) {
+        await prisma.$transaction((tx) =>
+          receiveStock(tx, {
+            tenantId,
+            userId: SYSTEM_ACTOR_ID,
+            itemId: med!.id,
+            lotNumber: 'SEED-000',
+            expiryDate: new Date(Date.UTC(new Date().getUTCFullYear() + 2, 0, 31)),
+            quantity: m.stock,
+            reason: 'Stock de démonstration (complément)',
+            occurredAt: daysAgo(95, 8, 0),
+          })
+        );
+      }
     }
     byName[m.name] = med;
   }
@@ -251,6 +292,7 @@ async function ensureStaff(tenantId: string, departments: Record<string, { id: s
       { moduleId: 'MODULE_APPOINTMENTS', actions: ['read', 'create', 'update'] },
       { moduleId: 'MODULE_MATERNITY', actions: ['read', 'create', 'update'] },
       { moduleId: 'MODULE_DISEASE_PROGRAMS', actions: ['read', 'create', 'update'] },
+      { moduleId: 'MODULE_HIV', actions: ['read', 'create', 'update'] },
     ],
   });
   const nurseRole = await ensureRole(tenantId, 'Infirmier', {
@@ -278,6 +320,16 @@ async function ensureStaff(tenantId: string, departments: Record<string, { id: s
     defaultModules: [
       { moduleId: 'MODULE_CORE_PATIENT', actions: ['read'] },
       { moduleId: 'MODULE_RADIOLOGY', actions: ['read', 'create', 'update', 'delete', 'validate'] },
+    ],
+  });
+  // Fills the RMA3 monthly form, the civil registration declarations and the programme registers.
+  const dataManagerRole = await ensureRole(tenantId, 'Gestionnaire de données RMA3', {
+    defaultModules: [
+      { moduleId: 'MODULE_CORE_PATIENT', actions: ['read'] },
+      { moduleId: 'MODULE_RMA3', actions: ['read', 'create', 'update'] },
+      { moduleId: 'MODULE_DISEASE_PROGRAMS', actions: ['read', 'create', 'update'] },
+      { moduleId: 'MODULE_HIV', actions: ['read'] },
+      { moduleId: 'MODULE_MATERNITY', actions: ['read'] },
     ],
   });
   const billingRole = await ensureRole(tenantId, 'Facturation', {
@@ -311,6 +363,7 @@ async function ensureStaff(tenantId: string, departments: Record<string, { id: s
   const labTech = await ensureUser('lab.ngo@hospital.test', 'Sandrine Ngo', labTechRole.id, 'LAB');
   const radiologist = await ensureUser('radio.foka@hospital.test', 'Dr. Alain Foka', radiologistRole.id, 'RAD');
   const billingUser = await ensureUser('billing.essomba@hospital.test', 'Christelle Essomba', billingRole.id, 'ADM');
+  const dataManager = await ensureUser('data.bikoula@hospital.test', 'Hélène Bikoula', dataManagerRole.id, 'ADM');
 
   for (const doc of [doctor, doctor2]) {
     for (let weekday = 1; weekday <= 5; weekday++) {
@@ -322,8 +375,8 @@ async function ensureStaff(tenantId: string, departments: Record<string, { id: s
     }
   }
 
-  console.log(`Staff ensured (2 doctors, nurse, pharmacist, lab tech, radiologist, billing — password "${STAFF_PASSWORD}").`);
-  return { doctor, doctor2, nurse, pharmacist, labTech, radiologist, billingUser };
+  console.log(`Staff ensured (2 doctors, nurse, pharmacist, lab tech, radiologist, billing, RMA3 data manager — password "${STAFF_PASSWORD}").`);
+  return { doctor, doctor2, nurse, pharmacist, labTech, radiologist, billingUser, dataManager };
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -400,6 +453,58 @@ const PATIENTS: PatientSeed[] = [
   { lastName: 'Minko', firstName: 'Georgette', birthDate: yearsAgo(75), gender: Gender.F, phone: '+237 677100049', journey: 'registered' },
   { lastName: 'Batchou', firstName: 'Léon', birthDate: yearsAgo(5), gender: Gender.M, journey: 'registered' },
 ];
+
+// Two generated copies of every journey above (patients 51-150): other names and ages, children
+// under 5 and adolescents in the journeys where they occur (fever, malaria, pharmacy…), so the
+// paediatric, nutrition, adolescent and age-band indicators have data.
+const LAST_NAMES = ['Abanda', 'Bekolo', 'Damba', 'Ebanga', 'Eloundou', 'Endamana', 'Foe', 'Guemo', 'Hamadou', 'Issa', 'Kamga', 'Kemajou', 'Lobe', 'Mahamat', 'Messi', 'Mimbang', 'Ndjock', 'Ngah', 'Nguele', 'Njike', 'Noah', 'Obama', 'Olinga', 'Pouth', 'Sadou', 'Tagne', 'Tchakounte', 'Toko', 'Yaya', 'Ze'];
+const FIRST_NAMES_M = ['Arthur', 'Blaise', 'Christian', 'Daniel', 'Emile', 'Fabrice', 'Germain', 'Hugues', 'Ibrahim', 'Jacques', 'Kevin', 'Landry', 'Moussa', 'Narcisse', 'Olivier', 'Pierre', 'Roland', 'Stéphane', 'Thomas', 'Ulrich'];
+const FIRST_NAMES_F = ['Adèle', 'Brigitte', 'Cécile', 'Danielle', 'Estelle', 'Florence', 'Gisèle', 'Hortense', 'Inès', 'Jeanne', 'Kadidja', 'Laurence', 'Mireille', 'Nicole', 'Odette', 'Pascaline', 'Rachel', 'Suzanne', 'Thérèse', 'Viviane'];
+const CHILD_JOURNEYS: ReadonlySet<Journey> = new Set(['outpatientPaid', 'malariaSimple', 'malariaSevere', 'emergencyMinor', 'labWorkup', 'dayCare', 'registered', 'pharmacyDispensed', 'apptUpcoming']);
+const ADOLESCENT_JOURNEYS: ReadonlySet<Journey> = new Set(['outpatientPaid', 'labWorkup', 'pharmacyDispensed', 'billingPartiallyPaid', 'emergencyMinor', 'pharmacyValidated']);
+const MATERNITY_JOURNEYS: ReadonlySet<Journey> = new Set(['maternityOngoing', 'maternityDelivered']);
+
+function generatedPatients(): PatientSeed[] {
+  const out: PatientSeed[] = [];
+  for (const copy of [1, 2]) {
+    PATIENTS.forEach((base, j) => {
+      const n = copy * PATIENTS.length + j;
+      const baseAge = (Date.now() - base.birthDate.getTime()) / (365.25 * 86400000);
+      const maternity = MATERNITY_JOURNEYS.has(base.journey);
+      let birthDate: Date;
+      if (baseAge < 15) birthDate = daysAgo(Math.round(baseAge * 365) + copy * 45);
+      else if (!maternity && CHILD_JOURNEYS.has(base.journey) && (j + copy) % 2 === 0) birthDate = daysAgo(150 + ((j * 97 + copy * 131) % 1600));
+      else if (!maternity && ADOLESCENT_JOURNEYS.has(base.journey) && (j + copy) % 3 === 0) birthDate = yearsAgo(11 + ((j + copy * 3) % 9));
+      else birthDate = yearsAgo(Math.max(18, Math.round(baseAge) + (copy === 1 ? 4 : -3)));
+      const female = maternity ? true : copy === 1 ? base.gender === Gender.F : base.gender !== Gender.F;
+      const firstNames = female ? FIRST_NAMES_F : FIRST_NAMES_M;
+      out.push({
+        lastName: LAST_NAMES[(n * 7) % LAST_NAMES.length],
+        firstName: firstNames[(n * 11) % firstNames.length],
+        birthDate,
+        gender: female ? Gender.F : Gender.M,
+        phone: baseAge < 15 ? undefined : `+237 6772${String(n).padStart(5, '0')}`,
+        bloodGroup: ['O+', 'A+', 'B+', 'AB+', 'O-'][n % 5],
+        chronicConditions: base.chronicConditions,
+        journey: base.journey,
+      });
+    });
+  }
+  return out;
+}
+
+// Journeys whose end state is closed (discharged, completed, paid…): their generated copies are
+// moved back in time. Ongoing ones (in-progress stays, queues, pregnancies, upcoming appointments)
+// stay current so a bed is never held by a weeks-old stay.
+const SHIFTABLE_JOURNEYS: ReadonlySet<Journey> = new Set([
+  'apptNoShow', 'apptCancelled', 'outpatientPaid', 'emergencyMinor', 'dayCare', 'transferred', 'deceased',
+  'surgeryCancelled', 'surgeryPostponed', 'radiologyWorkup', 'labWorkup', 'maternityDelivered',
+  'malariaSimple', 'malariaSevere', 'tbCase', 'pharmacyDispensed', 'pharmacyCancelled', 'pharmacyExpired',
+  'billingPartiallyPaid', 'billingCancelled', 'billingFailedPayment',
+]);
+// Copy 0 (the named patients) keeps today's dates; copy 1 moves to the previous month; copy 2
+// spreads over the first weeks of the current month.
+const shiftFor = (journey: Journey, copy: number, j: number) => (!SHIFTABLE_JOURNEYS.has(journey) || copy === 0 ? 0 : copy === 1 ? 30 : 8 + (j % 12));
 
 // ─────────────────────────────────────────────────────────────────────────
 // Shared context passed to every journey builder.
@@ -526,9 +631,9 @@ async function journeyEmergencyMinor(ctx: Ctx, patientId: string, bedCode: strin
   await recalcInvoicePaid(invoice.id, invoice.patientAmount.toNumber());
 }
 
-async function journeyEmergencyCritical(ctx: Ctx, patientId: string) {
+async function journeyEmergencyCritical(ctx: Ctx, patientId: string, bedCode: string) {
   const dept = ctx.departments['EMER'];
-  const bed = ctx.beds['EMER-04'];
+  const bed = ctx.beds[bedCode];
   const stay = await prisma.stay.create({
     data: {
       tenantId: ctx.tenantId, patientId, stayNumber: nextStayNumber(), type: StayType.emergency, status: StayStatus.in_progress,
@@ -804,7 +909,7 @@ async function journeyMaternity(ctx: Ctx, patientId: string, delivered: boolean)
   }
   const mother = await prisma.patient.findUniqueOrThrow({ where: { id: patientId } });
   const newbornPatient = await prisma.patient.create({
-    data: { tenantId: ctx.tenantId, ipp: `${IPP_PREFIX}NB${Math.floor(Math.random() * 100000)}`, lastName: mother.lastName, firstName: `Nouveau-né de ${mother.firstName}`, birthDate: daysAgo(1, 4, 30), gender: Math.random() > 0.5 ? Gender.M : Gender.F, nationality: 'CM', gdprConsent: true, gdprConsentAt: daysAgo(1) },
+    data: { tenantId: ctx.tenantId, ipp: `${mother.ipp}NB`, lastName: mother.lastName, firstName: `Nouveau-né de ${mother.firstName}`, birthDate: daysAgo(1, 4, 30), gender: Math.random() > 0.5 ? Gender.M : Gender.F, nationality: 'CM', gdprConsent: true, gdprConsentAt: daysAgo(1) },
   });
   await prisma.newborn.create({ data: { tenantId: ctx.tenantId, deliveryId: delivery.id, patientId: newbornPatient.id, sex: newbornPatient.gender, birthWeightGrams: 3150, apgarScore1Min: 8, apgarScore5Min: 9, vitaminKGiven: true, resuscitationNeeded: false, outcome: 'alive' } });
   await prisma.medicalRecord.create({ data: { tenantId: ctx.tenantId, patientId, stayId: stay.id, authorId: ctx.staff.doctor.id, type: MedicalRecordType.delivery_report, title: "Compte-rendu d'accouchement", content: 'Accouchement par voie basse, nouveau-né vivant, Apgar 8/9.', isSigned: true, signedAt: daysAgo(1, 5, 0), signedBy: ctx.staff.doctor.id, signatureHash: crypto.createHash('sha256').update(delivery.id).digest('hex') } });
@@ -928,7 +1033,8 @@ async function journeyBilling(ctx: Ctx, patientId: string, kind: 'draft' | 'pend
 // ─────────────────────────────────────────────────────────────────────────
 
 async function main() {
-  console.log('Seeding 50 patients with varied care journeys...');
+  const ALL_PATIENTS = [...PATIENTS, ...generatedPatients()];
+  console.log(`Seeding ${ALL_PATIENTS.length} patients with varied care journeys...`);
 
   const tenant = await prisma.tenant.findFirst({ where: { dbSchema: 'public' } });
   if (!tenant) {
@@ -937,11 +1043,18 @@ async function main() {
     return;
   }
 
-  const existing = await prisma.patient.findFirst({ where: { tenantId: tenant.id, ipp: { startsWith: IPP_PREFIX } } });
-  if (existing) {
-    console.log(`Patient-journey data already present (found a ${IPP_PREFIX}-prefixed patient) — skipping. Delete patients with ipp starting "${IPP_PREFIX}" to reseed.`);
+  // Patients are keyed by IPP: a re-run only builds the missing ones.
+  const existingIpps = new Set(
+    (await prisma.patient.findMany({ where: { tenantId: tenant.id, ipp: { startsWith: IPP_PREFIX } }, select: { ipp: true } })).map((p) => p.ipp)
+  );
+  const ippOf = (i: number) => `${IPP_PREFIX}${String(i + 1).padStart(4, '0')}`;
+  if (ALL_PATIENTS.every((_, i) => existingIpps.has(ippOf(i)))) {
+    console.log(`All ${ALL_PATIENTS.length} patient journeys already present — nothing to do. Delete patients with ipp starting "${IPP_PREFIX}" to reseed.`);
     return;
   }
+  // Stay numbers continue after the ones of an earlier run.
+  const lastStay = await prisma.stay.findFirst({ where: { tenantId: tenant.id, stayNumber: { startsWith: STAY_PREFIX } }, orderBy: { stayNumber: 'desc' }, select: { stayNumber: true } });
+  stayCounter = lastStay ? Number(lastStay.stayNumber.slice(STAY_PREFIX.length)) || 0 : 0;
 
   const departments = await ensureDepartments(tenant.id);
   const beds = await ensureBeds(tenant.id, departments);
@@ -951,17 +1064,21 @@ async function main() {
 
   const ctx: Ctx = { tenantId: tenant.id, departments, beds, medications, staff, admissionTypes, examCatalog, medicalActs };
 
-  let counters = { emergencyMinorBed: 0, radiologyDone: 0, labDone: 0 };
+  const counters = { emergencyMinorBed: 0, radiologyDone: 0, labDone: 0, criticalBed: 0, medBed: 0 };
   const emerBeds = ['EMER-01', 'EMER-02', 'EMER-03'];
-  const medBeds = ['MED-01', 'MED-02', 'MED-03', 'MED-04'];
+  const criticalBeds = ['EMER-04', 'EMER-05', 'EMER-06'];
+  const medBeds = ['MED-01', 'MED-02', 'MED-03', 'MED-04', 'MED-05', 'MED-06', 'MED-07', 'MED-08'];
   const radiologyCodes = ['XR-CHEST', 'CT-HEAD', 'US-ABD'];
   const labCodes = ['CBC', 'CMP' in examCatalog ? 'CMP' : 'CBC', 'LIPID' in examCatalog ? 'LIPID' : 'CBC'];
+  const seeded: SeededPatient[] = [];
 
-  for (let i = 0; i < PATIENTS.length; i++) {
-    const p = PATIENTS[i];
+  for (let i = 0; i < ALL_PATIENTS.length; i++) {
+    const p = ALL_PATIENTS[i];
+    if (existingIpps.has(ippOf(i))) continue;
+    dateShift = 0;
     const patient = await prisma.patient.create({
       data: {
-        tenantId: tenant.id, ipp: `${IPP_PREFIX}${String(i + 1).padStart(4, '0')}`, lastName: p.lastName, firstName: p.firstName,
+        tenantId: tenant.id, ipp: ippOf(i), lastName: p.lastName, firstName: p.firstName,
         birthDate: p.birthDate, gender: p.gender, nationality: 'CM', phone: p.phone, bloodGroup: p.bloodGroup,
         allergies: (p.allergies ?? []) as unknown as Prisma.InputJsonValue,
         chronicConditions: (p.chronicConditions ?? []) as unknown as Prisma.InputJsonValue,
@@ -969,6 +1086,7 @@ async function main() {
         gdprConsent: true, gdprConsentAt: daysAgo(200),
       },
     });
+    dateShift = shiftFor(p.journey, Math.floor(i / PATIENTS.length), i % PATIENTS.length);
 
     switch (p.journey) {
       case 'registered':
@@ -994,10 +1112,10 @@ async function main() {
         break;
       }
       case 'emergencyCritical':
-        await journeyEmergencyCritical(ctx, patient.id);
+        await journeyEmergencyCritical(ctx, patient.id, criticalBeds[counters.criticalBed++ % criticalBeds.length]);
         break;
       case 'chronicFollowUp':
-        await journeyChronicFollowUp(ctx, patient.id, medBeds[i % medBeds.length], p.chronicConditions?.[0] ?? 'suivi chronique');
+        await journeyChronicFollowUp(ctx, patient.id, medBeds[counters.medBed++ % medBeds.length], p.chronicConditions?.[0] ?? 'suivi chronique');
         break;
       case 'dayCare':
         await journeyDayCare(ctx, patient.id, 'Réhydratation — gastro-entérite');
@@ -1093,11 +1211,15 @@ async function main() {
         break;
     }
 
-    if (i % 10 === 0) console.log(`  ...${i + 1}/${PATIENTS.length} patients seeded`);
+    dateShift = 0;
+    const current = await prisma.patient.findUniqueOrThrow({ where: { id: patient.id }, select: { isDeceased: true } });
+    seeded.push({ id: patient.id, ipp: patient.ipp, firstName: patient.firstName, lastName: patient.lastName, birthDate: patient.birthDate, gender: patient.gender, journey: p.journey, isDeceased: current.isDeceased });
+    if (i % 10 === 0) console.log(`  ...${i + 1}/${ALL_PATIENTS.length} patients seeded`);
   }
 
-  console.log(`\n${PATIENTS.length} patients seeded across ${new Set(PATIENTS.map((p) => p.journey)).size} distinct journey types.`);
-  console.log(`Staff logins: dr.mendo@hospital.test, dr.abena@hospital.test, nurse.kamga@hospital.test, pharmacy.tchinda@hospital.test, lab.ngo@hospital.test, radio.foka@hospital.test, billing.essomba@hospital.test — password "${STAFF_PASSWORD}".`);
+  console.log(`\n${seeded.length} patients seeded across ${new Set(ALL_PATIENTS.map((p) => p.journey)).size} distinct journey types.`);
+  await seedPrograms({ tenantId: tenant.id, staff, departments, patients: seeded });
+  console.log(`Staff logins: dr.mendo@hospital.test, dr.abena@hospital.test, nurse.kamga@hospital.test, pharmacy.tchinda@hospital.test, lab.ngo@hospital.test, radio.foka@hospital.test, billing.essomba@hospital.test, data.bikoula@hospital.test — password "${STAFF_PASSWORD}".`);
 }
 
 main()
