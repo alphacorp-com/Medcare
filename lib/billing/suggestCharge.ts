@@ -2,6 +2,8 @@ import { Prisma, BillingSourceType } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { isModuleActiveForTenant } from "@/lib/tenant-licensing";
 import { releaseIfSettled } from "@/lib/billing/release";
+import { applyCoverage, defaultCoverageFor } from "@/lib/coverage/apply";
+import { patientShare } from "@/lib/coverage/compute";
 
 export type SuggestChargeParams = {
   tenantId: string;
@@ -36,7 +38,9 @@ export type SuggestChargeResult = {
 // Finds the invoice that new charges for this patient/stay should accumulate onto
 // (any not-yet-fully-settled invoice for the same stay), or opens a new one. Ambulatory
 // acts (no stayId) always start a fresh invoice — there is no natural "running tab" to
-// attach them to across unrelated visits.
+// attach them to across unrelated visits. An invoice already put in a claim to a payer is
+// never reused (its shares are frozen as claimed). A new invoice takes the patient's
+// coverage valid today (lib/coverage).
 export async function findOrCreateOpenInvoice(
   tenantId: string,
   patientId: string,
@@ -45,7 +49,7 @@ export async function findOrCreateOpenInvoice(
 ) {
   const existing = stayId
     ? await prisma.patientInvoice.findFirst({
-        where: { tenantId, stayId, status: { in: ["draft", "pending_payment", "partially_paid"] } },
+        where: { tenantId, stayId, status: { in: ["draft", "pending_payment", "partially_paid"] }, claimItems: { none: {} } },
         orderBy: { createdAt: "desc" },
       })
     : null;
@@ -60,37 +64,53 @@ export async function findOrCreateOpenInvoice(
       status: "draft",
       issuedById,
       currency: "XAF",
+      coverageId: await defaultCoverageFor(prisma, tenantId, patientId, new Date()),
     },
   });
 }
 
-// Recomputes subtotal/patientAmount from the current line items and re-derives status
-// from paidAmount vs. the new patientAmount — not just carried over from the previous
-// status — so that e.g. adding a line (or raising a price) to an already-"paid" invoice
-// correctly drops it back to "partially_paid" once there's an outstanding balance again.
+// Recomputes the invoice from its lines: subtotal, the split between free-care programmes,
+// the payer and the patient (lib/coverage/apply.ts), and the status re-derived from paidAmount
+// vs. the new patientAmount — not just carried over from the previous status — so that e.g.
+// adding a line (or raising a price) to an already-"paid" invoice correctly drops it back to
+// "partially_paid" once there's an outstanding balance again. A patient share of zero on a
+// non-empty invoice (fully covered) counts as paid. Runs in one transaction with the invoice
+// row locked, so concurrent recalculations of the same invoice cannot interleave.
 export async function recalculateInvoiceTotals(invoiceId: string) {
-  const invoice = await prisma.patientInvoice.findUniqueOrThrow({ where: { id: invoiceId } });
-  const totals = await prisma.patientInvoiceLine.aggregate({
-    where: { invoiceId },
-    _sum: { amount: true },
-  });
-  const subtotal = Number(totals._sum.amount ?? 0);
-  const patientAmount = subtotal - Number(invoice.insuranceAmount);
-  const paidAmount = Number(invoice.paidAmount);
+  const updated = await prisma.$transaction(
+    async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "tenant_template"."patient_invoices" WHERE id = ${invoiceId}::uuid FOR UPDATE`;
+      const invoice = await tx.patientInvoice.findUniqueOrThrow({ where: { id: invoiceId } });
+      const totals = await tx.patientInvoiceLine.aggregate({ where: { invoiceId }, _sum: { amount: true } });
+      const subtotal = Number(totals._sum.amount ?? 0);
+      const coverage = await applyCoverage(tx, invoice);
+      // Invoices from before lib/coverage carry a manually entered insurer share and no
+      // coverage: it is kept as it was (it can no longer be edited).
+      const insuranceAmount = invoice.coverageId || coverage.coverageStatus === "frozen" ? coverage.insuranceAmount : Number(invoice.insuranceAmount);
+      const patientAmount = patientShare(subtotal, insuranceAmount, coverage.exemptionAmount, Number(invoice.insurerRejectedToPatient));
+      const paidAmount = Number(invoice.paidAmount);
 
-  const status =
-    invoice.status === "cancelled"
-      ? "cancelled"
-      : paidAmount <= 0
-      ? "pending_payment"
-      : paidAmount >= patientAmount && patientAmount > 0
-      ? "paid"
-      : "partially_paid";
+      const status =
+        invoice.status === "cancelled"
+          ? "cancelled"
+          : patientAmount <= 0 && subtotal > 0
+          ? "paid"
+          : paidAmount <= 0
+          ? "pending_payment"
+          : paidAmount >= patientAmount && patientAmount > 0
+          ? "paid"
+          : "partially_paid";
 
-  const updated = await prisma.patientInvoice.update({
-    where: { id: invoiceId },
-    data: { subtotal, patientAmount, status },
-  });
+      return tx.patientInvoice.update({
+        where: { id: invoiceId },
+        data: {
+          subtotal, insuranceAmount, exemptionAmount: coverage.exemptionAmount, patientAmount, status,
+          coverageStatus: coverage.coverageStatus, authorizationId: coverage.authorizationId,
+        },
+      });
+    },
+    { timeout: 20_000 }
+  );
   // A zero-priced act (or a fully insured one) is settled the moment it's billed.
   await releaseIfSettled(invoiceId);
   return updated;

@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { ArrowLeft, Loader2, CreditCard, Printer, ShieldCheck } from "lucide-react";
 import { RecordPaymentDialog } from "./_components/RecordPaymentDialog";
 import { WaivePaymentDialog } from "./_components/WaivePaymentDialog";
+import { InvoiceCoveragePanel } from "./_components/InvoiceCoveragePanel";
 import { InvoiceDetail, Payment } from "../types";
 import { PDFPreviewModal } from "@/components/templates/PDFPreviewModal";
 import { usePdfBranding } from "@/components/templates/usePdfBranding";
@@ -17,6 +18,7 @@ import type { PdfInvoiceData, PdfReceiptData } from "@/components/templates/type
 
 export default function InvoiceDetailPage() {
   const t = useTranslations("billing");
+  const tcov = useTranslations("coverage.invoice");
   const params = useParams();
   const id = params.id as string;
 
@@ -66,11 +68,13 @@ export default function InvoiceDetailPage() {
 
   const subtotal = Number(invoice.subtotal);
   const insuranceAmount = Number(invoice.insuranceAmount);
+  const exemptionAmount = Number(invoice.exemptionAmount);
+  const rejectedToPatient = Number(invoice.insurerRejectedToPatient);
   const patientAmount = Number(invoice.patientAmount);
   const paidAmount = Number(invoice.paidAmount);
   const outstanding = Math.max(0, patientAmount - paidAmount);
   const refundDue = Math.max(0, paidAmount - patientAmount);
-  const hasInsuranceDiscount = insuranceAmount > 0;
+  const hasInsuranceDiscount = insuranceAmount > 0 || exemptionAmount > 0;
   const canPay = invoice.status !== "paid" && invoice.status !== "cancelled" && outstanding > 0;
 
   const pdfInvoiceData: PdfInvoiceData = {
@@ -87,6 +91,9 @@ export default function InvoiceDetailPage() {
     subtotal,
     total: subtotal,
     insuranceAmount,
+    payerName: invoice.coverage ? `${invoice.coverage.agreement.payer.name} (${invoice.coverage.memberNumber})` : undefined,
+    exemptionAmount,
+    rejectedToPatient,
     patientAmount,
     paidAmount,
     refundDue,
@@ -168,6 +175,9 @@ export default function InvoiceDetailPage() {
                   <th className="px-4 py-2 text-right">{t("quantity")}</th>
                   <th className="px-4 py-2 text-right">{t("unit_price")}</th>
                   <th className="px-4 py-2 text-right">{t("total")}</th>
+                  <th className="px-4 py-2 text-right">{tcov("free_care")}</th>
+                  <th className="px-4 py-2 text-right">{tcov("payer_share")}</th>
+                  <th className="px-4 py-2 text-right">{tcov("patient_share")}</th>
                 </tr>
               </thead>
               <tbody className="text-xs divide-y divide-slate-100">
@@ -177,11 +187,14 @@ export default function InvoiceDetailPage() {
                     <td className="px-4 py-2 text-right font-mono">{Number(line.quantity)}</td>
                     <td className="px-4 py-2 text-right font-mono">{Number(line.unitPrice).toLocaleString()}</td>
                     <td className="px-4 py-2 text-right font-mono font-semibold">{Number(line.amount).toLocaleString()}</td>
+                    <td className="px-4 py-2 text-right font-mono text-emerald-700" title={line.exemptionProgram?.name}>{Number(line.exemptionAmount) ? Number(line.exemptionAmount).toLocaleString() : "—"}</td>
+                    <td className="px-4 py-2 text-right font-mono text-blue-700">{Number(line.payerAmount) ? Number(line.payerAmount).toLocaleString() : "—"}</td>
+                    <td className="px-4 py-2 text-right font-mono">{Math.max(0, Number(line.amount) - Number(line.payerAmount) - Number(line.exemptionAmount)).toLocaleString()}</td>
                   </tr>
                 ))}
                 {invoice.lines.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="text-center py-6 text-slate-400 italic text-xs">{t("no_lines")}</td>
+                    <td colSpan={7} className="text-center py-6 text-slate-400 italic text-xs">{t("no_lines")}</td>
                   </tr>
                 )}
               </tbody>
@@ -238,16 +251,29 @@ export default function InvoiceDetailPage() {
         </div>
 
         <div className="space-y-4">
+          <InvoiceCoveragePanel key={`${invoice.coverageId}-${invoice.authorizationId}-${invoice.coverageStatus}`} invoice={invoice} onSaved={fetchInvoice} />
           <div className="bg-white rounded border border-slate-200 shadow-sm p-4 space-y-2">
             <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">{t("summary")}</div>
             <div className="flex justify-between text-xs">
               <span className="text-slate-500">{t("subtotal")}</span>
               <span className="font-mono text-slate-800">{subtotal.toLocaleString()} {invoice.currency}</span>
             </div>
+            {exemptionAmount > 0 && (
+              <div className="flex justify-between text-xs">
+                <span className="text-slate-500">{tcov("free_care")}</span>
+                <span className="font-mono text-emerald-700">{exemptionAmount.toLocaleString()} {invoice.currency}</span>
+              </div>
+            )}
             <div className="flex justify-between text-xs">
-              <span className="text-slate-500">{t("insurance_amount")}</span>
+              <span className="text-slate-500">{invoice.coverage ? `${t("insurance_amount")} — ${invoice.coverage.agreement.payer.name}` : t("insurance_amount")}</span>
               <span className="font-mono text-slate-800">{insuranceAmount.toLocaleString()} {invoice.currency}</span>
             </div>
+            {rejectedToPatient > 0 && (
+              <div className="flex justify-between text-xs">
+                <span className="text-slate-500">{tcov("rejected_to_patient")}</span>
+                <span className="font-mono text-red-700">+ {rejectedToPatient.toLocaleString()} {invoice.currency}</span>
+              </div>
+            )}
             <div className="text-[10px]">
               <span className={hasInsuranceDiscount ? "text-green-600 font-semibold" : "text-slate-400 italic"}>
                 {hasInsuranceDiscount ? t("insurance_discount_applied") : t("no_insurance_discount")}

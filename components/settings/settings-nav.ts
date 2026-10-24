@@ -5,7 +5,7 @@ import {
   BedDouble, BedSingle, CalendarDays, DoorOpen, ShieldCheck,
   FolderTree, Stethoscope, FlaskConical, BookOpen,
   Beaker, Warehouse, Truck, ScanLine, PersonStanding, Syringe, FileText, Clock,
-  ListTree, IdCard, type LucideIcon,
+  ListTree, IdCard, Landmark, HandHeart, type LucideIcon,
 } from "lucide-react";
 
 export type SettingsNavItem = { href: string; label: string; icon: LucideIcon };
@@ -24,8 +24,16 @@ export function useSettingsNavGroups(): SettingsNavGroup[] {
         { href: "/settings/appointment-types", label: t("appointmentTypes"), icon: CalendarDays },
         { href: "/settings/doctor-availability", label: t("doctorAvailability"), icon: Clock },
         { href: "/settings/room-types", label: t("roomTypes"), icon: DoorOpen },
-        { href: "/settings/insurance-types", label: t("insuranceTypes"), icon: ShieldCheck },
         { href: "/settings/beds", label: t("beds"), icon: BedSingle },
+      ],
+    },
+    {
+      // Third-party payment (lib/coverage).
+      label: t("groupCoverage"),
+      items: [
+        { href: "/settings/insurance-types", label: t("insuranceTypes"), icon: ShieldCheck },
+        { href: "/settings/payers", label: t("payers"), icon: Landmark },
+        { href: "/settings/exemption-programs", label: t("exemptionPrograms"), icon: HandHeart },
       ],
     },
     {

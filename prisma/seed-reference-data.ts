@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { PrismaClient, Prisma, ReferenceCatalogType, ExamCatalogDomain } from '@prisma/client';
 import prismaClient from '../lib/prisma';
 import { LAB_PARAMETERS, RADIOLOGY_PARAMETERS } from '../lib/exam-catalog/standard-parameters';
+import { syncExamFeeSchedule } from '../lib/billing/syncFeeSchedule';
 
 // Seeds every new tenant-configurable reference-data catalog introduced alongside the
 // Settings "reference data" pages: the 7 generic ReferenceCatalogItem lists, Medical Act
@@ -979,10 +980,28 @@ async function seedIcd10(prisma: PrismaClient, tenantId: string) {
   console.log(`ICD-10 codes seeded (${ICD10_CODES.length} entries)`);
 }
 
+// Billing reads prices from FeeSchedule only (lib/billing/suggestCharge.ts). The settings pages
+// keep it in sync on every catalog edit; the catalogs seeded above bypass them, so the same sync
+// runs here — without it a fresh install bills its exams and acts at 0.
+async function seedFeeSchedule(prisma: PrismaClient, tenantId: string) {
+  const [entries, acts] = await Promise.all([
+    prisma.examCatalogEntry.findMany({ where: { tenantId }, select: { code: true, nameFr: true, price: true, isActive: true } }),
+    prisma.medicalAct.findMany({ where: { tenantId }, select: { code: true, nameFr: true, basePrice: true, isActive: true } }),
+  ]);
+  for (const e of entries) {
+    await syncExamFeeSchedule({ tenantId, code: e.code, label: e.nameFr, price: e.price == null ? null : Number(e.price), isActive: e.isActive });
+  }
+  for (const a of acts) {
+    await syncExamFeeSchedule({ tenantId, code: a.code, label: a.nameFr, price: Number(a.basePrice), isActive: a.isActive });
+  }
+  console.log(`Fee schedule synced (${entries.length} exams, ${acts.length} medical acts)`);
+}
+
 export async function seedReferenceData(prisma: PrismaClient, tenantId: string) {
   await seedGenericCatalogs(prisma, tenantId);
   await seedMedicalActs(prisma, tenantId);
   await seedExamCatalog(prisma, tenantId);
+  await seedFeeSchedule(prisma, tenantId);
   await seedStorageAndSuppliers(prisma, tenantId);
   await seedIcd10(prisma, tenantId);
   console.log('All reference data seeded successfully');

@@ -122,6 +122,7 @@ export const NAV_ITEMS: NavItem[] = [
     group: "administrative",
     children: [
       { name: "nav_invoices", href: "/billing?tab=invoices" },
+      { name: "nav_claims", href: "/billing?tab=claims" },
       { name: "nav_fee_schedule", href: "/billing?tab=fee_schedule" },
     ],
   },

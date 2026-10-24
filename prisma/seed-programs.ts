@@ -2,7 +2,8 @@
 // EPI sessions / cold chain / AEFI, HIV-PMTCT-hepatitis-STI, mother and child (PMTCT, Td, postnatal,
 // family planning), nutrition and growth, oxygen, blood bank, HR register, TB screening and case
 // complements, chronic care, civil registration, pharmacovigilance, ICD-10 diagnoses, RMA3 stock
-// articles, RMA3 identification and monthly form, plus staff rosters and messaging.
+// articles, RMA3 identification and monthly form, staff rosters and messaging, and third-party
+// payment (prisma/seed-coverage.ts).
 //
 // Every builder works on the patients created by the current run (`SeededPatient`), so a re-run
 // that only adds patients never duplicates programme data of earlier patients. Facility-level
@@ -27,6 +28,8 @@ import { consumeStock, receiveStock } from '../lib/stock/movements';
 import { STAFF_CADRES } from '../lib/hr/cadres';
 import { IDENTIFICATION_KEY } from '../lib/rma3-manual/data';
 import { BREAKDOWN_COLUMNS, RMA3_MANUAL_SECTIONS } from '../lib/rma3-manual/catalog';
+import { syncExamFeeSchedule } from '../lib/billing/syncFeeSchedule';
+import { seedCoverage } from './seed-coverage';
 
 export interface SeededPatient {
   id: string;
@@ -952,8 +955,22 @@ async function seedPlanningAndMessaging(ctx: ProgramCtx) {
   console.log('  Planning and messaging ready.');
 }
 
+// Demo prices for the exams the reference catalog leaves unpriced (a tariff is the facility's
+// decision, so the reference seed sets none): the same amounts the journeys bill. Only fills
+// missing prices, and keeps the fee schedule — what billing reads — in sync.
+async function seedDemoExamPrices(ctx: ProgramCtx) {
+  const entries = await prisma.examCatalogEntry.findMany({ where: { tenantId: ctx.tenantId, price: null }, select: { id: true, code: true, nameFr: true, isActive: true, examType: { select: { domain: true } } } });
+  for (const e of entries) {
+    const price = e.examType.domain === 'radiology' ? 35000 : 8000;
+    await prisma.examCatalogEntry.update({ where: { id: e.id }, data: { price } });
+    await syncExamFeeSchedule({ tenantId: ctx.tenantId, code: e.code, label: e.nameFr, price, isActive: e.isActive });
+  }
+  console.log(`  Exam prices: ${entries.length} unpriced exams given a demo price.`);
+}
+
 export async function seedPrograms(ctx: ProgramCtx) {
   console.log(`Seeding programme and RMA3 module data for ${ctx.patients.length} new patients...`);
+  await seedDemoExamPrices(ctx);
   const articles = await seedRma3Articles(ctx);
   await seedDiagnoses(ctx, articles);
   await seedEpi(ctx);
@@ -968,4 +985,5 @@ export async function seedPrograms(ctx: ProgramCtx) {
   await seedCivilAndPharmacovigilance(ctx, articles);
   await seedRma3(ctx);
   await seedPlanningAndMessaging(ctx);
+  await seedCoverage(ctx);
 }

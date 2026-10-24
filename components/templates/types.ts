@@ -35,6 +35,11 @@ export interface PdfInvoiceData {
   // refund-due lines. Omitted entirely by call sites that only have the flat
   // subtotal/total (e.g. the settings-page preview's demo data).
   insuranceAmount?: number;
+  // Third-party payment (lib/coverage): payer and member number, free-care share, rejected payer
+  // share charged back to the patient.
+  payerName?: string;
+  exemptionAmount?: number;
+  rejectedToPatient?: number;
   patientAmount?: number;
   paidAmount?: number;
   refundDue?: number;

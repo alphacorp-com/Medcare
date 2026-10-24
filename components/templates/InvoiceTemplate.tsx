@@ -168,10 +168,28 @@ export const InvoiceTemplate = ({ invoice, facility, settings, labels }: Invoice
             <Text>{labels.total}:</Text>
             <Text>{invoice.total} XAF</Text>
           </View>
+          {Boolean(invoice.exemptionAmount && invoice.exemptionAmount > 0) && (
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 }}>
+              <Text>{labels.free_care}:</Text>
+              <Text>{invoice.exemptionAmount} XAF</Text>
+            </View>
+          )}
           {invoice.insuranceAmount !== undefined && (
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 }}>
-              <Text>{invoice.insuranceAmount > 0 ? labels.insurance_discount_applied : labels.no_insurance_discount}:</Text>
+              <Text>{invoice.payerName ? `${labels.payer_share} — ${invoice.payerName}` : invoice.insuranceAmount > 0 ? labels.insurance_discount_applied : labels.no_insurance_discount}:</Text>
               <Text>{invoice.insuranceAmount > 0 ? `${invoice.insuranceAmount} XAF` : '—'}</Text>
+            </View>
+          )}
+          {Boolean(invoice.rejectedToPatient && invoice.rejectedToPatient > 0) && (
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 }}>
+              <Text>{labels.rejected_to_patient}:</Text>
+              <Text>+ {invoice.rejectedToPatient} XAF</Text>
+            </View>
+          )}
+          {invoice.patientAmount !== undefined && (
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4, fontWeight: 'bold' }}>
+              <Text>{labels.patient_share}:</Text>
+              <Text>{invoice.patientAmount} XAF</Text>
             </View>
           )}
           {Boolean(invoice.refundDue && invoice.refundDue > 0) && (

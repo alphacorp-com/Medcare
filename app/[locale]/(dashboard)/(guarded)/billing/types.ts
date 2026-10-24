@@ -7,6 +7,7 @@ export type BillingSourceType =
   | "antenatal_visit"
   | "delivery"
   | "other";
+// "insurance" only on payments recorded before lib/coverage: payer money now comes through claims.
 export type PaymentMethod = "cash" | "card" | "insurance" | "mobile_money_orange" | "mobile_money_mtn" | "bank_transfer";
 export type PaymentStatus = "pending" | "successful" | "failed" | "cancelled";
 
@@ -34,6 +35,23 @@ export type InvoiceLine = {
   unitPrice: string | number;
   amount: string | number;
   createdAt: string;
+  // Split of the line (lib/coverage): free-care programme, payer, the patient pays the rest.
+  payerAmount: string | number;
+  exemptionAmount: string | number;
+  exemptionProgram: { code: string; name: string } | null;
+};
+
+export type CoverageStatus = "none" | "applied" | "capped" | "authorization_required" | "invalid_coverage" | "frozen";
+
+export type CoverageAuthorizationOption = { id: string; number: string; authorizedAmount: string | null; validFrom: string; validTo: string };
+export type CoverageOption = {
+  id: string;
+  memberNumber: string;
+  validFrom: string;
+  validTo: string | null;
+  endedAt: string | null;
+  agreement: { name: string; requiresAuthorization: boolean; payer: { name: string } };
+  authorizations: CoverageAuthorizationOption[];
 };
 
 export type Payment = {
@@ -61,6 +79,17 @@ export type InvoiceDetail = {
   currency: string;
   notes: string | null;
   createdAt: string;
+  exemptionAmount: string | number;
+  insurerPaidAmount: string | number;
+  insurerRejectedToPatient: string | number;
+  coverageId: string | null;
+  authorizationId: string | null;
+  coverageStatus: CoverageStatus;
+  coverage: { id: string; memberNumber: string; agreement: { name: string; payer: { id: string; name: string } } } | null;
+  authorization: CoverageAuthorizationOption | null;
+  claimItems: { id: string; claimedAmount: string | number; paidAmount: string | number; rejectedAmount: string | number; rejectionReason: string | null; claim: { id: string; number: string; status: string } }[];
+  coverageOptions: CoverageOption[];
+  isClaimed: boolean;
   patient: { id: string; firstName: string; lastName: string; ipp: string };
   stay: { id: string; stayNumber: string; admissionDate: string; dischargeDate: string | null } | null;
   lines: InvoiceLine[];

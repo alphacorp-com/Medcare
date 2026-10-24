@@ -13,7 +13,8 @@ import {
   HeartPulse,
   Scissors,
   Baby,
-  ShieldPlus
+  ShieldPlus,
+  ShieldCheck
 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -23,6 +24,7 @@ import { useParams } from "next/navigation";
 import { useAppStore } from "@/lib/store/useAppStore";
 import { HivPatientPanel } from "@/components/hiv/HivPatientPanel";
 import { FamilyPlanningHistory } from "@/components/family-planning/FamilyPlanningRegister";
+import { CoverageTab } from "./CoverageTab";
 import {
   StayRow,
   MedicalRecordRow,
@@ -88,6 +90,9 @@ export function PatientTabs({
   const canEditHiv = hasPermission("MODULE_HIV", "create");
   // Family planning history (maternity module; the route checks it again).
   const canReadFp = hasPermission("MODULE_MATERNITY", "read");
+  // Third-party payment (coverages, authorizations, free care): billing staff only.
+  const canReadCoverage = hasPermission("MODULE_BILLING", "read");
+  const tcov = useTranslations('coverage.patient');
 
   const stayTypeLabel = (st: string) => {
     if (st === "emergency") return tc("status_emergency");
@@ -173,6 +178,14 @@ export function PatientTabs({
             >
               <CreditCard className="h-3.5 w-3.5 mr-2" /> {tc('billing')}
             </TabsTrigger>
+            {canReadCoverage && (
+              <TabsTrigger
+                value="coverage"
+                className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs shrink-0"
+              >
+                <ShieldCheck className="h-3.5 w-3.5 mr-2" /> {tcov('tab')}
+              </TabsTrigger>
+            )}
           </TabsList>
         </div>
 
@@ -648,6 +661,11 @@ export function PatientTabs({
             </div>
           </TabsContent>
 
+          {canReadCoverage && (
+            <TabsContent value="coverage" className="m-0 border-none outline-none">
+              <CoverageTab patientId={patientId} />
+            </TabsContent>
+          )}
           <TabsContent value="billing" className="m-0 border-none outline-none">
             <table className="w-full text-left">
               <thead>
