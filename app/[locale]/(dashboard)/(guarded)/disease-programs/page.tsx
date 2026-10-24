@@ -113,46 +113,47 @@ function DiseaseProgramsPageContent() {
         ))}
       </div>
 
-      <div className="flex-1 bg-white rounded border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-        <Tabs value={activeTab} onValueChange={(v) => setTab(v as typeof tab)} className="flex-1 flex flex-col">
+      {/* min-h-0 down the flex chain lets the tab body below be the one that scrolls; min-h keeps it usable on short screens (the page then scrolls). */}
+      <div className="flex-1 min-h-[28rem] bg-white rounded border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+        <Tabs value={activeTab} onValueChange={(v) => setTab(v as typeof tab)} className="flex-1 min-h-0 flex flex-col">
           <div className="px-2 pt-2 border-b border-slate-200 bg-slate-50 shrink-0">
-            <TabsList className="h-10 bg-transparent p-0 flex flex-wrap gap-2">
-              <TabsTrigger value="vaccination" className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs px-3">
+            <TabsList className="h-auto bg-transparent p-0 flex flex-wrap gap-2">
+              <TabsTrigger value="vaccination" className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-9 text-xs px-3">
                 <Syringe className="h-3.5 w-3.5 mr-2" /> {t('vaccination.tab')}
               </TabsTrigger>
-              <TabsTrigger value="malaria" className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs px-3">
+              <TabsTrigger value="malaria" className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-9 text-xs px-3">
                 <ShieldAlert className="h-3.5 w-3.5 mr-2" /> {t('malaria.tab')}
               </TabsTrigger>
-              <TabsTrigger value="tuberculosis" className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs px-3">
+              <TabsTrigger value="tuberculosis" className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-9 text-xs px-3">
                 <Cross className="h-3.5 w-3.5 mr-2" /> {t('tuberculosis.tab')}
               </TabsTrigger>
-              <TabsTrigger value="sessions" className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs px-3">
+              <TabsTrigger value="sessions" className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-9 text-xs px-3">
                 <CalendarDays className="h-3.5 w-3.5 mr-2" /> {t('epi.sessions_tab')}
               </TabsTrigger>
-              <TabsTrigger value="cold-chain" className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs px-3">
+              <TabsTrigger value="cold-chain" className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-9 text-xs px-3">
                 <Thermometer className="h-3.5 w-3.5 mr-2" /> {t('epi.cold_chain_tab')}
               </TabsTrigger>
-              <TabsTrigger value="aefi" className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs px-3">
+              <TabsTrigger value="aefi" className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-9 text-xs px-3">
                 <TriangleAlert className="h-3.5 w-3.5 mr-2" /> {t('epi.aefi_tab')}
               </TabsTrigger>
-              <TabsTrigger value="nutrition" className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs px-3">
+              <TabsTrigger value="nutrition" className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-9 text-xs px-3">
                 <Apple className="h-3.5 w-3.5 mr-2" /> {t('nutrition_tab')}
               </TabsTrigger>
-              <TabsTrigger value="oxygen" className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs px-3">
+              <TabsTrigger value="oxygen" className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-9 text-xs px-3">
                 <Wind className="h-3.5 w-3.5 mr-2" /> {t('oxygen_tab')}
               </TabsTrigger>
-              <TabsTrigger value="chronic" className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs px-3">
+              <TabsTrigger value="chronic" className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-9 text-xs px-3">
                 <Activity className="h-3.5 w-3.5 mr-2" /> {t('chronic_tab')}
               </TabsTrigger>
               {canReadHiv && (
-                <TabsTrigger value="hiv" className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs px-3">
+                <TabsTrigger value="hiv" className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-9 text-xs px-3">
                   <HeartPulse className="h-3.5 w-3.5 mr-2" /> {t('hiv.tab')}
                 </TabsTrigger>
               )}
             </TabsList>
           </div>
 
-          <div className="flex-1 overflow-auto">
+          <div className="flex-1 min-h-0 overflow-auto">
             <TabsContent value="vaccination" className="m-0 flex-1 flex flex-col overflow-hidden">
               <div className="flex-1 overflow-auto">
                 <div className="overflow-x-auto">
