@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { requireTenantAdmin } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
+import { parseIncomeRubric } from "@/lib/reports/rma3-income";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -20,8 +21,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!existing) return NextResponse.json({ error: "Category not found" }, { status: 404 });
 
     const body = await request.json();
-    const { code, nameFr, nameEn, color, order, isActive } = body as {
-      code?: string; nameFr?: string; nameEn?: string; color?: string; order?: number; isActive?: boolean;
+    const { code, nameFr, nameEn, color, order, isActive, rma3IncomeRubric } = body as {
+      code?: string; nameFr?: string; nameEn?: string; color?: string; order?: number; isActive?: boolean; rma3IncomeRubric?: unknown;
     };
 
     const data: Record<string, unknown> = {};
@@ -31,6 +32,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (color !== undefined) data.color = color || null;
     if (order !== undefined) data.order = order;
     if (isActive !== undefined) data.isActive = isActive;
+    if (rma3IncomeRubric !== undefined) {
+      const rubric = parseIncomeRubric(rma3IncomeRubric);
+      if (rubric === "invalid") return NextResponse.json({ error: "invalid_rma3_rubric", code: "invalid_rma3_rubric" }, { status: 400 });
+      data.rma3IncomeRubric = rubric;
+    }
 
     const updated = await prisma.medicalActCategory.update({ where: { id }, data });
     return NextResponse.json(updated);

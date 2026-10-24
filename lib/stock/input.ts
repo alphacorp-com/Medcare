@@ -5,8 +5,9 @@
 export const RMA3_STOCK_CATEGORIES = ["tracer", "epi_input", "antimalarial", "oxygen", "nutrition"] as const;
 export type Rma3StockCategory = (typeof RMA3_STOCK_CATEGORIES)[number];
 // RMA3 III.7 child treatments: a diagnosis treated with such an article in the same stay
-// counts as "SRO", "SRO + zinc" or "pneumonia treated with an antibiotic".
-export const RMA3_TREATMENTS = ["ors", "zinc", "antibiotic"] as const;
+// counts as "SRO", "SRO + zinc" or "pneumonia treated with an antibiotic"; iron / folic acid
+// prescribed to adolescent girls counts in III.8-003.
+export const RMA3_TREATMENTS = ["ors", "zinc", "antibiotic", "iron_folate"] as const;
 export type Rma3Treatment = (typeof RMA3_TREATMENTS)[number];
 
 export const LOSS_TYPES = ["expired", "damaged", "lost"] as const;

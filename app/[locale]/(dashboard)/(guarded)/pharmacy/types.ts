@@ -107,7 +107,7 @@ export type OpenVialRow = {
   discardAt: string;
 };
 
-export type PharmacyTab = "prescriptions" | "inventory" | "report";
+export type PharmacyTab = "prescriptions" | "inventory" | "report" | "pharmacovigilance";
 
 export type StorageLocationOption = { id: string; code: string; name: string };
 export type SupplierOption = { id: string; code: string; name: string };

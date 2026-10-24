@@ -7,13 +7,14 @@ import { useAppStore } from "@/lib/store/useAppStore";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MonthlyFormTab } from "./_components/MonthlyFormTab";
 import { IdentificationTab } from "./_components/IdentificationTab";
+import { CivilDeclarationsTab } from "./_components/CivilDeclarationsTab";
 
 // RMA3 monthly form (MODULE_RMA3): what no transaction of the app records, entered once a
 // month and validated, plus the MINSANTE identification. Merged into the RMA3 Word report.
 function Rma3EntryPageContent() {
   const t = useTranslations("rma3Entry");
   const canRead = useAppStore((state) => state.hasPermission("MODULE_RMA3", "read"));
-  const [tab, setTab] = useUrlTab(["form", "identification"] as const, "form");
+  const [tab, setTab] = useUrlTab(["form", "civil", "identification"] as const, "form");
 
   if (!canRead) return <p className="p-6 text-sm text-slate-500">{t("no_access")}</p>;
 
@@ -26,10 +27,14 @@ function Rma3EntryPageContent() {
       <Tabs value={tab} onValueChange={(value) => setTab(value as typeof tab)}>
         <TabsList>
           <TabsTrigger value="form">{t("tab_form")}</TabsTrigger>
+          <TabsTrigger value="civil">{t("tab_civil")}</TabsTrigger>
           <TabsTrigger value="identification">{t("tab_identification")}</TabsTrigger>
         </TabsList>
         <TabsContent value="form" className="pt-4">
           <MonthlyFormTab />
+        </TabsContent>
+        <TabsContent value="civil" className="pt-4">
+          <CivilDeclarationsTab />
         </TabsContent>
         <TabsContent value="identification" className="pt-4">
           <IdentificationTab />

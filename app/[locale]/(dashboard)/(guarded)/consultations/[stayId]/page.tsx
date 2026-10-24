@@ -57,6 +57,7 @@ export default function ConsultationWorkspacePage() {
   // Coded diagnoses (ICD-10): the principal one is required to sign (RMA3 causes of consultation).
   const [diagnoses, setDiagnoses] = useState<DiagnosisDraft[]>([]);
   const [signing, setSigning] = useState(false);
+  const [followedProtocol, setFollowedProtocol] = useState(false);
 
   const [prescriptionOpen, setPrescriptionOpen] = useState(false);
   const [orderOpen, setOrderOpen] = useState(false);
@@ -205,6 +206,7 @@ export default function ConsultationWorkspacePage() {
           signedAt: now,
           signedBy: session.user.id,
           diagnoses: toDiagnosisPayload(diagnoses),
+          followedNationalProtocol: followedProtocol,
         }),
       });
       const json = await res.json();
@@ -425,6 +427,10 @@ export default function ConsultationWorkspacePage() {
               <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t("diagnoses_title")}</h3>
               <DiagnosisEditor value={diagnoses} onChange={setDiagnoses} required={!readOnly} disabled={readOnly} />
             </div>
+            <label className="flex items-center gap-2 text-xs text-slate-700">
+              <input type="checkbox" checked={followedProtocol} disabled={readOnly} onChange={(e) => setFollowedProtocol(e.target.checked)} className="h-3.5 w-3.5 rounded border-slate-300" />
+              {t("followed_national_protocol")}
+            </label>
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-[11px] text-slate-400">{t("draft_hint")}</p>
               <Button

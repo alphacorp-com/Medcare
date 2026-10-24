@@ -15,12 +15,14 @@ import { AefiTab } from "./_components/AefiTab";
 import { HivProgramTab } from "./_components/HivProgramTab";
 import { NutritionTab } from "./_components/NutritionTab";
 import { OxygenTab } from "./_components/OxygenTab";
-import { HeartPulse, Apple, Wind } from "lucide-react";
+import { ChronicCareTab } from "./_components/ChronicCareTab";
+import { TbCaseComplementsDialog, TbScreeningPanel, type TbCaseComplementsItem } from "./_components/TbPanels";
+import { HeartPulse, Apple, Wind, Activity } from "lucide-react";
 
 type PatientRef = { id: string; firstName: string; lastName: string; ipp: string };
 type ImmunizationItem = { id: string; antigenName: string; doseNumber: number; administeredAt: string; patient: PatientRef };
 type MalariaCaseItem = { id: string; testType: string; result: string; diagnosedAt: string; treatedWithAct: boolean; patient: PatientRef };
-type TbCaseItem = { id: string; classification: string; outcome: string; notificationDate: string; patient: PatientRef };
+type TbCaseItem = TbCaseComplementsItem & { classification: string; outcome: string; notificationDate: string; patient: PatientRef };
 
 function DiseaseProgramsPageContent() {
   const t = useTranslations('diseasePrograms');
@@ -31,7 +33,7 @@ function DiseaseProgramsPageContent() {
   const canEdit = hasPermission("MODULE_DISEASE_PROGRAMS", "create");
   // HIV / hepatitis data: only for staff granted MODULE_HIV (the routes check it too).
   const canReadHiv = hasPermission("MODULE_HIV", "read");
-  const [tab, setTab] = useUrlTab(["vaccination", "malaria", "tuberculosis", "sessions", "cold-chain", "aefi", "nutrition", "oxygen", "hiv"] as const, "vaccination");
+  const [tab, setTab] = useUrlTab(["vaccination", "malaria", "tuberculosis", "sessions", "cold-chain", "aefi", "nutrition", "oxygen", "chronic", "hiv"] as const, "vaccination");
   // The HIV tab is only shown with MODULE_HIV: a link to it falls back to vaccination.
   const activeTab = tab === "hiv" && !canReadHiv ? "vaccination" : tab;
 
@@ -39,6 +41,13 @@ function DiseaseProgramsPageContent() {
   const [malariaCases, setMalariaCases] = useState<MalariaCaseItem[]>([]);
   const [tbCases, setTbCases] = useState<TbCaseItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editingTbCase, setEditingTbCase] = useState<TbCaseItem | null>(null);
+  const canUpdate = hasPermission("MODULE_DISEASE_PROGRAMS", "update");
+
+  const reloadTbCases = async () => {
+    const json = await (await fetch("/api/v1/tb-cases")).json();
+    if (json.success) setTbCases(json.data);
+  };
 
   useEffect(() => {
     if (!hasModule("MODULE_DISEASE_PROGRAMS")) return;
@@ -131,6 +140,9 @@ function DiseaseProgramsPageContent() {
               </TabsTrigger>
               <TabsTrigger value="oxygen" className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs px-3">
                 <Wind className="h-3.5 w-3.5 mr-2" /> {t('oxygen_tab')}
+              </TabsTrigger>
+              <TabsTrigger value="chronic" className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs px-3">
+                <Activity className="h-3.5 w-3.5 mr-2" /> {t('chronic_tab')}
               </TabsTrigger>
               {canReadHiv && (
                 <TabsTrigger value="hiv" className="data-[state=active]:bg-white data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-slate-200 data-[state=active]:border-b-transparent rounded-t-md rounded-b-none h-full text-xs px-3">
@@ -232,13 +244,14 @@ function DiseaseProgramsPageContent() {
                         <th className="p-4 font-semibold w-48">{tc('patient')}</th>
                         <th className="p-4 font-semibold">{t('tuberculosis.classification')}</th>
                         <th className="p-4 font-semibold w-40">{t('tuberculosis.outcome_label')}</th>
+                        <th className="p-4 font-semibold w-28" />
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100/80">
                       {loading ? (
-                        <tr><td colSpan={4} className="text-center py-8 text-slate-400 text-sm">{tc('loading')}</td></tr>
+                        <tr><td colSpan={5} className="text-center py-8 text-slate-400 text-sm">{tc('loading')}</td></tr>
                       ) : !loading && tbCases.length === 0 ? (
-                        <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-500 text-sm">{t('tuberculosis.no_items')}</td></tr>
+                        <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-500 text-sm">{t('tuberculosis.no_items')}</td></tr>
                       ) : tbCases.map((tb) => (
                         <tr key={tb.id} className="hover:bg-slate-50/50 transition-colors">
                           <td className="p-4 text-sm text-slate-600">{format(new Date(tb.notificationDate), "MMM d, yyyy")}</td>
@@ -260,13 +273,23 @@ function DiseaseProgramsPageContent() {
                               "bg-slate-100 text-slate-600")}>
                               {t(`tuberculosis.outcome.${tb.outcome}`)}
                             </span>
+                            {tb.rifampicinResistant && <span className="ml-1 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700">TB-RR</span>}
+                          </td>
+                          <td className="p-4 text-right">
+                            {canUpdate && (
+                              <button type="button" onClick={() => setEditingTbCase(tb)} className="text-xs font-medium text-blue-600 hover:underline">
+                                {t('tuberculosis.complements')}
+                              </button>
+                            )}
                           </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
+                <TbScreeningPanel canEdit={canEdit} />
               </div>
+              {editingTbCase && <TbCaseComplementsDialog tbCase={editingTbCase} onClose={() => setEditingTbCase(null)} onSaved={reloadTbCases} />}
             </TabsContent>
 
             <TabsContent value="sessions" className="m-0 flex-1 flex flex-col overflow-hidden">
@@ -283,6 +306,9 @@ function DiseaseProgramsPageContent() {
             </TabsContent>
             <TabsContent value="oxygen" className="m-0 flex-1 flex flex-col overflow-hidden">
               <OxygenTab canEdit={canEdit} />
+            </TabsContent>
+            <TabsContent value="chronic" className="m-0 flex-1 flex flex-col overflow-hidden">
+              <ChronicCareTab canEdit={canEdit} />
             </TabsContent>
             {canReadHiv && (
               <TabsContent value="hiv" className="m-0 flex-1 flex flex-col overflow-hidden">

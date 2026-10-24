@@ -84,6 +84,7 @@ export const NAV_ITEMS: NavItem[] = [
       { name: "nav_tuberculosis", href: "/disease-programs?tab=tuberculosis" },
       { name: "nav_nutrition", href: "/disease-programs?tab=nutrition" },
       { name: "nav_oxygen", href: "/disease-programs?tab=oxygen" },
+      { name: "nav_chronic_care", href: "/disease-programs?tab=chronic" },
       { name: "nav_hiv", href: "/disease-programs?tab=hiv", permission: { module: "MODULE_HIV", action: "read" } },
     ],
   },
@@ -97,6 +98,7 @@ export const NAV_ITEMS: NavItem[] = [
       { name: "nav_prescriptions", href: "/pharmacy?tab=prescriptions" },
       { name: "nav_inventory", href: "/pharmacy?tab=inventory" },
       { name: "nav_stock_report", href: "/pharmacy?tab=report" },
+      { name: "nav_pharmacovigilance", href: "/pharmacy?tab=pharmacovigilance" },
     ],
   },
   {

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { requireTenantAdmin } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
+import { parseIncomeRubric } from "@/lib/reports/rma3-income";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -35,9 +36,12 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { code, nameFr, nameEn, color, order } = body as {
-      code?: string; nameFr?: string; nameEn?: string; color?: string; order?: number;
+    const { code, nameFr, nameEn, color, order, rma3IncomeRubric } = body as {
+      code?: string; nameFr?: string; nameEn?: string; color?: string; order?: number; rma3IncomeRubric?: unknown;
     };
+    // RMA3 VI.3 income rubric of the acts of the category (optional).
+    const rubric = parseIncomeRubric(rma3IncomeRubric);
+    if (rubric === "invalid") return NextResponse.json({ error: "invalid_rma3_rubric", code: "invalid_rma3_rubric" }, { status: 400 });
     if (!code?.trim() || !nameFr?.trim()) {
       return NextResponse.json({ error: "code and nameFr are required" }, { status: 400 });
     }
@@ -50,6 +54,7 @@ export async function POST(request: Request) {
         nameEn: nameEn?.trim() || null,
         color: color || null,
         order: order ?? 0,
+        rma3IncomeRubric: rubric,
       },
     });
     return NextResponse.json(category, { status: 201 });

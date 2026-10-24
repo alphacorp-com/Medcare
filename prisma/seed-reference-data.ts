@@ -151,6 +151,17 @@ const VACCINE_ANTIGENS: GenericCatalogSeed[] = [
   // Td of women of childbearing age (doses 1 to 5 = Immunization.doseNumber), given at the
   // antenatal visit: RMA3 II.1.1-010 to 014, not in the children's III.2 table.
   { catalogType: 'vaccine_antigen', code: 'TD', nameFr: 'Td (tétanos-diphtérie)', nameEn: 'Td (tetanus-diphtheria)', group: 'TD', order: 29 },
+  // EPI interventions recorded like doses (RMA3 III.2-026 to 037): TPIn, LLIN, deworming.
+  { catalogType: 'vaccine_antigen', code: 'TPIN1', nameFr: 'TPIn 1', group: 'TPIN', order: 31 },
+  { catalogType: 'vaccine_antigen', code: 'TPIN2', nameFr: 'TPIn 2', group: 'TPIN', order: 32 },
+  { catalogType: 'vaccine_antigen', code: 'TPIN3', nameFr: 'TPIn 3', group: 'TPIN', order: 33 },
+  { catalogType: 'vaccine_antigen', code: 'TPIN4', nameFr: 'TPIn 4', group: 'TPIN', order: 34 },
+  { catalogType: 'vaccine_antigen', code: 'TPIN5', nameFr: 'TPIn 5', group: 'TPIN', order: 35 },
+  { catalogType: 'vaccine_antigen', code: 'TPIN6', nameFr: 'TPIn 6', group: 'TPIN', order: 36 },
+  { catalogType: 'vaccine_antigen', code: 'TPIN7', nameFr: 'TPIn 7', group: 'TPIN', order: 37 },
+  { catalogType: 'vaccine_antigen', code: 'TPIN8', nameFr: 'TPIn 8', group: 'TPIN', order: 38 },
+  { catalogType: 'vaccine_antigen', code: 'MILDA', nameFr: 'MILDA (remise lors de la vaccination)', group: 'MILDA', order: 39 },
+  { catalogType: 'vaccine_antigen', code: 'DEWORM', nameFr: 'Mébendazole / Albendazole (déparasitage)', group: 'DEWORM', order: 40 },
 ];
 
 async function seedGenericCatalogs(prisma: PrismaClient, tenantId: string) {

@@ -26,6 +26,13 @@ const KNOWN_CODES = new Set([
   "invalid_villagesServed",
   "invalid_villagesOutreach",
   "invalid_ownership",
+  "invalid_month",
+  "invalid_type",
+  "invalid_patient",
+  "invalid_name",
+  "invalid_event_date",
+  "invalid_transmission_date",
+  "invalid_reference",
 ]);
 
 export function useRma3ApiError() {

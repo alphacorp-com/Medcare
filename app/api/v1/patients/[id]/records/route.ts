@@ -268,7 +268,12 @@ export async function POST(
       try {
         await prisma.stay.update({
           where: { id: record.stayId },
-          data: { consultationStatus: "completed" },
+          // RMA3 III.7-006 / III.8-002: consultation conducted per the national protocol — only
+          // written when the signing form sends it, so another signed note keeps the answer.
+          data: {
+            consultationStatus: "completed",
+            ...(typeof body?.followedNationalProtocol === "boolean" ? { followedNationalProtocol: body.followedNationalProtocol } : {}),
+          },
         });
         await completeAppointmentForStay(session.user.tenantId, record.stayId);
       } catch (statusError) {
