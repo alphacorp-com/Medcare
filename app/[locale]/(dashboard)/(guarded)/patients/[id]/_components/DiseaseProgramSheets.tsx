@@ -409,6 +409,7 @@ interface NewTbCaseSheetProps {
 export function NewTbCaseSheet({
   open, onOpenChange, form, onUpdateForm, saving, error, onSubmit,
 }: NewTbCaseSheetProps) {
+  const tp = useTranslations('programs.tb');
   const t = useTranslations('diseasePrograms.tuberculosis');
   const tc = useTranslations('common');
 
@@ -455,6 +456,27 @@ export function NewTbCaseSheet({
           <div className="space-y-1">
             <label className="text-[10px] font-bold text-slate-500 uppercase">{t('treatment_regimen')}</label>
             <Input value={form.treatmentRegimen} onChange={(e) => onUpdateForm("treatmentRegimen", e.target.value)} placeholder="RHZE / RH..." className="h-8 text-xs bg-white border-slate-200" />
+          </div>
+
+          <div className="space-y-2 rounded border border-slate-200 bg-white p-3">
+            <label className="flex items-center gap-2 text-xs text-slate-700">
+              <input type="checkbox" checked={form.rifampicinResistant} onChange={(e) => onUpdateForm("rifampicinResistant", e.target.checked)} className="h-3.5 w-3.5 rounded border-slate-300" />
+              {tp('rifampicin_resistant')}
+            </label>
+            {form.rifampicinResistant && (
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase">{tp('second_line_started')}</label>
+                <Input type="date" value={form.secondLineStartedAt} max={new Date().toISOString().slice(0, 10)} onChange={(e) => onUpdateForm("secondLineStartedAt", e.target.value)} className="h-8 text-xs bg-white border-slate-200" />
+              </div>
+            )}
+            <label className="flex items-center gap-2 text-xs text-slate-700">
+              <input type="checkbox" checked={form.cotrimoxazole} onChange={(e) => onUpdateForm("cotrimoxazole", e.target.checked)} className="h-3.5 w-3.5 rounded border-slate-300" />
+              {tp('cotrimoxazole')}
+            </label>
+            <label className="flex items-center gap-2 text-xs text-slate-700">
+              <input type="checkbox" checked={form.isHealthWorker} onChange={(e) => onUpdateForm("isHealthWorker", e.target.checked)} className="h-3.5 w-3.5 rounded border-slate-300" />
+              {tp('health_worker')}
+            </label>
           </div>
 
           <div className="space-y-1">

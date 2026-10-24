@@ -1,5 +1,7 @@
 {
   "common": {
+    "nav_chronic_care": "Chronic diseases",
+    "nav_pharmacovigilance": "Pharmacovigilance",
     "nav_nutrition": "Nutrition",
     "nav_oxygen": "Oxygen",
     "nav_lab_exams": "Exams",
@@ -319,6 +321,7 @@
     }
   },
   "consultations": {
+    "followed_national_protocol": "Managed per the national protocol",
     "view_result": "View result",
     "impression": "Impression",
     "complementary_note": "Complementary note",
@@ -951,6 +954,9 @@
       "coverage_excluded": "Not included (fill in manually): vaccine stock, general-population HIV testing, drug stock, blood bank, pharmacovigilance, oxygen, governance/finance/HR."
     },
     "actCategories": {
+      "rma3_rubric": "RMA3 income rubric",
+      "rma3_rubric_auto": "Automatic (from the invoice source)",
+      "rma3_rubric_hint": "VI.3 rubric where the income of the acts of this category is counted.",
       "title": "Act Categories",
       "description": "Configure the categories used to organize medical acts (Consultation, Surgery, Imaging, Laboratory...).",
       "new_item": "New Category",
@@ -1619,6 +1625,7 @@
     "no_newborns_yet": "No newborns registered yet."
   },
   "diseasePrograms": {
+    "chronic_tab": "Chronic diseases",
     "nutrition_tab": "Nutrition",
     "oxygen_tab": "Oxygen",
     "tab": "Programs",
@@ -1973,6 +1980,7 @@
       "no_items": "No malaria cases recorded yet."
     },
     "tuberculosis": {
+      "complements": "RMA3 complements",
       "tab": "Tuberculosis",
       "new_case": "Register Case",
       "new_case_desc": "Register a new TB case for this patient.",
@@ -2944,7 +2952,8 @@
         "values_update": "Entered values of the RMA3 monthly form",
         "period_validate": "Validated the RMA3 monthly form",
         "period_reopen": "Reopened the RMA3 monthly form",
-        "identification_update": "Updated the MINSANTE identification"
+        "identification_update": "Updated the MINSANTE identification",
+        "civil_declaration_create": "Recorded a civil registration declaration"
       },
       "report": {
         "rma3_generate": "Generated the RMA3 report"
@@ -3000,6 +3009,7 @@
     }
   },
   "stock": {
+    "rma3_treatment_iron_folate": "Iron / folic acid",
     "location": "Depot",
     "dispensing_location": "Dispensing depot",
     "dispensing_badge": "dispensing",
@@ -3173,6 +3183,21 @@
     }
   },
   "rma3Entry": {
+    "civil": {
+      "month": "Transmission month",
+      "new": "New declaration",
+      "type": "Type",
+      "type_birth": "Birth",
+      "type_death": "Death",
+      "person": "Person's name",
+      "patient_optional": "Patient (optional)",
+      "event_date": "Event date",
+      "transmitted_at": "Sent to the civil registry on",
+      "reference": "Reference",
+      "empty": "No declaration sent this month.",
+      "saved": "Declaration saved"
+    },
+    "tab_civil": "Civil registration",
     "module_title": "RMA3 monthly form",
     "title": "RMA3 monthly form",
     "subtitle": "Figures the app does not record as activity happens (community, awareness, supervisions, environment, income outside billing, expenses). They are included in the Word RMA3.",
@@ -3223,6 +3248,13 @@
     "ownership_community": "Community",
     "ownership_other": "Other",
     "errors": {
+      "invalid_month": "Invalid month.",
+      "invalid_type": "Invalid declaration type.",
+      "invalid_patient": "Patient not found.",
+      "invalid_name": "Invalid name (150 characters at most).",
+      "invalid_event_date": "Invalid or future event date.",
+      "invalid_transmission_date": "The transmission cannot precede the event or be in the future.",
+      "invalid_reference": "Invalid reference (80 characters at most).",
       "invalid_period": "Invalid month.",
       "future_period": "This month has not started yet.",
       "invalid_body": "Invalid request.",
@@ -3281,6 +3313,78 @@
     "no_history": "No family planning visit."
   },
   "programs": {
+    "pharmacovigilance": {
+      "tab": "Pharmacovigilance",
+      "month": "Month",
+      "new_reaction": "Report an adverse reaction",
+      "reaction_at": "Onset date",
+      "patient": "Patient",
+      "article": "Stock article",
+      "other_drug": "Other drug (type the name)",
+      "drug": "Drug",
+      "lot": "Lot",
+      "expiry": "Expiry",
+      "description": "Description of the reaction",
+      "serious": "Serious",
+      "investigation": "Investigation",
+      "investigate": "Investigate",
+      "investigated_at": "Investigated on",
+      "outcome": "Conclusion",
+      "no_reactions": "No adverse reaction reported this month."
+    },
+    "chronic": {
+      "active_only": "Active patients only",
+      "new_enrolment": "Enrol a patient",
+      "patient": "Patient",
+      "condition": "Condition",
+      "condition_diabetes": "Diabetes",
+      "condition_hypertension": "Hypertension",
+      "enrolled_at": "Enrolled on",
+      "last_visit": "Last visit",
+      "status": "Status",
+      "active": "Active",
+      "no_enrolments": "No patient followed.",
+      "notes": "Notes",
+      "new_visit": "Visit",
+      "visit_date": "Visit date",
+      "on_treatment": "On treatment",
+      "systolic": "Systolic BP (mmHg)",
+      "diastolic": "Diastolic BP (mmHg)",
+      "hba1c": "HbA1c (%)",
+      "education_individual": "Individual therapeutic education",
+      "education_group": "Group therapeutic education",
+      "exit": "Exit",
+      "exit_reason": "Exit reason",
+      "exited_at": "Exited on",
+      "exit_lost_to_follow_up": "Lost to follow-up",
+      "exit_transferred": "Transferred",
+      "exit_died": "Died",
+      "exit_other": "Other",
+      "reopen": "Re-enrol",
+      "reopen_confirm": "The patient becomes active again in the follow-up register."
+    },
+    "tb": {
+      "screening_title": "Active TB case finding",
+      "new_screening": "New screening",
+      "patient": "Patient",
+      "screened_at": "Screened on",
+      "presumptive": "Presumptive TB",
+      "sent_to_lab": "Sent to the lab on",
+      "tested": "Tested on",
+      "result": "Result",
+      "negative": "Negative",
+      "positive": "Positive",
+      "tpt": "TPT started on",
+      "follow_up": "Follow-up",
+      "no_screenings": "No screening this month.",
+      "yes": "Yes",
+      "no": "No",
+      "case_complements": "Case complements (RMA3)",
+      "rifampicin_resistant": "Rifampicin-resistant (RR-TB)",
+      "second_line_started": "Second-line treatment started on",
+      "cotrimoxazole": "On cotrimoxazole",
+      "health_worker": "Health worker"
+    },
     "yes": "Yes",
     "no": "No",
     "saved": "Saved",
@@ -3465,6 +3569,19 @@
       "no": "No"
     },
     "errors": {
+      "lab_needs_presumptive": "Only a presumptive TB case is sent to the lab.",
+      "result_needs_test": "A result needs a test date.",
+      "second_line_needs_rr": "Second line is for a rifampicin-resistant case.",
+      "invalid_second_line_date": "Invalid second-line start date.",
+      "already_enrolled": "This patient is already followed for this condition.",
+      "enrolment_closed": "This patient's follow-up is closed.",
+      "invalid_condition": "Invalid condition.",
+      "invalid_blood_pressure": "Invalid blood pressure: enter systolic and diastolic.",
+      "invalid_hba1c": "Invalid HbA1c (3 to 20 %).",
+      "invalid_drug": "Invalid drug.",
+      "invalid_lot": "Invalid lot number.",
+      "invalid_expiry": "Invalid expiry date.",
+      "invalid_description": "Invalid description (3 to 2000 characters).",
       "invalid_body": "Invalid request.",
       "invalid_patient": "Patient not found.",
       "invalid_date": "Invalid date.",

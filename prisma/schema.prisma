@@ -765,6 +765,9 @@ model Patient {
   hypoxemiaEpisodes    HypoxemiaEpisode[]
   nutritionCases       NutritionCase[]
   growthVisits         GrowthMonitoringVisit[]
+  tbScreenings         TbScreening[]
+  chronicEnrolments    ChronicCareEnrolment[]
+  drugAdverseReactions DrugAdverseReaction[]
 
   @@unique([tenantId, ipp])
   @@index([tenantId])
@@ -797,6 +800,9 @@ model Stay {
   triageAcuity       TriageAcuity?      @map("triage_acuity")
   triagedAt          DateTime?          @map("triaged_at") @db.Timestamptz
   consultationStatus ConsultationStatus @default(waiting) @map("consultation_status")
+  // RMA3 III.7-006 / III.8-002: consultation conducted per the national protocol (IMCI for
+  // children, syndromic approach for STIs), ticked when the consultation is signed.
+  followedNationalProtocol Boolean @default(false) @map("followed_national_protocol")
   // Pending until paid: the chosen bed is held as "reserved" and only becomes the stay's
   // bedId/departmentId once the hospitalisation act is settled.
   hospitalizationStatus       HospitalizationStatus? @map("hospitalization_status")
@@ -1817,6 +1823,8 @@ model MedicalActCategory {
   color     String?  @db.VarChar(20)
   order     Int      @default(0)
   isActive  Boolean  @default(true) @map("is_active")
+  // RMA3 VI.3 income rubric of the acts of this category (lib/reports/rma3-income.ts).
+  rma3IncomeRubric String? @map("rma3_income_rubric") @db.VarChar(20)
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -2620,6 +2628,12 @@ model TbCase {
   treatmentStartDate     DateTime?          @map("treatment_start_date") @db.Timestamptz
   outcome                TbTreatmentOutcome @default(on_treatment)
   outcomeDate            DateTime?          @map("outcome_date") @db.Timestamptz
+  // RMA3 IV.3: rifampicin resistance (TB-RR), second-line treatment, cotrimoxazole, case in a
+  // health worker.
+  rifampicinResistant    Boolean            @default(false) @map("rifampicin_resistant")
+  secondLineStartedAt    DateTime?          @map("second_line_started_at") @db.Timestamptz
+  cotrimoxazole          Boolean            @default(false)
+  isHealthWorker         Boolean            @default(false) @map("is_health_worker")
   registeredById         String             @map("registered_by_id") @db.Uuid
   notes                  String?
   createdAt              DateTime           @default(now()) @map("created_at") @db.Timestamptz
@@ -3138,5 +3152,136 @@ model StaffMember {
 
   @@index([tenantId])
   @@map("staff_members")
+  @@schema("tenant_template")
+}
+
+// -- Last RMA3 complements: TB screening, chronic care, civil registration, pharmacovigilance --
+
+// Active TB case finding (RMA3 IV.3-001 to 005).
+model TbScreening {
+  id           String    @id @default(uuid()) @db.Uuid
+  tenantId     String    @map("tenant_id") @db.Uuid
+  patientId    String    @map("patient_id") @db.Uuid
+  screenedAt   DateTime  @map("screened_at") @db.Timestamptz
+  presumptive  Boolean   @default(false)
+  sentToLabAt  DateTime? @map("sent_to_lab_at") @db.Timestamptz
+  testedAt     DateTime? @map("tested_at") @db.Timestamptz
+  testPositive Boolean?  @map("test_positive")
+  tptStartedAt DateTime? @map("tpt_started_at") @db.Timestamptz
+  notes        String?
+  recordedById String    @map("recorded_by_id") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  patient Patient @relation(fields: [patientId], references: [id])
+
+  @@index([tenantId, screenedAt])
+  @@map("tb_screenings")
+  @@schema("tenant_template")
+}
+
+enum ChronicCondition {
+  diabetes
+  hypertension
+
+  @@schema("tenant_template")
+}
+
+enum ChronicExitReason {
+  lost_to_follow_up
+  transferred
+  died
+  other
+
+  @@schema("tenant_template")
+}
+
+// Chronic disease programme (RMA3 IV.4.1, IV.4.4): enrolment and follow-up visits.
+model ChronicCareEnrolment {
+  id           String             @id @default(uuid()) @db.Uuid
+  tenantId     String             @map("tenant_id") @db.Uuid
+  patientId    String             @map("patient_id") @db.Uuid
+  condition    ChronicCondition
+  enrolledAt   DateTime           @map("enrolled_at") @db.Timestamptz
+  exitedAt     DateTime?          @map("exited_at") @db.Timestamptz
+  exitReason   ChronicExitReason? @map("exit_reason")
+  notes        String?
+  recordedById String             @map("recorded_by_id") @db.Uuid
+  createdAt    DateTime           @default(now()) @map("created_at") @db.Timestamptz
+
+  patient Patient            @relation(fields: [patientId], references: [id])
+  visits  ChronicCareVisit[]
+
+  @@index([tenantId, condition])
+  @@map("chronic_care_enrolments")
+  @@schema("tenant_template")
+}
+
+model ChronicCareVisit {
+  id                  String   @id @default(uuid()) @db.Uuid
+  tenantId            String   @map("tenant_id") @db.Uuid
+  enrolmentId         String   @map("enrolment_id") @db.Uuid
+  visitDate           DateTime @map("visit_date") @db.Timestamptz
+  onTreatment         Boolean  @default(false) @map("on_treatment")
+  systolic            Int?
+  diastolic           Int?
+  hba1c               Decimal? @db.Decimal(4, 1)
+  educationIndividual Boolean  @default(false) @map("education_individual")
+  educationGroup      Boolean  @default(false) @map("education_group")
+  recordedById        String   @map("recorded_by_id") @db.Uuid
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  enrolment ChronicCareEnrolment @relation(fields: [enrolmentId], references: [id])
+
+  @@index([tenantId, visitDate])
+  @@map("chronic_care_visits")
+  @@schema("tenant_template")
+}
+
+enum CivilEventType {
+  birth
+  death
+
+  @@schema("tenant_template")
+}
+
+// Birth / death declarations transmitted to the civil registry (RMA3 V.2).
+model CivilRegistrationDeclaration {
+  id            String         @id @default(uuid()) @db.Uuid
+  tenantId      String         @map("tenant_id") @db.Uuid
+  type          CivilEventType
+  patientId     String?        @map("patient_id") @db.Uuid
+  personName    String         @map("person_name") @db.VarChar(150)
+  eventDate     DateTime       @map("event_date") @db.Date
+  transmittedAt DateTime       @map("transmitted_at") @db.Date
+  reference     String?        @db.VarChar(80)
+  recordedById  String         @map("recorded_by_id") @db.Uuid
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([tenantId, transmittedAt])
+  @@map("civil_registration_declarations")
+  @@schema("tenant_template")
+}
+
+// Adverse drug reaction (pharmacovigilance, RMA3 V.8).
+model DrugAdverseReaction {
+  id             String    @id @default(uuid()) @db.Uuid
+  tenantId       String    @map("tenant_id") @db.Uuid
+  patientId      String    @map("patient_id") @db.Uuid
+  inventoryId    String?   @map("inventory_id") @db.Uuid
+  drugName       String    @map("drug_name") @db.VarChar(255)
+  lotNumber      String?   @map("lot_number") @db.VarChar(60)
+  expiryDate     DateTime? @map("expiry_date") @db.Date
+  reactionAt     DateTime  @map("reaction_at") @db.Timestamptz
+  description    String
+  serious        Boolean   @default(false)
+  investigatedAt DateTime? @map("investigated_at") @db.Timestamptz
+  outcome        String?   @db.VarChar(200)
+  recordedById   String    @map("recorded_by_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  patient Patient @relation(fields: [patientId], references: [id])
+
+  @@index([tenantId, createdAt])
+  @@map("drug_adverse_reactions")
   @@schema("tenant_template")
 }

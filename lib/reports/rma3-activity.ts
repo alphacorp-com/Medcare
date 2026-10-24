@@ -45,7 +45,7 @@ const TB_FORMS: [TbClassification, string][] = [
 ];
 
 // IV.3: 0-4 / 5-14 / 15 ans et + × TPB+ / TPB- / extra-pulmonaire.
-function tbBreakdown<E extends { person: Person; at: Date; classification: TbClassification }>(): Breakdown<E> {
+export function tbBreakdown<E extends { person: Person; at: Date; classification: TbClassification }>(): Breakdown<E> {
   const bands = RMA3_AGE_SCHEMES.tuberculosis;
   return {
     columns: bands.flatMap((b) => TB_FORMS.map(([form, label]) => ({ key: `${b.key}_${form}`, label: `${b.label} ${label}` }))),

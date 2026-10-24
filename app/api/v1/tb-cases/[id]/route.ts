@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { requireModulePermission } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
+import { parseTbCaseComplements } from "@/lib/programs/input-complements";
 import type { TbCaseType, TbClassification, TbHivStatus, TbTreatmentOutcome } from "@prisma/client";
 
 const CASE_TYPES: TbCaseType[] = [
@@ -106,6 +107,13 @@ export async function PATCH(
     if (outcome !== undefined) data.outcome = outcome;
     if (outcomeDate !== undefined) data.outcomeDate = outcomeDate ? new Date(outcomeDate) : null;
     if (notes !== undefined) data.notes = notes;
+    // RMA3 IV.3: TB-RR, second line, cotrimoxazole, health worker.
+    const complements = parseTbCaseComplements(body);
+    if (!complements.ok) return NextResponse.json({ error: complements.error, code: complements.error, success: false }, { status: 400 });
+    if (complements.value.secondLineStartedAt && !(complements.value.rifampicinResistant ?? existing.rifampicinResistant)) {
+      return NextResponse.json({ error: "second_line_needs_rr", code: "second_line_needs_rr", success: false }, { status: 400 });
+    }
+    Object.assign(data, complements.value);
 
     const tbCase = await prisma.tbCase.update({ where: { id }, data });
     return NextResponse.json({ data: tbCase, success: true });

@@ -59,13 +59,13 @@ const INCLUDED_SECTIONS = [
   "IV.2.2-3 / IV.2.4-5 - MILDA en CPN ; paludisme par espèce, molécule, hospitalisation et gratuité",
   "IV.6 - PCIMA (CNA, CNTI) ; III.9 - Alimentation du nourrisson et suivi de croissance",
   "V.6 - Transfusion sanguine (donneurs, poches, tests, collectes mobiles) ; V.9 - Équipements d'oxygénothérapie et prise en charge de l'hypoxémie ; VI.5 - Ressources humaines",
+  "IV.3 - Recherche active de la TB, traitement préventif, TB-RR et 2e ligne ; IV.4.1 / IV.4.4 - Suivi du diabète et de l'HTA ; III.7 / III.8 - Prise en charge selon le protocole national, fer / acide folique des adolescentes",
+  "V.2 - Déclarations d'état civil ; V.8 - Pharmacovigilance ; VI.3 - Recettes issues de la facturation (encaissements) et sous-totaux",
 ];
 
 const EXCLUDED_SECTIONS = [
   "Registre / stock des médicaments antituberculeux",
   "V.7 Médicaments traceurs non encore classés « traceur » dans l'inventaire (seuls les articles classés sont produits)",
-  "V.8 Pharmacovigilance",
-  "VI.3 Recettes issues de la facturation des patients (billet de cession, hospitalisation, examens, chirurgie, pharmacie…) et sous-totaux des recettes",
 ];
 
 function cell(text: string, opts?: { bold?: boolean; shaded?: boolean }): TableCell {
@@ -606,7 +606,7 @@ export async function buildRma3Document(
     tbTable(data.tuberculosis.notifications, "Classification"),
     sectionHeading("IV.3.4 - Résultats du Traitement Antituberculeux"),
     tbTable(data.tuberculosis.outcomes, "Issue du traitement"),
-    ...activitySections(data.activity, ["IV.3", "IV.4.4", "IV.4.9", "IV.4.10", "IV.4.11", "IV.6", "V.1", "V.6", "V.9", "VI.5"]),
+    ...activitySections(data.activity, ["IV.3", "IV.4.1", "IV.4.4", "IV.4.9", "IV.4.10", "IV.4.11", "IV.6", "V.1", "V.2", "V.6", "V.8", "V.9", "VI.3", "VI.5"]),
     ...data.causes.flatMap((table) => [sectionHeading(`${table.section} - ${RMA3_CAUSE_SECTIONS[table.section]}`), causeTable(table)]),
     new Paragraph({
       spacing: { before: 200 },

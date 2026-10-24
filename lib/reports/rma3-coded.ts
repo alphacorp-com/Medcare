@@ -37,7 +37,7 @@ const MALARIA_CONFIRMED = codes("B50-B53");
 const MALARIA_UNSPECIFIED = codes("B54");
 const CHAPTER_Z = codes("Z00-Z99");
 
-export type Rma3Treatment = "ors" | "zinc" | "antibiotic";
+export type Rma3Treatment = "ors" | "zinc" | "antibiotic" | "iron_folate";
 
 export interface CodedDiagnosis {
   patientId: string;

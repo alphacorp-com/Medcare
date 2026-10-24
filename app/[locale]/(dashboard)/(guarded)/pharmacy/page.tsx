@@ -23,6 +23,7 @@ import { StockReportTab } from "./_components/StockReportTab";
 import { useStockErrorMessage } from "@/components/shared/use-stock-error-message";
 
 // Types
+import { AdverseReactionsTab } from "./_components/AdverseReactionsTab";
 import { PrescriptionRow, InventoryRow, MedForm, PharmacyTab } from "./types";
 import { notifyBillingGeneratedMany } from "@/lib/billing/client";
 
@@ -41,13 +42,14 @@ const rxKeys = {
 
 function PharmacyPageContent() {
   const hasModule = useAppStore((state) => state.hasModule);
+  const hasPermission = useAppStore((state) => state.hasPermission);
   const t = useTranslations('pharmacy');
   const tc = useTranslations('common');
   const stockError = useStockErrorMessage();
 
   // UI State
   // The tab is in the URL (?tab=): dashboard stock alerts and the sidebar sub-items open it.
-  const [activeTab, setActiveTab] = useUrlTab<PharmacyTab>(["prescriptions", "inventory", "report"], "prescriptions");
+  const [activeTab, setActiveTab] = useUrlTab<PharmacyTab>(["prescriptions", "inventory", "report", "pharmacovigilance"], "prescriptions");
   const [rxFilter, setRxFilter] = useState("All");
   const [rxSearch, setRxSearch] = useState("");
   const [invSearch, setInvSearch] = useState("");
@@ -306,6 +308,10 @@ function PharmacyPageContent() {
       />
 
       {activeTab === "report" && <StockReportTab />}
+      {/* UI only: the routes check MODULE_PHARMACY server-side. */}
+      {activeTab === "pharmacovigilance" && (
+        <AdverseReactionsTab inventory={inventory} canCreate={hasPermission("MODULE_PHARMACY", "create")} canUpdate={hasPermission("MODULE_PHARMACY", "update")} />
+      )}
 
       <ReceiptSheet item={receiptItem} suppliers={suppliers} locations={locations} onOpenChange={() => setReceiptItem(null)} />
       <TransferSheet item={transferItem} locations={locations} onOpenChange={() => setTransferItem(null)} />

@@ -1,5 +1,7 @@
 {
   "common": {
+    "nav_chronic_care": "Maladies chroniques",
+    "nav_pharmacovigilance": "Pharmacovigilance",
     "nav_nutrition": "Nutrition",
     "nav_oxygen": "Oxygène",
     "nav_lab_exams": "Examens",
@@ -318,6 +320,7 @@
     }
   },
   "consultations": {
+    "followed_national_protocol": "Prise en charge selon le protocole national",
     "view_result": "Voir le résultat",
     "impression": "Conclusion",
     "complementary_note": "Note complémentaire",
@@ -956,6 +959,9 @@
       "coverage_excluded": "Non inclus (à compléter manuellement) : stocks vaccins, dépistage VIH population générale, stocks médicaments, banque de sang, pharmacovigilance, oxygène, gouvernance/finances/RH."
     },
     "actCategories": {
+      "rma3_rubric": "Rubrique de recettes RMA3",
+      "rma3_rubric_auto": "Automatique (selon la source de la facture)",
+      "rma3_rubric_hint": "Rubrique VI.3 où sont comptées les recettes des actes de cette catégorie.",
       "title": "Catégories d'Actes",
       "description": "Configurez les catégories utilisées pour organiser les actes médicaux (Consultation, Chirurgie, Imagerie, Laboratoire...).",
       "new_item": "Nouvelle Catégorie",
@@ -1624,6 +1630,7 @@
     "no_newborns_yet": "Aucun nouveau-né enregistré pour le moment."
   },
   "diseasePrograms": {
+    "chronic_tab": "Maladies chroniques",
     "nutrition_tab": "Nutrition",
     "oxygen_tab": "Oxygène",
     "tab": "Programmes",
@@ -1978,6 +1985,7 @@
       "no_items": "Aucun cas de paludisme enregistré pour le moment."
     },
     "tuberculosis": {
+      "complements": "Compléments RMA3",
       "tab": "Tuberculose",
       "new_case": "Enregistrer un cas",
       "new_case_desc": "Enregistrer un nouveau cas de tuberculose pour ce patient.",
@@ -2949,7 +2957,8 @@
         "values_update": "A saisi des valeurs du formulaire mensuel RMA3",
         "period_validate": "A validé le formulaire mensuel RMA3",
         "period_reopen": "A rouvert le formulaire mensuel RMA3",
-        "identification_update": "A modifié l'identification MINSANTE"
+        "identification_update": "A modifié l'identification MINSANTE",
+        "civil_declaration_create": "A transmis une déclaration d'état civil"
       },
       "report": {
         "rma3_generate": "A généré le rapport RMA3"
@@ -3005,6 +3014,7 @@
     }
   },
   "stock": {
+    "rma3_treatment_iron_folate": "Fer / acide folique",
     "location": "Dépôt",
     "dispensing_location": "Dépôt de dispensation",
     "dispensing_badge": "dispensation",
@@ -3178,6 +3188,21 @@
     }
   },
   "rma3Entry": {
+    "civil": {
+      "month": "Mois de transmission",
+      "new": "Nouvelle déclaration",
+      "type": "Type",
+      "type_birth": "Naissance",
+      "type_death": "Décès",
+      "person": "Nom de la personne",
+      "patient_optional": "Patient (facultatif)",
+      "event_date": "Date de l'évènement",
+      "transmitted_at": "Transmise à l'état civil le",
+      "reference": "Référence",
+      "empty": "Aucune déclaration transmise ce mois.",
+      "saved": "Déclaration enregistrée"
+    },
+    "tab_civil": "Déclarations d'état civil",
     "module_title": "Formulaire mensuel RMA3",
     "title": "Formulaire mensuel RMA3",
     "subtitle": "Données que l'application n'enregistre pas au fil de l'activité (communauté, sensibilisation, supervisions, environnement, recettes hors facturation, dépenses). Elles sont reprises dans le RMA3 Word.",
@@ -3228,6 +3253,13 @@
     "ownership_community": "Communautaire",
     "ownership_other": "Autre",
     "errors": {
+      "invalid_month": "Mois invalide.",
+      "invalid_type": "Type de déclaration invalide.",
+      "invalid_patient": "Patient introuvable.",
+      "invalid_name": "Nom invalide (150 caractères au plus).",
+      "invalid_event_date": "Date de l'évènement invalide ou future.",
+      "invalid_transmission_date": "La transmission ne peut précéder l'évènement ni être future.",
+      "invalid_reference": "Référence invalide (80 caractères au plus).",
       "invalid_period": "Mois invalide.",
       "future_period": "Ce mois n'a pas encore commencé.",
       "invalid_body": "Requête invalide.",
@@ -3286,6 +3318,78 @@
     "no_history": "Aucune consultation de planification familiale."
   },
   "programs": {
+    "pharmacovigilance": {
+      "tab": "Pharmacovigilance",
+      "month": "Mois",
+      "new_reaction": "Notifier un effet indésirable",
+      "reaction_at": "Date de survenue",
+      "patient": "Patient",
+      "article": "Article en stock",
+      "other_drug": "Autre médicament (saisir le nom)",
+      "drug": "Médicament",
+      "lot": "Lot",
+      "expiry": "Péremption",
+      "description": "Description de l'effet",
+      "serious": "Grave",
+      "investigation": "Investigation",
+      "investigate": "Investiguer",
+      "investigated_at": "Investiguée le",
+      "outcome": "Conclusion",
+      "no_reactions": "Aucun effet indésirable notifié ce mois."
+    },
+    "chronic": {
+      "active_only": "Patients actifs seulement",
+      "new_enrolment": "Inscrire un patient",
+      "patient": "Patient",
+      "condition": "Maladie",
+      "condition_diabetes": "Diabète",
+      "condition_hypertension": "Hypertension artérielle",
+      "enrolled_at": "Inscrit le",
+      "last_visit": "Dernière visite",
+      "status": "Statut",
+      "active": "Actif",
+      "no_enrolments": "Aucun patient suivi.",
+      "notes": "Notes",
+      "new_visit": "Visite",
+      "visit_date": "Date de visite",
+      "on_treatment": "Sous traitement",
+      "systolic": "TA systolique (mmHg)",
+      "diastolic": "TA diastolique (mmHg)",
+      "hba1c": "HbA1c (%)",
+      "education_individual": "Éducation thérapeutique individuelle",
+      "education_group": "Éducation thérapeutique de groupe",
+      "exit": "Sortie",
+      "exit_reason": "Motif de sortie",
+      "exited_at": "Sorti le",
+      "exit_lost_to_follow_up": "Perdu de vue",
+      "exit_transferred": "Transféré",
+      "exit_died": "Décédé",
+      "exit_other": "Autre",
+      "reopen": "Réinscrire",
+      "reopen_confirm": "Le patient redevient actif dans la file de suivi."
+    },
+    "tb": {
+      "screening_title": "Dépistage actif de la tuberculose",
+      "new_screening": "Nouveau dépistage",
+      "patient": "Patient",
+      "screened_at": "Dépisté le",
+      "presumptive": "Présumé TB",
+      "sent_to_lab": "Envoyé au labo le",
+      "tested": "Testé le",
+      "result": "Résultat",
+      "negative": "Négatif",
+      "positive": "Positif",
+      "tpt": "TPT débuté le",
+      "follow_up": "Suivi",
+      "no_screenings": "Aucun dépistage ce mois.",
+      "yes": "Oui",
+      "no": "Non",
+      "case_complements": "Compléments du cas (RMA3)",
+      "rifampicin_resistant": "Résistant à la rifampicine (TB-RR)",
+      "second_line_started": "Traitement de 2e ligne débuté le",
+      "cotrimoxazole": "Sous cotrimoxazole",
+      "health_worker": "Personnel de santé"
+    },
     "yes": "Oui",
     "no": "Non",
     "saved": "Enregistré",
@@ -3470,6 +3574,19 @@
       "no": "Non"
     },
     "errors": {
+      "lab_needs_presumptive": "Seul un cas présumé TB est envoyé au laboratoire.",
+      "result_needs_test": "Un résultat exige une date de test.",
+      "second_line_needs_rr": "La 2e ligne concerne un cas résistant à la rifampicine.",
+      "invalid_second_line_date": "Date de début de 2e ligne invalide.",
+      "already_enrolled": "Ce patient est déjà suivi pour cette maladie.",
+      "enrolment_closed": "Le suivi de ce patient est clôturé.",
+      "invalid_condition": "Maladie invalide.",
+      "invalid_blood_pressure": "Tension invalide : saisir systolique et diastolique.",
+      "invalid_hba1c": "HbA1c invalide (3 à 20 %).",
+      "invalid_drug": "Médicament invalide.",
+      "invalid_lot": "Numéro de lot invalide.",
+      "invalid_expiry": "Date de péremption invalide.",
+      "invalid_description": "Description invalide (3 à 2000 caractères).",
       "invalid_body": "Requête invalide.",
       "invalid_patient": "Patient introuvable.",
       "invalid_date": "Date invalide.",

@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Loader2, Plus, Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { INCOME_RUBRICS } from "@/lib/reports/rma3-income";
 import { SettingsCode, SettingsList, SettingsListItem, SettingsPageHeader, SettingsSwatch, settingsActionButtonClass } from "@/components/settings/settings-ui";
 
 type ActCategory = {
@@ -18,6 +19,7 @@ type ActCategory = {
   color: string | null;
   order: number;
   isActive: boolean;
+  rma3IncomeRubric: string | null;
   _count: { acts: number };
 };
 
@@ -35,6 +37,7 @@ export default function ActCategoriesPage() {
   const [nameEn, setNameEn] = useState("");
   const [color, setColor] = useState("#1565c0");
   const [order, setOrder] = useState("0");
+  const [rubric, setRubric] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -61,6 +64,7 @@ export default function ActCategoriesPage() {
     setNameEn("");
     setColor("#1565c0");
     setOrder("0");
+    setRubric("");
     setError(null);
     setIsFormOpen(true);
   };
@@ -72,6 +76,7 @@ export default function ActCategoriesPage() {
     setNameEn(item.nameEn ?? "");
     setColor(item.color ?? "#1565c0");
     setOrder(String(item.order));
+    setRubric(item.rma3IncomeRubric ?? "");
     setError(null);
     setIsFormOpen(true);
   };
@@ -84,7 +89,7 @@ export default function ActCategoriesPage() {
     setIsSaving(true);
     setError(null);
     try {
-      const payload = { code: code.trim(), nameFr: nameFr.trim(), nameEn: nameEn.trim() || undefined, color, order: Number(order) || 0 };
+      const payload = { code: code.trim(), nameFr: nameFr.trim(), nameEn: nameEn.trim() || undefined, color, order: Number(order) || 0, rma3IncomeRubric: rubric || null };
       const res = editingItem
         ? await fetch(`/api/v1/settings/act-categories/${editingItem.id}`, {
             method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
@@ -146,6 +151,7 @@ export default function ActCategoriesPage() {
                 {item.nameEn && <span>{item.nameEn}</span>}
                 <SettingsCode>{item.code}</SettingsCode>
                 <span>{t("acts_count", { count: item._count.acts })}</span>
+                {item.rma3IncomeRubric && <span>RMA3 {item.rma3IncomeRubric}</span>}
               </>
             }
             active={{ value: item.isActive, onToggle: () => toggleActive(item) }}
@@ -174,6 +180,14 @@ export default function ActCategoriesPage() {
                 <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="h-9 w-14 rounded border border-slate-200" />
                 <Input value={color} onChange={(e) => setColor(e.target.value)} className="h-9 text-xs font-mono" />
               </div>
+            </div>
+            <div className="space-y-1">
+              <Label>{t("rma3_rubric")}</Label>
+              <select value={rubric} onChange={(e) => setRubric(e.target.value)} className="flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-xs shadow-sm">
+                <option value="">{t("rma3_rubric_auto")}</option>
+                {INCOME_RUBRICS.map((r) => <option key={r.code} value={r.code}>{r.code} — {r.label}</option>)}
+              </select>
+              <p className="text-[11px] text-slate-400">{t("rma3_rubric_hint")}</p>
             </div>
           </div>
           <DialogFooter>

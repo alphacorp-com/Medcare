@@ -2,8 +2,9 @@
 
 import { useTranslations } from "next-intl";
 
-// Error codes of the oxygen, nutrition, blood bank and staff routes (lib/programs/input,
-// lib/blood-bank/input, lib/hr/input): translated when known.
+// Error codes of the oxygen, nutrition, blood bank, staff, TB screening, chronic care and
+// pharmacovigilance routes (lib/programs/input*, lib/blood-bank/input, lib/hr/input): translated
+// when known.
 const KNOWN_CODES = new Set([
   "invalid_body",
   "invalid_patient",
@@ -62,6 +63,19 @@ const KNOWN_CODES = new Set([
   "invalid_retirementDate",
   "invalid_leftAt",
   "invalid_user",
+  "lab_needs_presumptive",
+  "result_needs_test",
+  "second_line_needs_rr",
+  "invalid_second_line_date",
+  "already_enrolled",
+  "enrolment_closed",
+  "invalid_condition",
+  "invalid_blood_pressure",
+  "invalid_hba1c",
+  "invalid_drug",
+  "invalid_lot",
+  "invalid_expiry",
+  "invalid_description",
 ]);
 
 export function useProgramError() {

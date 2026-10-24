@@ -272,6 +272,11 @@ export type NewTbCaseForm = {
   hivStatus: "positive" | "negative" | "unknown";
   treatmentRegimen: string;
   notes: string;
+  // RMA3 IV.3 complements.
+  rifampicinResistant: boolean;
+  secondLineStartedAt: string;
+  cotrimoxazole: boolean;
+  isHealthWorker: boolean;
 };
 
 export type NewTbFollowUpForm = {

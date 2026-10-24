@@ -153,7 +153,7 @@ export default function PatientDetailPage() {
 
   const [tbCaseForm, setTbCaseForm] = useState<NewTbCaseForm>({
     caseType: "new_case", classification: "pulmonary_bacteriologically_confirmed", hivStatus: "unknown",
-    treatmentRegimen: "", notes: ""
+    treatmentRegimen: "", notes: "", rifampicinResistant: false, secondLineStartedAt: "", cotrimoxazole: false, isHealthWorker: false
   });
   const [savingTbCase, setSavingTbCase] = useState(false);
   const [tbCaseError, setTbCaseError] = useState<string | null>(null);
@@ -432,12 +432,13 @@ export default function PatientDetailPage() {
     setTbCaseError(null);
     try {
       const res = await fetch(`/api/v1/patients/${id}/tb-cases`, {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(tbCaseForm),
+        method: "POST", headers: { "Content-Type": "application/json" }, // A second-line date only goes with TB-RR.
+        body: JSON.stringify({ ...tbCaseForm, secondLineStartedAt: tbCaseForm.rifampicinResistant ? tbCaseForm.secondLineStartedAt : "" }),
       });
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.error ?? "Failed to register TB case");
       setIsTbCaseOpen(false);
-      setTbCaseForm({ caseType: "new_case", classification: "pulmonary_bacteriologically_confirmed", hivStatus: "unknown", treatmentRegimen: "", notes: "" });
+      setTbCaseForm({ caseType: "new_case", classification: "pulmonary_bacteriologically_confirmed", hivStatus: "unknown", treatmentRegimen: "", notes: "", rifampicinResistant: false, secondLineStartedAt: "", cotrimoxazole: false, isHealthWorker: false });
       const tbRes = await fetch(`/api/v1/patients/${id}/tb-cases`);
       const tbJson = await tbRes.json();
       if (tbJson.success) setTbCases(tbJson.data);
