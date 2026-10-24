@@ -211,11 +211,12 @@ async function seedRma3Articles(ctx: ProgramCtx): Promise<Record<string, { id: s
   let created = 0;
   for (const a of RMA3_ARTICLES) {
     const existing = await prisma.medicationInventory.findFirst({ where: { tenantId: ctx.tenantId, name: a.name }, select: { id: true, name: true } });
-    if (existing) {
+    // An article left without any movement by an interrupted run gets its stock now.
+    if (existing && (await prisma.stockMovement.count({ where: { itemId: existing.id } })) > 0) {
       byName[a.name] = existing;
       continue;
     }
-    const item = await prisma.medicationInventory.create({
+    const item = existing ?? await prisma.medicationInventory.create({
       data: {
         tenantId: ctx.tenantId, name: a.name, manufacturer: 'Generic', category: a.category, unit: a.unit, unitPrice: a.unitPrice, threshold: a.threshold,
         rma3Category: a.rma3Category ?? null, rma3Treatment: a.rma3Treatment ?? null, vaccineAntigenCode: a.vaccineAntigenCode ?? null,

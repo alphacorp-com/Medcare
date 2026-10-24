@@ -24,6 +24,11 @@ function createPrismaClient() {
   return new PrismaClient({
     adapter: new PrismaPg(pool),
     log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
+    // Interactive transactions (stock movements, invoice recalculation, claims…) run several
+    // round trips: Prisma's 5 s default is exceeded on a remote or waking database (Neon), which
+    // rolls back the operation. Waiting up to 10 s for a connection and 30 s for the transaction
+    // keeps them atomic without failing on latency; row locks still serialize concurrent writers.
+    transactionOptions: { maxWait: 10_000, timeout: 30_000 },
   });
 }
 

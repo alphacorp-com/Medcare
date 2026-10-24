@@ -1049,7 +1049,24 @@ async function main() {
   );
   const ippOf = (i: number) => `${IPP_PREFIX}${String(i + 1).padStart(4, '0')}`;
   if (ALL_PATIENTS.every((_, i) => existingIpps.has(ippOf(i)))) {
-    console.log(`All ${ALL_PATIENTS.length} patient journeys already present — nothing to do. Delete patients with ipp starting "${IPP_PREFIX}" to reseed.`);
+    // Resume: an earlier run created every patient but stopped before the programme data reached
+    // them (no ICD-10 diagnosis yet — the first patient-level step of seedPrograms). Running the
+    // programme phase now cannot duplicate anything; past that point, restore the backup instead.
+    const reached = await prisma.diagnosis.count({ where: { tenantId: tenant.id, patient: { ipp: { startsWith: IPP_PREFIX } } } });
+    if (reached > 0) {
+      console.log(`All ${ALL_PATIENTS.length} patient journeys already present — nothing to do. Delete patients with ipp starting "${IPP_PREFIX}" to reseed.`);
+      return;
+    }
+    console.log('All patients present, programme data missing: resuming the programme phase...');
+    const departments = await ensureDepartments(tenant.id);
+    const staff = await ensureStaff(tenant.id, departments);
+    const journeyOf = new Map(ALL_PATIENTS.map((p, i) => [ippOf(i), p.journey]));
+    const rows = await prisma.patient.findMany({
+      where: { tenantId: tenant.id, ipp: { in: [...journeyOf.keys()] } },
+      select: { id: true, ipp: true, firstName: true, lastName: true, birthDate: true, gender: true, isDeceased: true },
+      orderBy: { ipp: 'asc' },
+    });
+    await seedPrograms({ tenantId: tenant.id, staff, departments, patients: rows.map((r) => ({ ...r, journey: journeyOf.get(r.ipp)! })) });
     return;
   }
   // Stay numbers continue after the ones of an earlier run.

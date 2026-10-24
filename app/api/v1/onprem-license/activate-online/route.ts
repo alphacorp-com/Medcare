@@ -20,9 +20,11 @@ export async function POST() {
     return NextResponse.json({ error: "Too many attempts. Please try again later." }, { status: 429 });
   }
 
-  const clientId = process.env.ONPREM_LICENSE_CLIENT_ID;
-  const clientSecret = process.env.ONPREM_LICENSE_CLIENT_SECRET;
-  const apiUrl = process.env.ALPHACORP_LICENSE_API_URL;
+  // Trimmed: a value pasted into a hosting dashboard often carries a stray space or newline,
+  // which would otherwise corrupt the Authorization header.
+  const clientId = process.env.ONPREM_LICENSE_CLIENT_ID?.trim();
+  const clientSecret = process.env.ONPREM_LICENSE_CLIENT_SECRET?.trim();
+  const apiUrl = process.env.ALPHACORP_LICENSE_API_URL?.trim();
   if (!clientId || !clientSecret || !apiUrl) {
     return NextResponse.json(
       {
@@ -63,8 +65,15 @@ export async function POST() {
 
   if (!response.ok) {
     const body = await response.json().catch(() => ({}) as { error?: string });
+    // What the administrator of this install can do about AlphaCorp's answer.
+    const hint =
+      response.status === 401
+        ? " Check ONPREM_LICENSE_CLIENT_ID and ONPREM_LICENSE_CLIENT_SECRET in this deployment's environment: they must match the client in AlphaCorp's admin (its secret preview = the secret's last 6 characters; a rotated secret invalidates the old one). Redeploy after changing them."
+        : response.status === 409
+          ? " The AlphaCorp client was first activated from another install (different ONPREM_INSTALL_ID or machine): ask AlphaCorp to re-bind it, or use a dedicated client for this install."
+          : "";
     return NextResponse.json(
-      { error: body.error ?? "AlphaCorp rejected the activation request." },
+      { error: `${body.error ?? "AlphaCorp rejected the activation request."}${hint}` },
       { status: response.status }
     );
   }

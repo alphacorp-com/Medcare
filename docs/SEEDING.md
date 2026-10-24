@@ -113,6 +113,12 @@ Staff logins: … — password "Demo1234!".
 
 - **Re-run on a fully seeded database:** the script prints
   `All 150 patient journeys already present — nothing to do.`
+- **Run interrupted after the patients were created** (before any programme
+  data): the next run prints
+  `All patients present, programme data missing: resuming the programme phase...`
+  and completes it. Once the programme data has started reaching the patients
+  (ICD-10 diagnoses exist), the script no longer resumes, because a resume could
+  duplicate data: restore the backup instead.
 - **Database seeded by an older version (50 patients):** run the chain again.
   The 100 missing patients are created with their journeys and programme data.
   Stay numbers continue after the existing ones, and stock dated before the old
@@ -180,6 +186,7 @@ few acts. These are not official tariffs: replace them with the facility's own.
 |---|---|---|
 | `P1001 Can't reach database server` (Neon) | The Neon compute is suspended and takes time to wake up. | Run `npx prisma migrate status` again after a few seconds. Check your network and VPN. |
 | `No tenant found on this install — complete /setup first` | The database has no facility. | Complete **/setup** in the application, then run the chain again. |
+| `P2028 … Transaction API error … timeout` | An interactive transaction outlived its time limit on a slow or remote database. | The application now allows 30 s (`lib/prisma.ts`, `transactionOptions`). Run `npm run seed-journeys` again: when every patient exists but the programme data never reached them, the script **resumes the programme phase** by itself. |
 | `StockError: history_conflict` | A dated stock exit would come before the stock received. | This happens only with very old demo stock. The script tops it up automatically; run it again. If it persists, restore the backup and run the full chain. |
 | `member_number_exists`, `already_beneficiary` | Coverage demo data was partly created by an interrupted run. | The coverage data is skipped as soon as a payer exists. Restore the backup, or delete the demo payers and memberships, then run again. |
 | A script stops halfway | Network cut, timeout. | Run it again: the patients already created are skipped. Facility-level demo data is skipped once it exists, so an interrupted module may stay incomplete. In that case, restore the backup and run the full chain. |
