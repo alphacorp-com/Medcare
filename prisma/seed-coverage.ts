@@ -1,16 +1,23 @@
 // Third-party payment demo data for the patient-journey seed (lib/coverage): payers and their
-// conventions, free-care programmes, patient coverages with prior authorizations, an indigent
-// enrolment, covered invoices over the current and previous month, and claims at every stage.
+// conventions (family ceiling, children age limit, nomenclature rates), free-care programmes,
+// memberships with their beneficiaries — holders, spouses, children, a holder who is not a
+// patient —, prior authorizations, an indigent enrolment, covered invoices over the current and
+// previous month, claims at every stage with a reversed rejection and a settlement balance
+// allocated later and partly refunded, and patient overpayments refunded or moved.
 //
-// Invoices go through the application's own computation (recalculateInvoiceTotals) and claims
-// through lib/coverage/claims.ts, so the shares, statuses and receivables are what the app would
-// have produced. Facility-level records are created only when the facility has no payer yet;
-// coverages and invoices only for the patients of the current run.
-import { Gender, type Prisma } from '@prisma/client';
+// Invoices go through the application's own computation (recalculateInvoiceTotals), claims
+// through lib/coverage/claims.ts and overpayments through lib/billing/refunds.ts, so the shares,
+// statuses and balances are what the app would have produced. Facility-level records are created
+// only when the facility has no payer yet; memberships and invoices only for the patients of the
+// current run.
+import type { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma';
 import { recalculateInvoiceTotals } from '../lib/billing/suggestCharge';
 import { applySuccessfulPayment } from '../lib/billing/applyPayment';
-import { closeClaim, createClaim, recordPayerPayment, recordRejection, submitClaim } from '../lib/coverage/claims';
+import { recordPatientRefund, transferTargets } from '../lib/billing/refunds';
+import { allocatePayerPayment, closeClaim, createClaim, recordPayerPayment, recordRejection, refundPayerPayment, reverseRejection, submitClaim } from '../lib/coverage/claims';
+import { coverPatient } from '../lib/coverage/policies';
+import { refundableAmount } from '../lib/coverage/input';
 import type { ProgramCtx, SeededPatient } from './seed-programs';
 
 const DAY = 86_400_000;
@@ -30,11 +37,13 @@ async function seedPayers(tenantId: string) {
   const defs = [
     {
       payer: { code: 'CNPS', name: 'CNPS — Caisse Nationale de Prévoyance Sociale', insuranceTypeId: types.CNPS ?? null, contactName: 'Service des prestations', phone: '+237 222 23 40 40' },
-      agreement: { code: 'CNPS-STD', name: 'Convention CNPS 2026', defaultRate: 80, annualCeiling: 500000, rates: [{ family: 'pharmacy', rate: 70 }, { family: 'imaging', rate: 70 }] },
+      // Family coverage: children until 21, a ceiling per family on top of the per-person one.
+      agreement: { code: 'CNPS-STD', name: 'Convention CNPS 2026', defaultRate: 80, annualCeiling: 300000, familyAnnualCeiling: 600000, childMaxAgeYears: 21, rates: [{ family: 'pharmacy', rate: 70 }, { family: 'imaging', rate: 70 }] },
     },
     {
       payer: { code: 'MUT-ENS', name: 'Mutuelle des Enseignants du Centre', insuranceTypeId: types.MUTUAL ?? null, contactName: 'Bureau de la mutuelle', phone: '+237 699 11 22 33' },
-      agreement: { code: 'MUT-ENS-BASE', name: 'Garantie de base', defaultRate: 70, perInvoiceCeiling: 150000, rates: [{ family: 'surgery', rate: 0 }] },
+      // Reimburses per the nomenclature of the acts when they have a rate.
+      agreement: { code: 'MUT-ENS-BASE', name: 'Garantie de base', defaultRate: 70, perInvoiceCeiling: 150000, useNomenclatureRates: true, childMaxAgeYears: 18, rates: [{ family: 'surgery', rate: 0 }] },
     },
     {
       payer: { code: 'AXA', name: 'AXA Assurances Cameroun', insuranceTypeId: types.PRIVATE ?? null, contactName: 'Gestion santé', email: 'sante@axa-demo.example' },
@@ -57,6 +66,15 @@ async function seedPayers(tenantId: string) {
   return agreements;
 }
 
+// Nomenclature rates on a few acts (only where none is set yet): used by the conventions that
+// follow the nomenclature (MUT-ENS here).
+async function seedNomenclatureRates(tenantId: string) {
+  const rates: Record<string, number> = { CONS_PEDIATRIE: 100, CPN_ACTE: 100, ACCOUCHEMENT_VOIE_BASSE: 100, CONS_GEN: 60, SUTURE_PLAIE: 50 };
+  for (const [code, rate] of Object.entries(rates)) {
+    await prisma.medicalAct.updateMany({ where: { tenantId, code, defaultPecCoveragePercent: null }, data: { defaultPecCoveragePercent: rate } });
+  }
+}
+
 async function seedPrograms(tenantId: string) {
   const antimalarials = await prisma.medicationInventory.findMany({ where: { tenantId, OR: [{ name: { contains: 'Coartem' } }, { name: { contains: 'Artesunate' } }, { name: { startsWith: 'TDR' } }] }, select: { id: true } });
   await prisma.exemptionProgram.create({
@@ -77,24 +95,25 @@ async function seedPrograms(tenantId: string) {
 let stayCounter = 0;
 
 // An outpatient visit billed like the application does: consultation (stay), a lab exam and,
-// for some, a dispensed prescription — then the patient pays their share.
-async function coveredVisit(ctx: ProgramCtx, patient: SeededPatient, at: Date, opts: { exam: { code: string; label: string; price: number }; drug?: { id: string; name: string; price: number }; extra?: number; payPatientShare: boolean }) {
+// for some, a dispensed prescription — then the patient pays their share (or more: overpayment).
+async function coveredVisit(ctx: ProgramCtx, patient: SeededPatient, at: Date, opts: { exam: { code: string; label: string; price: number }; drug?: { id: string; name: string; price: number }; extra?: number; pay: 'share' | 'none' | 'full' }) {
   const { tenantId, staff } = ctx;
   stayCounter += 1;
+  const kid = ageYears(patient) < 15;
   const stay = await prisma.stay.create({
     data: {
       tenantId, patientId: patient.id, stayNumber: `STCV${String(stayCounter).padStart(4, '0')}`, type: 'outpatient', status: 'discharged', admissionDate: at, dischargeDate: new Date(at.getTime() + 3_600_000),
-      departmentId: ctx.departments['MED']?.id ?? null, attendingDoctorId: staff.doctor.id, admissionReason: 'Consultation', medicalActCode: ageYears(patient) < 15 ? 'CONS_PEDIATRIE' : 'CONS_GEN', consultationStatus: 'completed',
+      departmentId: ctx.departments['MED']?.id ?? null, attendingDoctorId: staff.doctor.id, admissionReason: 'Consultation', medicalActCode: kid ? 'CONS_PEDIATRIE' : 'CONS_GEN', consultationStatus: 'completed',
     },
   });
   const exam = await prisma.examRequest.create({
     data: { tenantId, patientId: patient.id, stayId: stay.id, prescriberId: staff.doctor.id, type: 'biology', examCode: opts.exam.code, examLabel: opts.exam.label, urgency: 'routine', status: 'completed', requestedAt: at, completedAt: at },
   });
-  const coverageId = (await prisma.patientCoverage.findFirst({ where: { tenantId, patientId: patient.id, endedAt: null }, select: { id: true } }))?.id ?? null;
+  const coverageId = (await prisma.patientCoverage.findFirst({ where: { tenantId, patientId: patient.id, endedAt: null }, select: { id: true }, orderBy: { createdAt: 'desc' } }))?.id ?? null;
   const invoice = await prisma.patientInvoice.create({ data: { tenantId, patientId: patient.id, stayId: stay.id, status: 'draft', issuedById: staff.billingUser.id, coverageId, createdAt: at } });
-  const consultation = ageYears(patient) < 15 ? 8000 : 5000;
+  const consultation = kid ? 8000 : 5000;
   const lines: Prisma.PatientInvoiceLineCreateManyInput[] = [
-    { tenantId, invoiceId: invoice.id, sourceType: 'consultation', sourceId: stay.id, description: ageYears(patient) < 15 ? 'Consultation pédiatrique' : 'Consultation générale', quantity: 1, unitPrice: consultation, amount: consultation },
+    { tenantId, invoiceId: invoice.id, sourceType: 'consultation', sourceId: stay.id, description: kid ? 'Consultation pédiatrique' : 'Consultation générale', quantity: 1, unitPrice: consultation, amount: consultation },
     { tenantId, invoiceId: invoice.id, sourceType: 'exam', sourceId: exam.id, description: opts.exam.label, quantity: 1, unitPrice: opts.exam.price, amount: opts.exam.price },
   ];
   if (opts.drug) {
@@ -106,10 +125,11 @@ async function coveredVisit(ctx: ProgramCtx, patient: SeededPatient, at: Date, o
   if (opts.extra) lines.push({ tenantId, invoiceId: invoice.id, sourceType: 'other', sourceId: `${invoice.id}:extra`, description: 'Petite chirurgie', quantity: 1, unitPrice: opts.extra, amount: opts.extra });
   await prisma.patientInvoiceLine.createMany({ data: lines });
   const computed = await recalculateInvoiceTotals(invoice.id);
-  const share = Number(computed.patientAmount);
-  if (opts.payPatientShare && share > 0) {
-    await prisma.payment.create({ data: { tenantId, invoiceId: invoice.id, amount: share, method: 'cash', status: 'successful', currency: 'XAF', initiatedById: staff.billingUser.id, initiatedAt: at, completedAt: at } });
-    await applySuccessfulPayment(invoice.id, share);
+  // "full": paid the whole subtotal at the till before the coverage was taken into account.
+  const amount = opts.pay === 'full' ? Number(computed.subtotal) : opts.pay === 'share' ? Number(computed.patientAmount) : 0;
+  if (amount > 0) {
+    await prisma.payment.create({ data: { tenantId, invoiceId: invoice.id, amount, method: 'cash', status: 'successful', currency: 'XAF', initiatedById: staff.billingUser.id, initiatedAt: at, completedAt: at } });
+    await applySuccessfulPayment(invoice.id, amount);
   }
   return invoice.id;
 }
@@ -121,104 +141,161 @@ export async function seedCoverage(ctx: ProgramCtx) {
     return;
   }
   const agreements = await seedPayers(tenantId);
+  await seedNomenclatureRates(tenantId);
   const indigent = await seedPrograms(tenantId);
-
-  // Coverages: adults spread over the four payers, children as dependants of the CNPS.
-  const living = ctx.patients.filter((p) => !p.isDeceased);
-  const adults = living.filter((p) => ageYears(p) >= 18).slice(0, 32);
-  const children = living.filter((p) => ageYears(p) < 5).slice(0, 8);
-  const payerOf = ['CNPS', 'CNPS', 'MUT-ENS', 'AXA', 'CNPS', 'SONARA', 'MUT-ENS', 'AXA'];
   const yearStart = new Date(Date.UTC(new Date().getUTCFullYear(), 0, 1));
-  const covered: { patient: SeededPatient; payer: string }[] = [];
+  const user = staff.billingUser.id;
+
+  // Memberships: adults as holders over the four payers; some spouses on the same membership;
+  // children as dependants of a CNPS / Mutual member; one membership whose holder is not a patient.
+  const living = ctx.patients.filter((p) => !p.isDeceased);
+  const adults = living.filter((p) => ageYears(p) >= 18).slice(0, 34);
+  const children = living.filter((p) => ageYears(p) < 18).slice(0, 10);
+  const payerOf = ['CNPS', 'CNPS', 'MUT-ENS', 'AXA', 'CNPS', 'SONARA', 'MUT-ENS', 'AXA'];
+  const holders: { patient: SeededPatient; payer: string; policyId: string; coverageId: string }[] = [];
+  const uncovered: SeededPatient[] = [];
+  let members = 0;
   for (const [i, patient] of adults.entries()) {
-    if (i % 5 === 4) continue; // a fifth pays alone
+    if (i % 5 === 4) {
+      uncovered.push(patient); // a fifth pays alone
+      continue;
+    }
+    // Every third covered adult after a holder of the same payer is their spouse.
+    const previous = holders.at(-1);
+    if (previous && i % 3 === 2 && previous.payer !== 'SONARA') {
+      await coverPatient(tenantId, user, patient.id, { policyId: previous.policyId }, { relationship: 'spouse' });
+      members += 1;
+      continue;
+    }
     const payer = payerOf[i % payerOf.length];
-    const coverage = await prisma.patientCoverage.create({
-      data: {
-        tenantId, patientId: patient.id, agreementId: agreements[payer].id, memberNumber: `${payer}-${String(100000 + i * 37).slice(0, 6)}`,
-        employer: payer === 'SONARA' ? 'SONARA Limbé' : payer === 'MUT-ENS' ? 'Lycée Général Leclerc' : null, validFrom: yearStart, createdById: staff.billingUser.id,
-      },
-    });
-    covered.push({ patient, payer });
+    const { coverage, policyId } = await coverPatient(
+      tenantId, user, patient.id,
+      { policy: { agreementId: agreements[payer].id, memberNumber: `${payer}-${String(100000 + i * 37)}`, holderName: '-', holderPatientId: null, employer: payer === 'SONARA' ? 'SONARA Limbé' : payer === 'MUT-ENS' ? 'Lycée Général Leclerc' : null, validFrom: yearStart, validTo: null, notes: null } },
+      { relationship: 'holder' }
+    );
+    holders.push({ patient, payer, policyId, coverageId: coverage.id });
+    members += 1;
     // Prior authorizations for the conventions that require one — but the first SONARA member
     // has none yet (their invoices show "authorization required").
-    const firstSonara = payer === 'SONARA' && !covered.slice(0, -1).some((c) => c.payer === 'SONARA');
+    const firstSonara = payer === 'SONARA' && holders.filter((h) => h.payer === 'SONARA').length === 1;
     if ((payer === 'SONARA' && !firstSonara) || payer === 'AXA') {
       await prisma.coverageAuthorization.create({
-        data: { tenantId, coverageId: coverage.id, number: `BON-${payer}-${String(i + 1).padStart(4, '0')}`, authorizedAmount: payer === 'SONARA' ? 60000 : 250000, validFrom: day(daysAgo(60)), validTo: day(daysAgo(-30)), createdById: staff.billingUser.id },
+        data: { tenantId, coverageId: coverage.id, number: `BON-${payer}-${String(i + 1).padStart(4, '0')}`, authorizedAmount: payer === 'SONARA' ? 60000 : 250000, validFrom: day(daysAgo(60)), validTo: day(daysAgo(-30)), createdById: user },
       });
     }
   }
+  // Children: dependants of family memberships (CNPS / Mutual); the first is on a membership whose
+  // holder is a parent who is not a patient here.
+  const familyHolders = holders.filter((h) => h.payer === 'CNPS' || h.payer === 'MUT-ENS');
   for (const [i, child] of children.entries()) {
-    const principal = covered.find((c) => c.payer === 'CNPS' && c.patient.gender === (i % 2 ? Gender.F : Gender.M)) ?? covered[0];
-    if (!principal) break;
-    await prisma.patientCoverage.create({
-      data: { tenantId, patientId: child.id, agreementId: agreements.CNPS.id, memberNumber: `CNPS-AD-${String(i + 1).padStart(3, '0')}`, principalName: `${principal.patient.lastName} ${principal.patient.firstName}`, relationship: 'enfant', validFrom: yearStart, createdById: staff.billingUser.id },
-    });
+    if (i === 0) {
+      await coverPatient(
+        tenantId, user, child.id,
+        { policy: { agreementId: agreements.CNPS.id, memberNumber: 'CNPS-777001', holderName: 'Mbezele Arsène (non patient)', holderPatientId: null, employer: 'Brasseries du Cameroun', validFrom: yearStart, validTo: null, notes: 'Titulaire non suivi dans l’établissement' } },
+        { relationship: 'child', beneficiaryNumber: 'CNPS-777001-03' }
+      );
+    } else {
+      const holder = familyHolders[i % Math.max(1, familyHolders.length)];
+      if (!holder) break;
+      await coverPatient(tenantId, user, child.id, { policyId: holder.policyId }, { relationship: 'child', beneficiaryNumber: `${i + 1}` });
+    }
+    members += 1;
   }
-  // An expired coverage (for the "invalid coverage" status) and an indigent enrolment.
-  const uncovered = adults.filter((_, i) => i % 5 === 4);
+  // An expired membership (invalid coverage) and an indigent enrolment.
   if (uncovered[0]) {
-    await prisma.patientCoverage.create({ data: { tenantId, patientId: uncovered[0].id, agreementId: agreements['MUT-ENS'].id, memberNumber: 'MUT-ENS-EXPIRED', validFrom: new Date(Date.UTC(new Date().getUTCFullYear() - 1, 0, 1)), validTo: new Date(Date.UTC(new Date().getUTCFullYear() - 1, 11, 31)), createdById: staff.billingUser.id } });
+    await coverPatient(
+      tenantId, user, uncovered[0].id,
+      { policy: { agreementId: agreements['MUT-ENS'].id, memberNumber: 'MUT-ENS-EXPIRED', holderName: '-', holderPatientId: null, employer: null, validFrom: new Date(Date.UTC(new Date().getUTCFullYear() - 1, 0, 1)), validTo: new Date(Date.UTC(new Date().getUTCFullYear() - 1, 11, 31)), notes: null } },
+      { relationship: 'holder' }
+    );
   }
   if (uncovered[1]) {
-    await prisma.patientExemption.create({ data: { tenantId, patientId: uncovered[1].id, programId: indigent.id, validFrom: day(daysAgo(90)), reason: 'Enquête sociale n°2026-014 — sans ressources', grantedById: staff.billingUser.id } });
+    await prisma.patientExemption.create({ data: { tenantId, patientId: uncovered[1].id, programId: indigent.id, validFrom: day(daysAgo(90)), reason: 'Enquête sociale n°2026-014 — sans ressources', grantedById: user } });
   }
 
-  // Covered visits over the two months (patient pays their share), children with a malaria RDT.
+  // Covered visits over the two months, children with a malaria RDT. Some patients paid the whole
+  // invoice at the till (coverage applied afterwards): an overpayment.
   const coartem = await prisma.medicationInventory.findFirst({ where: { tenantId, name: { contains: 'Coartem' } }, select: { id: true, name: true } });
   const amox = await prisma.medicationInventory.findFirst({ where: { tenantId, name: { contains: 'Amoxicillin' } }, select: { id: true, name: true } });
+  const covered = await prisma.patientCoverage.findMany({ where: { tenantId, patientId: { in: ctx.patients.map((p) => p.id) } }, select: { patientId: true } });
+  const visitors = [...new Set([...covered.map((c) => c.patientId), ...uncovered.slice(0, 2).map((p) => p.id)])].map((id) => ctx.patients.find((p) => p.id === id)!);
   const invoiceIds: string[] = [];
-  const visitors = [...covered.map((c) => c.patient), ...children, ...uncovered.slice(0, 2)];
+  const overpaid: string[] = [];
   for (const [i, patient] of visitors.entries()) {
     const kid = ageYears(patient) < 5;
     const at = daysAgo(3 + ((i * 5) % 50), 9 + (i % 6));
     const exam = kid ? { code: 'MALARIA-TDR', label: 'Paludisme (TDR)', price: 1500 } : i % 3 === 0 ? { code: 'CBC', label: 'Numération formule sanguine (NFS)', price: 4000 } : { code: 'MALARIA-TDR', label: 'Paludisme (TDR)', price: 1500 };
     const drug = kid && coartem ? { ...coartem, price: 350 } : amox && i % 2 === 0 ? { ...amox, price: 150 } : undefined;
-    // AXA / SONARA patients: some heavier invoices, above the authorization threshold.
     const extra = i % 7 === 0 ? 120000 : undefined;
-    invoiceIds.push(await coveredVisit(ctx, patient, at, { exam, drug, extra, payPatientShare: i % 6 !== 5 }));
+    const pay = i % 11 === 4 ? 'full' : i % 6 === 5 ? 'none' : 'share';
+    const id = await coveredVisit(ctx, patient, at, { exam, drug, extra, pay });
+    invoiceIds.push(id);
+    if (pay === 'full') overpaid.push(id);
   }
 
-  // Claims of the previous month: CNPS submitted, partially settled, one rejection charged to the
-  // patient; AXA settled and closed; the current month of the Mutual still in draft.
+  // Overpayments: the first is refunded in cash, the second moved to another open invoice of the
+  // same patient when there is one (else refunded by mobile money); the rest stay to be handled.
+  for (const [k, id] of overpaid.slice(0, 2).entries()) {
+    const invoice = await prisma.patientInvoice.findUniqueOrThrow({ where: { id } });
+    const refundable = refundableAmount({ status: invoice.status, paidAmount: Number(invoice.paidAmount), patientAmount: Number(invoice.patientAmount) });
+    if (refundable <= 0) continue;
+    const targets = k === 1 ? await transferTargets(tenantId, id) : [];
+    if (targets[0]) {
+      await recordPatientRefund(tenantId, user, id, { kind: 'transfer', amount: Math.min(refundable, targets[0].due), targetInvoiceId: targets[0].id, reason: 'Prise en charge appliquée après paiement — report sur la facture suivante', refundedAt: new Date() });
+    } else {
+      await recordPatientRefund(tenantId, user, id, { kind: 'refund', amount: refundable, method: k === 0 ? 'cash' : 'mobile_money_orange', reference: k === 0 ? null : 'OM-REMB-2026-01', reason: 'Prise en charge appliquée après paiement', refundedAt: new Date() });
+    }
+  }
+
+  // Claims of the previous month: CNPS submitted, settled in part with a balance allocated later,
+  // one rejection charged to the patient and one reversed (the payer paid after all); AXA settled
+  // and closed; the current month of the Mutual still in draft.
   const now = new Date();
   const prevStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
   const prevEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 0));
   const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
   const eligibleOf = async (payer: string, from: Date, to: Date) =>
-    (await prisma.patientInvoice.findMany({
-      where: { tenantId, id: { in: invoiceIds }, insuranceAmount: { gt: 0 }, status: { not: 'cancelled' }, coverage: { agreement: { payerId: agreements[payer].payerId } }, createdAt: { gte: from, lt: new Date(to.getTime() + DAY) } },
+    prisma.patientInvoice.findMany({
+      where: { tenantId, id: { in: invoiceIds }, insuranceAmount: { gt: 0 }, status: { not: 'cancelled' }, coverage: { policy: { agreement: { payerId: agreements[payer].payerId } } }, createdAt: { gte: from, lt: new Date(to.getTime() + DAY) } },
       select: { id: true, insuranceAmount: true },
       orderBy: { createdAt: 'asc' },
-    }));
+    });
   let claims = 0;
   const cnps = await eligibleOf('CNPS', prevStart, prevEnd);
   if (cnps.length > 0) {
-    const claim = await createClaim(tenantId, staff.billingUser.id, { payerId: agreements.CNPS.payerId, periodStart: prevStart, periodEnd: prevEnd, invoiceIds: cnps.map((i) => i.id), notes: 'Bordereau mensuel CNPS' });
+    const claim = await createClaim(tenantId, user, { payerId: agreements.CNPS.payerId, periodStart: prevStart, periodEnd: prevEnd, invoiceIds: cnps.map((i) => i.id), notes: 'Bordereau mensuel CNPS' });
     await submitClaim(tenantId, claim.id);
     const total = cnps.reduce((s, i) => s + Number(i.insuranceAmount), 0);
-    await recordPayerPayment(tenantId, staff.billingUser.id, { payerId: agreements.CNPS.payerId, claimId: claim.id, amount: Math.round(total * 0.6), receivedAt: day(daysAgo(4)), method: 'bank_transfer', reference: 'VIR-CNPS-0926', notes: 'Acompte', allocations: null });
-    const items = await prisma.insuranceClaimItem.findMany({ where: { claimId: claim.id }, orderBy: { createdAt: 'desc' }, take: 1 });
-    const last = items[0];
-    if (last) {
-      const left = Number(last.claimedAmount) - Number(last.paidAmount) - Number(last.rejectedAmount);
-      if (left > 0) await recordRejection(tenantId, claim.id, last.id, { amount: Math.min(left, 2000), reason: 'Ordonnance non jointe', chargeToPatient: true });
+    // A transfer received for the claim, recorded without allocation, then allocated (oldest first).
+    const { payment } = await recordPayerPayment(tenantId, user, { payerId: agreements.CNPS.payerId, claimId: null, amount: Math.round(total * 0.6), receivedAt: day(daysAgo(4)), method: 'bank_transfer', reference: 'VIR-CNPS-0926', notes: 'Acompte', allocations: [] });
+    await allocatePayerPayment(tenantId, payment.id, claim.id, null);
+    const items = await prisma.insuranceClaimItem.findMany({ where: { claimId: claim.id }, orderBy: { createdAt: 'desc' } });
+    const outstanding = (x: (typeof items)[number]) => Number(x.claimedAmount) - Number(x.paidAmount) - Number(x.rejectedAmount);
+    const last = items.find((x) => outstanding(x) >= 1000);
+    if (last) await recordRejection(tenantId, user, claim.id, last.id, { amount: Math.min(outstanding(last), 2000), reason: 'Ordonnance non jointe', chargeToPatient: true });
+    const other = items.find((x) => x.id !== last?.id && outstanding(x) >= 1000);
+    if (other) {
+      await recordRejection(tenantId, user, claim.id, other.id, { amount: 1000, reason: 'Numéro d’adhérent illisible', chargeToPatient: false });
+      const rejection = await prisma.insuranceClaimRejection.findFirstOrThrow({ where: { claimItemId: other.id, reversedAt: null } });
+      await reverseRejection(tenantId, user, claim.id, rejection.id, 'Carte d’adhérent fournie : rejet levé par la CNPS');
     }
     claims += 1;
   }
   const axa = await eligibleOf('AXA', prevStart, prevEnd);
   if (axa.length > 0) {
-    const claim = await createClaim(tenantId, staff.billingUser.id, { payerId: agreements.AXA.payerId, periodStart: prevStart, periodEnd: prevEnd, invoiceIds: axa.map((i) => i.id), notes: null });
+    const claim = await createClaim(tenantId, user, { payerId: agreements.AXA.payerId, periodStart: prevStart, periodEnd: prevEnd, invoiceIds: axa.map((i) => i.id), notes: null });
     await submitClaim(tenantId, claim.id);
-    await recordPayerPayment(tenantId, staff.billingUser.id, { payerId: agreements.AXA.payerId, claimId: claim.id, amount: axa.reduce((s, i) => s + Number(i.insuranceAmount), 0), receivedAt: day(daysAgo(2)), method: 'cheque', reference: 'CHQ-AXA-55120', notes: null, allocations: null });
+    const total = axa.reduce((s, i) => s + Number(i.insuranceAmount), 0);
+    // Paid 5 000 too much: the balance is refunded to the payer.
+    const { payment } = await recordPayerPayment(tenantId, user, { payerId: agreements.AXA.payerId, claimId: claim.id, amount: total + 5000, receivedAt: day(daysAgo(2)), method: 'cheque', reference: 'CHQ-AXA-55120', notes: null, allocations: null });
+    await refundPayerPayment(tenantId, user, payment.id, { amount: 5000, refundedAt: day(daysAgo(1)), reference: 'VIR-REMB-AXA-01', reason: 'Trop-versé par AXA sur le chèque' });
     await closeClaim(tenantId, claim.id);
     claims += 1;
   }
   const mutual = await eligibleOf('MUT-ENS', monthStart, now);
   if (mutual.length > 0) {
-    await createClaim(tenantId, staff.billingUser.id, { payerId: agreements['MUT-ENS'].payerId, periodStart: monthStart, periodEnd: day(now), invoiceIds: mutual.map((i) => i.id), notes: 'En préparation' });
+    await createClaim(tenantId, user, { payerId: agreements['MUT-ENS'].payerId, periodStart: monthStart, periodEnd: day(now), invoiceIds: mutual.map((i) => i.id), notes: 'En préparation' });
     claims += 1;
   }
-  console.log(`  Coverage: 4 payers, 3 free-care programmes, ${covered.length + children.length} coverages, ${invoiceIds.length} covered invoices, ${claims} claims.`);
+  console.log(`  Coverage: 4 payers, 3 free-care programmes, ${holders.length} memberships, ${members} beneficiaries, ${invoiceIds.length} covered invoices, ${overpaid.length} overpayments, ${claims} claims.`);
 }
