@@ -80,7 +80,29 @@ export async function GET(
       orderBy: { admissionDate: "desc" },
     });
 
-    return NextResponse.json({ data: stays, total: stays.length, success: true });
+    // departmentId / bedId / attendingDoctorId are plain columns without Prisma relations:
+    // resolve their display names in three batched lookups, scoped to the tenant so a stray id
+    // can never surface another facility's data.
+    const tenantId = session.user.tenantId;
+    const idsOf = (pick: (stay: (typeof stays)[number]) => string | null) =>
+      [...new Set(stays.map(pick).filter((value): value is string => Boolean(value)))];
+    const [departments, beds, doctors] = await Promise.all([
+      prisma.department.findMany({ where: { tenantId, id: { in: idsOf((s) => s.departmentId) } }, select: { id: true, name: true } }),
+      prisma.bed.findMany({ where: { tenantId, id: { in: idsOf((s) => s.bedId) } }, select: { id: true, label: true } }),
+      prisma.tenantUser.findMany({ where: { tenantId, id: { in: idsOf((s) => s.attendingDoctorId) } }, select: { id: true, fullName: true } }),
+    ]);
+    const departmentNames = new Map(departments.map((d) => [d.id, d.name]));
+    const bedLabels = new Map(beds.map((b) => [b.id, b.label]));
+    const doctorNames = new Map(doctors.map((u) => [u.id, u.fullName]));
+
+    const data = stays.map((stay) => ({
+      ...stay,
+      departmentName: stay.departmentId ? departmentNames.get(stay.departmentId) ?? null : null,
+      bedLabel: stay.bedId ? bedLabels.get(stay.bedId) ?? null : null,
+      doctorName: stay.attendingDoctorId ? doctorNames.get(stay.attendingDoctorId) ?? null : null,
+    }));
+
+    return NextResponse.json({ data, total: stays.length, success: true });
   } catch (error) {
     console.error("[GET /api/v1/patients/:id/stays]", error);
     return NextResponse.json(

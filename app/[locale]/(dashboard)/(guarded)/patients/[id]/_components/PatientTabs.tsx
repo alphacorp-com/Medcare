@@ -21,10 +21,12 @@ import { cn } from "@/lib/utils";
 import { Link } from "@/i18n/routing";
 import { StayPhaseBadge } from "@/components/shared/stay-phase-badge";
 import { useParams } from "next/navigation";
+import { useState } from "react";
 import { useAppStore } from "@/lib/store/useAppStore";
 import { HivPatientPanel } from "@/components/hiv/HivPatientPanel";
 import { FamilyPlanningHistory } from "@/components/family-planning/FamilyPlanningRegister";
 import { CoverageTab } from "./CoverageTab";
+import { ExamResultSheet, getValidatedResult } from "@/components/shared/exam-result-sheet";
 import {
   StayRow,
   MedicalRecordRow,
@@ -45,6 +47,8 @@ interface PatientTabsProps {
   records: MedicalRecordRow[];
   prescriptions: PrescriptionRow[];
   exams: ExamRow[];
+  // Performer / validator names of the exam results, keyed by user id.
+  examUserNames: Record<string, string>;
   billing: BillingRow[];
   vitals: VitalSignsRow[];
   surgeries: SurgeryRow[];
@@ -65,6 +69,7 @@ export function PatientTabs({
   records,
   prescriptions,
   exams,
+  examUserNames,
   billing,
   vitals,
   surgeries,
@@ -93,6 +98,7 @@ export function PatientTabs({
   // Third-party payment (coverages, authorizations, free care): billing staff only.
   const canReadCoverage = hasPermission("MODULE_BILLING", "read");
   const tcov = useTranslations('coverage.patient');
+  const [viewedExam, setViewedExam] = useState<ExamRow | null>(null);
 
   const stayTypeLabel = (st: string) => {
     if (st === "emergency") return tc("status_emergency");
@@ -233,8 +239,8 @@ export function PatientTabs({
                         <span className="text-slate-400">—</span>
                       )}
                     </td>
-                    <td className="px-4 py-3">{adm.departmentId ?? "—"} <span className="text-slate-500 block text-[10px]">{adm.bedId ?? ""}</span></td>
-                    <td className="px-4 py-3">{adm.attendingDoctorId ?? "—"}</td>
+                    <td className="px-4 py-3">{adm.departmentName ?? "—"} <span className="text-slate-500 block text-[10px]">{adm.bedLabel ?? ""}</span></td>
+                    <td className="px-4 py-3">{adm.doctorName ?? "—"}</td>
                     <td className="px-4 py-3">
                       <StayPhaseBadge stay={adm} className="uppercase" />
                     </td>
@@ -362,8 +368,8 @@ export function PatientTabs({
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {e.results.length > 0 ? (
-                        <button className="text-blue-600 hover:underline">{tc('view')}</button>
+                      {getValidatedResult(e) ? (
+                        <button className="text-blue-600 hover:underline" onClick={() => setViewedExam(e)}>{tc('view')}</button>
                       ) : (
                         <span className="text-slate-400 text-[10px] italic">{t('pending')}</span>
                       )}
@@ -395,7 +401,13 @@ export function PatientTabs({
                     <td className="px-4 py-3 text-slate-600">{format(new Date(e.requestedAt), "MMM d, yyyy")}</td>
                     <td className="px-4 py-3 font-semibold">{e.examCode}</td>
                     <td className="px-4 py-3 text-slate-900">{e.examLabel}</td>
-                    <td className="px-4 py-3 text-right"><button className="text-blue-600 hover:underline">{t('open_viewer')}</button></td>
+                    <td className="px-4 py-3 text-right">
+                      {getValidatedResult(e) ? (
+                        <button className="text-blue-600 hover:underline" onClick={() => setViewedExam(e)}>{t('open_viewer')}</button>
+                      ) : (
+                        <span className="text-slate-400 text-[10px] italic">{t('report_pending')}</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -703,6 +715,12 @@ export function PatientTabs({
           </TabsContent>
         </div>
       </Tabs>
+
+      <ExamResultSheet
+        order={viewedExam}
+        onOpenChange={(open) => !open && setViewedExam(null)}
+        userNames={examUserNames}
+      />
     </div>
   );
 }

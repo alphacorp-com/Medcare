@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { StayDetail, StayExamRequest } from "../types";
-import { ExamResultSheet, getValidatedResult } from "./ExamResultSheet";
+import { ExamResultSheet, getValidatedResult } from "@/components/shared/exam-result-sheet";
 
 interface StayTabsProps {
   stay: StayDetail;

@@ -86,6 +86,7 @@ export default function PatientDetailPage() {
   const [stays, setStays] = useState<StayRow[]>([]);
   const [prescriptions, setPrescriptions] = useState<PrescriptionRow[]>([]);
   const [exams, setExams] = useState<ExamRow[]>([]);
+  const [examUserNames, setExamUserNames] = useState<Record<string, string>>({});
   const [records, setRecords] = useState<MedicalRecordRow[]>([]);
   const [billing, setBilling] = useState<BillingRow[]>([]);
   const [vitals, setVitals] = useState<VitalSignsRow[]>([]);
@@ -189,7 +190,10 @@ export default function PatientDetailPage() {
       setPatient(pJson.data);
       if (sJson.success) setStays(sJson.data);
       if (rxJson.success) setPrescriptions(rxJson.data);
-      if (exJson.success) setExams(exJson.data);
+      if (exJson.success) {
+        setExams(exJson.data);
+        setExamUserNames(exJson.userNames ?? {});
+      }
       if (recJson.success) setRecords(recJson.data);
       if (billJson.success) setBilling(billJson.data);
       if (vitJson.success) setVitals(vitJson.data);
@@ -516,6 +520,7 @@ export default function PatientDetailPage() {
               records={records}
               prescriptions={prescriptions}
               exams={exams}
+              examUserNames={examUserNames}
               billing={billing}
               vitals={vitals}
               surgeries={surgeries}

@@ -7,14 +7,33 @@ import { AlertTriangle, ExternalLink, FileCheck2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ExamParametersTable } from "@/components/shared/exam-parameters-editor";
-import type { StayExamRequest } from "../types";
+import type { ResultParameter } from "@/lib/laboratory/results";
+import type { RadiologyReportData } from "@/lib/radiology/report";
 
-type ValidatedResult = NonNullable<StayExamRequest["results"]>[number];
+export type ExamResultView = {
+  id: string;
+  performerId: string;
+  validatedAt: string | null;
+  validatedBy: string | null;
+  isCritical: boolean;
+  reportUrl: string | null;
+  resultData: { parameters?: ResultParameter[] } & Partial<RadiologyReportData>;
+};
 
-// The result the doctor may read from the admission: the latest one, and only once the
-// biologist / radiologist has signed it off — a draft still being entered or awaiting
-// validation is not clinically usable, the same rule the printed medical record applies.
-export function getValidatedResult(order: StayExamRequest): ValidatedResult | null {
+// What the sheet needs of an exam order (results newest first), shared by the admission and
+// the patient file.
+export type ExamResultOrder = {
+  type: string;
+  examLabel: string;
+  examCode: string;
+  status: string;
+  results?: ExamResultView[];
+};
+
+// The result the doctor may read: the latest one, and only once the biologist / radiologist
+// has signed it off — a draft still being entered or awaiting validation is not clinically
+// usable, the same rule the printed medical record applies.
+export function getValidatedResult(order: ExamResultOrder): ExamResultView | null {
   const result = order.results?.[0];
   return order.status === "completed" && result?.validatedAt ? result : null;
 }
@@ -37,7 +56,7 @@ export function ExamResultSheet({
   onOpenChange,
   userNames,
 }: {
-  order: StayExamRequest | null;
+  order: ExamResultOrder | null;
   onOpenChange: (open: boolean) => void;
   userNames: Record<string, string>;
 }) {

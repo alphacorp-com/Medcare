@@ -1,4 +1,5 @@
 import type { VitalsForm } from "@/components/shared/vitals-fields";
+import type { ExamResultView } from "@/components/shared/exam-result-sheet";
 import type { DiagnosisDraft } from "@/components/shared/diagnosis-editor";
 
 export type EmergencyContact = { name?: string; relation?: string; phone?: string };
@@ -96,6 +97,10 @@ export type StayRow = {
   departmentId: string | null;
   bedId: string | null;
   attendingDoctorId: string | null;
+  // Resolved by GET /patients/:id/stays; null when the id is unset or no longer exists.
+  departmentName: string | null;
+  bedLabel: string | null;
+  doctorName: string | null;
 };
 
 export type PrescriptionItem = { drug?: string; name?: string; dose?: string; frequency?: string; [k: string]: unknown };
@@ -109,7 +114,7 @@ export type PrescriptionRow = {
   drugDispensings?: { id: string; dispensedAt: string }[];
 };
 
-export type ExamResult = { id: string; resultData: unknown; isCritical: boolean; createdAt: string };
+export type ExamResult = ExamResultView & { createdAt: string };
 
 export type ExamRow = {
   id: string;
