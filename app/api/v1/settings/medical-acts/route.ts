@@ -1,3 +1,4 @@
+import { parseNomenclatureRate } from "@/lib/coverage/input";
 import { NextResponse } from "next/server";
 import { parseRma3ActIndicator } from "@/lib/reports/rma3-acts";
 import { getServerSession } from "next-auth";
@@ -43,8 +44,11 @@ export async function POST(request: Request) {
     } = body as {
       categoryId?: string; code?: string; nameFr?: string; nameEn?: string;
       basePrice?: number | string; unit?: string;
-      defaultPecCoveragePercent?: number; allowsUrgencySurcharge?: boolean; requiresLabValidation?: boolean; rma3Indicator?: unknown;
+      defaultPecCoveragePercent?: unknown; allowsUrgencySurcharge?: boolean; requiresLabValidation?: boolean; rma3Indicator?: unknown;
     };
+    // Nomenclature coverage rate (lib/coverage): 0-100, blank = not set.
+    const pecRate = parseNomenclatureRate(defaultPecCoveragePercent);
+    if (pecRate === "invalid") return NextResponse.json({ error: "invalid_pec_rate", code: "invalid_pec_rate" }, { status: 400 });
     // RMA3 act indicator (lib/reports/rma3-acts): optional, one of the known codes.
     const indicator = rma3Indicator === undefined ? null : parseRma3ActIndicator(rma3Indicator);
     if (indicator === "invalid") {
@@ -71,7 +75,7 @@ export async function POST(request: Request) {
         nameEn: nameEn?.trim() || null,
         basePrice: price,
         unit: unit?.trim() || null,
-        defaultPecCoveragePercent: defaultPecCoveragePercent ?? 0,
+        defaultPecCoveragePercent: pecRate,
         allowsUrgencySurcharge: Boolean(allowsUrgencySurcharge),
         requiresLabValidation: Boolean(requiresLabValidation),
         rma3Indicator: indicator,

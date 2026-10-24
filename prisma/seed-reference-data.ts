@@ -264,7 +264,7 @@ async function seedMedicalActs(prisma: PrismaClient, tenantId: string) {
         nameEn: act.nameEn ?? null,
         basePrice: act.basePrice,
         unit: act.unit ?? null,
-        defaultPecCoveragePercent: act.defaultPecCoveragePercent ?? 0,
+        // Nomenclature rate: set by the facility, never overwritten by a re-run.
         allowsUrgencySurcharge: act.allowsUrgencySurcharge ?? false,
         requiresLabValidation: act.requiresLabValidation ?? false,
       },
@@ -276,7 +276,7 @@ async function seedMedicalActs(prisma: PrismaClient, tenantId: string) {
         nameEn: act.nameEn ?? null,
         basePrice: act.basePrice,
         unit: act.unit ?? null,
-        defaultPecCoveragePercent: act.defaultPecCoveragePercent ?? 0,
+        defaultPecCoveragePercent: act.defaultPecCoveragePercent ?? null,
         allowsUrgencySurcharge: act.allowsUrgencySurcharge ?? false,
         requiresLabValidation: act.requiresLabValidation ?? false,
       },

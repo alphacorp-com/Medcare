@@ -13,12 +13,16 @@ export async function GET(request: Request) {
   const payerId = new URL(request.url).searchParams.get("payerId");
   const payments = await prisma.payerPayment.findMany({
     where: { tenantId: guard.tenantId, ...(payerId ? { payerId } : {}) },
-    include: { payer: { select: { name: true } }, claim: { select: { number: true } }, allocations: { select: { amount: true } } },
+    include: { payer: { select: { name: true } }, claim: { select: { number: true } }, allocations: { where: { reversedAt: null }, select: { amount: true } }, refunds: { select: { amount: true } } },
     orderBy: { receivedAt: "desc" },
     take: 200,
   });
   return NextResponse.json({
-    data: payments.map(({ allocations, ...p }) => ({ ...p, allocated: allocations.reduce((s, a) => s + Number(a.amount), 0) })),
+    data: payments.map(({ allocations, refunds, ...p }) => {
+      const allocated = allocations.reduce((s, a) => s + Number(a.amount), 0);
+      const refunded = refunds.reduce((s, r) => s + Number(r.amount), 0);
+      return { ...p, allocated, refunded, unallocated: p.status === "cancelled" ? 0 : Number(p.amount) - allocated - refunded };
+    }),
   });
 }
 

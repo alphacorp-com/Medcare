@@ -21,11 +21,13 @@ const STATUS_TONE: Record<InvoiceDetail["coverageStatus"], string> = {
   capped: "bg-amber-100 text-amber-800",
   authorization_required: "bg-red-100 text-red-700",
   invalid_coverage: "bg-red-100 text-red-700",
+  age_limit_exceeded: "bg-red-100 text-red-700",
   frozen: "bg-blue-100 text-blue-700",
 };
 
 export function InvoiceCoveragePanel({ invoice, onSaved }: { invoice: InvoiceDetail; onSaved: () => void }) {
   const t = useTranslations("coverage.invoice");
+  const tp = useTranslations("coverage.patient");
   const apiError = useCoverageError();
   const canUpdate = useAppStore((s) => s.hasPermission("MODULE_BILLING", "update"));
   const [coverageId, setCoverageId] = useState(invoice.coverageId ?? "");
@@ -48,7 +50,7 @@ export function InvoiceCoveragePanel({ invoice, onSaved }: { invoice: InvoiceDet
     }
   };
 
-  const liveClaim = invoice.claimItems.find((i) => Number(i.rejectedAmount) < Number(i.claimedAmount)) ?? invoice.claimItems[0];
+  const liveClaim = invoice.claimItems[0];
 
   return (
     <div className="space-y-2 rounded border border-slate-200 bg-white p-4 shadow-sm">
@@ -58,8 +60,9 @@ export function InvoiceCoveragePanel({ invoice, onSaved }: { invoice: InvoiceDet
       </div>
       {invoice.coverage ? (
         <div className="text-xs text-slate-700">
-          <div className="font-semibold">{invoice.coverage.agreement.payer.name}</div>
-          <div className="text-slate-500">{invoice.coverage.agreement.name} · {t("member")} <span className="font-mono">{invoice.coverage.memberNumber}</span></div>
+          <div className="font-semibold">{invoice.coverage.policy.agreement.payer.name}</div>
+          <div className="text-slate-500">{invoice.coverage.policy.agreement.name} · {t("member")} <span className="font-mono">{invoice.coverage.policy.memberNumber}</span></div>
+          {invoice.coverage.relationship !== "holder" && <div className="text-slate-500">{tp(`relationship_${invoice.coverage.relationship}`)} — {tp("holder_is", { name: invoice.coverage.policy.holderName })}</div>}
           {invoice.authorization && <div className="text-slate-500">{t("authorization")} <span className="font-mono">{invoice.authorization.number}</span></div>}
         </div>
       ) : (
@@ -68,13 +71,14 @@ export function InvoiceCoveragePanel({ invoice, onSaved }: { invoice: InvoiceDet
       {invoice.coverageStatus === "authorization_required" && <p className="text-[11px] text-red-700">{t("authorization_required_hint")}</p>}
       {invoice.coverageStatus === "invalid_coverage" && <p className="text-[11px] text-red-700">{t("invalid_coverage_hint")}</p>}
       {invoice.coverageStatus === "capped" && <p className="text-[11px] text-amber-700">{t("capped_hint")}</p>}
+      {invoice.coverageStatus === "age_limit_exceeded" && <p className="text-[11px] text-red-700">{t("age_limit_hint")}</p>}
 
       {liveClaim && (
         <div className="rounded bg-blue-50 p-2 text-[11px] text-blue-800">
           {t("in_claim")} <Link href={`/billing/claims/${liveClaim.claim.id}`} className="font-mono font-semibold underline">{liveClaim.claim.number}</Link>
           {" · "}{t("claimed")} {money(liveClaim.claimedAmount)} · {t("settled")} {money(liveClaim.paidAmount)}
           {Number(liveClaim.rejectedAmount) > 0 && <> · {t("rejected")} {money(liveClaim.rejectedAmount)}</>}
-          {liveClaim.rejectionReason && <div className="mt-1 whitespace-pre-wrap text-red-700">{liveClaim.rejectionReason}</div>}
+          {liveClaim.rejections.map((r, i) => <div key={i} className="mt-1 text-red-700">{money(r.amount)} — {r.reason}{r.chargedToPatient ? ` (${t("charged_to_patient")})` : ""}</div>)}
         </div>
       )}
 
@@ -84,8 +88,8 @@ export function InvoiceCoveragePanel({ invoice, onSaved }: { invoice: InvoiceDet
             <select value={coverageId} onChange={(e) => { setCoverageId(e.target.value); setAuthorizationId(""); }} className={selectClass}>
               <option value="">{t("no_coverage_option")}</option>
               {invoice.coverageOptions.map((c) => (
-                <option key={c.id} value={c.id} disabled={Boolean(c.endedAt)}>
-                  {c.agreement.payer.name} — {c.agreement.name} ({c.memberNumber}){c.endedAt ? ` — ${t("ended")}` : ""}
+                <option key={c.id} value={c.id} disabled={Boolean(c.endedAt || c.policy.endedAt)}>
+                  {c.policy.agreement.payer.name} — {c.policy.agreement.name} ({c.policy.memberNumber}, {tp(`relationship_${c.relationship}`)}){c.endedAt || c.policy.endedAt ? ` — ${t("ended")}` : ""}
                 </option>
               ))}
             </select>

@@ -20,9 +20,10 @@ import { FeeScheduleTab } from "./_components/FeeScheduleTab";
 import { ClaimsTab } from "./_components/ClaimsTab";
 import { InvoiceListItem, BillingInvoiceStatus } from "./types";
 
-const FILTERS: (BillingInvoiceStatus | "all")[] = ["all", "pending_payment", "partially_paid", "paid"];
+// "overpaid": patient paid beyond their share — to refund or move to another invoice.
+const FILTERS: (BillingInvoiceStatus | "all" | "overpaid")[] = ["all", "pending_payment", "partially_paid", "paid", "overpaid"];
 
-type InvoiceListResponse = PagedResponse<InvoiceListItem, Partial<Record<BillingInvoiceStatus, number>>> & {
+type InvoiceListResponse = PagedResponse<InvoiceListItem, Partial<Record<BillingInvoiceStatus | "overpaid", number>>> & {
   outstandingBalance: number;
 };
 
@@ -34,7 +35,7 @@ function BillingPageContent() {
   const hasModule = useAppStore((state) => state.hasModule);
   const router = useRouter();
 
-  const [filter, setFilter] = useState<BillingInvoiceStatus | "all">("all");
+  const [filter, setFilter] = useState<BillingInvoiceStatus | "all" | "overpaid">("all");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
@@ -55,7 +56,7 @@ function BillingPageContent() {
   const invoices = invoicesQuery.data?.data ?? [];
   const isLoading = invoicesQuery.isPending;
 
-  const changeFilter = (next: BillingInvoiceStatus | "all") => {
+  const changeFilter = (next: BillingInvoiceStatus | "all" | "overpaid") => {
     setFilter(next);
     setPage(1);
   };
@@ -165,6 +166,7 @@ function BillingPageContent() {
                       )}
                     >
                       {s === "all" ? tc("all") : t(s)}
+                      {s === "overpaid" && (invoicesQuery.data?.counts?.overpaid ?? 0) > 0 ? ` (${invoicesQuery.data?.counts?.overpaid})` : ""}
                     </button>
                   ))}
                 </div>

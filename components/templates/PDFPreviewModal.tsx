@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { pdf, type DocumentProps } from "@react-pdf/renderer";
 
 import { InvoiceTemplate } from './InvoiceTemplate';
+import { ClaimTemplate } from './ClaimTemplate';
 import { PrescriptionTemplate, type PrescriptionData } from './PrescriptionTemplate';
 import { LabResultTemplate, type LabResultData } from './LabResultTemplate';
 import { PatientListTemplate, type PatientListData } from './PatientListTemplate';
@@ -18,7 +19,7 @@ import { MedicationGuideTemplate } from './MedicationGuideTemplate';
 import { ReceiptTemplate } from './ReceiptTemplate';
 import { MedicalRecordTemplate, type MedicalRecordData } from './MedicalRecordTemplate';
 import { useLocale, useTranslations } from 'next-intl';
-import type { PdfFacility, PdfInvoiceData, PdfReceiptData, PdfSettings } from './types';
+import type { PdfClaimData, PdfFacility, PdfInvoiceData, PdfReceiptData, PdfSettings } from './types';
 
 interface PDFPreviewModalProps {
   isOpen: boolean;
@@ -223,6 +224,9 @@ export function PDFPreviewModal({ isOpen, onClose, templateId, facility, setting
             labels={labels}
           />
         );
+      case 'insurance_claims':
+        // Always built from a real claim (billing/claims/[id]): no demo data.
+        return data ? <ClaimTemplate data={data as PdfClaimData} facility={facility} settings={settings} /> : null;
       case 'prescriptions':
         return (
           <PrescriptionTemplate

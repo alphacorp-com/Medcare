@@ -22,7 +22,8 @@ export async function GET(request: Request) {
   const invoices = await eligibleInvoices(guard.tenantId, payer.id, new Date(`${from}T00:00:00Z`), new Date(`${to}T00:00:00Z`));
   return NextResponse.json({
     data: invoices.map((i) => ({
-      id: i.id, createdAt: i.createdAt, patient: i.patient, memberNumber: i.coverage?.memberNumber ?? null, agreement: i.coverage?.agreement.name ?? null,
+      id: i.id, createdAt: i.createdAt, patient: i.patient, memberNumber: i.coverage?.policy.memberNumber ?? null, holderName: i.coverage?.policy.holderName ?? null,
+      relationship: i.coverage?.relationship ?? null, agreement: i.coverage?.policy.agreement.name ?? null,
       subtotal: Number(i.subtotal), insuranceAmount: Number(i.insuranceAmount), patientAmount: Number(i.patientAmount),
     })),
   });
