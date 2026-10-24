@@ -202,14 +202,17 @@ async function seedGenericCatalogs(prisma: PrismaClient, tenantId: string) {
   console.log(`Reference catalogs seeded (${all.length} items across 8 catalog types)`);
 }
 
+// rma3IncomeRubric: RMA3 VI.3 income rubric of the category's acts (lib/reports/rma3-income.ts);
+// null = resolved from the invoice line source. A suggested default only: it is written when the
+// category is created or has no rubric yet, never over an admin's choice.
 const MEDICAL_ACT_CATEGORIES = [
-  { code: 'CONSULTATION_GEN', nameFr: 'Consultation générale', nameEn: 'General consultation', color: '#1565c0', order: 1 },
-  { code: 'CONSULTATION_SPEC', nameFr: 'Consultations spécialisées', nameEn: 'Specialist consultations', color: '#00838f', order: 2 },
-  { code: 'MINOR_SURGERY', nameFr: 'Actes de chirurgie mineure', nameEn: 'Minor surgery procedures', color: '#4527a0', order: 3 },
-  { code: 'NURSING_CARE', nameFr: 'Soins infirmiers', nameEn: 'Nursing care', color: '#2e7d32', order: 4 },
-  { code: 'FUNCTIONAL_EXPLORATION', nameFr: 'Explorations fonctionnelles', nameEn: 'Functional explorations', color: '#ef6c00', order: 5 },
-  { code: 'MATERNITY_CARE', nameFr: "Actes de maternité", nameEn: 'Maternity procedures', color: '#ad1457', order: 6 },
-  { code: 'HOSPITALIZATION', nameFr: 'Hospitalisation', nameEn: 'Hospitalisation', color: '#5d4037', order: 7 },
+  { code: 'CONSULTATION_GEN', nameFr: 'Consultation générale', nameEn: 'General consultation', color: '#1565c0', order: 1, rma3IncomeRubric: 'VI.3-003' },
+  { code: 'CONSULTATION_SPEC', nameFr: 'Consultations spécialisées', nameEn: 'Specialist consultations', color: '#00838f', order: 2, rma3IncomeRubric: 'VI.3-003' },
+  { code: 'MINOR_SURGERY', nameFr: 'Actes de chirurgie mineure', nameEn: 'Minor surgery procedures', color: '#4527a0', order: 3, rma3IncomeRubric: 'VI.3-013' },
+  { code: 'NURSING_CARE', nameFr: 'Soins infirmiers', nameEn: 'Nursing care', color: '#2e7d32', order: 4, rma3IncomeRubric: null },
+  { code: 'FUNCTIONAL_EXPLORATION', nameFr: 'Explorations fonctionnelles', nameEn: 'Functional explorations', color: '#ef6c00', order: 5, rma3IncomeRubric: null },
+  { code: 'MATERNITY_CARE', nameFr: "Actes de maternité", nameEn: 'Maternity procedures', color: '#ad1457', order: 6, rma3IncomeRubric: 'VI.3-008' },
+  { code: 'HOSPITALIZATION', nameFr: 'Hospitalisation', nameEn: 'Hospitalisation', color: '#5d4037', order: 7, rma3IncomeRubric: 'VI.3-005' },
 ];
 
 const MEDICAL_ACTS: { code: string; categoryCode: string; nameFr: string; nameEn?: string; basePrice: number; unit?: string; defaultPecCoveragePercent?: number; allowsUrgencySurcharge?: boolean; requiresLabValidation?: boolean }[] = [
@@ -243,8 +246,11 @@ async function seedMedicalActs(prisma: PrismaClient, tenantId: string) {
     const record = await prisma.medicalActCategory.upsert({
       where: { tenantId_code: { tenantId, code: cat.code } },
       update: { nameFr: cat.nameFr, nameEn: cat.nameEn ?? null, color: cat.color, order: cat.order },
-      create: { tenantId, code: cat.code, nameFr: cat.nameFr, nameEn: cat.nameEn ?? null, color: cat.color, order: cat.order },
+      create: { tenantId, code: cat.code, nameFr: cat.nameFr, nameEn: cat.nameEn ?? null, color: cat.color, order: cat.order, rma3IncomeRubric: cat.rma3IncomeRubric },
     });
+    if (cat.rma3IncomeRubric && !record.rma3IncomeRubric) {
+      await prisma.medicalActCategory.update({ where: { id: record.id }, data: { rma3IncomeRubric: cat.rma3IncomeRubric } });
+    }
     categoryIds[cat.code] = record.id;
   }
 
