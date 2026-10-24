@@ -5,7 +5,7 @@ import {
   BedDouble, BedSingle, CalendarDays, DoorOpen, ShieldCheck,
   FolderTree, Stethoscope, FlaskConical, BookOpen,
   Beaker, Warehouse, Truck, ScanLine, PersonStanding, Syringe, FileText, Clock,
-  ListTree, type LucideIcon,
+  ListTree, IdCard, type LucideIcon,
 } from "lucide-react";
 
 export type SettingsNavItem = { href: string; label: string; icon: LucideIcon };
@@ -63,6 +63,7 @@ export function useSettingsNavGroups(): SettingsNavGroup[] {
       items: [
         { href: "/settings/reports", label: t("rma3Report"), icon: FileText },
         { href: "/settings/rma3-mapping", label: t("rma3Mapping"), icon: ListTree },
+        { href: "/settings/staff", label: t("staff"), icon: IdCard },
       ],
     },
   ];

@@ -56,17 +56,16 @@ const INCLUDED_SECTIONS = [
   "IV.1.3 - Hépatites virales et IST",
   "Formulaire mensuel saisi : accouchements et naissances en communauté, communication et recherche des perdus de vue (III.1), boîtes de sécurité (III.4), supplémentation scolaire (III.8), TPI / TPIn et activité des ASC en communauté (IV.2), communication diabète / HTA (IV.4.5), participation communautaire (V.10), environnement, supervisions, recettes hors facturation, dépenses, fonctionnalité et patrimoine (VI.1-VI.4, VI.6)",
   "V.7, III.5, IV.2.7, V.9, IV.6 - Gestion des stocks des articles classés dans une catégorie RMA3 (stock début/fin, entrées, consommation, pertes, CMM, jours de rupture ; doses et pertes PEV)",
+  "IV.2.2-3 / IV.2.4-5 - MILDA en CPN ; paludisme par espèce, molécule, hospitalisation et gratuité",
+  "IV.6 - PCIMA (CNA, CNTI) ; III.9 - Alimentation du nourrisson et suivi de croissance",
+  "V.6 - Transfusion sanguine (donneurs, poches, tests, collectes mobiles) ; V.9 - Équipements d'oxygénothérapie et prise en charge de l'hypoxémie ; VI.5 - Ressources humaines",
 ];
 
 const EXCLUDED_SECTIONS = [
   "Registre / stock des médicaments antituberculeux",
-  "V.6 Banque de sang / transfusion",
   "V.7 Médicaments traceurs non encore classés « traceur » dans l'inventaire (seuls les articles classés sont produits)",
   "V.8 Pharmacovigilance",
-  "V.9 Oxygène : équipements et cas d'hypoxémie (le stock d'oxygène est inclus)",
   "VI.3 Recettes issues de la facturation des patients (billet de cession, hospitalisation, examens, chirurgie, pharmacie…) et sous-totaux des recettes",
-  "VI.5 Ressources humaines",
-  "IV.2.4-5 Paludisme traité gratuitement (prise en charge exonérée)",
 ];
 
 function cell(text: string, opts?: { bold?: boolean; shaded?: boolean }): TableCell {
@@ -602,12 +601,12 @@ export async function buildRma3Document(
     aefiTable(data.epi.aefi),
     sectionHeading("IV.2 - Lutte contre le Paludisme"),
     malariaTable(data.malaria),
-    ...activitySections(data.activity, ["IV.2.1", "IV.2.4-5"]),
+    ...activitySections(data.activity, ["IV.2.1", "IV.2.2-3", "IV.2.4-5"]),
     sectionHeading("IV.3.3 - Notification des Cas de Tuberculose"),
     tbTable(data.tuberculosis.notifications, "Classification"),
     sectionHeading("IV.3.4 - Résultats du Traitement Antituberculeux"),
     tbTable(data.tuberculosis.outcomes, "Issue du traitement"),
-    ...activitySections(data.activity, ["IV.3", "IV.4.4", "IV.4.9", "IV.4.10", "IV.4.11", "V.1"]),
+    ...activitySections(data.activity, ["IV.3", "IV.4.4", "IV.4.9", "IV.4.10", "IV.4.11", "IV.6", "V.1", "V.6", "V.9", "VI.5"]),
     ...data.causes.flatMap((table) => [sectionHeading(`${table.section} - ${RMA3_CAUSE_SECTIONS[table.section]}`), causeTable(table)]),
     new Paragraph({
       spacing: { before: 200 },
