@@ -17,14 +17,14 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
+import { PrescriberField } from "@/components/shared/prescriber-field";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Stethoscope, Loader2, Plus, Trash2 } from "lucide-react";
-import { Doctor, CatalogOption, MedicalActOption, OrderItem, OrderSource } from "../types";
+import { CatalogOption, MedicalActOption, OrderItem, OrderSource } from "../types";
 
 interface MedicalOrderSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  doctors: Doctor[];
   labCatalog: CatalogOption[];
   radiologyCatalog: CatalogOption[];
   medicalActs: MedicalActOption[];
@@ -43,7 +43,6 @@ function formatOption(option: CatalogOption) {
 export function MedicalOrderSheet({
   open,
   onOpenChange,
-  doctors,
   labCatalog,
   radiologyCatalog,
   medicalActs,
@@ -80,22 +79,7 @@ export function MedicalOrderSheet({
             </SheetHeader>
 
             <form id="order-form" onSubmit={onSubmit} className="space-y-6">
-              <div className="space-y-2.5">
-                <Label className="text-xs font-bold uppercase text-slate-400 tracking-wider ml-1">{t('prescriber_id')}</Label>
-                <Select
-                  name="prescriberId"
-                  items={doctors.map((doc) => ({ value: doc.id, label: `Dr. ${doc.fullName}` }))}
-                >
-                  <SelectTrigger className="h-11 rounded-xl border-slate-200 focus:ring-slate-900 transition-all">
-                    <SelectValue placeholder={t('prescriber_placeholder')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {doctors.map((doc) => (
-                      <SelectItem key={doc.id} value={doc.id}>Dr. {doc.fullName}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <PrescriberField />
 
               <div className="space-y-4">
                 <div className="flex items-center justify-between ml-1">

@@ -9,6 +9,12 @@ transferts et **sortie**.
   **Sorties** (`/discharges`).
 - **Permission** : `MODULE_ADMISSION`. Créer un séjour depuis la fiche patient demande aussi
   `MODULE_CORE_PATIENT` (création).
+- ⚠️ **Droits d'un médecin** : l'écran de consultation s'ouvre avec `MODULE_ADMISSION`, mais
+  prescrire des examens, prescrire des médicaments, saisir des constantes et signer la note
+  exigent **aussi `MODULE_CORE_PATIENT` en création**. Un rôle médecin personnalisé sans ce droit
+  voit « Vous n'avez pas la permission de créer des enregistrements dans le module Patients » à la
+  première prescription. Correction : Paramètres → Rôles (ou la fiche de l'utilisateur) → Patients
+  → cocher *Création*. Le rôle médecin des données de démonstration l'a déjà.
 
 > Ce module applique la règle **« payer d'abord, soigner ensuite »** lorsque la facturation est
 > active. Voir le [workflow détaillé](../../workflows/README.md#1-payer-dabord-soigner-ensuite).
@@ -117,7 +123,8 @@ bloqués par un paiement : les soins passent d'abord, la facture est réglée en
 
 ### Mener la consultation
 1. Vérifiez le motif et les constantes ; ajoutez des constantes si besoin.
-2. **Examens → Prescrire** : choisissez dans le catalogue des examens de laboratoire, de
+2. **Examens → Prescrire** : le prescripteur est **vous** (le compte connecté), affiché en lecture
+   seule et non modifiable ; le serveur ignore tout autre prescripteur. Choisissez dans le catalogue des examens de laboratoire, de
    radiologie ou des actes médicaux, avec une urgence (Routine, Urgent, STAT).
    - Les examens de laboratoire et de radiologie sont **facturés tout de suite** et restent
      « en attente de paiement » jusqu'au règlement. Le laboratoire ne peut pas prélever avant.
@@ -129,8 +136,13 @@ bloqués par un paiement : les soins passent d'abord, la facture est réglée en
 4. Rédigez la **note de consultation** et codez le **diagnostic principal CIM-10** (obligatoire
    pour signer), plus d'éventuels diagnostics secondaires. Indiquez si la prise en charge suit le
    protocole national.
-5. **Signer et terminer la consultation**. Le patient sort de la file. Si le séjour n'avait pas
+5. **Signer et terminer la consultation** : une boîte de dialogue affiche le récapitulatif (patient,
+   diagnostics, nombre d'examens et d'ordonnances, avertissement si des examens attendent encore
+   leur paiement). **Signer et terminer** confirme ; la note n'est plus modifiable ensuite (seule
+   une note complémentaire reste possible). Le patient sort de la file. Si le séjour n'avait pas
    d'acte d'admission, la consultation est facturée à ce moment-là.
+
+   **Libérer le patient** demande aussi une confirmation, dans une boîte de dialogue.
 
 ### Hospitaliser un patient
 1. Après la consultation signée (ou immédiatement pour une urgence vitale), fiche de séjour →

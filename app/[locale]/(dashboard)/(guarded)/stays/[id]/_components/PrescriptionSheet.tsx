@@ -20,9 +20,9 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
+import { PrescriberField } from "@/components/shared/prescriber-field";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Pill, Plus, Trash2, Loader2, Copy } from "lucide-react";
-import { Doctor } from "../types";
 
 // One line of the prescription. A drug the pharmacy stocks is picked from the list
 // (inventoryId) with the units to dispense; any other drug is free text (inventoryId null)
@@ -70,7 +70,6 @@ const FREE_TEXT = "__free__";
 interface PrescriptionSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  doctors: Doctor[];
   rxItems: RxItem[];
   setRxItems: (items: RxItem[]) => void;
   submitting: boolean;
@@ -80,7 +79,6 @@ interface PrescriptionSheetProps {
 export function PrescriptionSheet({
   open,
   onOpenChange,
-  doctors,
   rxItems,
   setRxItems,
   submitting,
@@ -146,22 +144,7 @@ export function PrescriptionSheet({
             </SheetHeader>
 
             <form id="rx-form" onSubmit={onSubmit} className="space-y-8">
-              <div className="space-y-2.5">
-                <Label className="text-xs font-bold uppercase text-slate-400 tracking-wider ml-1">{t('prescriber_id')}</Label>
-                <Select
-                  name="prescriberId"
-                  items={doctors.map((doc) => ({ value: doc.id, label: `Dr. ${doc.fullName}` }))}
-                >
-                  <SelectTrigger className="h-11 rounded-xl border-slate-200 focus:ring-slate-900 transition-all">
-                    <SelectValue placeholder={t('prescriber_placeholder')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {doctors.map((doc) => (
-                      <SelectItem key={doc.id} value={doc.id}>Dr. {doc.fullName}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <PrescriberField />
 
               <div className="space-y-4">
                 <div className="flex items-center justify-between ml-1">

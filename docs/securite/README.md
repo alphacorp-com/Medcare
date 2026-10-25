@@ -75,6 +75,12 @@ Les rôles sont **définis par l'établissement** (**Paramètres → Rôles**) :
 - **Permissions par défaut** : appliquées à la création d'un utilisateur avec ce rôle, puis
   ajustables pour chaque personne.
 
+**Prescrire demande plusieurs droits à la fois.** Un médecin qui prescrit un examen ou un
+médicament pendant une consultation a besoin de `MODULE_ADMISSION` (accéder à la consultation) **et**
+de `MODULE_CORE_PATIENT` en **création** (écrire au dossier du patient), plus `MODULE_LAB` /
+`MODULE_RADIOLOGY` / `MODULE_PHARMACY` pour suivre l'examen ou l'ordonnance. Le prescripteur est
+toujours le compte connecté : le serveur ignore tout prescripteur envoyé par le navigateur.
+
 Garde-fous :
 - impossible de supprimer un rôle attribué à des utilisateurs ;
 - impossible de retirer le dernier rôle administrateur actif, ou de rétrograder le dernier

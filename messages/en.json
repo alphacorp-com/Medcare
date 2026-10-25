@@ -766,7 +766,6 @@
     "note_content_placeholder": "History, clinical examination, differential diagnosis, plan...",
     "draft_hint": "Draft kept on this device until signed.",
     "sign_and_complete": "Sign and complete consultation",
-    "confirm_sign": "Sign the note and complete the consultation? The patient will leave the queue.",
     "consultation_completed": "Consultation completed",
     "previous_notes": "Signed notes",
     "title": "Consultation Queue",
@@ -783,7 +782,18 @@
     "failed_load": "Failed to load the consultation queue",
     "claim_failed": "Failed to claim this patient",
     "already_claimed": "This patient has already been claimed by another doctor",
-    "diagnoses_title": "Diagnoses (ICD-10)"
+    "diagnoses_title": "Diagnoses (ICD-10)",
+    "sign_dialog_title": "Sign and complete the consultation?",
+    "sign_dialog_desc": "Check the summary before signing. The patient will leave the consultation queue.",
+    "sign_dialog_confirm": "Sign and complete",
+    "sign_summary_patient": "Patient",
+    "sign_summary_principal": "Principal diagnosis",
+    "sign_summary_secondary": "Secondary diagnoses",
+    "sign_summary_exams": "Exams ordered",
+    "sign_summary_prescriptions": "Prescriptions",
+    "sign_warning_unpaid_exams": "Some exams are still waiting for payment at the cashier: they remain to be paid after the consultation.",
+    "sign_irreversible": "Once signed, the note can no longer be edited: you can only add a complementary note.",
+    "release_dialog_title": "Release this patient?"
   },
   "patients": {
     "pending": "Pending",
@@ -2892,8 +2902,6 @@
     "confirm_discharge": "Confirm Discharge",
     "new_prescription": "New Prescription",
     "new_prescription_desc": "Add a medication prescription for this stay. At least one drug item is required.",
-    "prescriber_id": "Prescriber ID",
-    "prescriber_placeholder": "Doctor UUID",
     "prescription_notes": "Clinical Notes (optional)",
     "prescription_notes_placeholder": "Additional notes or contraindications...",
     "drug_name": "Drug Name",
@@ -2966,7 +2974,9 @@
     "add_vitals": "Add Vitals",
     "add_vitals_desc": "Record a new vital signs reading for this stay.",
     "save_vitals": "Save Vitals",
-    "bed_via_hospitalization": "A bed is assigned with “Hospitalize” (deposit and follow-up in Discharges). Here only the department and the attending doctor change."
+    "bed_via_hospitalization": "A bed is assigned with “Hospitalize” (deposit and follow-up in Discharges). Here only the department and the attending doctor change.",
+    "prescriber": "Prescriber",
+    "prescriber_locked": "You are the prescriber: the name is the signed-in account's and cannot be changed."
   },
   "roles": {
     "admin": "System Administrator",

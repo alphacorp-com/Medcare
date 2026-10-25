@@ -227,7 +227,6 @@ export default function AdmissionDetailPage() {
     setSubmitting(true);
     const formData = new FormData(e.currentTarget);
     const data = {
-      prescriberId: formData.get("prescriberId"),
       notes: formData.get("notes"),
       items: prescriptionPayloadItems(rxItems),
     };
@@ -256,7 +255,6 @@ export default function AdmissionDetailPage() {
     setSubmitting(true);
     const formData = new FormData(e.currentTarget);
     const data = {
-      prescriberId: formData.get("prescriberId"),
       notes: formData.get("notes"),
       items: orderItems.filter((item) => item.code !== ""),
     };
@@ -439,7 +437,6 @@ export default function AdmissionDetailPage() {
       <PrescriptionSheet 
         open={prescriptionOpen} 
         onOpenChange={setPrescriptionOpen} 
-        doctors={doctors} 
         rxItems={rxItems} 
         setRxItems={setRxItems} 
         submitting={submitting} 
@@ -448,9 +445,7 @@ export default function AdmissionDetailPage() {
 
       <MedicalOrderSheet
         open={orderOpen}
-        onOpenChange={setOrderOpen}
-        doctors={doctors}
-        labCatalog={labCatalog}
+        onOpenChange={setOrderOpen}        labCatalog={labCatalog}
         radiologyCatalog={radiologyCatalog}
         medicalActs={medicalActs}
         orderItems={orderItems}

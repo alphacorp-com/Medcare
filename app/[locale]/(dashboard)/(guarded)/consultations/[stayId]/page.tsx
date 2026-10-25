@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { ArrowLeft, ClipboardList, FileSignature, FlaskConical, HeartPulse, Loader2, Pill, Wallet } from "lucide-react";
 import { Link, useRouter } from "@/i18n/routing";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { TriageBadge } from "@/components/shared/triage-badge";
 import { cn } from "@/lib/utils";
@@ -60,7 +61,6 @@ export default function ConsultationWorkspacePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [labCatalog, setLabCatalog] = useState<CatalogOption[]>([]);
   const [radiologyCatalog, setRadiologyCatalog] = useState<CatalogOption[]>([]);
   const [medicalActs, setMedicalActs] = useState<MedicalActOption[]>([]);
@@ -70,6 +70,9 @@ export default function ConsultationWorkspacePage() {
   // Coded diagnoses (ICD-10): the principal one is required to sign (RMA3 causes of consultation).
   const [diagnoses, setDiagnoses] = useState<DiagnosisDraft[]>([]);
   const [signing, setSigning] = useState(false);
+  const [signConfirmOpen, setSignConfirmOpen] = useState(false);
+  const [releaseConfirmOpen, setReleaseConfirmOpen] = useState(false);
+  const [releasing, setReleasing] = useState(false);
   const [followedProtocol, setFollowedProtocol] = useState(false);
 
   const [prescriptionOpen, setPrescriptionOpen] = useState(false);
@@ -107,14 +110,12 @@ export default function ConsultationWorkspacePage() {
       if (active) applyStay(result);
     });
     Promise.all([
-      fetch("/api/v1/doctors").then((r) => r.json()),
       fetch("/api/v1/exam-catalog?domain=laboratory").then((r) => r.json()),
       fetch("/api/v1/exam-catalog?domain=radiology").then((r) => r.json()),
       fetch("/api/v1/medical-acts").then((r) => r.json()),
     ])
-      .then(([docsJson, labJson, radioJson, actsJson]) => {
+      .then(([labJson, radioJson, actsJson]) => {
         if (!active) return;
-        if (docsJson.success) setDoctors(docsJson.data);
         if (Array.isArray(labJson)) setLabCatalog(labJson);
         if (Array.isArray(radioJson)) setRadiologyCatalog(radioJson);
         if (Array.isArray(actsJson)) setMedicalActs(actsJson);
@@ -149,9 +150,6 @@ export default function ConsultationWorkspacePage() {
     }
   }, [draftKey, noteTitle, noteContent, diagnoses]);
 
-  // Defaults to the signed-in doctor when the sheet's prescriber picker is left empty.
-  const prescriberFrom = (formData: FormData) => (formData.get("prescriberId") as string) || session?.user?.id;
-
   const handlePrescription = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSubmitting(true);
@@ -161,7 +159,6 @@ export default function ConsultationWorkspacePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          prescriberId: prescriberFrom(formData),
           notes: formData.get("notes"),
           items: prescriptionPayloadItems(rxItems),
         }),
@@ -188,7 +185,6 @@ export default function ConsultationWorkspacePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          prescriberId: prescriberFrom(formData),
           notes: formData.get("notes"),
           items: orderItems.filter((item) => item.code !== ""),
         }),
@@ -212,7 +208,6 @@ export default function ConsultationWorkspacePage() {
 
   const handleSign = async () => {
     if (!stay || !session?.user?.id || !noteContent.trim() || !hasPrincipalDiagnosis) return;
-    if (!window.confirm(t("confirm_sign"))) return;
     setSigning(true);
     try {
       const now = new Date().toISOString();
@@ -240,8 +235,10 @@ export default function ConsultationWorkspacePage() {
         // Nothing to clean up.
       }
       toast.success(t("consultation_completed"));
+      setSignConfirmOpen(false);
       router.push("/consultations");
     } catch (err) {
+      // The dialog stays open so the doctor can read the error and try again.
       toast.error(err instanceof Error ? err.message : ta("error_save"));
     } finally {
       setSigning(false);
@@ -249,10 +246,20 @@ export default function ConsultationWorkspacePage() {
   };
 
   const handleRelease = async () => {
-    if (!window.confirm(t("confirm_release"))) return;
-    const res = await fetch(`/api/v1/stays/${stayId}/release`, { method: "POST" });
-    if (res.ok) router.push("/consultations");
-    else toast.error(t("release_failed"));
+    setReleasing(true);
+    try {
+      const res = await fetch(`/api/v1/stays/${stayId}/release`, { method: "POST" });
+      if (res.ok) {
+        setReleaseConfirmOpen(false);
+        router.push("/consultations");
+      } else {
+        toast.error(t("release_failed"));
+      }
+    } catch {
+      toast.error(t("release_failed"));
+    } finally {
+      setReleasing(false);
+    }
   };
 
   if (loading && !stay) {
@@ -299,7 +306,7 @@ export default function ConsultationWorkspacePage() {
             <Button variant="outline" size="sm">{t("open_patient_file")}</Button>
           </Link>
           {stay.consultationStatus === "claimed" && (
-            <Button variant="ghost" size="sm" onClick={handleRelease}>{t("release")}</Button>
+            <Button variant="ghost" size="sm" onClick={() => setReleaseConfirmOpen(true)}>{t("release")}</Button>
           )}
         </div>
       </div>
@@ -459,7 +466,7 @@ export default function ConsultationWorkspacePage() {
               <Button
                 className="bg-blue-600 hover:bg-blue-700"
                 disabled={readOnly || signing || !noteContent.trim() || !hasPrincipalDiagnosis}
-                onClick={handleSign}
+                onClick={() => setSignConfirmOpen(true)}
               >
                 {signing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <FileSignature className="h-4 w-4 mr-2" />}
                 {t("sign_and_complete")}
@@ -490,7 +497,6 @@ export default function ConsultationWorkspacePage() {
       <PrescriptionSheet
         open={prescriptionOpen}
         onOpenChange={setPrescriptionOpen}
-        doctors={doctors}
         rxItems={rxItems}
         setRxItems={setRxItems}
         submitting={submitting}
@@ -500,7 +506,6 @@ export default function ConsultationWorkspacePage() {
       <MedicalOrderSheet
         open={orderOpen}
         onOpenChange={setOrderOpen}
-        doctors={doctors}
         labCatalog={labCatalog}
         radiologyCatalog={radiologyCatalog}
         medicalActs={medicalActs}
@@ -508,6 +513,63 @@ export default function ConsultationWorkspacePage() {
         setOrderItems={setOrderItems}
         submitting={submitting}
         onSubmit={handleOrder}
+      />
+
+      <ConfirmDialog
+        open={signConfirmOpen}
+        onOpenChange={setSignConfirmOpen}
+        title={t("sign_dialog_title")}
+        description={t("sign_dialog_desc")}
+        confirmLabel={t("sign_dialog_confirm")}
+        cancelLabel={tc("cancel")}
+        onConfirm={handleSign}
+        pending={signing}
+        icon={<FileSignature className="h-5 w-5" />}
+      >
+        <dl className="rounded-lg border border-slate-200 bg-slate-50/70 p-3 text-xs space-y-2">
+          <div className="flex justify-between gap-3">
+            <dt className="text-slate-500">{t("sign_summary_patient")}</dt>
+            <dd className="font-medium text-slate-800 text-right">{stay.patient.lastName} {stay.patient.firstName}</dd>
+          </div>
+          <div className="flex justify-between gap-3">
+            <dt className="text-slate-500">{t("sign_summary_principal")}</dt>
+            <dd className="font-medium text-slate-800 text-right">
+              {(() => {
+                const principal = diagnoses.find((d) => d.kind === "principal");
+                return principal ? `${principal.code} — ${principal.label}` : "—";
+              })()}
+            </dd>
+          </div>
+          <div className="flex justify-between gap-3">
+            <dt className="text-slate-500">{t("sign_summary_secondary")}</dt>
+            <dd className="font-medium text-slate-800">{diagnoses.filter((d) => d.kind === "secondary").length}</dd>
+          </div>
+          <div className="flex justify-between gap-3">
+            <dt className="text-slate-500">{t("sign_summary_exams")}</dt>
+            <dd className="font-medium text-slate-800">{stay.examRequests.filter((e) => e.status !== "cancelled").length}</dd>
+          </div>
+          <div className="flex justify-between gap-3">
+            <dt className="text-slate-500">{t("sign_summary_prescriptions")}</dt>
+            <dd className="font-medium text-slate-800">{stay.prescriptions.length}</dd>
+          </div>
+        </dl>
+        {stay.examRequests.some((e) => e.status === "awaiting_payment") && (
+          <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-2.5">{t("sign_warning_unpaid_exams")}</p>
+        )}
+        <p className="text-xs text-slate-500">{t("sign_irreversible")}</p>
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={releaseConfirmOpen}
+        onOpenChange={setReleaseConfirmOpen}
+        title={t("release_dialog_title")}
+        description={t("confirm_release")}
+        confirmLabel={t("release")}
+        cancelLabel={tc("cancel")}
+        onConfirm={handleRelease}
+        pending={releasing}
+        tone="danger"
+        icon={<ArrowLeft className="h-5 w-5" />}
       />
     </div>
   );

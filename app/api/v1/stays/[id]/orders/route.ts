@@ -21,7 +21,7 @@ const SOURCE_TO_TYPE: Record<OrderSource, ExamType> = {
 };
 
 // ── POST /api/v1/stays/:id/orders ───────────────────────────────────────────
-// Body: { prescriberId, notes?, items: [{ source: "laboratory" | "radiology" | "medical_act", code, urgency? }] }
+// Body: { notes?, items: [{ source: "laboratory" | "radiology" | "medical_act", code, urgency? }] }
 // Every order must resolve to an already-configured, priced catalog entry (ExamCatalogEntry
 // for labo/radio, MedicalAct for everything else) — no free-text exam label accepted, so the
 // examCode this stores always matches a real code a FeeSchedule entry can be billed against.
@@ -43,18 +43,14 @@ export async function POST(
 
     const { id: stayId } = await params;
     const body = await request.json();
-    const { prescriberId, notes, items } = body as {
-      prescriberId?: string;
+    // The prescriber is always the signed-in user: a prescriberId sent by the browser is ignored,
+    // so nobody can order in someone else's name (or under an id of another facility).
+    const { notes, items } = body as {
       notes?: string;
       items?: OrderItemInput[];
     };
+    const prescriberId = session.user.id;
 
-    if (!prescriberId) {
-      return NextResponse.json(
-        { error: "prescriberId is required", success: false },
-        { status: 400 }
-      );
-    }
     if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json(
         { error: "At least one order item is required", success: false },

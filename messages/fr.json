@@ -765,7 +765,6 @@
     "note_content_placeholder": "Anamnèse, examen clinique, hypothèses diagnostiques, conduite à tenir...",
     "draft_hint": "Brouillon conservé sur ce poste jusqu'à la signature.",
     "sign_and_complete": "Signer et terminer la consultation",
-    "confirm_sign": "Signer la note et terminer la consultation ? Le patient sortira de la file.",
     "consultation_completed": "Consultation terminée",
     "previous_notes": "Notes signées",
     "title": "File de consultation",
@@ -782,7 +781,18 @@
     "failed_load": "Échec du chargement de la file de consultation",
     "claim_failed": "Échec de la prise en charge de ce patient",
     "already_claimed": "Ce patient a déjà été pris en charge par un autre médecin",
-    "diagnoses_title": "Diagnostics (CIM-10)"
+    "diagnoses_title": "Diagnostics (CIM-10)",
+    "sign_dialog_title": "Signer et terminer la consultation ?",
+    "sign_dialog_desc": "Vérifiez le récapitulatif avant de signer. Le patient sortira de la file de consultation.",
+    "sign_dialog_confirm": "Signer et terminer",
+    "sign_summary_patient": "Patient",
+    "sign_summary_principal": "Diagnostic principal",
+    "sign_summary_secondary": "Diagnostics secondaires",
+    "sign_summary_exams": "Examens prescrits",
+    "sign_summary_prescriptions": "Ordonnances",
+    "sign_warning_unpaid_exams": "Certains examens attendent encore leur paiement à la caisse : ils resteront à régler après la consultation.",
+    "sign_irreversible": "Une fois signée, la note n'est plus modifiable : vous pourrez seulement y ajouter une note complémentaire.",
+    "release_dialog_title": "Libérer ce patient ?"
   },
   "patients": {
     "pending": "En attente",
@@ -2893,8 +2903,6 @@
     "confirm_discharge": "Confirmer la Sortie",
     "new_prescription": "Nouvelle Prescription",
     "new_prescription_desc": "Ajouter une prescription médicamenteuse pour ce séjour. Au moins un médicament est requis.",
-    "prescriber_id": "ID du Prescripteur",
-    "prescriber_placeholder": "UUID du Médecin",
     "prescription_notes": "Notes Cliniques (optionnel)",
     "prescription_notes_placeholder": "Notes supplémentaires ou contre-indications...",
     "drug_name": "Nom du Médicament",
@@ -2967,7 +2975,9 @@
     "add_vitals": "Ajouter des Constantes",
     "add_vitals_desc": "Enregistrer un nouveau relevé de constantes pour ce séjour.",
     "save_vitals": "Enregistrer les Constantes",
-    "bed_via_hospitalization": "Le lit s'attribue avec « Hospitaliser » (caution et suivi dans Sorties). Ici, seuls le service et le médecin responsable changent."
+    "bed_via_hospitalization": "Le lit s'attribue avec « Hospitaliser » (caution et suivi dans Sorties). Ici, seuls le service et le médecin responsable changent.",
+    "prescriber": "Prescripteur",
+    "prescriber_locked": "Vous êtes le prescripteur : le nom est celui du compte connecté et ne peut pas être modifié."
   },
   "roles": {
     "admin": "Administrateur Système",

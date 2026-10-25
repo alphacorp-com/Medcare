@@ -7,7 +7,7 @@ import type { Prisma } from "@prisma/client";
 import { parsePrescriptionLines } from "@/lib/stock/prescription-items";
 
 // ── POST /api/v1/stays/:id/prescriptions ────────────────────────────────────
-// Body: { prescriberId, notes?, items: [{ drug, dosage, frequency, duration, instructions?,
+// Body: { notes?, items: [{ drug, dosage, frequency, duration, instructions?,
 //         inventoryId?, quantity? }] }
 // A line drawn from the stock names its article (inventoryId, an active article of this
 // tenant) and the units to dispense; its drug name is the article's. A line without
@@ -29,14 +29,11 @@ export async function POST(
     const { id: stayId } = await params;
     const body = await request.json();
 
-    const { prescriberId, notes, items } = body;
+    // The prescriber is always the signed-in user: a prescriberId sent by the browser is ignored,
+    // so nobody can prescribe in someone else's name (or under an id of another facility).
+    const { notes, items } = body;
+    const prescriberId = session.user.id;
 
-    if (!prescriberId) {
-      return NextResponse.json(
-        { error: "prescriberId is required", success: false },
-        { status: 400 }
-      );
-    }
     const parsedLines = parsePrescriptionLines(items);
     if (!parsedLines.ok) {
       return NextResponse.json(
