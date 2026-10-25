@@ -72,7 +72,7 @@ file. L'écran d'arrivée ne propose pas encore l'acte d'admission, donc pas de 
 
 ```
 Consultation signée (ou urgence vitale)
-   │ Hospitaliser : service → salle → lit, jours prévus
+   │ Hospitaliser : service → salle → lit, jours prévus   (seul moyen d'attribuer un lit)
    ▼
 Lit RÉSERVÉ + caution facturée (prix journalier de la salle × jours prévus)
    │ caution réglée / dérogée            │ Annuler (avant paiement)
@@ -91,6 +91,8 @@ Lit libéré · caution RÉGULARISÉE sur la durée réelle · fiche de sortie g
 - L'onglet **Sorties → Hospitalisés** affiche l'état de la facture de chaque patient avant la
   sortie.
 - Prérequis : la salle doit avoir un **prix journalier** (Paramètres → Types de Salles).
+- Un patient hospitalisé peut changer de lit (**Transfert**) : le lit d'hospitalisation suit, mais
+  la caution garde le prix journalier de la salle de départ.
 
 ---
 

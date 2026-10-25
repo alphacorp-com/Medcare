@@ -1,7 +1,7 @@
 # Paramétrage de l'établissement
 
 Ce guide décrit tous les réglages de MedCare : profil, organisation, comptes et rôles, modules,
-modèles de documents, licence, intégrations, et les **référentiels** (types, actes, examens, lits,
+modèles de documents, licence, sauvegarde, intégrations, et les **référentiels** (types, actes, examens, lits,
 pharmacie, prises en charge, rapports).
 
 - **Accès** : menu **Paramètres** (`/settings`). Les sections et les référentiels se modifient par
@@ -26,7 +26,7 @@ pharmacie, prises en charge, rapports).
 | Modules Cliniques | Modules actifs selon la licence (**lecture seule**) | Administrateur |
 | Modèles de Documents | Habillage des documents imprimés | Administrateur |
 | Licence | Activation et état de la licence AlphaCorp | Administrateur |
-| Paramètres de Sécurité | Informatif (les accès se gèrent dans Personnel & Rôles) | Administrateur |
+| Sauvegarde | Téléchargement d'une sauvegarde complète de la base | Administrateur |
 | Intégrations Externes | DHIS2, Mobile Money | Administrateur |
 
 ### Utilisateurs et rôles
@@ -63,11 +63,45 @@ Liste des modules activés par la **licence**. Elle n'est pas modifiable ici : p
 module, demandez à AlphaCorp une nouvelle licence (voir [Licence](../licence/README.md#5-augmenter-les-utilisateurs-les-lits-ou-changer-les-modules-actifs)).
 
 ### Modèles de documents
-Options d'habillage des documents PDF : logo, QR code, signature, filigrane. Un **aperçu** de chaque
-modèle est disponible.
-- ⚠️ Le bouton **Modifier le modèle** n'a pas encore d'action : aucun éditeur de modèle n'existe.
-- ⚠️ Ces réglages sont modifiables par tout utilisateur connecté via l'API (constat n°3 de
-  l'[audit](../securite/AUDIT_2026-09.md)).
+
+Réglages de **tous les documents imprimés** (factures, reçus, bordereaux, ordonnances, fiches de
+posologie, résultats de laboratoire, listes et dossiers de patients, dossiers de séjour et fiches
+de sortie, rapport de stock mensuel).
+
+👤 **Habillage global** (encart en bas de la page) :
+- **Afficher le logo** de l'établissement (défini dans Organisation) ;
+- **Bloc « Signature / Cachet »** : un emplacement de signature à la fin de chaque document (les
+  bordereaux ont déjà leurs visas) ;
+- **Filigrane de confidentialité** ;
+- **Mention de pied de page**, imprimée en bas de chaque document (300 caractères : mention
+  légale, horaires, numéro des urgences…).
+
+👤 **Personnaliser un modèle** : carte du modèle → **Modifier le modèle** :
+1. **Titre du document** : remplace le titre imprimé (80 caractères).
+2. **Texte d'introduction** : imprimé sous le titre (400 caractères).
+3. **Note de fin** : imprimée à la fin, avant la signature (400 caractères) — conditions de
+   paiement, consignes au patient…
+4. **Appliquer**, puis **Enregistrer les modifications** en bas de la page. Un champ vide garde
+   le texte par défaut ; **Revenir aux textes par défaut** vide les trois champs.
+
+La carte d'un modèle personnalisé porte le badge « Personnalisé ». **Aperçu** montre le modèle
+avec des données d'exemple. Les bordereaux et les dossiers de séjour n'ont pas d'aperçu
+d'exemple : ils se prévisualisent depuis l'écran où on les imprime.
+
+🛠️ Validé côté serveur (`lib/document-templates.ts`), modifiable par un administrateur
+uniquement, chaque modification est tracée (`settings.document_templates_updated`).
+
+### Sauvegarde
+
+**Paramètres → Sauvegarde → Télécharger une sauvegarde** : le navigateur reçoit un `pg_dump`
+complet de la base (format personnalisé PostgreSQL).
+- Le fichier contient **toutes** les données de l'établissement, y compris les dossiers des
+  patients : conservez-le chiffré, hors du serveur.
+- Rien n'est conservé sur le serveur ; 3 sauvegardes par heure au maximum ; chaque
+  téléchargement est tracé (`settings.database_backup`).
+- Exige `pg_dump` sur le serveur. Sinon (Vercel par exemple), l'écran l'indique : utilisez les
+  sauvegardes de l'hébergeur de la base (voir [Installation → Sauvegardes](../installation/README.md#6-sauvegardes)).
+- Restauration : `pg_restore --clean --no-owner -d "$DATABASE_URL" medcare-AAAAMMJJ-HHmm.dump`.
 
 ### Licence
 Voir [Licence AlphaCorp](../licence/README.md).
@@ -139,6 +173,9 @@ l'ancien code n'est plus facturable.
 
 **Les prix** : le prix saisi sur un acte, un examen ou une salle est recopié automatiquement dans la
 **grille tarifaire** (Facturation → Grille tarifaire), seule source lue lors de la facturation.
+Un acte médical et un examen partagent le même emplacement tarifaire par code : MedCare
+**refuse un code déjà utilisé par l'autre catalogue** (« fee_code_conflict »), à la création, à
+la modification et à l'import.
 Renommer le code d'un acte ou d'un examen laisse l'ancien tarif orphelin : vérifiez la grille
 ensuite. Si la grille a dérivé (après un import, par exemple) : `npm run db:sync-fee-schedule`.
 

@@ -47,7 +47,7 @@ administrateurs techniques.
 - [Workflows inter-modules](workflows/README.md) : « payer d'abord, soigner ensuite », du triage à la sortie, de la prescription au résultat, de l'ordonnance à la délivrance, de la facture au règlement de l'organisme.
 
 ### Configurer l'établissement
-- [Paramétrage](parametrage/README.md) : organisation, utilisateurs, rôles, référentiels, actes et tarifs, examens, lits et salles, payeurs, modèles de documents, intégrations.
+- [Paramétrage](parametrage/README.md) : organisation, utilisateurs, rôles, référentiels, actes et tarifs, examens, lits et salles, payeurs, modèles de documents (éditeur), sauvegarde, intégrations.
 - [Intégration DHIS2](parametrage/integration-dhis2.md) · [Mobile Money](parametrage/mobile-money.md)
 
 ### Sécurité

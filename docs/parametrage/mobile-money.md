@@ -3,8 +3,8 @@
 Configuration des paiements Mobile Money à la caisse. Réservé à l'**administrateur** :
 **Paramètres → Intégrations Externes → Mobile Money**.
 
-> ⚠️ **Avant toute mise en production**, lisez les limites en fin de page : les webhooks de
-> confirmation ne sont pas encore sécurisés (voir l'[audit de sécurité](../securite/AUDIT_2026-09.md)).
+> Avant toute mise en production, lisez les prérequis et les limites en fin de page : aucun des
+> deux opérateurs n'a encore été validé en conditions réelles.
 
 ---
 
@@ -12,11 +12,17 @@ Configuration des paiements Mobile Money à la caisse. Réservé à l'**administ
 
 | Opérateur | Parcours de paiement | Confirmation |
 |---|---|---|
-| **Orange Money** | Paiement Web : le payeur valide sur la page de paiement Orange | Par **webhook** Orange uniquement (pas d'interrogation de statut possible) |
-| **MTN MoMo** | API Collections : le payeur reçoit une demande (USSD) sur son téléphone | Par **interrogation** du statut (fonctionne sans webhook) ou par webhook |
+| **Orange Money** | Paiement Web : le payeur valide sur la page de paiement Orange | Webhook Orange, ou interrogation du statut (`transactionstatus`) |
+| **MTN MoMo** | API Collections : le payeur reçoit une demande (USSD) sur son téléphone | Interrogation du statut (`requesttopay`), ou webhook |
 
 Le paiement reste **en attente** jusqu'à la confirmation. Une fois confirmé, il est appliqué à la
 facture comme un paiement en espèces (voir [Facturation](../modules/facturation/README.md)).
+
+**Sécurité de la confirmation.** Un webhook ou une interrogation n'est qu'un signal : MedCare
+**relit toujours le statut auprès de l'opérateur** avant de solder un paiement, et ignore le
+statut annoncé dans la requête reçue. Un appel forgé ne peut donc pas faire passer un paiement
+pour réussi. Le passage « en attente » → « réussi » ne se produit qu'une fois, même si un webhook
+et une interrogation arrivent en même temps : la facture n'est jamais créditée deux fois.
 
 ## 👤 Configurer un opérateur
 
@@ -43,11 +49,9 @@ alors les ressaisir.
 ## Limites connues
 
 - Orange Money n'a **jamais été validé de bout en bout** ; MTN n'a été testé qu'en sandbox.
-- 🔴 Les webhooks `/api/v1/billing/webhooks/orange` et `/mtn` **font confiance au statut envoyé
-  dans la requête**, sans le vérifier auprès de l'opérateur. Quelqu'un qui connaît la référence
-  d'un paiement en attente pourrait le faire passer « réussi » sans payer, ce qui solde la facture
-  et débloque la délivrance de médicaments. Correctif prévu : revérifier le statut auprès de
-  l'opérateur, comme le fait déjà l'interrogation MTN.
+- L'URL de `transactionstatus` d'Orange suit la même forme que celle du paiement Web
+  (`orange-money-webpay/{pays}/v1/…`), confirmée par le SDK de référence. Vérifiez-la dans la
+  documentation officielle d'Orange de votre pays lors de l'ouverture du compte marchand.
 
 ## 🛠️ Repères techniques
 
@@ -58,4 +62,5 @@ alors les ressaisir.
 | Chiffrement | `lib/payments/crypto.ts` |
 | Initiation du paiement | `POST /api/v1/billing/[id]/payments` |
 | Statut (interrogation) | `GET /api/v1/billing/payments/[id]/status` |
+| Confirmation (statut relu chez l'opérateur, application unique) | `lib/payments/confirm.ts`, `lib/payments/mobile-money/status.ts` |
 | Webhooks | `POST /api/v1/billing/webhooks/orange`, `POST /api/v1/billing/webhooks/mtn` |

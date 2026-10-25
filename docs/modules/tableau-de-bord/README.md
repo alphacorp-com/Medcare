@@ -27,7 +27,7 @@ laboratoire les examens à réaliser, un médecin ses patients et ses résultats
 | Radiologie à réaliser | Radiologie (modification) | 1 min |
 | Comptes rendus de radiologie à valider | Radiologie (validation) | 1 min |
 | Ordonnances en attente | Pharmacie (lecture) | 1 min |
-| Alertes de stock | Pharmacie (lecture) | 10 min |
+| Alertes de stock (stock faible, rupture, lots périmés ou qui expirent sous 30 jours) | Pharmacie (lecture) | 10 min |
 | Factures impayées (montant et liste) | Facturation (lecture) | 5 min |
 | Encaissements du jour | Facturation (lecture) | 5 min |
 | État de la licence | Administrateur | — |

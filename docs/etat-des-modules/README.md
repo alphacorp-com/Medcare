@@ -4,7 +4,8 @@ Ce document recense, module par module, ce qui est **réellement fonctionnel**, 
 **partiel** et ce qui **manque**. Il a été établi par lecture du code (routes API, bibliothèques,
 écrans), pas par estimation.
 
-**Dernière relecture complète : 2026-10-25.**
+**Dernière relecture complète : 2026-10-25**, après la résolution de la dette technique (voir
+[Guide développeur](../developpement/README.md#dette-technique-connue)).
 
 Légende : ✅ complet · ⚠️ partiel ou limité · ❌ manquant
 
@@ -14,23 +15,23 @@ Légende : ✅ complet · ⚠️ partiel ou limité · ❌ manquant
 |---|---|---|
 | [Patients](../modules/patients/README.md) | ✅ | Pas de fusion de doublons |
 | [Rendez-vous](../modules/rendez-vous/README.md) | ⚠️ | L'arrivée ne propose pas l'acte d'admission (pas de paiement préalable) |
-| [Admissions, consultations, sorties](../modules/admissions/README.md) | ✅ | Un lit attribué dès l'admission contourne le circuit d'hospitalisation |
+| [Admissions, consultations, sorties](../modules/admissions/README.md) | ✅ | La caution garde le prix de la salle de départ après un changement de salle |
 | [Laboratoire](../modules/laboratoire/README.md) | ✅ | — |
 | [Banque de sang](../modules/banque-de-sang/README.md) | ✅ | — |
 | [Radiologie](../modules/radiologie/README.md) | ⚠️ | Pas de stockage ni de visionneuse d'images (lien externe seulement) |
 | [Chirurgie](../modules/chirurgie/README.md) | ✅ | Pas d'export PDF du compte rendu opératoire |
-| [Pharmacie et stock](../modules/pharmacie/README.md) | ⚠️ | Vérification des interactions médicamenteuses factice |
+| [Pharmacie et stock](../modules/pharmacie/README.md) | ✅ | Pas de vérification des interactions médicamenteuses (fonction non proposée) |
 | [Maternité et planification familiale](../modules/maternite/README.md) | ✅ | — |
 | [Programmes de santé](../modules/programmes-de-sante/README.md) | ✅ | Pas de facturation (voulu) ; absents de DHIS2 (présents dans le RMA3) |
-| [Facturation](../modules/facturation/README.md) | ⚠️ | Mobile Money non validé en conditions réelles ; webhooks non sécurisés |
+| [Facturation](../modules/facturation/README.md) | ⚠️ | Mobile Money non validé en conditions réelles |
 | [Tiers payant](../modules/tiers-payant/README.md) | ✅ | — |
 | [Planning](../modules/planning/README.md) | ✅ | Pas de circuit de demande de congés |
 | [Messagerie](../modules/messagerie/README.md) | ⚠️ | Rafraîchissement périodique, pas de temps réel |
 | [RMA3 et rapports](../modules/rma3/README.md) | ✅ | — |
 | [Intégration DHIS2](../parametrage/integration-dhis2.md) | ✅ | 18 indicateurs (activité, maternité) |
 | [Licence AlphaCorp](../licence/README.md) | ✅ | Re-liaison d'empreinte manuelle côté AlphaCorp |
-| [Paramétrage](../parametrage/README.md) | ⚠️ | Éditeur de modèles de documents inexistant |
-| Documents PDF | ⚠️ | 2 modèles sur 10 jamais utilisés |
+| [Paramétrage](../parametrage/README.md) | ✅ | Sauvegarde intégrée indisponible sans `pg_dump` sur le serveur (Vercel) |
+| Documents PDF | ✅ | Quelques pieds de page encore en anglais en dur |
 
 ---
 
@@ -58,11 +59,11 @@ Légende : ✅ complet · ⚠️ partiel ou limité · ❌ manquant
 - Hospitalisation avec lit réservé, caution, attribution au paiement, régularisation à la sortie ;
   page Sorties, fiche de sortie.
 - Diagnostics CIM-10 obligatoires (consultation, sortie d'un hospitalisé, cause de décès).
-- ⚠️ Un lit choisi **dès l'admission** (formulaire de nouvelle admission) occupe le lit sans passer
-  par le circuit d'hospitalisation : pas de caution, et pas de visibilité dans Sorties. Point métier
-  à trancher (lit d'observation légitime, ou obligation de passer par *Hospitaliser*).
-- ⚠️ Les données de démonstration (`seed-journeys`) ne passent pas par le circuit
-  d'hospitalisation : la page Sorties est vide sur une base de démonstration.
+- Un lit ne s'attribue que par *Hospitaliser* ; l'admission refuse un lit, et le transfert de lit
+  est réservé aux patients hospitalisés.
+- Les données de démonstration passent par le circuit d'hospitalisation. Pour une base seedée
+  avant le 2026-10-25 : `npm run db:backfill-demo-hospitalizations`.
+- ⚠️ Un changement de salle en cours d'hospitalisation garde le prix journalier de la caution.
 
 ### Laboratoire — ✅
 - Circuit paiement → prélèvement → saisie → validation / rejet, réservé à la permission
@@ -90,15 +91,19 @@ Légende : ✅ complet · ⚠️ partiel ou limité · ❌ manquant
 - Export CSV, impression et e-mail du programme.
 - ❌ Pas d'export PDF du compte rendu opératoire.
 
-### Pharmacie et stock — ⚠️
+### Pharmacie et stock — ✅
 - Stock par lots et par dépôts, FEFO, péremptions, réceptions, pertes, transferts, inventaires,
   mouvements antidatés recalculés.
 - Flacons multidoses de vaccins ; rapport mensuel (CMM, ruptures, pertes de vaccins) ;
   pharmacovigilance.
 - Ordonnances : validation facturée, délivrance bloquée sans paiement ou sans stock délivrable,
   protégée contre la double délivrance.
-- ⚠️ **Interactions médicamenteuses** : l'alerte est codée en dur à « inactive ». Le champ
-  `Prescription.contraindicationCheck` existe, mais rien ne le calcule.
+- Impression de l'ordonnance, de la **fiche de posologie** du patient et du **rapport de stock
+  mensuel**.
+- Alertes de péremption des lots sur le tableau de bord.
+- ℹ️ Pas de vérification des interactions médicamenteuses : l'ancienne alerte factice est
+  retirée. Le champ `Prescription.contraindicationCheck` reste inutilisé.
+- ⚠️ Fiche d'ordonnance : les boutons « Annuler » et « Voir » le patient n'ont pas d'action.
 
 ### Maternité et planification familiale — ✅
 - CPN (avec dose de Td dans le registre de vaccination et sortie de stock), PTME via le
@@ -122,7 +127,8 @@ Légende : ✅ complet · ⚠️ partiel ou limité · ❌ manquant
 - Impression de la facture et du reçu.
 - ⚠️ **Mobile Money** : clients Orange (paiement Web) et MTN (Collections) écrits contre les vraies
   API. Orange n'a jamais été validé de bout en bout ; MTN seulement en sandbox.
-- 🔴 **Webhooks Mobile Money non sécurisés** : voir l'[audit](../securite/AUDIT_2026-09.md).
+- Confirmation Mobile Money : statut toujours relu auprès de l'opérateur, crédit unique (webhook
+  ou interrogation).
 
 ### Tiers payant — ✅
 - Organismes, conventions (taux par famille, nomenclature, plafonds par facture et annuels, bon
@@ -160,22 +166,27 @@ Légende : ✅ complet · ⚠️ partiel ou limité · ❌ manquant
 - Modules et plafonds (utilisateurs, lits) réellement appliqués.
 - ⚠️ La re-liaison d'une empreinte qui a changé reste une opération manuelle côté AlphaCorp.
 
-### Paramétrage — ⚠️
+### Paramétrage — ✅
 - Comptes, rôles personnalisés, organisation et tous les référentiels réels (avec import CSV) ;
   prix synchronisés vers la grille tarifaire.
-- ⚠️ **Modèles de documents** : les options d'habillage sont enregistrées, mais le bouton
-  « Modifier le modèle » n'a aucune action. De plus, la route `PUT /api/v1/settings/templates`
-  n'exige pas d'être administrateur ([audit](../securite/AUDIT_2026-09.md), constat n°3).
-- ⚠️ Section **Paramètres de Sécurité** : purement informative.
-- ⚠️ La route de sauvegarde `settings/database` (pg_dump) n'a pas d'écran, et ne fonctionne pas
-  sans disque persistant ni `pg_dump` sur le serveur.
+- **Modèles de documents** : éditeur par modèle (titre, introduction, note de fin), mention de
+  pied de page, bloc signature, logo, filigrane ; administrateur seulement, validé et tracé.
+- **Sauvegarde** : téléchargement d'un `pg_dump` depuis l'écran ; indisponible sans `pg_dump` sur
+  le serveur (Vercel).
+- Un acte médical et un examen ne peuvent plus partager un code tarifaire.
 
-### Documents PDF — ⚠️
-- **Utilisés avec des données réelles** : liste des patients, dossier patient, dossier de séjour,
-  fiche de sortie, résultat de laboratoire, ordonnance, facture, reçu, bordereau de prise en
-  charge.
-- **Jamais utilisés en dehors de l'aperçu des paramètres** : rapport de stock, guide du médicament.
-  L'aperçu des paramètres affiche des données fictives.
+### Documents PDF — ✅
+- Les 10 modèles sont utilisés avec des données réelles :
+  - liste des patients, dossier patient ;
+  - dossier de séjour et fiche de sortie ;
+  - résultat de laboratoire ;
+  - ordonnance, fiche de posologie ;
+  - facture, reçu, bordereau de prise en charge ;
+  - rapport de stock mensuel.
+- Textes personnalisables par l'établissement. L'aperçu des paramètres utilise des données
+  d'exemple.
+- ⚠️ Quelques pieds de page restent en anglais en dur (« Accredited Laboratory Services », « Page
+  1 of 1 »).
 
 ---
 

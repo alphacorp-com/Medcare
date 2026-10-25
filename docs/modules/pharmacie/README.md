@@ -31,9 +31,9 @@ Un lot est utilisable **jusqu'au jour de sa péremption inclus**, et périmé d�
 
 | Onglet | Contenu |
 |---|---|
-| File des prescriptions | Ordonnances **À valider**, **À dispenser**, **Délivrées**, avec recherche et compteurs. Détail : lignes, disponibilité en stock, prix, état de la facture, impression de l'ordonnance |
+| File des prescriptions | Ordonnances **À valider**, **À dispenser**, **Délivrées**, avec recherche et compteurs. Détail : lignes, disponibilité en stock, prix, état de la facture, impression de l'**ordonnance** et de la **fiche patient** (posologie) |
 | Stock & inventaire | Articles actifs : stock total, stock délivrable, quantité périmée encore en rayon, quantité qui expire dans les 90 jours, péremption la plus proche, alertes de stock faible. Actions par article : Réception, Perte, Transfert, Lots & historique |
-| Rapport mensuel | Par article : stock de début, reçu, consommé, pertes, ajustements, stock de fin, **CMM**, **jours de rupture**. Pour les vaccins : doses administrées, doses perdues, taux de perte |
+| Rapport mensuel | Par article : stock de début, reçu, consommé, pertes, ajustements, stock de fin, **CMM**, **jours de rupture**. Pour les vaccins : doses administrées, doses perdues, taux de perte. **Imprimer le rapport** (PDF) |
 | Pharmacovigilance | Effets indésirables déclarés dans le mois et leur investigation |
 
 ---
@@ -48,6 +48,11 @@ Un lot est utilisable **jusqu'au jour de sa péremption inclus**, et périmé d�
 4. Le patient règle la facture à la caisse.
 5. **À dispenser → Délivrer** : quand la facturation est active, la délivrance est **refusée tant
    que la facture n'est pas payée**. La délivrance sort le stock **lot par lot (FEFO)**.
+
+**Fiche patient** : depuis l'ordonnance, imprime pour le patient comment prendre chaque
+médicament (dose, fréquence, durée, instructions du prescripteur). Elle ne contient que ce que le
+prescripteur a écrit : MedCare n'a pas de monographie de médicaments et n'imprime jamais de mise
+en garde qu'un clinicien n'a pas rédigée.
 
 Si le stock délivrable est insuffisant pour une ligne, **toute la délivrance est refusée**
 (« stock insuffisant ») : enregistrez d'abord la réception ou l'inventaire, pour que le stock reste
@@ -95,8 +100,9 @@ dépassée se ferme tout seul.
 
 Suivi : date d'investigation et conclusion.
 
-### Consulter le rapport mensuel
-**Rapport mensuel** → choisissez le mois et, si besoin, une catégorie.
+### Consulter et imprimer le rapport mensuel
+**Rapport mensuel** → choisissez le mois et, si besoin, une catégorie → **Imprimer le rapport**
+pour le PDF (articles, entrées, sorties, pertes, CMM, jours de rupture, pertes de vaccins).
 
 ---
 
@@ -114,8 +120,11 @@ Suivi : date d'investigation et conclusion.
 
 ## Limites connues
 
-- **Aucune vérification d'interaction médicamenteuse.** L'alerte « Interaction à Haut Risque »
-  de l'écran est toujours inactive : rien ne la calcule.
+- **Pas de vérification des interactions médicamenteuses.** L'ancienne alerte « Interaction à
+  Haut Risque » a été retirée (2026-10-25) : elle n'était calculée par rien. Une vraie
+  vérification demanderait un référentiel d'interactions validé cliniquement.
+- Dans la fiche d'ordonnance, les boutons « Annuler » et « Voir » le patient n'ont pas encore
+  d'action.
 
 ## 🛠️ Repères techniques
 

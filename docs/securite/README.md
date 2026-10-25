@@ -3,7 +3,7 @@
 Ce guide explique qui peut faire quoi dans MedCare, comment les accès sont contrôlés et ce qui est
 tracé. Il s'adresse aux administrateurs de l'établissement et aux développeurs.
 
-📄 Constats de sécurité ouverts : [Audit de septembre 2026](AUDIT_2026-09.md).
+📄 [Audit de septembre 2026](AUDIT_2026-09.md) : constats et correctifs (les 4 constats sont corrigés, avec une réserve sur la CSP).
 
 ---
 
@@ -118,13 +118,24 @@ Garde-fous :
 Les actions sensibles sont enregistrées : connexions, modifications de comptes et de rôles,
 paiements, dérogations de paiement, remboursements, rejets d'organismes, modifications du tiers
 payant, saisie et validation du RMA3, génération d'un rapport RMA3, synchronisations DHIS2,
-ouverture d'un dossier VIH…
+ouverture d'un dossier VIH, modification des modèles de documents, téléchargement d'une
+sauvegarde de la base…
 
 👤 **Consulter l'activité d'un utilisateur** : Paramètres → Personnel & Rôles → menu de
 l'utilisateur → activité (`/settings/users/<id>/activity`), avec export CSV. Le tableau de bord de
 l'administrateur affiche aussi l'activité des dernières 24 heures.
 
-## 8. Bonnes pratiques pour l'établissement
+## 8. Protections du navigateur
+
+Chaque réponse porte des en-têtes de sécurité (`next.config.ts`) :
+- **Content-Security-Policy** : les ressources ne viennent que du site lui-même, et le site ne
+  peut pas être intégré dans le cadre d'un autre site. Réserve : les scripts en ligne restent
+  autorisés (contrainte de Next.js sans nonces).
+- **X-Frame-Options**, **X-Content-Type-Options**, **Referrer-Policy** (les adresses, qui
+  contiennent des identifiants de patients, ne sont pas transmises aux autres sites),
+  **Permissions-Policy** (caméra, micro, géolocalisation et paiement désactivés).
+
+## 9. Bonnes pratiques pour l'établissement
 
 - Un compte **nominatif** par personne ; ne partagez jamais un compte.
 - Désactivez immédiatement le compte d'une personne qui quitte l'établissement.

@@ -33,10 +33,7 @@ Copiez `.env.example` vers `.env`, puis renseignez :
 | `ONPREM_INSTALL_ID` | Oui en Docker / cloud | Identifiant stable de l'installation (`openssl rand -hex 16`), généré **une fois** et jamais modifié. Sans lui, l'empreinte de licence change à chaque recréation du conteneur ou du déploiement. |
 | `ONPREM_LICENSE_PUBLIC_KEY_PEM` | Non | Remplace la clé publique de vérification des licences, uniquement après une rotation de clé AlphaCorp. |
 | `CRON_SECRET` | Recommandé | Protège la tâche planifiée DHIS2 (`/api/cron/sync-dhis2`). Sans lui, l'URL est appelable sans authentification. |
-
-`DB_PUBLIC_URL` et `MEDCARE_SERVICE_API_KEY` figurent encore dans `.env.example` mais **ne sont
-plus lus par le code** (vestiges de l'ancienne console multi-établissements). Vous pouvez les
-laisser vides.
+| `POSTGRES_PASSWORD` | Docker Compose uniquement | Mot de passe du conteneur PostgreSQL fourni ; le conteneur de l'application en déduit son `DATABASE_URL`. |
 
 ⚠️ Une seule ligne par variable : en cas de doublon, une seule valeur est prise en compte.
 Après toute modification, **redémarrez ou redéployez** l'application.
@@ -96,22 +93,24 @@ simultanées. Le secret est comparé en temps constant. Le premier administrateu
 ### Docker
 
 Le dépôt fournit un `Dockerfile` (build Next.js *standalone*) et un `docker-compose.yml`
-(PostgreSQL 16 + application sur le port 3000).
+(PostgreSQL 16 + application sur le port 3000). **Aucun secret n'est écrit dans ces fichiers** :
+tout vient du `.env` placé à côté.
 
-```bash
-npm run docker:build
-npm run docker:up
-```
-
-⚠️ Avant toute utilisation réelle :
-- `docker-compose.yml` contient un **mot de passe PostgreSQL de démonstration** en clair :
-  remplacez-le, idéalement par une variable lue depuis `.env`.
-- Le service `app` ne transmet que `DATABASE_URL`, `NODE_ENV` et `ONPREM_INSTALL_ID`. Ajoutez
-  `NEXTAUTH_SECRET` et les variables `ONPREM_LICENSE_*`, sinon l'application refuse de démarrer
-  en production.
-- L'image *standalone* ne contient pas la CLI Prisma : appliquez les migrations depuis l'hôte
-  (`DATABASE_URL` pointant sur le port 5433 publié), pas avec `npm run docker:migrate`, qui lance
-  `migrate dev` (commande réservée au développement).
+1. Renseignez dans `.env` : `POSTGRES_PASSWORD`, `NEXTAUTH_SECRET`, `ONPREM_LICENSE_CLIENT_ID`,
+   `ONPREM_LICENSE_CLIENT_SECRET`, `ONPREM_INSTALL_ID` (obligatoires : Compose refuse de démarrer
+   s'il en manque une), et `ALPHACORP_LICENSE_API_URL`, `CRON_SECRET` si besoin.
+2. Construisez et démarrez :
+   ```bash
+   npm run docker:build
+   npm run docker:up
+   ```
+3. Appliquez les migrations **depuis l'hôte** : l'image *standalone* ne contient pas la CLI
+   Prisma. La base n'est publiée que sur la boucle locale (port 5433).
+   ```bash
+   export DATABASE_URL="postgresql://postgres:<POSTGRES_PASSWORD>@localhost:5433/medcarev2_db?schema=tenant_template"
+   npm run db:migrate:deploy && npm run seed && npm run seed-settings
+   ```
+4. Ouvrez `http://<serveur>:3000/setup`, de préférence derrière un reverse proxy HTTPS.
 
 ### Serveur sur site (sans Docker)
 
@@ -133,16 +132,26 @@ npm run start            # port 3000 par défaut ; placez un reverse proxy HTTPS
   Restauration : `pg_restore --clean --no-owner -d "$DATABASE_URL" medcare-AAAA-MM-JJ.dump`.
 - Conservez les sauvegardes **hors du serveur**, chiffrées : elles contiennent des données de santé.
 
-🛠️ Une route `app/api/v1/settings/database` (administrateur) sait lancer un `pg_dump` sur le
-serveur et lister ou télécharger les sauvegardes. **Aucun écran ne l'utilise aujourd'hui**, et elle
-suppose `pg_dump` installé sur le serveur et un disque persistant : elle ne fonctionne pas sur
-Vercel.
+- **Depuis l'application** : **Paramètres → Sauvegarde** (administrateur) télécharge un
+  `pg_dump` complet, au format personnalisé, restaurable avec `pg_restore`.
+  - Rien n'est conservé sur le serveur.
+  - 3 sauvegardes par heure au maximum ; chaque téléchargement est tracé.
+  - Il faut que `pg_dump` soit installé sur le serveur, dans une version au moins égale à celle de
+    la base. Sur Vercel (pas de `pg_dump`), l'écran indique que la sauvegarde est indisponible :
+    utilisez les branches Neon ou `pg_dump` depuis un poste d'administration.
 
 ## 7. Mises à jour
 
 1. Sauvegardez la base (section 6).
 2. Récupérez la nouvelle version du code.
 3. `npm install`, puis `npm run db:migrate:deploy`.
+
+   ⚠️ La migration `20261103090000_drop_legacy_saas` **supprime définitivement** les tables de
+   l'ancienne facturation SaaS (`plans`, `subscriptions`, `invoices`, `one_time_charges`,
+   `plan_modules`, `license_keys`, dans le schéma `public`). Aucun code ne les utilise, et elles
+   étaient vides sur la base Neon vérifiée le 2026-10-25. Les factures des patients
+   (`patient_invoices`) ne sont **pas** concernées. Vérifiez quand même qu'elles sont vides, ou
+   gardez une sauvegarde, avant de migrer une base plus ancienne.
 4. Rebuild et redémarrage (ou redéploiement).
 5. Si la version ajoute des paramètres d'examens : `npm run db:sync-exam-parameters`. Si elle
    modifie les prix du catalogue : `npm run db:sync-fee-schedule`.

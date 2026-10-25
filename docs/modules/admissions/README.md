@@ -81,9 +81,9 @@ bloqués par un paiement : les soins passent d'abord, la facture est réglée en
 - Onglet **Sortis** : historique des hospitalisations terminées, avec la **Fiche de sortie**.
 - Recherche par nom, IPP ou n° de séjour.
 
-> La page Sorties ne liste que les patients passés par le **circuit d'hospitalisation** (bouton
-> *Hospitaliser*). Une consultation terminée n'y figure pas. Un séjour qui a reçu un lit
-> directement à l'admission n'y figure pas non plus.
+> La page Sorties liste les patients passés par le **circuit d'hospitalisation** (bouton
+> *Hospitaliser*). C'est le seul moyen d'obtenir un lit : une consultation terminée sans
+> hospitalisation n'y figure donc pas.
 
 ---
 
@@ -97,8 +97,12 @@ bloqués par un paiement : les soins passent d'abord, la facture est réglée en
    obligatoire quand la facturation est active, sauf urgence vitale.
 5. Facultatif :
    - motif d'admission ;
-   - service, lit et médecin responsable ;
+   - service et médecin responsable ;
    - constantes d'accueil (tension, pouls, température, poids, taille, SpO₂).
+
+   **Pas de lit à l'admission** : un lit s'attribue en hospitalisant le patient (voir plus bas),
+   ce qui facture la caution et fait apparaître le patient dans **Sorties**. L'API refuse un lit
+   envoyé à l'admission (`bed_requires_hospitalization`).
 6. Validez. Le séjour reçoit un numéro `STAYnnnnnn`.
    - **Facturation active, cas normal** : le séjour attend le paiement. Le patient passe à la
      caisse, puis entre dans la file de consultation.
@@ -148,10 +152,16 @@ facturation est active (voir [Paramétrage → Lits et salles](../../parametrage
 Fiche de séjour → **Re-trier** → nouvelle priorité. Un patient re-trié en **urgence vitale**
 pendant qu'il attend à la caisse est libéré tout de suite vers le médecin.
 
-### Transférer un patient de lit ou de service
-Fiche de séjour → **Transfert / Affectation de Lit** → nouveau service, lit et médecin
-responsable. L'ancien lit est libéré. Le changement de lit est refusé si le nouveau lit a été pris
-entre-temps.
+### Transférer un patient de service ou de lit
+Fiche de séjour → **Transfert / Affectation de Lit** :
+- pour **tout séjour** : nouveau service et médecin responsable ;
+- pour un patient **hospitalisé** uniquement : nouveau **lit**. L'ancien lit est libéré, et le lit
+  d'hospitalisation suit (la page Sorties affiche le nouvel emplacement). Le changement est refusé
+  si le nouveau lit a été pris entre-temps.
+
+Un séjour non hospitalisé ne peut pas recevoir de lit par ce formulaire : utilisez
+**Hospitaliser**. La caution garde le prix journalier de la salle de départ, même après un
+changement de salle.
 
 ### Faire sortir un patient
 Depuis **Sorties → Hospitalisés → Faire sortir**, ou depuis la fiche de séjour → **Sortie du
@@ -183,8 +193,9 @@ inclus).
   au même instant.
 - Un lit ne peut être attribué qu'à un seul séjour : deux admissions simultanées sur le même lit,
   la seconde est refusée (« Bed was just taken by another admission »).
-- Les lits ne passent « occupé » ou « libre » que par l'admission, l'hospitalisation, le transfert
-  et la sortie. Les paramètres ne peuvent que les mettre en maintenance ou en réserve.
+- Un lit ne s'attribue que par l'**hospitalisation** ; il ne change ensuite que par un transfert
+  (patient hospitalisé) ou la sortie. Les paramètres ne peuvent que mettre un lit en maintenance
+  ou en réserve.
 - Service, lit et médecin envoyés par le navigateur sont vérifiés comme appartenant à
   l'établissement.
 - Une sortie déjà enregistrée ne régularise pas une seconde fois la facture si on la ré-enregistre.
@@ -193,8 +204,10 @@ inclus).
 
 - L'écran d'arrivée d'un **rendez-vous** ne propose pas encore le choix de l'acte d'admission : un
   patient sur rendez-vous entre directement dans la file, sans paiement préalable.
-- Un séjour qui a reçu un lit dès l'admission n'apparaît pas dans **Sorties** et n'a pas de caution
-  à régulariser.
+- Un changement de salle en cours d'hospitalisation ne change pas le prix journalier de la caution.
+- Des séjours créés avant le 2026-10-25 ont pu recevoir un lit directement à l'admission : ils
+  n'apparaissent pas dans Sorties. Pour les données de démonstration, voir
+  `npm run db:backfill-demo-hospitalizations` ([SEEDING](../../installation/SEEDING.md)).
 
 ## 🛠️ Repères techniques
 

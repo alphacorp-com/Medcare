@@ -134,6 +134,25 @@ Staff logins: … — password "Demo1234!".
 
 ---
 
+### Databases seeded before 2026-10-25: hospitalisations
+
+Older versions of `seed-journeys` gave demo patients a bed directly, without going through
+hospitalisation (no deposit, no hospitalisation status), so **Admissions → Discharges** stayed
+empty. The seed now records them like the app does (`prisma/seed-hospitalization.ts`). To repair
+a database seeded before, back it up, then:
+
+```bash
+npm run db:backfill-demo-hospitalizations             # dry run: lists what would change
+npm run db:backfill-demo-hospitalizations -- --apply  # writes
+```
+
+Only demo stays (`STPJ…` numbers) are touched, and the script can be re-run safely:
+- stays in progress with a bed are hospitalised (3-day deposit, paid unless the patient is a
+  vital emergency);
+- ended stays kept 12 hours or more are hospitalised, then discharged with the deposit
+  regularised;
+- shorter ones simply release the bed.
+
 ## 6. Check the result
 
 In the application, log in with a demo account (see section 7) and open:
@@ -142,6 +161,7 @@ In the application, log in with a demo account (see section 7) and open:
 |---|---|
 | Patients | 150 `PJ…` patients (plus newborns). |
 | Admissions / consultations / beds | Stays in progress, discharged, transferred, deceased. |
+| Admissions → Discharges | Hospitalised patients (deposit paid, or due for vital emergencies) and past hospitalisations with their discharge record. |
 | Disease programs | Vaccination, sessions, cold chain, AEFI, malaria, TB (cases and screening), nutrition, oxygen, chronic care, HIV. |
 | Maternity | Pregnancies, deliveries, postnatal visits, family planning. |
 | Pharmacy | Prescription queue, inventory with RMA3 articles, monthly stock report, pharmacovigilance. |

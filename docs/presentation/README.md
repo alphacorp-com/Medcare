@@ -126,7 +126,10 @@ Aucun module ne fonctionne seul. Exemple : un patient arrive aux urgences.
 
 - **Recherche et pagination** sur toutes les listes principales.
 - **Impression et export PDF** : liste des patients, dossier patient, dossier de séjour, fiche de
-  sortie, ordonnance, résultat de laboratoire, facture, reçu, bordereau de prise en charge.
+  sortie, ordonnance, fiche de posologie du patient, résultat de laboratoire, facture, reçu,
+  bordereau de prise en charge, rapport de stock mensuel. Titres, textes d'introduction, notes de
+  fin, mention de pied de page et bloc de signature se personnalisent dans Paramètres → Modèles de
+  Documents.
 - **Export CSV** : bordereaux de prise en charge, programme opératoire, journal d'activité d'un
   utilisateur.
 - **Tuiles de synthèse cliquables** : sur la plupart des listes de travail (laboratoire,

@@ -141,10 +141,8 @@ actif / inactif.
 ## Limites connues
 
 - **Mobile Money** : Orange Money n'a jamais été validé de bout en bout (compte marchand réel
-  nécessaire) ; MTN n'a été testé qu'en environnement de test.
-- ⚠️ **Sécurité** : les webhooks de confirmation Mobile Money ne vérifient pas encore le statut
-  auprès de l'opérateur (voir [Audit de sécurité](../../securite/AUDIT_2026-09.md)). Ne les activez
-  pas en production avant correction.
+  nécessaire) ; MTN n'a été testé qu'en environnement de test. La confirmation relit toujours le
+  statut auprès de l'opérateur (voir [Mobile Money](../../parametrage/mobile-money.md)).
 
 ## 🛠️ Repères techniques
 

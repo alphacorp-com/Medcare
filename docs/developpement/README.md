@@ -31,7 +31,7 @@ app/
     login/, setup/
   api/
     v1/                 API REST de l'application (une route = un fichier route.ts)
-    cron/               tâches planifiées (DHIS2, ancien contrôle d'abonnements)
+    cron/               tâche planifiée DHIS2
     auth/               NextAuth
 components/             composants partagés (layout, settings, templates PDF, shared, ui…)
 lib/                    logique métier, une bibliothèque par domaine (billing, coverage, stock, reports…)
@@ -59,11 +59,14 @@ tableaux, dialogues), `types.ts` (types des réponses API).
 | `npm run seed`, `seed-settings`, `seed-journeys` | Voir [SEEDING](../installation/SEEDING.md) |
 | `npm run db:sync-fee-schedule` | Resynchroniser la grille tarifaire depuis les catalogues |
 | `npm run db:sync-exam-parameters` | Appliquer les fiches de résultats standard aux examens |
+| `npm run db:backfill-demo-hospitalizations` | Réparer les hospitalisations des données de démonstration d'avant 2026-10-25 (à blanc par défaut ; `-- --apply` pour écrire) |
+| `npm run docker:build`, `docker:up`, `docker:down`, `docker:logs` | Image et conteneurs Docker (voir [Installation](../installation/README.md#docker)) |
 | `npm run db:reset-data` | ⚠️ Vide **toutes** les tables (base jetable uniquement) |
 
-Avant de livrer une modification : `npx tsc --noEmit`, `npm run lint` sur les fichiers touchés et
-`npm test`. Le build Next.js **ignore ESLint** (`eslint.ignoreDuringBuilds`) : le lint ne bloque
-donc pas un déploiement, il faut le lancer soi-même.
+Avant de livrer une modification : `npx tsc --noEmit`, `npm run lint` et `npm test`. Le lint
+du dépôt est **entièrement propre** (0 erreur, 0 avertissement) : gardez-le ainsi. Le build
+Next.js **ignore ESLint** (`eslint.ignoreDuringBuilds`) : le lint ne bloque donc pas un
+déploiement, il faut le lancer soi-même.
 
 ---
 
@@ -115,6 +118,15 @@ Conservez ce schéma pour toute nouvelle transition. Les transactions interactiv
   d'affichage : le contrôle réel est côté API.
 - Une URL externe saisie par un utilisateur n'est rendue comme lien que si elle est en `http(s)`
   (voir `components/shared/exam-result-sheet.tsx`).
+- **Chargement de données dans un `useEffect`** : ne jamais y appeler `setState` de façon
+  synchrone (règle `react-hooks/set-state-in-effect`). Séparez une fonction de chargement pure,
+  qui renvoie les données, de leur application à l'état, faite dans le rappel `.then`, avec un
+  drapeau `active` remis à `false` au démontage (exemple : `stays/[id]/page.tsx`). Pour un nouvel
+  écran, préférez TanStack Query.
+- **Documents PDF** : un modèle lit les textes personnalisés de l'établissement via
+  `components/templates/TemplateExtras.tsx` (`templateTitle`, `TemplateIntro`, `TemplateClosing`,
+  `TemplateFooterText`). Un nouveau modèle doit les utiliser et déclarer son identifiant dans
+  `lib/document-templates.ts`.
 
 ### Base de données
 - Toute évolution du schéma passe par une **migration** (`prisma/migrations/`), jamais par
@@ -129,23 +141,35 @@ Conservez ce schéma pour toute nouvelle transition. Les transactions interactiv
 
 ## Dette technique connue
 
+### Résolue le 2026-10-25
+
+| Sujet | Correctif |
+|---|---|
+| Webhooks Mobile Money | Statut relu auprès de l'opérateur, application atomique (plus de double crédit) — `lib/payments/confirm.ts` |
+| En-têtes HTTP | CSP, X-Frame-Options, nosniff, Referrer-Policy, Permissions-Policy, `poweredByHeader: false` |
+| `PUT /api/v1/settings/templates` | Administrateur seulement, contenu validé, audit |
+| Ancien SaaS multi-établissements | Code supprimé (`lib/subscription-sync.ts`, cron `check-subscriptions`, fonctions mortes de `lib/tenant-licensing.ts`) ; migration `20261103090000_drop_legacy_saas` qui supprime les 6 tables et leurs enums |
+| `.env.example`, `docker-compose.yml`, `Dockerfile` | Variables mortes retirées, `CRON_SECRET` documenté ; plus aucun secret dans les fichiers Docker ; scripts `docker:*` cassés retirés |
+| Interactions médicamenteuses | Alerte factice retirée (une vraie vérification exige un référentiel validé cliniquement) |
+| Modèles de documents | Éditeur par modèle (titre, introduction, note de fin), mention de pied de page, bloc signature réel ; option QR (jamais implémentée) retirée ; les 10 modèles sont utilisés (fiche de posologie et rapport de stock mensuel branchés) |
+| Lit à l'admission | Un lit ne s'attribue plus que par « Hospitaliser » ; transfert de lit réservé aux hospitalisés |
+| Seed de démonstration | Hospitalisations par le vrai circuit (`prisma/seed-hospitalization.ts`) ; script de reprise pour les bases déjà seedées |
+| Codes tarifaires | Un acte médical et un examen ne peuvent plus partager un code (`lib/billing/feeCodes.ts`) |
+| Lint | 0 erreur, 0 avertissement sur tout le dépôt |
+| Commentaires obsolètes | Corrigés ; les alertes de péremption du tableau de bord sont implémentées |
+| Sauvegarde | Écran Paramètres → Sauvegarde ; route réécrite (sans shell, sans fichier sur le serveur, audit, limitation) |
+| Tests | Tests unitaires ajoutés : modèles de documents, sauvegarde, statuts Mobile Money |
+
+### Restant
+
 | Sujet | Constat | Impact |
 |---|---|---|
-| 🔴 Webhooks Mobile Money | Font confiance au statut reçu (`app/api/v1/billing/webhooks/*`) | Paiement falsifiable ; voir l'[audit](../securite/AUDIT_2026-09.md) |
-| En-têtes HTTP | Pas de CSP, X-Frame-Options, etc. ; `poweredByHeader` actif | Durcissement manquant |
-| `PUT /api/v1/settings/templates` | Pas de contrôle administrateur | Modification d'habillage par tout utilisateur |
-| Ancien SaaS multi-établissements | Modèles `Plan`, `Subscription`, `Invoice` (SaaS), `OneTimeCharge`, `LicenseKey` encore dans le schéma ; `lib/subscription-sync.ts` et `/api/cron/check-subscriptions` encore présents sans écran ni route d'administration ; dossier `lib/admin/` vide | Code mort, à retirer par une migration dédiée |
-| `.env.example` | `DB_PUBLIC_URL` et `MEDCARE_SERVICE_API_KEY` ne sont plus lus ; le commentaire cite un `lib/admin/service-auth.ts` inexistant | Confusion à l'installation |
-| `docker-compose.yml` | Mot de passe PostgreSQL de démonstration en clair ; `NEXTAUTH_SECRET` et `ONPREM_LICENSE_*` non transmis | Ne démarre pas en production tel quel |
-| Interactions médicamenteuses | Alerte codée en dur à `false` | Fonctionnalité factice affichée |
-| Modèles de documents | Bouton « Modifier le modèle » sans action ; 2 modèles PDF jamais utilisés | Fonctionnalité incomplète |
-| Lit à l'admission | `POST /patients/[id]/stays` accepte un lit hors circuit d'hospitalisation | Lit occupé sans caution, absent de Sorties ; règle métier à trancher |
-| Seed de démonstration | Les hospitalisations ne renseignent pas `hospitalizationStatus` | Page Sorties vide en démonstration |
-| Grille tarifaire | Un acte médical et un examen de même code partagent la même ligne `FeeSchedule` (`lib/billing/syncFeeSchedule.ts`) | Écrasement silencieux d'un prix |
-| Lint | Erreurs préexistantes (par exemple `react-hooks/set-state-in-effect` dans `patients/[id]/page.tsx`) | Le lint global n'est pas vert |
-| Tests | Tests unitaires des bibliothèques uniquement ; pas de tests des routes API ni de bout en bout | Régressions de permissions non détectées automatiquement |
-| Commentaires obsolètes | `dashboard/stock-alerts` (« pas de dates de péremption »), `doctors` (« role=doctor ») | Lecture trompeuse |
-| Sauvegarde | `settings/database` (pg_dump) sans écran, inutilisable sans disque persistant | Fonction inaccessible |
+| Tests d'intégration | Seules les bibliothèques sont testées ; pas de tests des routes API (permissions, cloisonnement) ni de bout en bout | Régressions de permissions non détectées automatiquement |
+| CSP | `script-src 'unsafe-inline'` (pas de nonces) | Protection partielle contre un XSS injecté |
+| Changement de salle en cours d'hospitalisation | La régularisation garde le prix journalier de la salle de la caution | Écart de prix si le patient change de salle |
+| Seed : lits partagés | Les parcours de démonstration réutilisent les mêmes lits pour plusieurs séjours en cours | Plusieurs patients de démonstration dans le même lit |
+| Boutons sans action | Fiche d'ordonnance (pharmacie) : « Annuler » et « Voir » le patient n'ont pas de gestionnaire | Fonctionnalités apparentes inexistantes |
+| Textes figés des PDF | Certains pieds de page sont en anglais en dur (« Accredited Laboratory Services », « Page 1 of 1 ») | À traduire ou à retirer |
 
 Traitez chaque sujet dans une intervention distincte, avec ses tests, plutôt qu'au détour d'une
 autre modification.
