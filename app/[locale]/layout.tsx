@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { AuthInitializer } from '@/components/auth/AuthInitializer';
 import { NextAuthProvider } from '@/components/providers/session-provider';
 import { QueryProvider } from '@/components/providers/query-provider';
+import { ConfirmProvider } from '@/components/providers/confirm-provider';
 import { Toaster } from "sonner";
 import "../globals.css";
 
@@ -34,9 +35,11 @@ export default async function RootLayout({
         <NextIntlClientProvider messages={messages} locale={locale}>
           <NextAuthProvider>
             <QueryProvider>
-              <AuthInitializer>
-                {children}
-              </AuthInitializer>
+              <ConfirmProvider>
+                <AuthInitializer>
+                  {children}
+                </AuthInitializer>
+              </ConfirmProvider>
             </QueryProvider>
             <Toaster richColors position="top-right" />
           </NextAuthProvider>

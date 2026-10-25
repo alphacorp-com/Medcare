@@ -17,6 +17,7 @@ import { LAB_PARAMETERS, RADIOLOGY_PARAMETERS } from "@/lib/exam-catalog/standar
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { SettingsPageHeader } from "@/components/settings/settings-ui";
+import { useConfirm } from "@/components/providers/confirm-provider";
 
 type ExamCatalogDomain = "laboratory" | "radiology";
 type ExamType = { id: string; domain: ExamCatalogDomain; code: string; nameFr: string; nameEn: string | null; order: number; isActive: boolean; _count: { entries: number } };
@@ -37,6 +38,7 @@ const STANDARD_SHEETS: Record<ExamCatalogDomain, Record<string, ExamParameterDef
 
 export default function ExamTypesPage() {
   const t = useTranslations("settings.examTypes");
+  const confirm = useConfirm();
   const tc = useTranslations("common");
   const tdp = useTranslations("diseasePrograms");
 
@@ -240,7 +242,7 @@ export default function ExamTypesPage() {
   };
 
   const handleDeleteEntry = async (entry: ExamEntry) => {
-    if (!selectedType || !window.confirm(t("confirm_delete", { name: entry.nameFr }))) return;
+    if (!selectedType || !(await confirm({ message: t("confirm_delete", { name: entry.nameFr }), tone: "danger" }))) return;
     await fetch(`/api/v1/settings/exam-entries/${entry.id}`, { method: "DELETE" });
     fetchEntries(selectedType.id);
   };

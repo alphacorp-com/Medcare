@@ -12,6 +12,8 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import { ModulePermissionMatrix } from "@/components/settings/module-permission-matrix";
+import { useConfirm } from "@/components/providers/confirm-provider";
+import { toast } from "sonner";
 
 export type ModuleAction = 'read' | 'create' | 'update' | 'delete' | 'validate';
 
@@ -42,6 +44,7 @@ export function RolesManagement() {
   const [selectedModules, setSelectedModules] = useState<Record<string, ModuleAction[]>>({});
 
   const t = useTranslations('settings');
+  const confirm = useConfirm();
   const tc = useTranslations('common');
 
   useEffect(() => {
@@ -88,14 +91,14 @@ export function RolesManagement() {
   };
 
   const handleDelete = async (role: SystemRole) => {
-    if (!window.confirm(`${t('confirm_delete_role')} "${role.name}"?`)) return;
+    if (!(await confirm({ message: `${t('confirm_delete_role')} "${role.name}"?`, tone: "danger" }))) return;
     try {
       const res = await fetch(`/api/v1/roles/${role.id}`, { method: 'DELETE' });
       if (res.ok) {
         setRoles(roles.filter(r => r.id !== role.id));
       } else {
         const data = await res.json().catch(() => null);
-        window.alert(data?.error || t('save_role_error'));
+        toast.error(data?.error || t('save_role_error'));
       }
     } catch (error) {
       console.error("Failed to delete role", error);

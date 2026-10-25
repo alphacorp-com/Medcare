@@ -10,6 +10,7 @@ import { TriageBadge, type TriageAcuity } from "@/components/shared/triage-badge
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface QueueItem {
   id: string;
@@ -57,13 +58,13 @@ export default function ConsultationsPage() {
       const res = await fetch(`/api/v1/stays/${item.id}/claim`, { method: "POST" });
       const result = await res.json();
       if (!res.ok) {
-        window.alert(res.status === 409 ? t("already_claimed") : result.error || t("claim_failed"));
+        toast.error(res.status === 409 ? t("already_claimed") : result.error || t("claim_failed"));
         await fetchQueue();
         return;
       }
       goToConsultation(item);
     } catch {
-      window.alert(t("claim_failed"));
+      toast.error(t("claim_failed"));
     } finally {
       setClaimingId(null);
     }

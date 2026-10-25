@@ -10,6 +10,8 @@ import { Loader2, Plus, Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { INCOME_RUBRICS } from "@/lib/reports/rma3-income";
 import { SettingsCode, SettingsList, SettingsListItem, SettingsPageHeader, SettingsSwatch, settingsActionButtonClass } from "@/components/settings/settings-ui";
+import { useConfirm } from "@/components/providers/confirm-provider";
+import { toast } from "sonner";
 
 type ActCategory = {
   id: string;
@@ -25,6 +27,7 @@ type ActCategory = {
 
 export default function ActCategoriesPage() {
   const t = useTranslations("settings.actCategories");
+  const confirm = useConfirm();
   const tc = useTranslations("common");
 
   const [items, setItems] = useState<ActCategory[]>([]);
@@ -120,10 +123,10 @@ export default function ActCategoriesPage() {
 
   const handleDelete = async (item: ActCategory) => {
     if (item._count.acts > 0) {
-      window.alert(t("delete_blocked"));
+      toast.error(t("delete_blocked"));
       return;
     }
-    if (!window.confirm(t("confirm_delete", { name: item.nameFr }))) return;
+    if (!(await confirm({ message: t("confirm_delete", { name: item.nameFr }), tone: "danger" }))) return;
     await fetch(`/api/v1/settings/act-categories/${item.id}`, { method: "DELETE" });
     fetchItems();
   };

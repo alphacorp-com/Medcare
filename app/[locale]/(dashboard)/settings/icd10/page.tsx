@@ -11,11 +11,13 @@ import { CsvImportDialog } from "@/components/settings/csv-import-dialog";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { SettingsCode, SettingsList, SettingsListItem, SettingsPageHeader, settingsActionButtonClass } from "@/components/settings/settings-ui";
+import { useConfirm } from "@/components/providers/confirm-provider";
 
 type Icd10Entry = { id: string; code: string; labelFr: string; labelEn: string | null; chapter: string | null; isActive: boolean };
 
 export default function Icd10Page() {
   const t = useTranslations("settings.icd10");
+  const confirm = useConfirm();
   const tc = useTranslations("common");
   const isMobile = useIsMobile();
 
@@ -91,7 +93,7 @@ export default function Icd10Page() {
   };
 
   const handleDelete = async (item: Icd10Entry) => {
-    if (!window.confirm(t("confirm_delete", { name: item.code }))) return;
+    if (!(await confirm({ message: t("confirm_delete", { name: item.code }), tone: "danger" }))) return;
     await fetch(`/api/v1/settings/icd10/${item.id}`, { method: "DELETE" });
     fetchItems(search);
   };

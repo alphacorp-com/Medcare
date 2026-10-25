@@ -14,6 +14,7 @@ import { LastLoginBadge } from "@/components/settings/activity/last-login-badge"
 import { SettingsList, SettingsListItem, SettingsPageHeader, SettingsPill, settingsActionButtonClass } from "@/components/settings/settings-ui";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
+import { useConfirm } from "@/components/providers/confirm-provider";
 
 export type ModuleAction = 'read' | 'create' | 'update' | 'delete' | 'validate';
 
@@ -56,6 +57,7 @@ export function UsersManagement() {
   const [isSaving, setIsSaving] = useState(false);
 
   const t = useTranslations('settings');
+  const confirm = useConfirm();
   const tc = useTranslations('common');
 
   useEffect(() => {
@@ -118,7 +120,7 @@ export function UsersManagement() {
   };
 
   const handleDelete = async (id: string, name: string) => {
-    if(!window.confirm(`${t('confirm_remove')} ${name}?`)) return;
+    if(!(await confirm({ message: `${t('confirm_remove')} ${name}?`, tone: "danger" }))) return;
 
     try {
       const res = await fetch(`/api/v1/users/${id}`, { method: 'DELETE' });

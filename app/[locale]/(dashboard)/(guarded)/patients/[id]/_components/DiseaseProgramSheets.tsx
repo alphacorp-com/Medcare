@@ -24,6 +24,7 @@ import {
   NewTbCaseForm,
   NewTbFollowUpForm,
 } from "../types";
+import { useConfirm } from "@/components/providers/confirm-provider";
 
 // ── Immunization ─────────────────────────────────────────────────────────────
 
@@ -78,6 +79,7 @@ export function NewImmunizationSheet({
   open, onOpenChange, form, onUpdateForm, antigens, saving, error, onSubmit,
 }: NewImmunizationSheetProps) {
   const t = useTranslations('diseasePrograms.vaccination');
+  const confirm = useConfirm();
   const te = useTranslations('diseasePrograms.epi');
   const ts = useTranslations('stock');
   const tc = useTranslations('common');
@@ -238,8 +240,8 @@ export function NewImmunizationSheet({
                     type="button"
                     className="font-semibold text-red-600 hover:underline disabled:opacity-50"
                     disabled={discardVial.isPending}
-                    onClick={() => {
-                      if (window.confirm(ts('open_vial_discard_confirm', { left: selectedLot.openVial!.dosesLeft }))) discardVial.mutate(selectedLot.openVial!.id);
+                    onClick={async () => {
+                      if ((await confirm({ message: ts('open_vial_discard_confirm', { left: selectedLot.openVial!.dosesLeft }), tone: "danger" }))) discardVial.mutate(selectedLot.openVial!.id);
                     }}
                   >
                     {ts('open_vial_discard')}

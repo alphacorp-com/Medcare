@@ -19,6 +19,7 @@ import {
   type SexDraft,
 } from "@/lib/exam-catalog/parameter-drafts";
 import { ExamParametersEditor, rowsFromDefinitions, type ParameterRow } from "@/components/shared/exam-parameters-editor";
+import { useConfirm } from "@/components/providers/confirm-provider";
 
 const KINDS: ParameterKind[] = ["numeric", "qualitative", "text"];
 const NEXT_FLAG: Record<OptionFlag, OptionFlag> = { normal: "abnormal", abnormal: "critical", critical: "normal" };
@@ -42,15 +43,16 @@ interface BuilderProps {
 // answers, each yielding a flag) or free text. The server re-validates whatever is saved.
 export function ExamParametersBuilder({ drafts, onChange, standardSheets, errorIndex }: BuilderProps) {
   const t = useTranslations("settings.examTypes");
+  const confirm = useConfirm();
   const sections = [...new Set(drafts.map((d) => d.section.trim()).filter(Boolean))];
 
   const update = (index: number, patch: Partial<ParameterDraft>) =>
     onChange(drafts.map((d, i) => (i === index ? { ...d, ...patch } : d)));
 
-  const loadStandard = (code: string) => {
+  const loadStandard = async (code: string) => {
     const sheet = standardSheets[code];
     if (!sheet) return;
-    if (drafts.length > 0 && !window.confirm(t("load_standard_confirm", { count: drafts.length, code }))) return;
+    if (drafts.length > 0 && !(await confirm({ message: t("load_standard_confirm", { count: drafts.length, code }) }))) return;
     onChange(draftsFromDefinitions(sheet));
   };
 

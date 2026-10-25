@@ -118,6 +118,11 @@ Conservez ce schéma pour toute nouvelle transition. Les transactions interactiv
   d'affichage : le contrôle réel est côté API.
 - Une URL externe saisie par un utilisateur n'est rendue comme lien que si elle est en `http(s)`
   (voir `components/shared/exam-result-sheet.tsx`).
+- **Confirmations et messages** : jamais `window.confirm` ni `alert`. Pour confirmer une action :
+  `const confirm = useConfirm();` puis `if (!(await confirm({ message, tone: "danger" }))) return;`
+  (`components/providers/confirm-provider.tsx`, monté une fois dans le layout racine). Pour une
+  confirmation avec récapitulatif, utilisez `components/shared/confirm-dialog.tsx` (exemple : la
+  signature d'une consultation). Les erreurs et succès s'affichent par `toast` (sonner).
 - **Chargement de données dans un `useEffect`** : ne jamais y appeler `setState` de façon
   synchrone (règle `react-hooks/set-state-in-effect`). Séparez une fonction de chargement pure,
   qui renvoie les données, de leur application à l'état, faite dans le rappel `.then`, avec un

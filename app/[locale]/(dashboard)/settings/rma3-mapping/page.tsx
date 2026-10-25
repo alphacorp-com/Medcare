@@ -13,6 +13,7 @@ import { codeMatchesItems, findRubricForCode, normalizeIcd10Code, parseIcd10Rang
 import { RMA3_RUBRIC_SECTIONS, type Rma3RubricSection } from "@/lib/reports/rma3-rubrics-default";
 import { rma3FormSection } from "@/lib/reports/rma3-morbidity-default";
 import { cn } from "@/lib/utils";
+import { useConfirm } from "@/components/providers/confirm-provider";
 
 interface Rubric {
   id: string;
@@ -40,6 +41,7 @@ type Draft = Pick<Rubric, "label" | "icd10Ranges" | "isActive">;
 // validated and audited by the API; this page also previews where a code would be counted.
 export default function Rma3MappingPage() {
   const t = useTranslations("settings.rma3Mapping");
+  const confirm = useConfirm();
   const queryClient = useQueryClient();
   const [section, setSection] = useState<Rma3RubricSection>("V.3");
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
@@ -211,8 +213,8 @@ export default function Rma3MappingPage() {
                           className="h-7 px-2 text-[11px]"
                           title={t("reset_hint")}
                           disabled={saving}
-                          onClick={() => {
-                            if (window.confirm(t("reset_confirm", { label: r.label }))) mutation.mutate({ id: r.id, body: { reset: true } });
+                          onClick={async () => {
+                            if ((await confirm({ message: t("reset_confirm", { label: r.label }), tone: "danger" }))) mutation.mutate({ id: r.id, body: { reset: true } });
                           }}
                         >
                           <RotateCcw className="h-3.5 w-3.5" />

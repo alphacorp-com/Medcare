@@ -13,6 +13,7 @@ import { useStockErrorMessage } from "@/components/shared/use-stock-error-messag
 import { apiFetch } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import type { InventoryRow, OpenVialRow, StockLotRow, StockMovementRow, StorageLocationOption, SupplierOption } from "../types";
+import { useConfirm } from "@/components/providers/confirm-provider";
 
 // Receipt, loss and stock detail (lots, inventory count, journal) of one article. Every
 // quantity is applied server-side by lib/stock; these sheets only collect the input.
@@ -319,6 +320,7 @@ export function TransferSheet({
 // Open multi-dose vials of the article, with a discard action (doses left = wastage).
 function OpenVials({ vials }: { vials: OpenVialRow[] }) {
   const t = useTranslations("stock");
+  const confirm = useConfirm();
   const format = useFormatter();
   const queryClient = useQueryClient();
   const stockError = useStockErrorMessage();
@@ -343,8 +345,8 @@ function OpenVials({ vials }: { vials: OpenVialRow[] }) {
               variant="ghost"
               className="h-7 px-2 text-[11px] text-red-600"
               disabled={discard.isPending}
-              onClick={() => {
-                if (window.confirm(t("open_vial_discard_confirm", { left: vial.dosesLeft }))) discard.mutate(vial.id);
+              onClick={async () => {
+                if ((await confirm({ message: t("open_vial_discard_confirm", { left: vial.dosesLeft }), tone: "danger" }))) discard.mutate(vial.id);
               }}
             >
               {t("open_vial_discard")}

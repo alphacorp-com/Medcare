@@ -9,11 +9,13 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Loader2, Plus, Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SettingsCode, SettingsList, SettingsListItem, SettingsPageHeader, settingsActionButtonClass } from "@/components/settings/settings-ui";
+import { useConfirm } from "@/components/providers/confirm-provider";
 
 type StorageLocation = { id: string; code: string; name: string; address: string | null; isActive: boolean };
 
 export default function StorageLocationsPage() {
   const t = useTranslations("settings.storageLocations");
+  const confirm = useConfirm();
   const tc = useTranslations("common");
 
   const [items, setItems] = useState<StorageLocation[]>([]);
@@ -81,7 +83,7 @@ export default function StorageLocationsPage() {
   };
 
   const handleDelete = async (item: StorageLocation) => {
-    if (!window.confirm(t("confirm_delete", { name: item.name }))) return;
+    if (!(await confirm({ message: t("confirm_delete", { name: item.name }), tone: "danger" }))) return;
     await fetch(`/api/v1/settings/storage-locations/${item.id}`, { method: "DELETE" });
     fetchItems();
   };

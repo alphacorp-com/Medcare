@@ -13,6 +13,7 @@ import { Field, jsonInit, selectClass, today } from "@/components/programs/form-
 import { money, useCoverageError } from "@/components/coverage/shared";
 import { apiFetch } from "@/lib/api-client";
 import { useAppStore } from "@/lib/store/useAppStore";
+import { useConfirm } from "@/components/providers/confirm-provider";
 
 // Patient file > Third-party payment: the memberships the patient is covered by — as holder or
 // as a dependant (spouse, child…) of a holder who may not be a patient here —, the prior
@@ -63,6 +64,7 @@ function useSave(patientId: string, onDone: () => void) {
 
 export function CoverageTab({ patientId }: { patientId: string }) {
   const t = useTranslations("coverage.patient");
+  const confirm = useConfirm();
   const format = useFormatter();
   const hasPermission = useAppStore((s) => s.hasPermission);
   // UI only: every route checks MODULE_BILLING again ("validate" for free-care enrolments).
@@ -113,13 +115,13 @@ export function CoverageTab({ patientId }: { patientId: string }) {
                   {canCreate && isActive(c) && <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={() => setDialog({ kind: "authorization", coverage: c })}>{t("add_authorization")}</Button>}
                   {canUpdate && !c.endedAt && !c.policy.endedAt && (
                     <Button size="sm" variant="outline" className="h-7 text-[11px] text-red-700" disabled={save.isPending}
-                      onClick={() => window.confirm(t("remove_confirm")) && save.mutate({ url: `/api/v1/patients/${patientId}/coverage/${c.id}`, method: "PATCH", body: { end: true } })}>
+                      onClick={async () => (await confirm({ message: t("remove_confirm"), tone: "danger" })) && save.mutate({ url: `/api/v1/patients/${patientId}/coverage/${c.id}`, method: "PATCH", body: { end: true } })}>
                       {t("remove_beneficiary")}
                     </Button>
                   )}
                   {canUpdate && !c.policy.endedAt && (
                     <Button size="sm" variant="outline" className="h-7 text-[11px] text-red-700" disabled={save.isPending}
-                      onClick={() => window.confirm(t("end_policy_confirm", { count: c.policy.beneficiaries.length })) && save.mutate({ url: `/api/v1/coverage/policies/${c.policy.id}`, method: "PATCH", body: { end: true } })}>
+                      onClick={async () => (await confirm({ message: t("end_policy_confirm", { count: c.policy.beneficiaries.length }), tone: "danger" })) && save.mutate({ url: `/api/v1/coverage/policies/${c.policy.id}`, method: "PATCH", body: { end: true } })}>
                       {t("end_policy")}
                     </Button>
                   )}
@@ -143,7 +145,7 @@ export function CoverageTab({ patientId }: { patientId: string }) {
                         <td className="text-right">
                           {canUpdate && a.status === "active" && (
                             <button className="text-red-600 hover:underline" disabled={save.isPending}
-                              onClick={() => window.confirm(t("cancel_authorization_confirm")) && save.mutate({ url: `/api/v1/patients/${patientId}/authorizations/${a.id}`, method: "PATCH", body: { status: "cancelled" } })}>
+                              onClick={async () => (await confirm({ message: t("cancel_authorization_confirm"), tone: "danger" })) && save.mutate({ url: `/api/v1/patients/${patientId}/authorizations/${a.id}`, method: "PATCH", body: { status: "cancelled" } })}>
                               {t("cancel_authorization")}
                             </button>
                           )}

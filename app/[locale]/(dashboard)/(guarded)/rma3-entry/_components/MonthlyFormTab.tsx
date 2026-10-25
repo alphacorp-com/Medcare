@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/store/useAppStore";
 import { BREAKDOWN_COLUMNS, RMA3_MANUAL_SECTIONS, type Rma3ManualIndicator } from "@/lib/rma3-manual/catalog";
 import { previousMonth, selectClass, useRma3ApiError } from "./shared";
+import { useConfirm } from "@/components/providers/confirm-provider";
 
 // The RMA3 monthly form: the figures no transaction records, entered once a month, then
 // validated (locked). The server checks every permission and value again.
@@ -39,6 +40,7 @@ function groupByBreakdown(indicators: readonly Rma3ManualIndicator[]) {
 
 export function MonthlyFormTab() {
   const t = useTranslations("rma3Entry");
+  const confirm = useConfirm();
   const format = useFormatter();
   const apiError = useRma3ApiError();
   const queryClient = useQueryClient();
@@ -105,8 +107,8 @@ export function MonthlyFormTab() {
     onError: (error) => toast.error(apiError(error)),
   });
 
-  const changeMonth = (value: string) => {
-    if (dirtyCount > 0 && !window.confirm(t("discard_confirm"))) return;
+  const changeMonth = async (value: string) => {
+    if (dirtyCount > 0 && !(await confirm({ message: t("discard_confirm"), tone: "danger" }))) return;
     setDraft({});
     setMonth(value);
   };

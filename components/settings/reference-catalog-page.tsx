@@ -15,6 +15,7 @@ import {
   SettingsCode, SettingsList, SettingsListItem, SettingsPageHeader, SettingsSwatch, settingsActionButtonClass,
 } from "./settings-ui";
 import { cn } from "@/lib/utils";
+import { useConfirm } from "@/components/providers/confirm-provider";
 
 const ICON_OPTIONS: Record<string, React.ComponentType<{ className?: string }>> = {
   BedDouble, HeartPulse, Baby, Users, Siren, Scissors, Ban, Stethoscope,
@@ -52,6 +53,7 @@ export function ReferenceCatalogPage({
   allowCsvImport?: boolean;
 }) {
   const t = useTranslations(translationNamespace);
+  const confirm = useConfirm();
   const tc = useTranslations("common");
   const [isImportOpen, setIsImportOpen] = useState(false);
 
@@ -173,7 +175,7 @@ export function ReferenceCatalogPage({
   };
 
   const handleDelete = async (item: ReferenceCatalogItem) => {
-    if (!window.confirm(t("confirm_delete", { name: item.nameFr }))) return;
+    if (!(await confirm({ message: t("confirm_delete", { name: item.nameFr }), tone: "danger" }))) return;
     await fetch(`${baseUrl}/${item.id}`, { method: "DELETE" });
     fetchItems();
   };

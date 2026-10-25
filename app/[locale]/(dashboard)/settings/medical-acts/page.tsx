@@ -12,6 +12,7 @@ import { CsvImportDialog } from "@/components/settings/csv-import-dialog";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { SettingsCode, SettingsList, SettingsListItem, SettingsPageHeader, settingsActionButtonClass } from "@/components/settings/settings-ui";
+import { useConfirm } from "@/components/providers/confirm-provider";
 
 type Category = { id: string; nameFr: string; color: string | null };
 type MedicalAct = {
@@ -37,6 +38,7 @@ const EMPTY_FORM = {
 
 export default function MedicalActsPage() {
   const t = useTranslations("settings.medicalActs");
+  const confirm = useConfirm();
   const tc = useTranslations("common");
   const isMobile = useIsMobile();
 
@@ -145,7 +147,7 @@ export default function MedicalActsPage() {
   };
 
   const handleDelete = async (item: MedicalAct) => {
-    if (!window.confirm(t("confirm_delete", { name: item.nameFr }))) return;
+    if (!(await confirm({ message: t("confirm_delete", { name: item.nameFr }), tone: "danger" }))) return;
     await fetch(`/api/v1/settings/medical-acts/${item.id}`, { method: "DELETE" });
     fetchAll();
   };

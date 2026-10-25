@@ -9,6 +9,8 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Loader2, Plus, Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SettingsCode, SettingsList, SettingsListItem, SettingsPageHeader, settingsActionButtonClass } from "@/components/settings/settings-ui";
+import { useConfirm } from "@/components/providers/confirm-provider";
+import { toast } from "sonner";
 
 type BedStatus = "available" | "occupied" | "maintenance" | "reserved";
 type Bed = {
@@ -29,6 +31,7 @@ const EMPTY_FORM = { code: "", label: "", departmentId: "", roomTypeId: "", stat
 
 export default function BedsPage() {
   const t = useTranslations("settings.beds");
+  const confirm = useConfirm();
   const tc = useTranslations("common");
 
   const [items, setItems] = useState<Bed[]>([]);
@@ -121,18 +124,18 @@ export default function BedsPage() {
     const res = await fetch(`/api/v1/settings/beds/${item.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isActive: !item.isActive }) });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      window.alert(body?.error || t("save_error"));
+      toast.error(body?.error || t("save_error"));
       return;
     }
     fetchAll();
   };
 
   const handleDelete = async (item: Bed) => {
-    if (!window.confirm(t("confirm_delete", { name: item.label }))) return;
+    if (!(await confirm({ message: t("confirm_delete", { name: item.label }), tone: "danger" }))) return;
     const res = await fetch(`/api/v1/settings/beds/${item.id}`, { method: "DELETE" });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      window.alert(body?.error || t("cannot_delete_occupied"));
+      toast.error(body?.error || t("cannot_delete_occupied"));
       return;
     }
     fetchAll();

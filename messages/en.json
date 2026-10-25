@@ -576,7 +576,8 @@
     "delivery": "Delivery",
     "cpn_visits": "CPN Visits",
     "gravida_para": "Gravida/Para",
-    "invoice_generated": "Invoice generated"
+    "invoice_generated": "Invoice generated",
+    "confirm": "Confirm"
   },
   "licensing": {
     "tenant_inactive_title": "Tenant Inactive",

@@ -576,7 +576,8 @@
     "delivery": "Accouchement",
     "cpn_visits": "Visites CPN",
     "gravida_para": "Gestité/Parité",
-    "invoice_generated": "Facture générée"
+    "invoice_generated": "Facture générée",
+    "confirm": "Confirmer"
   },
   "licensing": {
     "tenant_inactive_title": "Tenant Inactif",

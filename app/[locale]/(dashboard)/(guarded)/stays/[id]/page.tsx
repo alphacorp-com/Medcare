@@ -29,6 +29,7 @@ import { notifyBillingGenerated } from "@/lib/billing/client";
 // Types
 import { StayDetail, Doctor, Department, Bed, CatalogOption, MedicalActOption, OrderItem } from "./types";
 import type { TriageAcuity } from "@/components/shared/triage-badge";
+import { useConfirm } from "@/components/providers/confirm-provider";
 
 type StayLoad = { ok: true; stay: StayDetail } | { ok: false; error: string };
 
@@ -75,6 +76,7 @@ async function loadReferenceData(): Promise<StayReferenceData> {
 
 export default function AdmissionDetailPage() {
   const t = useTranslations('admissions');
+  const confirm = useConfirm();
   const diagnosisError = useDiagnosisErrorMessage();
   const tc = useTranslations('common');
   const tm = useTranslations('documents.medicalRecord');
@@ -292,7 +294,7 @@ export default function AdmissionDetailPage() {
   };
 
   const handleCancelOrder = async (orderId: string) => {
-    if (!window.confirm(t('confirm_cancel_order'))) return;
+    if (!(await confirm({ message: t('confirm_cancel_order'), tone: "danger" }))) return;
     try {
       const res = await fetch(`/api/v1/exam-requests/${orderId}/cancel`, { method: "PATCH" });
       const json = await res.json();
@@ -326,7 +328,7 @@ export default function AdmissionDetailPage() {
   };
 
   const handleCancelHospitalization = async () => {
-    if (!window.confirm(t('confirm_cancel_hospitalization'))) return;
+    if (!(await confirm({ message: t('confirm_cancel_hospitalization'), tone: "danger" }))) return;
     try {
       const res = await fetch(`/api/v1/stays/${id}/hospitalization`, { method: "DELETE" });
       const json = await res.json();

@@ -26,6 +26,7 @@ import { CompleteSurgerySheet } from "./_components/CompleteSurgerySheet";
 import { CancelPostponeDialog } from "./_components/CancelPostponeDialog";
 import { RescheduleDialog } from "./_components/RescheduleDialog";
 import { Doctor, Surgery, SurgicalStatus } from "./types";
+import { toast } from "sonner";
 
 const STATUS_FILTERS: (SurgicalStatus | "All")[] = ["All", "scheduled", "in_progress", "completed", "cancelled", "postponed"];
 
@@ -99,7 +100,7 @@ export default function SurgeryPage() {
       const res = await fetch(`/api/v1/surgeries/${surgery.id}/start`, { method: 'PATCH' });
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));
-        alert(payload?.error || t('start_error'));
+        toast.error(payload?.error || t('start_error'));
         return;
       }
       fetchSurgeries();

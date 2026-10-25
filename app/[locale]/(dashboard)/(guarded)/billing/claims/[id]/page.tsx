@@ -19,6 +19,7 @@ import { apiFetch } from "@/lib/api-client";
 import { useAppStore } from "@/lib/store/useAppStore";
 import { downloadCsv } from "@/lib/csv";
 import { CLAIM_STATUS_TONE, PayerPaymentDialog } from "../../_components/ClaimsTab";
+import { useConfirm } from "@/components/providers/confirm-provider";
 
 // One claim ("bordereau") to a payer: its invoices, what was settled and rejected, and the
 // lifecycle actions (submit, settle, reject, close) — each settlement allocation and rejection can
@@ -48,6 +49,7 @@ const outstanding = (i: Item) => Number(i.claimedAmount) - Number(i.paidAmount) 
 
 export default function ClaimPage() {
   const t = useTranslations("coverage.claims");
+  const confirm = useConfirm();
   const tp = useTranslations("coverage.patient");
   const format = useFormatter();
   const router = useRouter();
@@ -136,10 +138,10 @@ export default function ClaimPage() {
         <div className="flex flex-wrap gap-2">
           <Button size="sm" variant="outline" className="h-8 text-xs" onClick={exportCsv}><Download className="mr-1 h-3.5 w-3.5" /> {t("export")}</Button>
           <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setPdfOpen(true)}><FileText className="mr-1 h-3.5 w-3.5" /> {t("export_pdf")}</Button>
-          {canUpdate && c.status === "draft" && <Button size="sm" className="h-8 text-xs bg-blue-600 hover:bg-blue-700" disabled={action.isPending} onClick={() => window.confirm(t("submit_confirm")) && action.mutate({ action: "submit" })}><Send className="mr-1 h-3.5 w-3.5" /> {t("submit")}</Button>}
-          {canDelete && c.status === "draft" && <Button size="sm" variant="outline" className="h-8 text-xs text-red-700" disabled={remove.isPending} onClick={() => window.confirm(t("delete_confirm")) && remove.mutate()}><Trash2 className="mr-1 h-3.5 w-3.5" /> {t("delete")}</Button>}
+          {canUpdate && c.status === "draft" && <Button size="sm" className="h-8 text-xs bg-blue-600 hover:bg-blue-700" disabled={action.isPending} onClick={async () => (await confirm({ message: t("submit_confirm") })) && action.mutate({ action: "submit" })}><Send className="mr-1 h-3.5 w-3.5" /> {t("submit")}</Button>}
+          {canDelete && c.status === "draft" && <Button size="sm" variant="outline" className="h-8 text-xs text-red-700" disabled={remove.isPending} onClick={async () => (await confirm({ message: t("delete_confirm"), tone: "danger" })) && remove.mutate()}><Trash2 className="mr-1 h-3.5 w-3.5" /> {t("delete")}</Button>}
           {canUpdate && acceptsSettlement && <Button size="sm" className="h-8 text-xs" onClick={() => setPaying(true)}><Banknote className="mr-1 h-3.5 w-3.5" /> {t("record_settlement")}</Button>}
-          {canUpdate && c.status === "settled" && <Button size="sm" variant="outline" className="h-8 text-xs" disabled={action.isPending} onClick={() => window.confirm(t("close_confirm")) && action.mutate({ action: "close" })}><Lock className="mr-1 h-3.5 w-3.5" /> {t("close")}</Button>}
+          {canUpdate && c.status === "settled" && <Button size="sm" variant="outline" className="h-8 text-xs" disabled={action.isPending} onClick={async () => (await confirm({ message: t("close_confirm") })) && action.mutate({ action: "close" })}><Lock className="mr-1 h-3.5 w-3.5" /> {t("close")}</Button>}
         </div>
       </div>
 

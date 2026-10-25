@@ -9,12 +9,14 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Loader2, Plus, Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SettingsCode, SettingsList, SettingsListItem, SettingsPageHeader, settingsActionButtonClass } from "@/components/settings/settings-ui";
+import { useConfirm } from "@/components/providers/confirm-provider";
 
 type Supplier = { id: string; code: string; name: string; contactName: string | null; phone: string | null; email: string | null; address: string | null; isActive: boolean };
 const EMPTY = { code: "", name: "", contactName: "", phone: "", email: "", address: "" };
 
 export default function SuppliersPage() {
   const t = useTranslations("settings.suppliers");
+  const confirm = useConfirm();
   const tc = useTranslations("common");
 
   const [items, setItems] = useState<Supplier[]>([]);
@@ -84,7 +86,7 @@ export default function SuppliersPage() {
   };
 
   const handleDelete = async (item: Supplier) => {
-    if (!window.confirm(t("confirm_delete", { name: item.name }))) return;
+    if (!(await confirm({ message: t("confirm_delete", { name: item.name }), tone: "danger" }))) return;
     await fetch(`/api/v1/settings/suppliers/${item.id}`, { method: "DELETE" });
     fetchItems();
   };
