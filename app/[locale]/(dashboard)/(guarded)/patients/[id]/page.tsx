@@ -6,7 +6,7 @@ import { useStockErrorMessage } from "@/components/shared/use-stock-error-messag
 import { Link } from "@/i18n/routing";
 import { useParams, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { format } from "date-fns";
 import { useSession } from "next-auth/react";
 import { PDFPreviewModal } from "@/components/templates/PDFPreviewModal";
@@ -47,7 +47,6 @@ import {
   PregnancyRow,
   Department,
   Doctor,
-  Bed,
   VaccineAntigen,
   ImmunizationRow,
   MalariaCaseRow,
@@ -66,6 +65,26 @@ const emptyImmunizationForm = (): NewImmunizationForm => ({
   antigenCode: "", doseNumber: "1", administeredAt: new Date().toISOString().slice(0, 10), stockLotId: "", lotNumber: "", notes: "",
   strategy: "fixed", populationGroup: "", sessionId: "",
 });
+
+type ApiResponse = { success?: boolean; error?: string; data?: unknown; userNames?: Record<string, string> };
+const PATIENT_FILE_PARTS = ["patient", "stays", "prescriptions", "exams", "records", "billing", "vitals", "surgeries", "pregnancies", "immunizations", "malariaCases", "tbCases", "diagnoses"] as const;
+type PatientFileLoad = ({ ok: true } & Record<(typeof PATIENT_FILE_PARTS)[number], ApiResponse>) | { ok: false; error: string };
+
+// Everything the patient file shows, loaded in parallel. A failing section is left as is;
+// only the patient itself is required.
+async function loadPatientFile(id: string): Promise<PatientFileLoad> {
+  const urls = ["", "/stays", "/prescriptions", "/exams", "/records", "/billing", "/vitals", "/surgeries", "/pregnancies", "/immunizations", "/malaria-cases", "/tb-cases", "/diagnoses"]
+    .map((suffix) => `/api/v1/patients/${id}${suffix}`);
+  try {
+    const responses = await Promise.all(urls.map((url) => fetch(url)));
+    const bodies: ApiResponse[] = await Promise.all(responses.map((res) => res.json()));
+    if (!responses[0].ok || !bodies[0].success) return { ok: false, error: bodies[0].error ?? "Failed to load patient" };
+    const parts = Object.fromEntries(PATIENT_FILE_PARTS.map((key, i) => [key, bodies[i]])) as Record<(typeof PATIENT_FILE_PARTS)[number], ApiResponse>;
+    return { ok: true, ...parts };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to load" };
+  }
+}
 
 export default function PatientDetailPage() {
   const t = useTranslations('patients');
@@ -101,7 +120,6 @@ export default function PatientDetailPage() {
   // Reference Data
   const [departments, setDepartments] = useState<Department[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
-  const [beds, setBeds] = useState<Bed[]>([]);
   const [antigens, setAntigens] = useState<VaccineAntigen[]>([]);
 
   // UI State
@@ -126,7 +144,7 @@ export default function PatientDetailPage() {
   const [editError, setEditError] = useState<string | null>(null);
 
   const [stayForm, setStayForm] = useState<NewStayForm>({
-    type: "emergency", admissionReason: "", departmentId: "", bedId: "", attendingDoctorId: "", triageAcuity: "", medicalActCode: "", vitals: EMPTY_VITALS
+    type: "emergency", admissionReason: "", departmentId: "", attendingDoctorId: "", triageAcuity: "", medicalActCode: "", vitals: EMPTY_VITALS
   });
   const [savingStay, setSavingStay] = useState(false);
   const [stayError, setStayError] = useState<string | null>(null);
@@ -165,66 +183,56 @@ export default function PatientDetailPage() {
   const [savingTbFollowUp, setSavingTbFollowUp] = useState(false);
   const [tbFollowUpError, setTbFollowUpError] = useState<string | null>(null);
 
-  const fetchData = async () => {
-    try {
-      const [pRes, sRes, rxRes, exRes, recRes, billRes, vitRes, surgRes, pregRes, immRes, malRes, tbRes, dxRes] = await Promise.all([
-        fetch(`/api/v1/patients/${id}`),
-        fetch(`/api/v1/patients/${id}/stays`),
-        fetch(`/api/v1/patients/${id}/prescriptions`),
-        fetch(`/api/v1/patients/${id}/exams`),
-        fetch(`/api/v1/patients/${id}/records`),
-        fetch(`/api/v1/patients/${id}/billing`),
-        fetch(`/api/v1/patients/${id}/vitals`),
-        fetch(`/api/v1/patients/${id}/surgeries`),
-        fetch(`/api/v1/patients/${id}/pregnancies`),
-        fetch(`/api/v1/patients/${id}/immunizations`),
-        fetch(`/api/v1/patients/${id}/malaria-cases`),
-        fetch(`/api/v1/patients/${id}/tb-cases`),
-        fetch(`/api/v1/patients/${id}/diagnoses`),
-      ]);
-      const [pJson, sJson, rxJson, exJson, recJson, billJson, vitJson, surgJson, pregJson, immJson, malJson, tbJson, dxJson] = await Promise.all([
-        pRes.json(), sRes.json(), rxRes.json(), exRes.json(), recRes.json(), billRes.json(), vitRes.json(), surgRes.json(), pregRes.json(), immRes.json(), malRes.json(), tbRes.json(), dxRes.json()
-      ]);
-
-      if (!pRes.ok || !pJson.success) throw new Error(pJson.error ?? "Failed to load patient");
-      setPatient(pJson.data);
-      if (sJson.success) setStays(sJson.data);
-      if (rxJson.success) setPrescriptions(rxJson.data);
-      if (exJson.success) {
-        setExams(exJson.data);
-        setExamUserNames(exJson.userNames ?? {});
-      }
-      if (recJson.success) setRecords(recJson.data);
-      if (billJson.success) setBilling(billJson.data);
-      if (vitJson.success) setVitals(vitJson.data);
-      if (surgJson.success) setSurgeries(surgJson.data);
-      if (pregJson.success) setPregnancies(pregJson.data);
-      if (immJson.success) setImmunizations(immJson.data);
-      if (malJson.success) setMalariaCases(malJson.data);
-      if (tbJson.success) setTbCases(tbJson.data);
-      if (dxJson.success) setDiagnoses(dxJson.data);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load");
-    } finally {
+  // State is only ever set in promise callbacks (never synchronously in an effect), and a
+  // response arriving after unmount or a change of patient is dropped by the effect below.
+  const applyPatientFile = useCallback((file: PatientFileLoad) => {
+    if (!file.ok) {
+      setError(file.error);
       setLoading(false);
+      return;
     }
-  };
+    const { patient, stays, prescriptions, exams, records, billing, vitals, surgeries, pregnancies, immunizations, malariaCases, tbCases, diagnoses } = file;
+    setPatient(patient.data as PatientDetail);
+    if (stays.success) setStays(stays.data as StayRow[]);
+    if (prescriptions.success) setPrescriptions(prescriptions.data as PrescriptionRow[]);
+    if (exams.success) {
+      setExams(exams.data as ExamRow[]);
+      setExamUserNames(exams.userNames ?? {});
+    }
+    if (records.success) setRecords(records.data as MedicalRecordRow[]);
+    if (billing.success) setBilling(billing.data as BillingRow[]);
+    if (vitals.success) setVitals(vitals.data as VitalSignsRow[]);
+    if (surgeries.success) setSurgeries(surgeries.data as SurgeryRow[]);
+    if (pregnancies.success) setPregnancies(pregnancies.data as PregnancyRow[]);
+    if (immunizations.success) setImmunizations(immunizations.data as ImmunizationRow[]);
+    if (malariaCases.success) setMalariaCases(malariaCases.data as MalariaCaseRow[]);
+    if (tbCases.success) setTbCases(tbCases.data as TbCaseRow[]);
+    if (diagnoses.success) setDiagnoses(diagnoses.data as RecordedDiagnosis[]);
+    setLoading(false);
+  }, []);
+
+  const fetchData = useCallback(() => loadPatientFile(id).then(applyPatientFile), [id, applyPatientFile]);
 
   useEffect(() => {
-    fetchData();
-    // Load reference data
+    let active = true;
+    void loadPatientFile(id).then((file) => {
+      if (active) applyPatientFile(file);
+    });
+    // Reference data
     Promise.all([
       fetch("/api/v1/departments").then((r) => r.json()),
       fetch("/api/v1/doctors").then((r) => r.json()),
-      fetch("/api/v1/settings/beds?status=available").then((r) => r.json()),
       fetch("/api/v1/settings/reference-data/vaccine_antigen").then((r) => r.json()),
-    ]).then(([deptJson, docJson, bedsJson, antigensJson]) => {
+    ]).then(([deptJson, docJson, antigensJson]) => {
+      if (!active) return;
       if (deptJson.success) setDepartments(deptJson.data);
       if (docJson.success) setDoctors(docJson.data);
-      if (Array.isArray(bedsJson)) setBeds(bedsJson);
       if (Array.isArray(antigensJson)) setAntigens(antigensJson);
-    });
-  }, [id]);
+    }).catch((e) => console.error("Failed to fetch reference data", e));
+    return () => {
+      active = false;
+    };
+  }, [id, applyPatientFile]);
 
   // Deep-link from the consultation queue (/consultations "Claim"/"Continue"): pre-fill
   // and open the same "add medical record" sheet used everywhere else, pre-selected to
@@ -549,7 +557,7 @@ export default function PatientDetailPage() {
       <NewAdmissionSheet
         open={isStayOpen} onOpenChange={setIsStayOpen}
         patient={patient} form={stayForm} onUpdateForm={(k, v) => setStayForm(p => ({ ...p, [k]: v }))}
-        departments={departments} doctors={doctors} beds={beds}
+        departments={departments} doctors={doctors}
         saving={savingStay} error={stayError} onSubmit={handleSaveStay}
       />
 

@@ -1,4 +1,5 @@
 import { parseNomenclatureRate } from "@/lib/coverage/input";
+import { feeCodeUsedByOtherCatalog } from "@/lib/billing/feeCodes";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -49,6 +50,11 @@ export async function POST(request: Request) {
     const categoryId = categoryByCode.get(categoryCode);
     if (!categoryId) {
       errors.push({ row: i + 1, message: `Unknown category code "${row.categoryCode}"` });
+      continue;
+    }
+
+    if (await feeCodeUsedByOtherCatalog(session.user.tenantId, code, "medical_act")) {
+      errors.push({ row: i + 1, message: `Code "${code}" is already used by an exam (same tariff slot)` });
       continue;
     }
 

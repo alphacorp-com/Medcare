@@ -4,7 +4,7 @@ import { useAppStore } from "@/lib/store/useAppStore";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Building, User, ShieldCheck, LayoutTemplate, Link2, Users, UserCog, FileText, Loader2, ServerCog, ChevronRight,
+  Building, User, DatabaseBackup, LayoutTemplate, Link2, Users, UserCog, FileText, Loader2, ServerCog, ChevronRight,
   type LucideIcon,
 } from "lucide-react";
 import { useState, useEffect, Suspense, Fragment } from "react";
@@ -23,6 +23,7 @@ import { ChangePasswordCard } from "@/components/settings/change-password-card";
 import { OrganizationSettings } from "@/components/settings/organization-settings";
 import { ModuleConfiguration } from "@/components/settings/module-configuration";
 import { DocumentTemplates } from "@/components/settings/document-templates";
+import { DatabaseBackupSettings } from "@/components/settings/database-backup";
 import { DEFAULT_DOCUMENT_TEMPLATE_SETTINGS, normalizeDocumentTemplateSettings, type DocumentTemplateSettings } from "@/lib/document-templates";
 import { toast } from "sonner";
 import { Dhis2IntegrationSettings } from "@/components/settings/dhis2-integration-settings";
@@ -291,24 +292,12 @@ function SettingsPageContent() {
     },
     { key: "onprem_license", label: t("onprem_license_management"), icon: ServerCog, adminOnly: true, content: <OnPremLicensePanel /> },
     {
-      key: "security",
-      label: t("security"),
-      icon: ShieldCheck,
+      key: "backup",
+      label: t("backup.title"),
+      icon: DatabaseBackup,
       adminOnly: true,
       separatorBefore: true,
-      content: (
-        <div className="bg-white rounded-2xl md:rounded border border-slate-200 shadow-sm p-4 md:p-6 space-y-6">
-          <div>
-            <h2 className="text-lg font-bold text-slate-900">{t("security")}</h2>
-            <p className="text-xs text-slate-500">Configure global authentication mechanisms.</p>
-          </div>
-          <div className="p-6 md:p-8 text-center border-2 border-dashed border-slate-200 rounded-lg">
-            <ShieldCheck className="h-10 w-10 text-slate-300 mx-auto mb-3" />
-            <h3 className="text-sm font-bold text-slate-700">SSO & RBAC Settings</h3>
-            <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">Role Based Access Control is managed dynamically via Users Configuration.</p>
-          </div>
-        </div>
-      ),
+      content: <DatabaseBackupSettings />,
     },
     {
       key: "integrations",

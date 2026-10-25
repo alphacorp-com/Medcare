@@ -281,7 +281,17 @@ export async function PATCH(
     const resolvedDepartmentId = departmentId !== undefined ? toUuid(departmentId) : existingStay.departmentId;
 
     const bedChanged = newBedId !== existingStay.bedId;
+    // Only a hospitalised patient changes bed here (a ward transfer). Any other stay gets its
+    // bed through hospitalisation (deposit, discharges page): POST /stays/:id/hospitalization.
+    const isAdmitted = existingStay.hospitalizationStatus === "admitted";
+    if (bedChanged && newBedId && !isAdmitted) {
+      return NextResponse.json(
+        { error: "A bed is assigned by hospitalising the patient", code: "bed_requires_hospitalization", success: false },
+        { status: 409 }
+      );
+    }
 
+    let newBedDepartmentId: string | null = null;
     if (newBedId) {
       const bed = await prisma.bed.findFirst({
         where: { id: newBedId, tenantId: session.user.tenantId },
@@ -289,6 +299,7 @@ export async function PATCH(
       if (!bed) {
         return NextResponse.json({ error: "Bed not found", success: false }, { status: 404 });
       }
+      newBedDepartmentId = bed.departmentId;
       if (resolvedDepartmentId && resolvedDepartmentId !== bed.departmentId) {
         return NextResponse.json(
           { error: "Bed does not belong to the selected department", success: false },
@@ -316,6 +327,12 @@ export async function PATCH(
           ...(dischargeSummary !== undefined && { dischargeSummary }),
           ...((bedProvided || isEnding) && { bedId: newBedId }),
           ...(departmentId !== undefined && { departmentId: resolvedDepartmentId }),
+          // A ward transfer moves the hospitalisation with it, so the discharges page shows
+          // where the patient actually is. The daily price stays the one of the deposit.
+          ...(bedChanged && newBedId && isAdmitted && {
+            hospitalizationBedId: newBedId,
+            hospitalizationDepartmentId: newBedDepartmentId,
+          }),
           ...(attendingDoctorId !== undefined && { attendingDoctorId }),
           ...(triageAcuity !== undefined && { triageAcuity }),
           // Marks the start of the wait-for-doctor clock the first time acuity is known —

@@ -120,6 +120,7 @@ export const PrescriptionTemplate = ({ data, facility, settings, labels }: Presc
       {/* Header */}
       <View style={styles.header}>
         <View>
+          {/* eslint-disable-next-line jsx-a11y/alt-text -- @react-pdf Image has no alt */}
           {settings.showLogo && facility.logoUrl && <Image src={facility.logoUrl} style={styles.logoContainer} />}
           <Text style={styles.facilityName}>{facility.name}</Text>
           <Text style={{ fontSize: 8 }}>{facility.address}</Text>

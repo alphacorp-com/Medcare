@@ -24,7 +24,6 @@ import {
   NewMedRecordForm,
   Department,
   Doctor,
-  Bed,
   StayRow,
   PatientDetail
 } from "../types";
@@ -201,7 +200,6 @@ interface NewAdmissionSheetProps {
   onUpdateForm: <K extends keyof NewStayForm>(key: K, value: NewStayForm[K]) => void;
   departments: Department[];
   doctors: Doctor[];
-  beds: Bed[];
   saving: boolean;
   error: string | null;
   onSubmit: () => Promise<void>;
@@ -215,7 +213,6 @@ export function NewAdmissionSheet({
   onUpdateForm,
   departments,
   doctors,
-  beds,
   saving,
   error,
   onSubmit,
@@ -317,7 +314,7 @@ export function NewAdmissionSheet({
             <label className="text-[10px] font-bold text-slate-500 uppercase">{t('assigned_department')}</label>
             <select
               value={form.departmentId}
-              onChange={(e) => { onUpdateForm("departmentId", e.target.value); onUpdateForm("bedId", ""); }}
+              onChange={(e) => onUpdateForm("departmentId", e.target.value)}
               className="flex h-8 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-xs shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
             >
               <option value="">{t('unassigned')}</option>
@@ -345,22 +342,6 @@ export function NewAdmissionSheet({
             </select>
           </div>
 
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-500 uppercase">{tad('bed')}</label>
-            <select
-              value={form.bedId}
-              onChange={(e) => onUpdateForm("bedId", e.target.value)}
-              disabled={!form.departmentId}
-              className="flex h-8 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-xs shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:bg-slate-50 disabled:text-slate-400"
-            >
-              <option value="">{form.departmentId ? tad('unassigned') : tad('select_department_first')}</option>
-              {beds
-                .filter((b) => b.departmentId === form.departmentId)
-                .map((b) => (
-                  <option key={b.id} value={b.id}>{b.label}</option>
-                ))}
-            </select>
-          </div>
         </div>
         <SheetFooter className="p-4 border-t border-slate-200 bg-white shrink-0 shadow-[0_-4px_6px_-1px_rgb(0,0,0,0.05)]">
           <Button variant="outline" className="text-xs h-8" onClick={() => onOpenChange(false)} disabled={saving}>{tc('cancel')}</Button>

@@ -7,11 +7,10 @@ import prisma from "@/lib/prisma";
 // on what actually gets billed. Never throws — this is a side effect of catalog maintenance,
 // not a precondition for it.
 //
-// Note: ExamCatalogEntry and MedicalAct each have their own tenant-scoped unique `code`, but
-// nothing stops the two catalogs from picking the same code for unrelated items — since both
-// land in the same FeeSchedule (tenantId, "exam", code) slot, a collision would make one
-// silently overwrite the other's price. Worth a uniqueness check across both catalogs if this
-// becomes a real problem; not attempted here.
+// Note: ExamCatalogEntry and MedicalAct each have their own tenant-scoped unique `code`, and
+// both land in the same FeeSchedule (tenantId, "exam", code) slot — so the settings routes
+// refuse a code already used by the other catalog (lib/billing/feeCodes.ts), otherwise one
+// would silently overwrite the other's price.
 export async function syncExamFeeSchedule(params: {
   tenantId: string;
   code: string;

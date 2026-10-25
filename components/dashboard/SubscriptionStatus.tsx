@@ -41,7 +41,7 @@ export function SubscriptionStatus() {
     };
 
     fetchStatus();
-  }, []);
+  }, [t]);
 
   const getTimeRemaining = () => {
     if (!status?.validUntil) return null;

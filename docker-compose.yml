@@ -1,3 +1,8 @@
+# Local / on-site deployment: PostgreSQL 16 + the MedCare app. Every secret comes from the
+# .env file next to this one (see .env.example) — none is written here.
+#   docker compose up -d
+# Migrations are applied from the host (the standalone image has no Prisma CLI):
+#   DATABASE_URL=postgresql://postgres:<POSTGRES_PASSWORD>@localhost:5433/medcarev2_db?schema=tenant_template npm run db:migrate:deploy
 services:
   postgres:
     image: postgres:16-alpine
@@ -5,10 +10,11 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: pliya
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: medcarev2_db
     ports:
-      - "5433:5432"
+      # Published on the loopback only: reachable from the host for migrations, not from the network.
+      - "127.0.0.1:5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -26,16 +32,20 @@ services:
     ports:
       - "3000:3000"
     environment:
-      DATABASE_URL: postgresql://postgres:pliya@postgres:5432/medcarev2_db?schema=tenant_template
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/medcarev2_db?schema=tenant_template
       NODE_ENV: production
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?Set NEXTAUTH_SECRET in .env}
+      CRON_SECRET: ${CRON_SECRET:-}
+      ONPREM_LICENSE_CLIENT_ID: ${ONPREM_LICENSE_CLIENT_ID:?Set ONPREM_LICENSE_CLIENT_ID in .env}
+      ONPREM_LICENSE_CLIENT_SECRET: ${ONPREM_LICENSE_CLIENT_SECRET:?Set ONPREM_LICENSE_CLIENT_SECRET in .env}
+      ALPHACORP_LICENSE_API_URL: ${ALPHACORP_LICENSE_API_URL:-}
+      ONPREM_LICENSE_PUBLIC_KEY_PEM: ${ONPREM_LICENSE_PUBLIC_KEY_PEM:-}
       # Keeps the license fingerprint stable across container recreates —
       # set ONPREM_INSTALL_ID once in .env (see .env.example).
-      ONPREM_INSTALL_ID: ${ONPREM_INSTALL_ID:-}
+      ONPREM_INSTALL_ID: ${ONPREM_INSTALL_ID:?Set ONPREM_INSTALL_ID in .env (openssl rand -hex 16)}
     depends_on:
       postgres:
         condition: service_healthy
-    volumes:
-      - ./prisma:/app/prisma
 
 volumes:
   postgres_data:

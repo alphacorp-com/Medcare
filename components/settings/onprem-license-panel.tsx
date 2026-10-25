@@ -34,6 +34,20 @@ type LicenseStatus = {
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const EXPIRY_WARNING_DAYS = 30;
 
+type StatusLoad = { ok: true; data: LicenseStatus; checkedAt: number } | { ok: false; error: string };
+
+async function loadLicenseStatus(fetchErrorMessage: string): Promise<StatusLoad> {
+  try {
+    const res = await fetch("/api/v1/onprem-license/status");
+    if (res.ok) return { ok: true, data: await res.json(), checkedAt: Date.now() };
+    const payload = await res.json().catch(() => null);
+    return { ok: false, error: payload?.error || fetchErrorMessage };
+  } catch (error) {
+    console.error("Failed to fetch on-prem license status:", error);
+    return { ok: false, error: fetchErrorMessage };
+  }
+}
+
 export function OnPremLicensePanel() {
   const t = useTranslations("settings");
 
@@ -50,33 +64,41 @@ export function OnPremLicensePanel() {
   const [importSuccess, setImportSuccess] = useState<string | null>(null);
   const [importFileName, setImportFileName] = useState("");
 
-  const fetchStatus = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const res = await fetch("/api/v1/onprem-license/status");
-      if (res.ok) {
-        const data = await res.json();
-        setStatus(data);
-        setStatusError(null);
-      } else {
-        // Distinct from "no license applied" (a real, empty state) — this is
-        // "we couldn't even check", which must never be silently presented
-        // as if there were no license, or an admin could be misled into
-        // re-activating a license that's actually already applied and fine.
-        const payload = await res.json().catch(() => null);
-        setStatusError(payload?.error || t("onprem_status_fetch_error"));
-      }
-    } catch (error) {
-      console.error("Failed to fetch on-prem license status:", error);
-      setStatusError(t("onprem_status_fetch_error"));
-    } finally {
-      setIsLoading(false);
+  // When the status was last read: the deadline countdown is computed from it rather than
+  // from the clock during render (rendering stays pure).
+  const [checkedAt, setCheckedAt] = useState<number | null>(null);
+  const fetchErrorMessage = t("onprem_status_fetch_error");
+
+  // State is only ever set in promise callbacks, never synchronously in an effect.
+  const applyStatus = useCallback((result: StatusLoad) => {
+    if (result.ok) {
+      setStatus(result.data);
+      setCheckedAt(result.checkedAt);
+      setStatusError(null);
+    } else {
+      // Distinct from "no license applied" (a real, empty state) — this is
+      // "we couldn't even check", which must never be silently presented
+      // as if there were no license, or an admin could be misled into
+      // re-activating a license that's actually already applied and fine.
+      setStatusError(result.error);
     }
-  }, [t]);
+    setIsLoading(false);
+  }, []);
+
+  const fetchStatus = useCallback(() => {
+    setIsLoading(true);
+    return loadLicenseStatus(fetchErrorMessage).then(applyStatus);
+  }, [fetchErrorMessage, applyStatus]);
 
   useEffect(() => {
-    fetchStatus();
-  }, [fetchStatus]);
+    let active = true;
+    void loadLicenseStatus(fetchErrorMessage).then((result) => {
+      if (active) applyStatus(result);
+    });
+    return () => {
+      active = false;
+    };
+  }, [fetchErrorMessage, applyStatus]);
 
   const handleActivateOnline = async () => {
     setIsActivating(true);
@@ -163,8 +185,8 @@ export function OnPremLicensePanel() {
   const license = status?.license ?? null;
 
   const referenceDeadline = guard?.gracePeriodEndsAt ?? guard?.validUntil ?? license?.validUntil;
-  const daysUntilDeadline = referenceDeadline
-    ? Math.ceil((new Date(referenceDeadline).getTime() - Date.now()) / MS_PER_DAY)
+  const daysUntilDeadline = referenceDeadline && checkedAt !== null
+    ? Math.ceil((new Date(referenceDeadline).getTime() - checkedAt) / MS_PER_DAY)
     : null;
   const isExpiringSoon = !guard?.blocked && daysUntilDeadline !== null && daysUntilDeadline <= EXPIRY_WARNING_DAYS;
 

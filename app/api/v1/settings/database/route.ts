@@ -1,205 +1,108 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { requireTenantAdmin } from '@/lib/permissions';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-import path from 'path';
-import fs from 'fs/promises';
+﻿import { spawn } from "child_process";
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { requireTenantAdmin } from "@/lib/permissions";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { extractRequestMeta, recordAuditEvent } from "@/lib/audit";
+import { backupFileName, pgDumpArgs, pgDumpTarget } from "@/lib/backup";
 
-const execAsync = promisify(exec);
+// Database backup (Settings > Backup), for the administrator of this install. Each MedCare
+// deployment holds a single facility, so the dump only ever contains this facility's data —
+// still every patient record: administrators only, rate-limited, audited.
+//
+// GET ?check=1 — is a backup possible here (pg_dump installed, database configured)?
+// GET          — streams a pg_dump (custom format) straight to the browser. Nothing is written
+//                on the server's disk; pg_dump is spawned without a shell, the password passed in
+//                PGPASSWORD (never on the command line).
+//
+// Requires the pg_dump binary on the server, of a version at least the database's. Hosted
+// platforms without it (Vercel) answer the check with available: false.
+export const runtime = "nodejs";
 
-// This is a full pg_dump of the database. Each MedCare deployment is now a single
-// isolated instance per client (own server/domain, or fully on-premise) rather than a
-// shared multi-tenant database — so a dump here only ever contains this deployment's
-// own client's data. That removes the cross-tenant exposure risk this endpoint used to
-// carry, so it's gated to this deployment's own tenant_admin as legitimate self-service.
-const BACKUP_DIR = path.join(process.cwd(), 'backups');
-
-export async function POST(request: NextRequest) {
-    try {
-        const session = await getServerSession(authOptions);
-        const permCheck = requireTenantAdmin(session);
-        if (!permCheck.ok) {
-            return NextResponse.json(
-                { error: permCheck.error },
-                { status: permCheck.status }
-            );
-        }
-
-        // Create backups directory if it doesn't exist
-        await fs.mkdir(BACKUP_DIR, { recursive: true });
-
-        // Generate backup filename with timestamp
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        const backupFileName = `medcare_full_backup_${timestamp}.sql`;
-        const backupPath = path.join(BACKUP_DIR, backupFileName);
-
-        // Get database connection info from environment
-        const dbUrl = process.env.DATABASE_URL;
-        if (!dbUrl) {
-            return NextResponse.json(
-                { error: 'Database configuration not found' },
-                { status: 500 }
-            );
-        }
-
-        // Parse database URL to extract connection details
-        const url = new URL(dbUrl);
-        const host = url.hostname;
-        const port = url.port;
-        const database = url.pathname.slice(1);
-        const username = url.username;
-        const password = url.password;
-
-        // Create pg_dump command for the entire database
-        const pgDumpCommand = `pg_dump --host=${host} --port=${port} --username=${username} --file=${backupPath} --format=custom --compress=9 --no-password ${database}`;
-
-        // Set password environment variable
-        const env = { ...process.env, PGPASSWORD: password };
-
-        // Execute backup
-        await execAsync(pgDumpCommand, { env });
-
-        // Verify backup file was created
-        await fs.access(backupPath);
-
-        // Get file size
-        const stats = await fs.stat(backupPath);
-        const fileSizeMB = (stats.size / (1024 * 1024)).toFixed(2);
-
-        // Log backup creation (you might want to store this in audit logs)
-        console.log(`Database backup created: ${backupFileName} (${fileSizeMB} MB)`);
-
-        return NextResponse.json({
-            success: true,
-            message: 'Database backup created successfully',
-            backupFile: backupFileName,
-            size: `${fileSizeMB} MB`,
-            createdAt: new Date().toISOString()
-        });
-
-    } catch (error) {
-        console.error('Database backup error:', error);
-        return NextResponse.json(
-            { error: 'Failed to create database backup' },
-            { status: 500 }
-        );
-    }
+async function pgDumpVersion(): Promise<string | null> {
+  return new Promise((resolve) => {
+    const child = spawn("pg_dump", ["--version"], { stdio: ["ignore", "pipe", "ignore"] });
+    let out = "";
+    child.stdout.on("data", (chunk) => (out += chunk));
+    child.on("error", () => resolve(null));
+    child.on("close", (code) => resolve(code === 0 ? out.trim() : null));
+  });
 }
 
-// GET endpoint to list existing backups
-export async function GET(request: NextRequest) {
-    try {
-        const session = await getServerSession(authOptions);
-        const permCheck = requireTenantAdmin(session);
-        if (!permCheck.ok) {
-            return NextResponse.json(
-                { error: permCheck.error },
-                { status: permCheck.status }
-            );
+export async function GET(request: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.tenantId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const permCheck = requireTenantAdmin(session);
+  if (!permCheck.ok) {
+    return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
+  }
+
+  const target = pgDumpTarget(process.env.DATABASE_URL);
+  const version = target ? await pgDumpVersion() : null;
+
+  if (new URL(request.url).searchParams.get("check")) {
+    return NextResponse.json({
+      available: Boolean(target && version),
+      reason: !target ? "database_not_configured" : !version ? "pg_dump_missing" : null,
+      pgDumpVersion: version,
+    });
+  }
+
+  if (!target) return NextResponse.json({ error: "database_not_configured" }, { status: 503 });
+  if (!version) return NextResponse.json({ error: "pg_dump_missing" }, { status: 503 });
+
+  const rateLimit = checkRateLimit(`db-backup:${session.user.id}`, 3, 60 * 60_000);
+  if (!rateLimit.allowed) {
+    return NextResponse.json({ error: "too_many_backups" }, { status: 429 });
+  }
+
+  const fileName = backupFileName(new Date());
+  await recordAuditEvent({
+    tenantId: session.user.tenantId,
+    actorId: session.user.id,
+    actorType: "tenant_user",
+    action: "settings.database_backup",
+    resourceType: "database",
+    resourceId: fileName,
+    payload: { fileName },
+    ...extractRequestMeta(request.headers),
+  });
+
+  const child = spawn("pg_dump", pgDumpArgs(target), {
+    env: { ...process.env, ...(target.password ? { PGPASSWORD: target.password } : {}) },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  let stderr = "";
+  child.stderr.on("data", (chunk) => (stderr += chunk));
+
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      child.stdout.on("data", (chunk: Buffer) => controller.enqueue(new Uint8Array(chunk)));
+      child.on("error", (error) => controller.error(error));
+      child.on("close", (code) => {
+        if (code === 0) {
+          controller.close();
+        } else {
+          // Aborting the stream makes the browser report a failed download rather than keep a
+          // truncated file that would look like a valid backup.
+          console.error("[GET /api/v1/settings/database] pg_dump failed:", stderr.slice(0, 2000));
+          controller.error(new Error("pg_dump failed"));
         }
+      });
+    },
+    cancel() {
+      child.kill();
+    },
+  });
 
-        try {
-            const files = await fs.readdir(BACKUP_DIR);
-            const backupFiles = files
-                .filter(file => file.endsWith('.sql'))
-                .map(async file => {
-                    const filePath = path.join(BACKUP_DIR, file);
-                    const stats = await fs.stat(filePath);
-                    return {
-                        filename: file,
-                        size: `${(stats.size / (1024 * 1024)).toFixed(2)} MB`,
-                        createdAt: stats.mtime.toISOString(),
-                        path: filePath
-                    };
-                });
-
-            // Wait for all file stats to be resolved
-            const resolvedBackupFiles = (await Promise.all(backupFiles))
-                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-            return NextResponse.json({
-                backups: resolvedBackupFiles
-            });
-
-        } catch (error) {
-            // If directory doesn't exist, return empty array
-            return NextResponse.json({
-                backups: []
-            });
-        }
-
-    } catch (error) {
-        console.error('Error listing backups:', error);
-        return NextResponse.json(
-            { error: 'Failed to list database backups' },
-            { status: 500 }
-        );
-    }
-}
-
-// Download specific backup file
-export async function PUT(request: NextRequest) {
-    try {
-        const session = await getServerSession(authOptions);
-        const permCheck = requireTenantAdmin(session);
-        if (!permCheck.ok) {
-            return NextResponse.json(
-                { error: permCheck.error },
-                { status: permCheck.status }
-            );
-        }
-
-        const { filename } = await request.json();
-
-        if (!filename) {
-            return NextResponse.json(
-                { error: 'Filename is required' },
-                { status: 400 }
-            );
-        }
-
-        const filePath = path.join(BACKUP_DIR, filename);
-
-        // Security check: ensure the file is within the backup directory
-        const resolvedPath = path.resolve(filePath);
-        const resolvedBackupDir = path.resolve(BACKUP_DIR);
-
-        if (!resolvedPath.startsWith(resolvedBackupDir)) {
-            return NextResponse.json(
-                { error: 'Invalid file path' },
-                { status: 400 }
-            );
-        }
-
-        // Check if file exists
-        try {
-            await fs.access(filePath);
-        } catch (error) {
-            return NextResponse.json(
-                { error: 'Backup file not found' },
-                { status: 404 }
-            );
-        }
-
-        // Read file content
-        const fileContent = await fs.readFile(filePath);
-
-        // Return file as download
-        return new NextResponse(fileContent, {
-            headers: {
-                'Content-Type': 'application/octet-stream',
-                'Content-Disposition': `attachment; filename="${filename}"`,
-                'Content-Length': fileContent.length.toString(),
-            },
-        });
-
-    } catch (error) {
-        console.error('Error downloading backup:', error);
-        return NextResponse.json(
-            { error: 'Failed to download backup file' },
-            { status: 500 }
-        );
-    }
+  return new Response(body, {
+    headers: {
+      "Content-Type": "application/octet-stream",
+      "Content-Disposition": `attachment; filename="${fileName}"`,
+      "Cache-Control": "no-store",
+    },
+  });
 }

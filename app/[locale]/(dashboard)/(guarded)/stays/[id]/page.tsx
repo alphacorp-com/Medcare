@@ -4,7 +4,7 @@ import { useDiagnosisErrorMessage } from "@/components/shared/diagnosis-editor";
 import { useTranslations } from "next-intl";
 import { Loader2 } from "lucide-react";
 import { useParams } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 
 // Internal Components
@@ -29,6 +29,49 @@ import { notifyBillingGenerated } from "@/lib/billing/client";
 // Types
 import { StayDetail, Doctor, Department, Bed, CatalogOption, MedicalActOption, OrderItem } from "./types";
 import type { TriageAcuity } from "@/components/shared/triage-badge";
+
+type StayLoad = { ok: true; stay: StayDetail } | { ok: false; error: string };
+
+async function loadStay(id: string): Promise<StayLoad> {
+  try {
+    const res = await fetch(`/api/v1/stays/${id}`);
+    const json = await res.json();
+    if (!res.ok || !json.success) return { ok: false, error: json.error ?? "Failed to fetch stay" };
+    return { ok: true, stay: json.data as StayDetail };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to fetch stay" };
+  }
+}
+
+type StayReferenceData = {
+  doctors?: Doctor[];
+  departments?: Department[];
+  beds?: Bed[];
+  labCatalog?: CatalogOption[];
+  radiologyCatalog?: CatalogOption[];
+  medicalActs?: MedicalActOption[];
+};
+
+// Reference lists of the stay screens; a list that fails to load is left out (undefined).
+async function loadReferenceData(): Promise<StayReferenceData> {
+  try {
+    const [docsJson, deptsJson, bedsJson, labJson, radioJson, actsJson] = await Promise.all(
+      ["/api/v1/doctors", "/api/v1/departments", "/api/v1/settings/beds", "/api/v1/exam-catalog?domain=laboratory", "/api/v1/exam-catalog?domain=radiology", "/api/v1/medical-acts"]
+        .map((url) => fetch(url).then((r) => r.json()))
+    );
+    return {
+      doctors: docsJson.success ? docsJson.data : undefined,
+      departments: deptsJson.success ? deptsJson.data : undefined,
+      beds: Array.isArray(bedsJson) ? bedsJson : undefined,
+      labCatalog: Array.isArray(labJson) ? labJson : undefined,
+      radiologyCatalog: Array.isArray(radioJson) ? radioJson : undefined,
+      medicalActs: Array.isArray(actsJson) ? actsJson : undefined,
+    };
+  } catch (e) {
+    console.error("Failed to fetch reference data", e);
+    return {};
+  }
+}
 
 export default function AdmissionDetailPage() {
   const t = useTranslations('admissions');
@@ -69,52 +112,38 @@ export default function AdmissionDetailPage() {
   const prescriptionError = usePrescriptionErrorMessage();
   const [orderItems, setOrderItems] = useState<OrderItem[]>([{ source: "laboratory", code: "", urgency: "routine" }]);
 
-  const fetchStay = async () => {
-    try {
-      const res = await fetch(`/api/v1/stays/${id}`);
-      const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json.error ?? "Failed to fetch stay");
-      setStay(json.data as StayDetail);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to fetch stay");
-    } finally {
-      setLoading(false);
-    }
-  };
+  // State is only ever set in promise callbacks (never synchronously in an effect), and a
+  // response arriving after unmount or a change of stay is dropped by the effect below.
+  const applyStay = useCallback((result: StayLoad) => {
+    if (result.ok) setStay(result.stay);
+    else setError(result.error);
+    setLoading(false);
+  }, []);
 
-  const fetchData = async () => {
-    try {
-      const [docsRes, deptsRes, bedsRes, labRes, radioRes, actsRes] = await Promise.all([
-        fetch('/api/v1/doctors'),
-        fetch('/api/v1/departments'),
-        fetch('/api/v1/settings/beds'),
-        fetch('/api/v1/exam-catalog?domain=laboratory'),
-        fetch('/api/v1/exam-catalog?domain=radiology'),
-        fetch('/api/v1/medical-acts'),
-      ]);
-      const [docsJson, deptsJson, bedsJson, labJson, radioJson, actsJson] = await Promise.all([
-        docsRes.json(),
-        deptsRes.json(),
-        bedsRes.json(),
-        labRes.json(),
-        radioRes.json(),
-        actsRes.json(),
-      ]);
-      if (docsJson.success) setDoctors(docsJson.data);
-      if (deptsJson.success) setDepartments(deptsJson.data);
-      if (Array.isArray(bedsJson)) setBeds(bedsJson);
-      if (Array.isArray(labJson)) setLabCatalog(labJson);
-      if (Array.isArray(radioJson)) setRadiologyCatalog(radioJson);
-      if (Array.isArray(actsJson)) setMedicalActs(actsJson);
-    } catch (e) {
-      console.error("Failed to fetch reference data", e);
-    }
-  };
+  const applyReferenceData = useCallback((data: StayReferenceData) => {
+    if (data.doctors) setDoctors(data.doctors);
+    if (data.departments) setDepartments(data.departments);
+    if (data.beds) setBeds(data.beds);
+    if (data.labCatalog) setLabCatalog(data.labCatalog);
+    if (data.radiologyCatalog) setRadiologyCatalog(data.radiologyCatalog);
+    if (data.medicalActs) setMedicalActs(data.medicalActs);
+  }, []);
+
+  const fetchStay = useCallback(() => loadStay(id).then(applyStay), [id, applyStay]);
+  const fetchData = useCallback(() => loadReferenceData().then(applyReferenceData), [applyReferenceData]);
 
   useEffect(() => {
-    fetchStay();
-    fetchData();
-  }, [id]);
+    let active = true;
+    void loadStay(id).then((result) => {
+      if (active) applyStay(result);
+    });
+    void loadReferenceData().then((data) => {
+      if (active) applyReferenceData(data);
+    });
+    return () => {
+      active = false;
+    };
+  }, [id, applyStay, applyReferenceData]);
 
   const handleTransfer = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -122,7 +151,9 @@ export default function AdmissionDetailPage() {
     const formData = new FormData(e.currentTarget);
     const data = {
       departmentId: formData.get("departmentId"),
-      bedId: formData.get("bedId"),
+      // Only a hospitalised patient changes bed here; for any other stay the field is absent
+      // and the bed is left untouched (it is assigned by hospitalising the patient).
+      ...(formData.has("bedId") ? { bedId: formData.get("bedId") } : {}),
       attendingDoctorId: formData.get("attendingDoctorId"),
     };
 

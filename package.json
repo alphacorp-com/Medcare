@@ -16,6 +16,7 @@
     "db:reset-data": "tsx prisma/reset-data.ts",
     "db:sync-fee-schedule": "tsx prisma/backfill-fee-schedule.ts",
     "db:sync-exam-parameters": "tsx prisma/sync-exam-parameters.ts",
+    "db:backfill-demo-hospitalizations": "tsx prisma/backfill-demo-hospitalizations.ts",
     "clean": "next clean",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
@@ -30,10 +31,7 @@
     "docker:build": "docker build -t medcare-system .",
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
-    "docker:logs": "docker-compose logs -f",
-    "docker:prisma": "docker-compose exec app npx prisma",
-    "docker:migrate": "docker-compose exec app npx prisma migrate dev",
-    "docker:seed": "docker-compose exec app npm run seed"
+    "docker:logs": "docker-compose logs -f"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",

@@ -1633,6 +1633,18 @@
       "save_error": "Could not save the mapping.",
       "reset_hint": "Restore the standard value",
       "reset_confirm": "Restore the standard mapping of “{label}”?"
+    },
+    "backup": {
+      "title": "Backup",
+      "description": "Download a full backup of the facility's database.",
+      "point_content": "The file holds all the facility's data, patient records included: keep it encrypted, off the server, and never send it over an insecure channel.",
+      "point_restore": "PostgreSQL custom format: restore with pg_restore (see the installation guide).",
+      "point_storage": "Nothing is kept on the server: the file is streamed straight to your browser.",
+      "point_limit": "At most 3 backups per hour; every download is written to the audit log.",
+      "checking": "Checking availability…",
+      "unavailable_pg_dump": "Backup unavailable on this server: pg_dump is not installed (e.g. on Vercel). Use your database host's backups (Neon branches) or pg_dump from an administration workstation.",
+      "unavailable_database": "Backup unavailable: the database connection is not configured on this server.",
+      "download": "Download a backup"
     }
   },
   "surgery": {
@@ -2864,7 +2876,7 @@
     "given_by": "Prescribed By",
     "medication_dose": "Medication / Dose",
     "transfer_bed": "Transfer / Bed Assignment",
-    "transfer_bed_desc": "Update the patient's department, bed, and attending doctor for this stay.",
+    "transfer_bed_desc": "Update the department and the attending doctor; for a hospitalized patient, change bed.",
     "new_dept_id": "Department ID",
     "new_dept_placeholder": "e.g., Cardiology",
     "new_bed_id": "Bed ID",
@@ -2953,7 +2965,8 @@
     "vitals_spo2": "SpO2 (%)",
     "add_vitals": "Add Vitals",
     "add_vitals_desc": "Record a new vital signs reading for this stay.",
-    "save_vitals": "Save Vitals"
+    "save_vitals": "Save Vitals",
+    "bed_via_hospitalization": "A bed is assigned with “Hospitalize” (deposit and follow-up in Discharges). Here only the department and the attending doctor change."
   },
   "roles": {
     "admin": "System Administrator",

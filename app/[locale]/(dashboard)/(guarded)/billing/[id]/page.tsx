@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { format } from "date-fns";
@@ -32,7 +32,7 @@ export default function InvoiceDetailPage() {
   const [receiptPreview, setReceiptPreview] = useState<Payment | null>(null);
   const { facility: pdfFacility, settings: pdfSettings } = usePdfBranding();
 
-  const fetchInvoice = async () => {
+  const fetchInvoice = useCallback(async () => {
     try {
       const res = await fetch(`/api/v1/billing/${id}`);
       const json = await res.json();
@@ -43,13 +43,13 @@ export default function InvoiceDetailPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [id]);
 
   useEffect(() => {
     (async () => {
       await fetchInvoice();
     })();
-  }, [id]);
+  }, [fetchInvoice]);
 
   if (isLoading) {
     return (

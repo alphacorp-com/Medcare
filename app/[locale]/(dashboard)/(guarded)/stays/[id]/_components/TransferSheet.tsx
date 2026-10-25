@@ -47,6 +47,8 @@ export function TransferSheet({
   const tc = useTranslations('common');
   const [deptId, setDeptId] = useState(stay.departmentId || "");
   const [bedId, setBedId] = useState(stay.bedId || "");
+  // A bed is changed here only for a hospitalised patient (ward transfer).
+  const isAdmitted = stay.hospitalization?.status === "admitted";
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -81,6 +83,7 @@ export function TransferSheet({
                 </Select>
               </div>
 
+              {isAdmitted ? (
               <div className="space-y-2.5">
                 <Label className="text-xs font-bold uppercase text-slate-400 tracking-wider ml-1">{t('new_bed_id')}</Label>
                 <Select
@@ -104,6 +107,9 @@ export function TransferSheet({
                   </SelectContent>
                 </Select>
               </div>
+              ) : (
+                <p className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-xl p-3">{t('bed_via_hospitalization')}</p>
+              )}
 
               <div className="space-y-2.5">
                 <Label className="text-xs font-bold uppercase text-slate-400 tracking-wider ml-1">{t('attending_doctor_id')}</Label>

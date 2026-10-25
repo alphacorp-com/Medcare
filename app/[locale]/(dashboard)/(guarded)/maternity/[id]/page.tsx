@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { format } from "date-fns";
@@ -25,7 +25,7 @@ export default function PregnancyDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [isOutcomeOpen, setIsOutcomeOpen] = useState(false);
 
-  const fetchPregnancy = async () => {
+  const fetchPregnancy = useCallback(async () => {
     try {
       const res = await fetch(`/api/v1/maternity/pregnancies/${id}`);
       const json = await res.json();
@@ -36,13 +36,13 @@ export default function PregnancyDetailPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [id]);
 
   useEffect(() => {
     (async () => {
       await fetchPregnancy();
     })();
-  }, [id]);
+  }, [fetchPregnancy]);
 
   if (isLoading) {
     return (

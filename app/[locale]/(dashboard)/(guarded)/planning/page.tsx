@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { format, addDays, addWeeks, subWeeks, startOfWeek } from "date-fns";
-import { useEffect, useMemo, useState, Suspense } from "react";
+import { useCallback, useEffect, useMemo, useState, Suspense } from "react";
 import { useUrlTab } from "@/hooks/use-url-tab";
 import { Building2, CalendarDays, Search, Plus, ChevronLeft, ChevronRight, UserMinus } from "lucide-react";
 import { RosterGrid } from "./_components/RosterGrid";
@@ -43,23 +43,24 @@ function PlanningPageContent() {
   );
   const weekDays = useMemo(() => Array.from({ length: 7 }).map((_, i) => addDays(weekStart, i)), [weekStart]);
 
-  const fetchDepartments = async (): Promise<DepartmentRecord[]> => {
+  const fetchDepartments = useCallback(async (): Promise<DepartmentRecord[]> => {
     try {
       const res = await fetch("/api/v1/departments?includeInactive=true");
       const json = await res.json();
       const list: DepartmentRecord[] = json.success ? json.data : [];
       setDepartments(list);
-      if (!selectedDepartmentId && list.length > 0) {
-        setSelectedDepartmentId(list.find((d) => d.isActive)?.id ?? list[0].id);
+      // Keep the department already selected; pick a first one only when there is none.
+      if (list.length > 0) {
+        setSelectedDepartmentId((current) => current || (list.find((d) => d.isActive)?.id ?? list[0].id));
       }
       return list;
     } catch (err) {
       console.error("Failed to fetch departments", err);
       return [];
     }
-  };
+  }, []);
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       const res = await fetch("/api/v1/users");
       const data = await res.json();
@@ -67,9 +68,9 @@ function PlanningPageContent() {
     } catch (err) {
       console.error("Failed to fetch users", err);
     }
-  };
+  }, []);
 
-  const fetchSchedules = async (): Promise<ScheduleEntry[]> => {
+  const fetchSchedules = useCallback(async (): Promise<ScheduleEntry[]> => {
     if (!selectedDepartmentId) return [];
     try {
       const from = format(weekStart, "yyyy-MM-dd");
@@ -83,21 +84,21 @@ function PlanningPageContent() {
       console.error("Failed to fetch schedules", err);
       return [];
     }
-  };
+  }, [selectedDepartmentId, weekStart]);
 
   useEffect(() => {
     if (!hasModule("MODULE_PLANNING")) return;
     (async () => {
       await Promise.all([fetchDepartments(), fetchUsers()]);
     })();
-  }, [hasModule]);
+  }, [hasModule, fetchDepartments, fetchUsers]);
 
   useEffect(() => {
     if (!hasModule("MODULE_PLANNING") || !selectedDepartmentId) return;
     (async () => {
       await fetchSchedules();
     })();
-  }, [hasModule, selectedDepartmentId, weekStart]);
+  }, [hasModule, selectedDepartmentId, fetchSchedules]);
 
   if (!hasModule("MODULE_PLANNING")) {
     return (

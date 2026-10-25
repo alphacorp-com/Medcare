@@ -106,6 +106,7 @@ export const InvoiceTemplate = ({ invoice, facility, settings, labels }: Invoice
       <View style={styles.header}>
         <View>
           {settings.showLogo && facility.logoUrl ? (
+            // eslint-disable-next-line jsx-a11y/alt-text -- @react-pdf Image has no alt
             <Image src={facility.logoUrl} style={styles.logoContainer} />
           ) : (
             <View style={styles.logoContainer}>

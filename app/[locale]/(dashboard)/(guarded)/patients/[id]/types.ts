@@ -43,7 +43,6 @@ export type NewStayForm = {
   type: "emergency" | "scheduled" | "day_care" | "outpatient";
   admissionReason: string;
   departmentId: string;
-  bedId: string;
   attendingDoctorId: string;
   triageAcuity: string;
   medicalActCode: string;

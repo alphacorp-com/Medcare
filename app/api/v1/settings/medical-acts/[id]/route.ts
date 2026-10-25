@@ -6,6 +6,7 @@ import { authOptions } from "@/lib/auth";
 import { requireTenantAdmin } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
 import { syncExamFeeSchedule, deactivateExamFeeSchedule } from "@/lib/billing/syncFeeSchedule";
+import { FEE_CODE_CONFLICT, feeCodeUsedByOtherCatalog } from "@/lib/billing/feeCodes";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -35,7 +36,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     const data: Record<string, unknown> = {};
     if (categoryId !== undefined) data.categoryId = categoryId;
-    if (code !== undefined) data.code = code.trim().toUpperCase();
+    if (code !== undefined) {
+      if (await feeCodeUsedByOtherCatalog(session.user.tenantId, code, "medical_act")) {
+        return NextResponse.json({ error: "This code is already used by an exam: both are priced in the same tariff slot", code: FEE_CODE_CONFLICT }, { status: 409 });
+      }
+      data.code = code.trim().toUpperCase();
+    }
     if (nameFr !== undefined) data.nameFr = nameFr.trim();
     if (nameEn !== undefined) data.nameEn = nameEn?.trim() || null;
     if (basePrice !== undefined) {

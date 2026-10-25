@@ -47,6 +47,7 @@ export function OrganizationSettings({ orgData, setOrgData, t, tc }: Organizatio
           <div className="flex gap-4 md:gap-6 items-center">
             <div className="h-20 w-20 flex-shrink-0 bg-slate-50 border border-slate-200 rounded flex items-center justify-center p-2 shadow-sm overflow-hidden">
               {orgData.logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element -- preview of an arbitrary URL or data: URI typed by the admin; next/image would need every host allow-listed
                 <img src={orgData.logoUrl} alt="Logo" className="h-full w-full object-contain" />
               ) : (
                 <ImageIcon className="h-8 w-8 text-slate-300" />

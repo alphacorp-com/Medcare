@@ -19,7 +19,9 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-ENV DATABASE_URL=postgresql://postgres:pliya@localhost:5432/medcarev2_db?schema=tenant_template
+# Placeholder for `prisma generate` / `next build` only (no connection is made at build time);
+# the real DATABASE_URL is provided at runtime.
+ENV DATABASE_URL=postgresql://build:build@localhost:5432/build?schema=tenant_template
 
 # Generate Prisma client
 RUN npx prisma generate

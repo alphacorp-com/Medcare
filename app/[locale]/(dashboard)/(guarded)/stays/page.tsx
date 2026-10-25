@@ -24,7 +24,7 @@ export default function AdmissionsPage() {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
 
   const {
-    stays, departments, doctors, beds, loading, error,
+    stays, departments, doctors, loading, error,
     view, setView,
     total, page, setPage, pageSize, setPageSize,
     searchInput, setSearchInput, filters, setFilters,
@@ -137,7 +137,6 @@ export default function AdmissionsPage() {
         onUpdateForm={updateStayForm}
         departments={departments}
         doctors={doctors}
-        beds={beds}
         saving={savingStay}
         error={stayError}
         onSubmit={handleSubmit}

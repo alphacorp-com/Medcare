@@ -34,6 +34,19 @@ const EMPTY_ORDER: OrderItem = { source: "laboratory", code: "", urgency: "routi
 // exams. Exams are billed when prescribed and only become actionable in the lab/radiology
 // modules once paid, so their payment state is shown here. Signing the note closes the
 // consultation and takes the patient out of the queue.
+type StayLoad = { ok: true; stay: StayDetail } | { ok: false; error: string };
+
+async function loadStay(stayId: string, failedMessage: string): Promise<StayLoad> {
+  try {
+    const res = await fetch(`/api/v1/stays/${stayId}`);
+    const json = await res.json();
+    if (!res.ok || !json.success) return { ok: false, error: json.error ?? failedMessage };
+    return { ok: true, stay: json.data as StayDetail };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : failedMessage };
+  }
+}
+
 export default function ConsultationWorkspacePage() {
   const t = useTranslations("consultations");
   const diagnosisError = useDiagnosisErrorMessage();
@@ -70,23 +83,29 @@ export default function ConsultationWorkspacePage() {
   // doctor navigates away while the patient is at the cashier or the lab.
   const draftKey = `consultation-draft:${stayId}`;
 
-  const fetchStay = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/v1/stays/${stayId}`);
-      const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json.error ?? t("failed_load_stay"));
-      setStay(json.data as StayDetail);
+  // State is only ever set in promise callbacks (never synchronously in an effect), and a
+  // response arriving after unmount or a change of stay is dropped.
+  const applyStay = useCallback((result: StayLoad) => {
+    if (result.ok) {
+      setStay(result.stay);
       setError(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t("failed_load_stay"));
-    } finally {
-      setLoading(false);
+    } else {
+      setError(result.error);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stayId]);
+    setLoading(false);
+  }, []);
+
+  const failedLoadMessage = t("failed_load_stay");
+  const fetchStay = useCallback(
+    () => loadStay(stayId, failedLoadMessage).then(applyStay),
+    [stayId, failedLoadMessage, applyStay]
+  );
 
   useEffect(() => {
-    void fetchStay();
+    let active = true;
+    void loadStay(stayId, failedLoadMessage).then((result) => {
+      if (active) applyStay(result);
+    });
     Promise.all([
       fetch("/api/v1/doctors").then((r) => r.json()),
       fetch("/api/v1/exam-catalog?domain=laboratory").then((r) => r.json()),
@@ -94,13 +113,17 @@ export default function ConsultationWorkspacePage() {
       fetch("/api/v1/medical-acts").then((r) => r.json()),
     ])
       .then(([docsJson, labJson, radioJson, actsJson]) => {
+        if (!active) return;
         if (docsJson.success) setDoctors(docsJson.data);
         if (Array.isArray(labJson)) setLabCatalog(labJson);
         if (Array.isArray(radioJson)) setRadiologyCatalog(radioJson);
         if (Array.isArray(actsJson)) setMedicalActs(actsJson);
       })
       .catch((e) => console.error("Failed to fetch reference data", e));
-  }, [fetchStay]);
+    return () => {
+      active = false;
+    };
+  }, [stayId, failedLoadMessage, applyStay]);
 
   useEffect(() => {
     try {

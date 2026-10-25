@@ -1634,6 +1634,18 @@
       "save_error": "Échec de l'enregistrement.",
       "reset_hint": "Restaurer la valeur standard",
       "reset_confirm": "Restaurer la correspondance standard de « {label} » ?"
+    },
+    "backup": {
+      "title": "Sauvegarde",
+      "description": "Téléchargez une sauvegarde complète de la base de données de l'établissement.",
+      "point_content": "Le fichier contient toutes les données de l'établissement, y compris les dossiers des patients : conservez-le chiffré, hors du serveur, et ne le transmettez jamais par un canal non sécurisé.",
+      "point_restore": "Format personnalisé PostgreSQL : restauration avec pg_restore (voir la documentation d'installation).",
+      "point_storage": "Rien n'est conservé sur le serveur : le fichier est envoyé directement à votre navigateur.",
+      "point_limit": "3 sauvegardes par heure au maximum ; chaque téléchargement est inscrit au journal d'audit.",
+      "checking": "Vérification de la disponibilité…",
+      "unavailable_pg_dump": "Sauvegarde indisponible sur ce serveur : l'outil pg_dump n'y est pas installé (cas des hébergements comme Vercel). Utilisez les sauvegardes de votre hébergeur de base de données (branches Neon) ou pg_dump depuis un poste d'administration.",
+      "unavailable_database": "Sauvegarde indisponible : la connexion à la base de données n'est pas configurée sur ce serveur.",
+      "download": "Télécharger une sauvegarde"
     }
   },
   "surgery": {
@@ -2865,7 +2877,7 @@
     "given_by": "Prescrit par",
     "medication_dose": "Médicament / Dose",
     "transfer_bed": "Transfert / Affectation de Lit",
-    "transfer_bed_desc": "Mettre à jour le service, le lit et le médecin responsable pour ce séjour.",
+    "transfer_bed_desc": "Mettre à jour le service et le médecin responsable ; pour un patient hospitalisé, changer de lit.",
     "new_dept_id": "ID du Service",
     "new_dept_placeholder": "ex: Cardiologie",
     "new_bed_id": "ID du Lit",
@@ -2954,7 +2966,8 @@
     "vitals_spo2": "SpO2 (%)",
     "add_vitals": "Ajouter des Constantes",
     "add_vitals_desc": "Enregistrer un nouveau relevé de constantes pour ce séjour.",
-    "save_vitals": "Enregistrer les Constantes"
+    "save_vitals": "Enregistrer les Constantes",
+    "bed_via_hospitalization": "Le lit s'attribue avec « Hospitaliser » (caution et suivi dans Sorties). Ici, seuls le service et le médecin responsable changent."
   },
   "roles": {
     "admin": "Administrateur Système",

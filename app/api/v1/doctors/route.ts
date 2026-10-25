@@ -4,7 +4,8 @@ import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 
 // ── GET /api/v1/doctors ─────────────────────────────────────────────────────
-// Returns all active doctors (TenantUser with role=doctor) for use in dropdowns.
+// Returns the active clinical providers (users whose role is flagged isClinicalProvider in
+// Settings > Roles) for use in dropdowns.
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);

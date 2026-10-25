@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { StayRow, Department, Doctor, Bed, NewStayForm, EMPTY_VITALS } from "../types";
+import { StayRow, Department, Doctor, NewStayForm, EMPTY_VITALS } from "../types";
 import { DEFAULT_PAGE_SIZE } from "@/components/shared/pagination-bar";
 
 export type StayFilters = { status: string; type: string };
@@ -10,7 +10,6 @@ const EMPTY_FORM: NewStayForm = {
   type: "emergency",
   admissionReason: "",
   departmentId: "",
-  bedId: "",
   attendingDoctorId: "",
   triageAcuity: "",
   medicalActCode: "",
@@ -22,7 +21,6 @@ export function useAdmissionsPage() {
   const [stays, setStays] = useState<StayRow[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
-  const [beds, setBeds] = useState<Bed[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [view, setViewState] = useState<"all" | "triage">("all");
@@ -102,17 +100,15 @@ export function useAdmissionsPage() {
     let cancelled = false;
 
     const load = async () => {
-      const [deptRes, docRes, bedsRes] = await Promise.all([
+      const [deptRes, docRes] = await Promise.all([
         fetch("/api/v1/departments"),
         fetch("/api/v1/doctors"),
-        fetch("/api/v1/settings/beds?status=available"),
       ]);
-      const [deptJson, docJson, bedsJson] = await Promise.all([deptRes.json(), docRes.json(), bedsRes.json()]);
+      const [deptJson, docJson] = await Promise.all([deptRes.json(), docRes.json()]);
 
       if (cancelled) return;
       if (deptJson.success) setDepartments(deptJson.data as Department[]);
       if (docJson.success) setDoctors(docJson.data as Doctor[]);
-      if (Array.isArray(bedsJson)) setBeds(bedsJson as Bed[]);
     };
 
     void load();
@@ -123,11 +119,7 @@ export function useAdmissionsPage() {
 
   const updateStayForm = useCallback(
     <K extends keyof NewStayForm>(key: K, value: NewStayForm[K]) =>
-      setStayForm((prev) =>
-        key === "departmentId" && value !== prev.departmentId
-          ? { ...prev, departmentId: value as string, bedId: "" }
-          : { ...prev, [key]: value }
-      ),
+      setStayForm((prev) => ({ ...prev, [key]: value })),
     []
   );
 
@@ -152,7 +144,6 @@ export function useAdmissionsPage() {
           type: stayForm.type,
           admissionReason: stayForm.admissionReason || null,
           departmentId: stayForm.departmentId || null,
-          bedId: stayForm.bedId || null,
           attendingDoctorId: stayForm.attendingDoctorId || null,
           triageAcuity: stayForm.triageAcuity || undefined,
           medicalActCode: stayForm.medicalActCode || undefined,
@@ -176,7 +167,7 @@ export function useAdmissionsPage() {
 
   return {
     // Data
-    stays, departments, doctors, beds, loading, error,
+    stays, departments, doctors, loading, error,
     view, setView,
     total, page, setPage, pageSize, setPageSize,
     searchInput, setSearchInput, filters, setFilters,

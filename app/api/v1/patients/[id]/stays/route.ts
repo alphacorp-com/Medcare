@@ -123,7 +123,7 @@ export async function GET(
 //   pmsiCode
 //   pmsiValidated  – boolean (default false)
 //   departmentId   – UUID
-//   bedId          – UUID
+//   bedId          – refused (400 bed_requires_hospitalization): see /stays/:id/hospitalization
 //   attendingDoctorId – UUID
 //   medicalActCode – MedicalAct.code billed at admission; required while billing is active,
 //                    since that charge is what the patient pays before seeing the doctor
@@ -222,29 +222,18 @@ export async function POST(
       );
     }
 
-    // ── Resolve + validate the bed, if one was chosen ───────────────────────
-    let resolvedBedId = toUuid(bedId);
-    let resolvedDepartmentId = toUuid(departmentId);
-    if (resolvedBedId) {
-      const bed = await prisma.bed.findFirst({
-        where: { id: resolvedBedId, tenantId: session.user.tenantId },
-      });
-      if (!bed) {
-        return NextResponse.json({ error: "Bed not found", success: false }, { status: 404 });
-      }
-      if (resolvedDepartmentId && resolvedDepartmentId !== bed.departmentId) {
-        return NextResponse.json(
-          { error: "Bed does not belong to the selected department", success: false },
-          { status: 409 }
-        );
-      }
-      if (bed.status !== "available") {
-        return NextResponse.json({ error: "Bed is not available", success: false }, { status: 409 });
-      }
-      resolvedDepartmentId = resolvedDepartmentId ?? bed.departmentId;
-    } else if (resolvedDepartmentId) {
-      // No bed was chosen (which would have already proven the department belongs to
-      // this tenant) — validate the standalone departmentId directly, otherwise a
+    // ── A bed is never assigned at admission: it goes through hospitalisation
+    // (POST /api/v1/stays/:id/hospitalization), which bills the deposit and makes the stay
+    // visible on the discharges page. Refused explicitly rather than silently ignored. ──
+    if (bedId !== undefined && bedId !== null && bedId !== "") {
+      return NextResponse.json(
+        { error: "A bed is assigned by hospitalising the patient, not at admission", code: "bed_requires_hospitalization", success: false },
+        { status: 400 }
+      );
+    }
+    const resolvedDepartmentId = toUuid(departmentId);
+    if (resolvedDepartmentId) {
+      // A raw id from the browser: it must be one of this tenant's departments, otherwise a
       // client could link this stay to another tenant's department.
       const department = await prisma.department.findFirst({
         where: { id: resolvedDepartmentId, tenantId: session.user.tenantId },
@@ -254,7 +243,7 @@ export async function POST(
       }
     }
 
-    // A raw FK like the other two, so the same cross-tenant risk applies: verify the
+    // A raw FK like the department, so the same cross-tenant risk applies: verify the
     // attending doctor is actually one of this tenant's staff before storing it.
     const resolvedDoctorId = toUuid(attendingDoctorId);
     if (resolvedDoctorId) {
@@ -266,11 +255,8 @@ export async function POST(
       }
     }
 
-    // ── Create (and, if a bed was chosen, occupy it atomically — the guarded
-    // updateMany only succeeds if the bed is still available, closing the race
-    // where two admissions target the same bed at once). The stay number is
-    // per-tenant unique; withNextStayNumber re-runs the whole transaction with the
-    // next number if a concurrent admission took it first ─────────────────────
+    // ── Create. The stay number is per-tenant unique; withNextStayNumber re-runs the whole
+    // transaction with the next number if a concurrent admission took it first ─────────
     const stay = await withNextStayNumber(session.user.tenantId, (stayNumber) => prisma.$transaction(async (tx) => {
       const created = await tx.stay.create({
         data: {
@@ -288,7 +274,6 @@ export async function POST(
           pmsiCode: pmsiCode || null,
           pmsiValidated: typeof pmsiValidated === "boolean" ? pmsiValidated : false,
           departmentId: resolvedDepartmentId,
-          bedId: resolvedBedId,
           attendingDoctorId: resolvedDoctorId,
           triageAcuity: resolvedTriageAcuity,
           triagedAt: resolvedTriageAcuity ? new Date() : null,
@@ -313,16 +298,6 @@ export async function POST(
         },
       });
 
-      if (resolvedBedId) {
-        const occupied = await tx.bed.updateMany({
-          where: { id: resolvedBedId, tenantId: session.user.tenantId, status: "available" },
-          data: { status: "occupied", currentStayId: created.id },
-        });
-        if (occupied.count !== 1) {
-          throw new Error("BED_CONFLICT");
-        }
-      }
-
       return created;
     }));
 
@@ -342,9 +317,6 @@ export async function POST(
 
     return NextResponse.json({ data: current ?? stay, billing, success: true }, { status: 201 });
   } catch (error) {
-    if (error instanceof Error && error.message === "BED_CONFLICT") {
-      return NextResponse.json({ error: "Bed was just taken by another admission", success: false }, { status: 409 });
-    }
     console.error("[POST /api/v1/patients/:id/stays]", error);
     return NextResponse.json(
       { error: "Failed to create stay", success: false },

@@ -6,6 +6,7 @@ import { authOptions } from "@/lib/auth";
 import { requireTenantAdmin } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
 import { syncExamFeeSchedule } from "@/lib/billing/syncFeeSchedule";
+import { FEE_CODE_CONFLICT, feeCodeUsedByOtherCatalog } from "@/lib/billing/feeCodes";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -65,6 +66,10 @@ export async function POST(request: Request) {
 
     const category = await prisma.medicalActCategory.findFirst({ where: { id: categoryId, tenantId: session.user.tenantId } });
     if (!category) return NextResponse.json({ error: "Category not found" }, { status: 404 });
+
+    if (await feeCodeUsedByOtherCatalog(session.user.tenantId, code, "medical_act")) {
+      return NextResponse.json({ error: "This code is already used by an exam: both are priced in the same tariff slot", code: FEE_CODE_CONFLICT }, { status: 409 });
+    }
 
     const act = await prisma.medicalAct.create({
       data: {

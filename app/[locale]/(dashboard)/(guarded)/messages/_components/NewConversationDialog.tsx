@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { MessageSquarePlus, Plus, Search } from "lucide-react";
 import {
@@ -37,14 +37,17 @@ export function NewConversationDialog({ onCreated, variant = "button" }: NewConv
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
 
-  useEffect(() => {
-    if (!open) return;
+  // The colleague directory is loaded each time the dialog opens (event handler, not effect).
+  const handleOpenChange = (next: boolean) => {
+    setOpen(next);
+    if (!next) return;
     setLoading(true);
     fetch("/api/v1/directory")
       .then((res) => (res.ok ? res.json() : []))
       .then(setColleagues)
+      .catch(() => setColleagues([]))
       .finally(() => setLoading(false));
-  }, [open]);
+  };
 
   const filtered = colleagues.filter((c) =>
     c.fullName.toLowerCase().includes(search.toLowerCase()) ||
@@ -77,7 +80,7 @@ export function NewConversationDialog({ onCreated, variant = "button" }: NewConv
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       {variant === "fab" ? (
         <DialogTrigger
           aria-label={t("new_conversation")}

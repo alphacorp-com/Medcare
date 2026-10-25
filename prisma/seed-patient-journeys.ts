@@ -64,6 +64,7 @@ import crypto from 'crypto';
 import prisma from '../lib/prisma';
 import { SYSTEM_ACTOR_ID } from '../lib/audit';
 import { consumeStock, receiveStock } from '../lib/stock/movements';
+import { hospitalizeDemoStay } from './seed-hospitalization';
 import { seedPrograms, type SeededPatient } from './seed-programs';
 
 const IPP_PREFIX = 'PJ';
@@ -546,6 +547,10 @@ async function makeConsultationInvoice(ctx: Ctx, patientId: string, stayId: stri
   return recalcInvoice(invoice.id);
 }
 
+// Hospitalisations go through the same path as the app (prisma/seed-hospitalization.ts).
+const hospitalizeStay = (ctx: Ctx, params: Omit<Parameters<typeof hospitalizeDemoStay>[0], 'tenantId' | 'issuedById'>) =>
+  hospitalizeDemoStay({ tenantId: ctx.tenantId, issuedById: ctx.staff.billingUser.id, ...params });
+
 // ─────────────────────────────────────────────────────────────────────────
 // Journey builders — each creates a coherent, realistic slice of the app's
 // data for one patient. Parameterized so the same builder produces visibly
@@ -612,13 +617,14 @@ const TRIAGE_REASONS: Record<string, string> = {
   fievre: 'Fièvre modérée persistante',
 };
 
-async function journeyEmergencyMinor(ctx: Ctx, patientId: string, bedCode: string, reasonKey: keyof typeof TRIAGE_REASONS) {
+// Treated and sent home within hours: no hospitalisation, hence no bed (a bed is only ever
+// assigned by hospitalising the patient).
+async function journeyEmergencyMinor(ctx: Ctx, patientId: string, reasonKey: keyof typeof TRIAGE_REASONS) {
   const dept = ctx.departments['EMER'];
-  const bed = ctx.beds[bedCode];
   const stay = await prisma.stay.create({
     data: {
       tenantId: ctx.tenantId, patientId, stayNumber: nextStayNumber(), type: StayType.emergency, status: StayStatus.discharged,
-      admissionDate: daysAgo(2, 10, 0), dischargeDate: daysAgo(2, 13, 0), departmentId: dept.id, bedId: bed.id,
+      admissionDate: daysAgo(2, 10, 0), dischargeDate: daysAgo(2, 13, 0), departmentId: dept.id,
       attendingDoctorId: ctx.staff.doctor.id, admissionReason: TRIAGE_REASONS[reasonKey],
       admissionTypeId: ctx.admissionTypes['EMERGENCY'], triageAcuity: TriageAcuity.less_urgent, triagedAt: daysAgo(2, 10, 5),
       consultationStatus: ConsultationStatus.completed, dischargeSummary: 'Prise en charge simple, sortie avec consignes.',
@@ -701,6 +707,8 @@ async function journeyEmergencyCritical(ctx: Ctx, patientId: string, bedCode: st
     data: { tenantId: ctx.tenantId, invoiceId: invoice.id, amount: recalced.patientAmount, method: PaymentMethod.insurance, status: PaymentStatus.successful, currency: 'XAF', initiatedById: ctx.staff.billingUser.id, initiatedAt: daysAgo(0, 11, 0), completedAt: daysAgo(0, 11, 5) },
   });
   await recalcInvoicePaid(invoice.id, recalced.patientAmount.toNumber());
+  // Vital emergency: hospitalised at once, the deposit is settled afterwards.
+  await hospitalizeStay(ctx, { stayId: stay.id, patientId, bedId: bed.id, departmentId: dept.id, hospitalizedAt: daysAgo(0, 6, 40), plannedDays: 5, depositPaid: false });
 
   await prisma.adverseEvent.create({
     data: { tenantId: ctx.tenantId, declaredBy: ctx.staff.doctor2.id, patientId, stayId: stay.id, type: AdverseEventType.procedure_complication, severity: AdverseEventSeverity.major, description: 'Saignement post-opératoire ayant nécessité une surveillance rapprochée.', status: AdverseEventStatus.action_plan, immediateAction: 'Transfusion et surveillance hémodynamique renforcée.' },
@@ -739,6 +747,7 @@ async function journeyChronicFollowUp(ctx: Ctx, patientId: string, bedCode: stri
   const half = Math.floor(recalced.patientAmount.toNumber() / 2);
   await prisma.payment.create({ data: { tenantId: ctx.tenantId, invoiceId: invoice.id, amount: half, method: PaymentMethod.card, status: PaymentStatus.successful, currency: 'XAF', initiatedById: ctx.staff.billingUser.id, initiatedAt: daysAgo(1, 9, 30), completedAt: daysAgo(1, 9, 31) } });
   await recalcInvoicePaid(invoice.id, half);
+  await hospitalizeStay(ctx, { stayId: stay.id, patientId, bedId: bed.id, departmentId: dept.id, hospitalizedAt: daysAgo(1, 9, 0), plannedDays: 3, depositPaid: true });
 }
 
 async function journeyDayCare(ctx: Ctx, patientId: string, reason: string) {
@@ -899,7 +908,7 @@ async function journeyMaternity(ctx: Ctx, patientId: string, delivered: boolean)
   });
   await prisma.antenatalVisit.create({ data: { tenantId: ctx.tenantId, pregnancyId: pregnancy.id, visitNumber: 1, visitDate: daysAgo(120), gestationalAgeWeeks: 14, performedById: ctx.staff.doctor.id, ironFolateGiven: true, tetanusVaccineGiven: true, malariaPreventionGiven: true } });
   const stay = await prisma.stay.create({
-    data: { tenantId: ctx.tenantId, patientId, stayNumber: nextStayNumber(), type: StayType.emergency, status: StayStatus.discharged, admissionDate: daysAgo(1, 2, 0), dischargeDate: daysAgo(0, 10, 0), departmentId: ctx.departments['MAT'].id, bedId: ctx.beds['MAT-01']?.id, attendingDoctorId: ctx.staff.doctor.id, admissionReason: 'Travail actif — accouchement', admissionTypeId: ctx.admissionTypes['MATERNITY'], consultationStatus: ConsultationStatus.completed },
+    data: { tenantId: ctx.tenantId, patientId, stayNumber: nextStayNumber(), type: StayType.emergency, status: StayStatus.discharged, admissionDate: daysAgo(1, 2, 0), dischargeDate: daysAgo(0, 10, 0), departmentId: ctx.departments['MAT'].id, attendingDoctorId: ctx.staff.doctor.id, admissionReason: 'Travail actif — accouchement', admissionTypeId: ctx.admissionTypes['MATERNITY'], consultationStatus: ConsultationStatus.completed },
   });
   const delivery = await prisma.delivery.create({
     data: { tenantId: ctx.tenantId, pregnancyId: pregnancy.id, stayId: stay.id, deliveryDate: daysAgo(1, 4, 30), mode: DeliveryMode.vaginal, attendedById: ctx.staff.doctor.id, placentaDelivered: true, bloodLossMl: 250, maternalOutcome: 'Suites de couches simples.', complications: [] as unknown as Prisma.InputJsonValue },
@@ -916,6 +925,12 @@ async function journeyMaternity(ctx: Ctx, patientId: string, delivered: boolean)
   const invoice = await prisma.patientInvoice.create({ data: { tenantId: ctx.tenantId, patientId, stayId: stay.id, status: BillingInvoiceStatus.draft, issuedById: ctx.staff.billingUser.id, currency: 'XAF' } });
   await prisma.patientInvoiceLine.create({ data: { tenantId: ctx.tenantId, invoiceId: invoice.id, sourceType: BillingSourceType.delivery, sourceId: delivery.id, description: 'Accouchement par voie basse', quantity: 1, unitPrice: 30000, amount: 30000 } });
   await recalcInvoice(invoice.id);
+  // Hospitalised in the maternity ward for the labour, then discharged: the deposit (2 days)
+  // is regularised to the time actually spent.
+  const maternityBed = ctx.beds['MAT-01'];
+  if (maternityBed) {
+    await hospitalizeStay(ctx, { stayId: stay.id, patientId, bedId: maternityBed.id, departmentId: ctx.departments['MAT'].id, hospitalizedAt: daysAgo(1, 2, 30), plannedDays: 2, leftAt: daysAgo(0, 10, 0), depositPaid: true });
+  }
 }
 
 async function journeyMalaria(ctx: Ctx, patientId: string, severity: MalariaSeverity) {
@@ -1081,8 +1096,7 @@ async function main() {
 
   const ctx: Ctx = { tenantId: tenant.id, departments, beds, medications, staff, admissionTypes, examCatalog, medicalActs };
 
-  const counters = { emergencyMinorBed: 0, radiologyDone: 0, labDone: 0, criticalBed: 0, medBed: 0 };
-  const emerBeds = ['EMER-01', 'EMER-02', 'EMER-03'];
+  const counters = { radiologyDone: 0, labDone: 0, criticalBed: 0, medBed: 0 };
   const criticalBeds = ['EMER-04', 'EMER-05', 'EMER-06'];
   const medBeds = ['MED-01', 'MED-02', 'MED-03', 'MED-04', 'MED-05', 'MED-06', 'MED-07', 'MED-08'];
   const radiologyCodes = ['XR-CHEST', 'CT-HEAD', 'US-ABD'];
@@ -1122,10 +1136,8 @@ async function main() {
         await journeyOutpatientPaid(ctx, patient.id, i % 4, 'Suivi de routine');
         break;
       case 'emergencyMinor': {
-        const bedCode = emerBeds[counters.emergencyMinorBed % emerBeds.length];
-        counters.emergencyMinorBed += 1;
         const reasonKeys: (keyof typeof TRIAGE_REASONS)[] = ['suture', 'entorse', 'fievre'];
-        await journeyEmergencyMinor(ctx, patient.id, bedCode, reasonKeys[i % reasonKeys.length]);
+        await journeyEmergencyMinor(ctx, patient.id, reasonKeys[i % reasonKeys.length]);
         break;
       }
       case 'emergencyCritical':
