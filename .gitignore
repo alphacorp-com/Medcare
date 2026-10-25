@@ -6,4 +6,3 @@ node_modules/
 .env*
 .claude/
 !.env.example
-*.xlsx
