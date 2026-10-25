@@ -1,6 +1,7 @@
 import React from 'react';
 import { Document, Page, StyleSheet, Text, View } from '@react-pdf/renderer';
 import type { PdfFacility, PdfLabels, PdfSettings } from './types';
+import { TemplateClosing, TemplateFooterText, TemplateIntro, templateTitle } from './TemplateExtras';
 
 // The medical record of one admission: identification, reason for admission, notes
 // (consultation and complementary), prescribed medications and every exam with its
@@ -160,7 +161,8 @@ export const MedicalRecordTemplate = ({
         </View>
       </View>
 
-      <Text style={styles.title}>{labels.title}</Text>
+      <Text style={styles.title}>{templateTitle(settings, 'medical_record', labels.title)}</Text>
+      <TemplateIntro settings={settings} id="medical_record" />
       {data.stay.dischargeDate ? (
         <Text style={styles.dischargeMention}>{labels.discharge_mention} {data.stay.dischargeDate}</Text>
       ) : null}
@@ -259,8 +261,10 @@ export const MedicalRecordTemplate = ({
         </View>
       ) : null}
 
+      <TemplateClosing settings={settings} id="medical_record" signatureLabel={labels.signature} />
       <View style={styles.footer} fixed>
         <Text>{labels.confidential}{settings.watermark ? ` — ${labels.restricted}` : ''}</Text>
+        <TemplateFooterText settings={settings} />
         <Text render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />
       </View>
     </Page>

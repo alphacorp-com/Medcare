@@ -13,9 +13,9 @@ import { ClaimTemplate } from './ClaimTemplate';
 import { PrescriptionTemplate, type PrescriptionData } from './PrescriptionTemplate';
 import { LabResultTemplate, type LabResultData } from './LabResultTemplate';
 import { PatientListTemplate, type PatientListData } from './PatientListTemplate';
-import { StockReportTemplate } from './StockReportTemplate';
+import { StockReportTemplate, type StockReportPdfData } from './StockReportTemplate';
 import { PatientFileTemplate, type PatientFileData } from './PatientFileTemplate';
-import { MedicationGuideTemplate } from './MedicationGuideTemplate';
+import { MedicationGuideTemplate, type MedicationGuideData } from './MedicationGuideTemplate';
 import { ReceiptTemplate } from './ReceiptTemplate';
 import { MedicalRecordTemplate, type MedicalRecordData } from './MedicalRecordTemplate';
 import { useLocale, useTranslations } from 'next-intl';
@@ -137,6 +137,7 @@ export function PDFPreviewModal({ isOpen, onClose, templateId, facility, setting
     total: tDocs('total'),
     generated_by: tDocs('generated_by'),
     confidential: tDocs('confidential'),
+    signature: tDocs('signature'),
     prescription: tDocs('prescription'),
     patient: tDocs('patient'),
     age: tDocs('age'),
@@ -181,10 +182,6 @@ export function PDFPreviewModal({ isOpen, onClose, templateId, facility, setting
     recent_activity: tDocs('recent_activity'),
     reason: tDocs('reason'),
     medication_guide: tDocs('medication_guide'),
-    how_to_take: tDocs('how_to_take'),
-    best_time: tDocs('best_time'),
-    warnings: tDocs('warnings'),
-    side_effects: tDocs('side_effects'),
     not_applicable: tCommon('not_applicable'),
     insurance_discount_applied: tDocs('insurance_discount_applied'),
     no_insurance_discount: tDocs('no_insurance_discount'),
@@ -312,19 +309,14 @@ export function PDFPreviewModal({ isOpen, onClose, templateId, facility, setting
       case 'medications':
         return (
           <MedicationGuideTemplate
-            data={{
-              medicationName: 'Metformin',
-              dosage: '850mg',
-              patientName: 'Michael Jordan',
-              instructions: 'Take one tablet with your evening meal',
-              frequency: 'Once daily',
-              timing: 'Evening',
-              warnings: [
-                'Do not take on an empty stomach',
-                'Avoid excessive alcohol consumption',
-                'Inform your doctor if you experience severe nausea'
+            data={(data as MedicationGuideData | undefined) ?? {
+              patientName: 'Jane Smith',
+              prescriber: 'Dr. Mballa',
+              date: new Date().toLocaleDateString(),
+              medications: [
+                { name: 'Amoxicillin 500 mg', dosage: '1 capsule', frequency: '3 times daily', duration: '7 days', instructions: 'Take after meals' },
+                { name: 'Paracetamol 500 mg', dosage: '2 tablets', frequency: 'Up to 3 times daily', duration: '3 days', instructions: '' },
               ],
-              sideEffects: ['Nausea', 'Diarrhea', 'Metallic taste in mouth', 'Stomach ache']
             }}
             facility={facility}
             settings={settings}
@@ -334,21 +326,19 @@ export function PDFPreviewModal({ isOpen, onClose, templateId, facility, setting
       case 'stock_reports':
         return (
           <StockReportTemplate
-            data={{
-              title: labels.stock_report,
-              category: 'Essential Medicines',
-              date: new Date().toLocaleDateString(),
-              stats: {
-                totalItems: 450,
-                outOfStock: 12,
-                lowStock: 28
+            data={(data as StockReportPdfData | undefined) ?? {
+              period: format(new Date(), 'MM/yyyy'),
+              category: 'Essential medicines',
+              rows: [
+                { name: 'Amoxicillin 500 mg', unit: 'caps', opening: 1200, received: 500, consumed: 640, losses: 0, adjusted: 0, closing: 1060, cmm: 610, stockoutDays: 0, vaccine: null },
+                { name: 'Paracetamol 500 mg', unit: 'tabs', opening: 45, received: 0, consumed: 45, losses: 0, adjusted: 0, closing: 0, cmm: 120, stockoutDays: 9, vaccine: null },
+                { name: 'BCG vaccine', unit: 'vial', opening: 20, received: 10, consumed: 12, losses: 1, adjusted: 0, closing: 17, cmm: 11, stockoutDays: 0, vaccine: { dosesAdministered: 180, dosesWasted: 60, wastageRate: 25 } },
+              ],
+              labels: {
+                title: labels.stock_report, articles: 'Articles', in_stockout: 'Stockout', article: 'Article', opening: 'Opening',
+                received: 'Received', consumed: 'Consumed', losses: 'Losses', adjusted: 'Adjusted', closing: 'Closing', cmm: 'AMC',
+                stockout_days: 'Stockout days', doses_given: 'Doses given', doses_wasted: 'Doses wasted', wastage: 'Wastage', empty: '—',
               },
-              items: [
-                { code: 'MED-001', name: 'Amoxicillin 500mg Caps', category: 'Antibiotics', stock: 1200, minStock: 500, unit: 'caps' },
-                { code: 'MED-045', name: 'Paracetamol 500mg Tabs', category: 'Analgesics', stock: 45, minStock: 200, unit: 'tabs' },
-                { code: 'MED-112', name: 'Insulin Glargine 100U/ml', category: 'Antidiabetic', stock: 0, minStock: 10, unit: 'vials' },
-                { code: 'MED-204', name: 'Salbutamol Inhaler 100mcg', category: 'Respiratory', stock: 15, minStock: 25, unit: 'units' },
-              ]
             }}
             facility={facility}
             settings={settings}

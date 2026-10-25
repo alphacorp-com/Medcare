@@ -1,6 +1,7 @@
 import React from 'react';
 import { Page, Text, View, Document, StyleSheet, Image } from '@react-pdf/renderer';
 import type { PdfFacility, PdfLabels, PdfSettings } from './types';
+import { TemplateClosing, TemplateFooterText, TemplateIntro, templateTitle } from './TemplateExtras';
 
 const styles = StyleSheet.create({
   page: {
@@ -107,7 +108,8 @@ export const PatientListTemplate = ({ data, facility, settings, labels }: Patien
         </View>
       </View>
 
-      <Text style={styles.title}>{data.title}</Text>
+      <Text style={styles.title}>{templateTitle(settings, 'patient_lists', data.title)}</Text>
+      <TemplateIntro settings={settings} id="patient_lists" />
 
       <View style={styles.table}>
         <View style={styles.tableRow}>
@@ -130,8 +132,10 @@ export const PatientListTemplate = ({ data, facility, settings, labels }: Patien
         ))}
       </View>
 
+      <TemplateClosing settings={settings} id="patient_lists" signatureLabel={labels.signature} />
       <View style={styles.footer}>
         <Text>{labels.total_patients}: {data.patients.length} | {labels.generated_by} {new Date().toLocaleString()}</Text>
+        <TemplateFooterText settings={settings} />
         {settings.watermark && <Text style={{ color: '#fee2e2', marginTop: 2 }}>{labels.confidential}</Text>}
       </View>
     </Page>

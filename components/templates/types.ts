@@ -1,5 +1,7 @@
 // Shared prop shapes for the @react-pdf/renderer document templates in this folder.
 
+import type { DocumentTemplateSettings } from "@/lib/document-templates";
+
 export interface PdfFacility {
   name: string;
   address: string;
@@ -10,12 +12,9 @@ export interface PdfFacility {
   department?: string;
 }
 
-export interface PdfSettings {
-  showLogo: boolean;
-  includeQR: boolean;
-  digitalSignature: boolean;
-  watermark: boolean;
-}
+// Document settings of the facility (lib/document-templates): branding flags, footer line and
+// per-template texts.
+export type PdfSettings = DocumentTemplateSettings;
 
 // Label bags are template-specific supersets of translated strings assembled by the
 // caller (see PDFPreviewModal) — a plain string dictionary is the honest shape here,

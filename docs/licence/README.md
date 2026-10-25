@@ -44,14 +44,22 @@ est purement une question de commodité réseau.
 
 ## 2. Prérequis : configurer les identifiants (une seule fois)
 
-**👤** Avant toute activation, l'installation MedCare a besoin de 2 ou 3 valeurs dans son fichier
-`.env` :
+**👤** Avant toute activation, l'installation MedCare a besoin de ces valeurs dans son fichier
+`.env` (serveur sur site, Docker) ou dans les variables d'environnement de l'hébergeur (Vercel :
+**Settings → Environment Variables**, environnement *Production*) :
 
 ```
 ONPREM_LICENSE_CLIENT_ID=<affiché sur la fiche du client dans AlphaCorp>
 ONPREM_LICENSE_CLIENT_SECRET=<affiché une seule fois à la création du client, ou après une rotation>
 ALPHACORP_LICENSE_API_URL=<uniquement nécessaire pour le flux EN LIGNE>
+ONPREM_INSTALL_ID=<obligatoire en Docker / cloud : valeur aléatoire fixe, jamais modifiée>
 ```
+
+- **`ONPREM_INSTALL_ID`** fixe l'empreinte de l'installation. Sur un serveur classique, laissez-la
+  vide : l'identifiant machine du système est utilisé. Sur Docker, Kubernetes ou Vercel, l'empreinte
+  changerait à chaque recréation du conteneur ou à chaque déploiement : générez une valeur une fois
+  (`openssl rand -hex 16`) et ne la changez plus. Une empreinte qui change est refusée par
+  AlphaCorp (client déjà lié à une autre installation).
 
 - **Où trouver l'ID Client** : sur la fiche du client dans AlphaCorp (`/admin/licenses/<id>`), affiché
   en haut de page.
@@ -67,12 +75,13 @@ ALPHACORP_LICENSE_API_URL=<uniquement nécessaire pour le flux EN LIGNE>
 `.env` (seule la première occurrence d'une clé dupliquée est prise en compte — la seconde est
 ignorée silencieusement). Toujours vérifier qu'il n'y a qu'une seule ligne par variable.
 
-**Après toute modification du `.env`, redémarrer le serveur MedCare** — ces variables ne sont lues
-qu'au démarrage.
+**Après toute modification du `.env`, redémarrer le serveur MedCare** (ou **redéployer** sur un
+hébergeur comme Vercel) — ces variables ne sont lues qu'au démarrage.
 
-**🛠️** Ces trois variables sont lues directement via `process.env` dans les routes API
-(`app/api/v1/onprem-license/*`) — pas de cache, pas de valeur par défaut. Le secret brut n'est
-jamais journalisé ni renvoyé au client.
+**🛠️** Ces variables sont lues directement via `process.env` dans les routes API
+(`app/api/v1/onprem-license/*`), sans cache ni valeur par défaut. Les espaces et retours à la ligne
+parasites (fréquents après un copier-coller dans un tableau de bord d'hébergeur) sont retirés avant
+usage. Le secret brut n'est jamais journalisé ni renvoyé au client.
 
 ---
 
@@ -187,7 +196,8 @@ la lever. Deux protections supplémentaires :
 | `Online activation is not configured... (missing ONPREM_LICENSE_CLIENT_ID/SECRET or ALPHACORP_LICENSE_API_URL)` | Une des trois variables manque | Compléter le `.env`, redémarrer le serveur |
 | `Offline activation is not configured... (missing ONPREM_LICENSE_CLIENT_ID/SECRET)` | ID ou secret manquant (l'URL API n'est pas nécessaire ici) | Idem, sans l'URL |
 | `assign a plan before activation` (activation en ligne) | Le client n'a pas d'abonnement actif dans AlphaCorp | Sur la fiche client → section Abonnement → assigner un plan |
-| `This client is already bound to a different device` | L'empreinte de la machine a changé (réinstallation, migration serveur) | Contacter AlphaCorp pour délier/relier l'empreinte (opération manuelle en base à ce jour) |
+| `Invalid client credentials.` (HTTP 401, activation en ligne) | AlphaCorp ne reconnaît pas le couple ID / secret : variable erronée, secret tourné depuis (l'ancien est invalidé), ou variables modifiées sans redéploiement | Comparer `ONPREM_LICENSE_CLIENT_ID` à l'ID affiché par AlphaCorp, et les 6 derniers caractères de `ONPREM_LICENSE_CLIENT_SECRET` à l'aperçu du secret sur la fiche client. En cas de doute, faire tourner le secret, le recopier, puis redémarrer ou redéployer |
+| `This client is already bound to a different device` (HTTP 409) | L'empreinte a changé (réinstallation, migration serveur, conteneur recréé sans `ONPREM_INSTALL_ID`) | Fixer `ONPREM_INSTALL_ID`, puis demander à AlphaCorp de délier/relier l'empreinte (opération manuelle en base à ce jour) |
 | `This request file's signature is invalid` (import côté AlphaCorp) | Fichier de demande corrompu, modifié, ou généré pour un autre client | Régénérer un nouveau fichier de demande depuis MedCare |
 | Panneau licence affiche une erreur rouge "Impossible de vérifier le statut" | Échec technique de la vérification (ex. session expirée) — **ne veut pas dire qu'il n'y a pas de licence** | Réessayer ; si persistant, vérifier les logs serveur |
 

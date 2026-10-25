@@ -23,6 +23,8 @@ import { ChangePasswordCard } from "@/components/settings/change-password-card";
 import { OrganizationSettings } from "@/components/settings/organization-settings";
 import { ModuleConfiguration } from "@/components/settings/module-configuration";
 import { DocumentTemplates } from "@/components/settings/document-templates";
+import { DEFAULT_DOCUMENT_TEMPLATE_SETTINGS, normalizeDocumentTemplateSettings, type DocumentTemplateSettings } from "@/lib/document-templates";
+import { toast } from "sonner";
 import { Dhis2IntegrationSettings } from "@/components/settings/dhis2-integration-settings";
 import { MobileMoneySettings } from "@/components/settings/mobile-money-settings";
 import { OnPremLicensePanel } from "@/components/settings/onprem-license-panel";
@@ -75,12 +77,7 @@ function SettingsPageContent() {
   });
 
   // Templates State
-  const [templateSettings, setTemplateSettings] = useState({
-    showLogo: true,
-    includeQR: true,
-    digitalSignature: true,
-    watermark: false
-  });
+  const [templateSettings, setTemplateSettings] = useState<DocumentTemplateSettings>(DEFAULT_DOCUMENT_TEMPLATE_SETTINGS);
 
   const t = useTranslations('settings');
   const tc = useTranslations('common');
@@ -126,7 +123,7 @@ function SettingsPageContent() {
 
         if (tplRes.ok) {
           const data = await tplRes.json();
-          setTemplateSettings(prev => ({ ...prev, ...data }));
+          setTemplateSettings(normalizeDocumentTemplateSettings(data));
         }
       } catch (error) {
         console.error("Failed to fetch settings:", error);
@@ -218,11 +215,17 @@ function SettingsPageContent() {
           body: JSON.stringify(orgData)
         });
       } else if (activeTab === "templates") {
-        await fetch('/api/v1/settings/templates', {
+        const response = await fetch('/api/v1/settings/templates', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(templateSettings)
         });
+        if (!response.ok) {
+          toast.error(ttpl('save_failed'));
+          return;
+        }
+        setTemplateSettings(normalizeDocumentTemplateSettings(await response.json()));
+        toast.success(ttpl('saved'));
       }
     } catch (error) {
       console.error("Failed to save settings:", error);

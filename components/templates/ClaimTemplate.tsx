@@ -1,6 +1,7 @@
 import React from 'react';
 import { Page, Text, View, Document, StyleSheet, Image } from '@react-pdf/renderer';
 import type { PdfClaimData, PdfFacility, PdfSettings } from './types';
+import { TemplateClosing, TemplateFooterText, TemplateIntro, templateTitle } from './TemplateExtras';
 
 // Claim to a payer ("bordereau"): one line per invoice, totals, signatures. Landscape A4 — the
 // table is wide. Labels come translated in the data (lib/coverage, billing/claims/[id]).
@@ -43,12 +44,13 @@ export const ClaimTemplate = ({ data, facility, settings }: { data: PdfClaimData
             </View>
           </View>
           <View style={{ textAlign: 'right' }}>
-            <Text style={styles.title}>{l.title}</Text>
+            <Text style={styles.title}>{templateTitle(settings, 'insurance_claims', l.title)}</Text>
             <Text style={{ fontSize: 10, fontWeight: 'bold' }}>{data.number}</Text>
             <Text>{l.status}: {data.status}</Text>
           </View>
         </View>
 
+        <TemplateIntro settings={settings} id="insurance_claims" />
         <View style={styles.meta}>
           <View style={styles.metaBlock}><Text style={styles.metaLabel}>{l.payer}</Text><Text style={styles.metaValue}>{data.payerName}</Text></View>
           <View style={styles.metaBlock}><Text style={styles.metaLabel}>{l.period}</Text><Text style={styles.metaValue}>{data.period}</Text></View>
@@ -97,6 +99,8 @@ export const ClaimTemplate = ({ data, facility, settings }: { data: PdfClaimData
           <Text style={styles.signatureBox}>{l.payer_signature}</Text>
         </View>
 
+        <TemplateClosing settings={settings} id="insurance_claims" withSignature={false} />
+        <TemplateFooterText settings={settings} />
         <Text style={styles.footer} fixed render={({ pageNumber, totalPages }) => `${data.number} — ${facility.name} — ${pageNumber} / ${totalPages}`} />
       </Page>
     </Document>

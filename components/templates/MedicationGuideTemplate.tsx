@@ -1,6 +1,7 @@
 import React from 'react';
-import { Page, Text, View, Document, StyleSheet, Image } from '@react-pdf/renderer';
+import { Page, Text, View, Document, StyleSheet } from '@react-pdf/renderer';
 import type { PdfFacility, PdfLabels, PdfSettings } from './types';
+import { TemplateClosing, TemplateFooterText, TemplateIntro, templateTitle } from './TemplateExtras';
 
 const styles = StyleSheet.create({
   page: {
@@ -57,19 +58,6 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     textAlign: 'center',
   },
-  warningBox: {
-    backgroundColor: '#fff7ed',
-    borderWidth: 1,
-    borderColor: '#fed7aa',
-    padding: 10,
-    borderRadius: 4,
-  },
-  warningTitle: {
-    fontSize: 9,
-    fontWeight: 'bold',
-    color: '#9a3412',
-    marginBottom: 3,
-  },
   footer: {
     marginTop: 20,
     textAlign: 'center',
@@ -78,17 +66,18 @@ const styles = StyleSheet.create({
   }
 });
 
+// Patient sheet of a prescription: how to take each drug, as the prescriber wrote it. Built
+// only from the prescription lines — MedCare holds no drug monograph, so no warning or side
+// effect is ever printed that a clinician did not write.
+export interface MedicationGuideData {
+  patientName: string;
+  prescriber: string;
+  date: string;
+  medications: { name: string; dosage: string; frequency: string; duration: string; instructions: string }[];
+}
+
 interface MedicationGuideTemplateProps {
-  data: {
-    medicationName: string;
-    dosage: string;
-    patientName: string;
-    instructions: string;
-    frequency: string;
-    timing: string;
-    warnings: string[];
-    sideEffects: string[];
-  };
+  data: MedicationGuideData;
   facility: PdfFacility;
   settings: PdfSettings;
   labels: PdfLabels;
@@ -97,47 +86,40 @@ interface MedicationGuideTemplateProps {
 export const MedicationGuideTemplate = ({ data, facility, settings, labels }: MedicationGuideTemplateProps) => (
   <Document>
     <Page size="A5" orientation="landscape" style={styles.page}>
-      <View style={styles.card}>
-        <View style={styles.header}>
-          <Text style={styles.title}>{data.medicationName} {data.dosage}</Text>
-          <Text style={styles.subtitle}>{labels.patient}: {data.patientName} | {labels.department}: {facility.name}</Text>
-        </View>
+      <View style={styles.header}>
+        <Text style={styles.title}>{templateTitle(settings, 'medications', labels.medication_guide)}</Text>
+        <Text style={styles.subtitle}>
+          {labels.patient}: {data.patientName} | {labels.doctor}: {data.prescriber} | {data.date} | {facility.name}
+        </Text>
+      </View>
+      <TemplateIntro settings={settings} id="medications" />
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{labels.how_to_take}</Text>
-          <Text style={styles.instructionText}>{data.instructions}</Text>
-          <View style={{ flexDirection: 'row', gap: 20 }}>
-            <View>
-              <Text style={{ fontSize: 8, color: '#64748b' }}>{labels.frequency}</Text>
-              <Text style={{ fontWeight: 'bold' }}>{data.frequency}</Text>
-            </View>
-            <View>
-              <Text style={{ fontSize: 8, color: '#64748b' }}>{labels.best_time}</Text>
-              <Text style={{ fontWeight: 'bold' }}>{data.timing}</Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <View style={styles.warningBox}>
-            <Text style={styles.warningTitle}>{labels.warnings}</Text>
-            {data.warnings.map((w, i) => (
-              <Text key={i} style={{ fontSize: 8, marginBottom: 2 }}>• {w}</Text>
+      {data.medications.map((med, i) => (
+        <View key={i} style={styles.card} wrap={false}>
+          <Text style={styles.sectionTitle}>{med.name}</Text>
+          <View style={{ flexDirection: 'row', gap: 20, marginBottom: med.instructions ? 6 : 0 }}>
+            {[
+              [labels.dosage, med.dosage],
+              [labels.frequency, med.frequency],
+              [labels.duration, med.duration],
+            ].map(([label, value]) => (
+              <View key={label}>
+                <Text style={{ fontSize: 8, color: '#64748b' }}>{label}</Text>
+                <Text style={{ fontWeight: 'bold' }}>{value || '—'}</Text>
+              </View>
             ))}
           </View>
+          {med.instructions ? <Text style={styles.instructionText}>{med.instructions}</Text> : null}
         </View>
+      ))}
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{labels.side_effects}</Text>
-          <Text style={{ fontSize: 9 }}>{data.sideEffects.join(', ')}</Text>
-        </View>
-
-        <View style={styles.footer}>
-          <Text>If symptoms persist or worsen, contact {facility.phone} immediately.</Text>
-          {settings.watermark && (
-            <Text style={{ marginTop: 5, color: '#fca5a5' }}>{labels.confidential}</Text>
-          )}
-        </View>
+      <TemplateClosing settings={settings} id="medications" signatureLabel={labels.signature} />
+      <View style={styles.footer}>
+        <Text>{facility.phone}</Text>
+        <TemplateFooterText settings={settings} />
+        {settings.watermark && (
+          <Text style={{ marginTop: 5, color: '#fca5a5' }}>{labels.confidential}</Text>
+        )}
       </View>
     </Page>
   </Document>

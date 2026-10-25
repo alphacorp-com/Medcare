@@ -1,6 +1,7 @@
 import React from 'react';
 import { Page, Text, View, Document, StyleSheet, Image } from '@react-pdf/renderer';
 import type { PdfFacility, PdfLabels, PdfReceiptData, PdfSettings } from './types';
+import { TemplateClosing, TemplateFooterText, TemplateIntro, templateTitle } from './TemplateExtras';
 
 const styles = StyleSheet.create({
   page: {
@@ -112,7 +113,8 @@ export const ReceiptTemplate = ({ data, facility, settings, labels }: ReceiptTem
         </View>
       </View>
 
-      <Text style={styles.docTitle}>{labels.receipt}</Text>
+      <Text style={styles.docTitle}>{templateTitle(settings, 'receipts', labels.receipt)}</Text>
+      <TemplateIntro settings={settings} id="receipts" />
 
       <View style={styles.infoGrid}>
         <View style={styles.infoItem}>
@@ -153,8 +155,10 @@ export const ReceiptTemplate = ({ data, facility, settings, labels }: ReceiptTem
         {!data.isPaidInFull && <Text>{data.balanceAfter.toLocaleString()} {data.currency}</Text>}
       </View>
 
+      <TemplateClosing settings={settings} id="receipts" signatureLabel={labels.signature} />
       <View style={styles.footer}>
         <Text>{labels.generated_by} Medcare HMS | {facility.name} - {new Date().toLocaleDateString()}</Text>
+        <TemplateFooterText settings={settings} />
         {settings.watermark && (
           <Text style={{ marginTop: 5, color: '#fca5a5' }}>{labels.confidential}</Text>
         )}

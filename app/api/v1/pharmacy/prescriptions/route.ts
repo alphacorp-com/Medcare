@@ -170,7 +170,6 @@ export async function GET(req: Request) {
         status: rx.status === 'pending' ? 'Pending Queue' : rx.status === 'validated' ? 'Validated' : 'Dispensed',
         items: itemsList.length || 0,
         itemsData: enrichedItems,
-        alert: false, // In a real app, this would come from rx.contraindicationCheck
         ipp: rx.patient.ipp,
         totalCost,
         invoiceId: invoice?.id ?? null,

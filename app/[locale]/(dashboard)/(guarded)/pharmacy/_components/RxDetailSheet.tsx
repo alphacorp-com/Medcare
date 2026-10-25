@@ -11,13 +11,12 @@ import {
   SheetFooter,
 } from "@/components/ui/sheet";
 import {
-  AlertTriangle,
   Check,
   X,
   Receipt,
   PillBottle,
-  FileWarning,
-  Printer
+  Printer,
+  FileText
 } from "lucide-react";
 import { format } from "date-fns";
 import { useState } from "react";
@@ -25,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { Link } from "@/i18n/routing";
 import { PrescriptionRow } from "../types";
 import { PDFPreviewModal } from "@/components/templates/PDFPreviewModal";
+import type { MedicationGuideData } from "@/components/templates/MedicationGuideTemplate";
 import { usePdfBranding } from "@/components/templates/usePdfBranding";
 
 interface RxDetailSheetProps {
@@ -42,7 +42,7 @@ export function RxDetailSheet({
 }: RxDetailSheetProps) {
   const t = useTranslations('pharmacy');
   const tc = useTranslations('common');
-  const [isPrintOpen, setIsPrintOpen] = useState(false);
+  const [printTemplate, setPrintTemplate] = useState<"prescriptions" | "medications" | null>(null);
   const { facility: pdfFacility, settings: pdfSettings } = usePdfBranding();
 
   if (!rx) return null;
@@ -60,8 +60,16 @@ export function RxDetailSheet({
       dosage: item.dosage ?? item.dose ?? "",
       frequency: item.frequency ?? "",
       duration: item.duration ?? "",
-      instructions: "",
+      instructions: item.instructions ?? "",
     })),
+  };
+
+  // Patient sheet: the same lines, as the prescriber wrote them (MedicationGuideTemplate).
+  const pdfGuideData: MedicationGuideData = {
+    patientName: rx.patientName,
+    prescriber: rx.prescriber,
+    date: pdfPrescriptionData.date,
+    medications: pdfPrescriptionData.medications,
   };
 
   return (
@@ -86,11 +94,6 @@ export function RxDetailSheet({
                 {rx.prescriber} - {format(new Date(rx.date), "PPP 'at' p")}
               </SheetDescription>
             </div>
-            {rx.alert && (
-              <div className="bg-red-50 text-red-700 px-3 py-1.5 rounded border border-red-200 flex items-center gap-2 text-xs font-bold shrink-0">
-                <AlertTriangle className="h-4 w-4" /> {t('priority_alert')}
-              </div>
-            )}
           </div>
         </SheetHeader>
 
@@ -108,13 +111,6 @@ export function RxDetailSheet({
             <Button variant="outline" size="sm" className="text-xs h-7">{tc('view')}</Button>
           </div>
 
-          {rx.alert && (
-            <div className="bg-red-50 p-3 rounded border border-red-200 shadow-sm flex flex-col gap-2">
-              <div className="flex items-center gap-2 text-xs font-bold text-red-800 uppercase tracking-widest">
-                <FileWarning className="w-3.5 h-3.5" /> {t('high_risk_interaction')}
-              </div>
-            </div>
-          )}
 
           <div>
             <h4 className="text-[10px] font-bold text-slate-900 uppercase border-b border-slate-200 pb-1 mb-2 tracking-widest">{t('order_details')}</h4>
@@ -195,8 +191,11 @@ export function RxDetailSheet({
           </div>
 
           <div className="flex gap-2">
-            <Button variant="outline" className="text-xs h-8" onClick={() => setIsPrintOpen(true)}>
+            <Button variant="outline" className="text-xs h-8" onClick={() => setPrintTemplate("prescriptions")}>
               <Printer className="mr-2 h-3.5 w-3.5" /> {tc('print')}
+            </Button>
+            <Button variant="outline" className="text-xs h-8" onClick={() => setPrintTemplate("medications")}>
+              <FileText className="mr-2 h-3.5 w-3.5" /> {t('patient_sheet')}
             </Button>
             {rx.status === 'Pending Queue' && (
               <>
@@ -238,10 +237,10 @@ export function RxDetailSheet({
       </SheetContent>
     </Sheet>
     <PDFPreviewModal
-      isOpen={isPrintOpen}
-      onClose={() => setIsPrintOpen(false)}
-      templateId="prescriptions"
-      data={pdfPrescriptionData}
+      isOpen={printTemplate !== null}
+      onClose={() => setPrintTemplate(null)}
+      templateId={printTemplate ?? "prescriptions"}
+      data={printTemplate === "medications" ? pdfGuideData : pdfPrescriptionData}
       facility={pdfFacility}
       settings={pdfSettings}
     />

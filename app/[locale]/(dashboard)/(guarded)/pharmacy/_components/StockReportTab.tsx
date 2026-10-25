@@ -3,7 +3,11 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
-import { Loader2 } from "lucide-react";
+import { Loader2, Printer } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { PDFPreviewModal } from "@/components/templates/PDFPreviewModal";
+import { usePdfBranding } from "@/components/templates/usePdfBranding";
+import type { StockReportPdfData } from "@/components/templates/StockReportTemplate";
 import { Input } from "@/components/ui/input";
 import { apiFetch } from "@/lib/api-client";
 import { RMA3_STOCK_CATEGORIES, type Rma3StockCategory } from "@/lib/stock/input";
@@ -33,6 +37,46 @@ export function StockReportTab() {
     category === "all" ? true : category === "none" ? r.rma3Category === null : r.rma3Category === category
   );
   const hasVaccines = rows.some((r) => r.vaccine);
+  const [printOpen, setPrintOpen] = useState(false);
+  const { facility: pdfFacility, settings: pdfSettings } = usePdfBranding();
+
+  const categoryLabel =
+    category === "all" ? t("report_all_categories") : category === "none" ? t("rma3_category_none") : t(`rma3_category_${category}`);
+  const pdfData: StockReportPdfData = {
+    period: month.split("-").reverse().join("/"),
+    category: categoryLabel,
+    rows: rows.map((r) => ({
+      name: r.name,
+      unit: r.unit,
+      opening: r.opening,
+      received: r.received,
+      consumed: r.consumed,
+      losses: r.losses.expired + r.losses.damaged + r.losses.lost,
+      adjusted: r.adjusted,
+      closing: r.closing,
+      cmm: r.cmm,
+      stockoutDays: r.stockoutDays,
+      vaccine: r.vaccine,
+    })),
+    labels: {
+      title: t("report_pdf_title"),
+      articles: t("report_pdf_articles"),
+      in_stockout: t("report_pdf_in_stockout"),
+      article: t("report_article"),
+      opening: t("report_opening"),
+      received: t("report_received"),
+      consumed: t("report_consumed"),
+      losses: t("report_losses"),
+      adjusted: t("report_adjusted"),
+      closing: t("report_closing"),
+      cmm: t("report_cmm"),
+      stockout_days: t("report_stockout_days"),
+      doses_given: t("report_doses_given"),
+      doses_wasted: t("report_doses_wasted"),
+      wastage: t("report_wastage"),
+      empty: t("report_empty"),
+    },
+  };
 
   return (
     <div className="flex-1 flex flex-col gap-3 overflow-hidden">
@@ -55,7 +99,10 @@ export function StockReportTab() {
             <option value="none">{t("rma3_category_none")}</option>
           </select>
         </label>
-        <p className="text-[11px] text-slate-500 max-w-xl">{t("report_hint")}</p>
+        <p className="text-[11px] text-slate-500 max-w-xl flex-1">{t("report_hint")}</p>
+        <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!query.isSuccess} onClick={() => setPrintOpen(true)}>
+          <Printer className="mr-2 h-3.5 w-3.5" /> {t("report_print")}
+        </Button>
       </div>
 
       <div className="flex-1 overflow-auto rounded border border-slate-200 bg-white">
@@ -121,6 +168,16 @@ export function StockReportTab() {
           </table>
         )}
       </div>
+
+      <PDFPreviewModal
+        isOpen={printOpen}
+        onClose={() => setPrintOpen(false)}
+        templateId="stock_reports"
+        data={pdfData}
+        facility={pdfFacility}
+        settings={pdfSettings}
+        fileName={`rapport-stock-${period}`}
+      />
     </div>
   );
 }

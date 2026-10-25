@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
-import { Search, AlertTriangle } from "lucide-react";
+import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -51,12 +51,11 @@ export function PrescriptionQueue({
             <div className="text-2xl font-bold text-slate-900 sm:text-3xl">{counts?.validated ?? 0}</div>
           </div>
         </div>
-        <div className="bg-red-50 p-3 rounded border border-red-200 shadow-sm flex items-end justify-between hover:border-red-400 transition-colors cursor-pointer sm:p-4">
+        <div className="bg-white p-3 rounded border border-slate-200 shadow-sm flex items-end justify-between hover:border-blue-300 transition-colors cursor-pointer sm:p-4" onClick={() => setFilter("Dispensed")}>
           <div>
-            <div className="text-[10px] font-semibold text-red-800 uppercase tracking-wider mb-1 sm:text-xs">{t('interaction_alerts')}</div>
-            <div className="text-2xl font-bold text-red-700 sm:text-3xl">{prescriptions.filter(r => r.alert).length}</div>
+            <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1 sm:text-xs">{t('fulfilled')}</div>
+            <div className="text-2xl font-bold text-slate-900 sm:text-3xl">{counts?.dispensed ?? 0}</div>
           </div>
-          <AlertTriangle className="h-7 w-7 text-red-200 sm:h-8 sm:w-8" />
         </div>
       </div>
 
@@ -100,7 +99,6 @@ export function PrescriptionQueue({
                     <div className="flex items-center gap-2">
                       <span className="truncate max-w-[12rem]">{rx.patientName}</span>
                       <span className="text-[10px] font-mono text-slate-400">({rx.ipp})</span>
-                      {rx.alert && <AlertTriangle className="h-3.5 w-3.5 text-red-500 shrink-0" />}
                     </div>
                   </td>
                   <td className="px-3 py-2 text-slate-600 sm:px-4">{rx.prescriber}</td>

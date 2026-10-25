@@ -3,14 +3,11 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { requireModulePermission } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
-import { getMobileMoneyConfig, resolveMtnConfig } from "@/lib/payments/config";
-import { checkMtnPaymentStatus } from "@/lib/payments/mobile-money/mtn";
-import { applySuccessfulPayment } from "@/lib/billing/applyPayment";
+import { refreshMobileMoneyPayment } from "@/lib/payments/confirm";
 
 // GET /api/v1/billing/payments/[id]/status — poll a pending mobile money payment.
-// MTN supports a real merchant-initiated status check; Orange Money only reports status
-// via its webhook, so for an Orange payment this just returns whatever is in the DB.
+// Asks the provider (MTN requesttopay, Orange transactionstatus) and settles the payment once
+// it is final — the same path as the webhooks, so the invoice is credited exactly once.
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
@@ -28,37 +25,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const payment = await prisma.payment.findFirst({ where: { id, tenantId: session.user.tenantId } });
   if (!payment) return NextResponse.json({ error: "Payment not found" }, { status: 404 });
 
-  if (payment.status !== "pending" || payment.method !== "mobile_money_mtn" || !payment.providerReference) {
-    return NextResponse.json(payment);
-  }
-
   try {
-    const storedConfig = await getMobileMoneyConfig(session.user.tenantId);
-    const config = resolveMtnConfig(storedConfig);
-    if (!config) return NextResponse.json(payment);
-
-    const result = await checkMtnPaymentStatus(config, payment.providerReference);
-
-    if (result.status === "pending") {
-      return NextResponse.json(payment);
-    }
-
-    const updated = await prisma.payment.update({
-      where: { id: payment.id },
-      data: {
-        status: result.status,
-        rawResponse: result.raw as unknown as Prisma.InputJsonValue,
-        completedAt: new Date(),
-        failureReason: result.status === "failed" ? "MTN MoMo reported a failed transaction" : null,
-      },
-    });
-
-    if (result.status === "successful") {
-      await applySuccessfulPayment(payment.invoiceId, Number(payment.amount));
-    }
-
-    return NextResponse.json(updated);
+    return NextResponse.json(await refreshMobileMoneyPayment(payment));
   } catch (error) {
+    // Provider unreachable: the payment simply stays pending until the next poll.
     console.error("[GET /api/v1/billing/payments/[id]/status]", error);
     return NextResponse.json(payment);
   }

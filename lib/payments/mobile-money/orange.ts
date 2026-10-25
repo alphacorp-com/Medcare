@@ -1,10 +1,11 @@
-import type { InitiatePaymentParams, InitiatePaymentResult, OrangeMoneyConfig } from "./types";
+import type { InitiatePaymentParams, InitiatePaymentResult, OrangeMoneyConfig, PaymentStatusResult } from "./types";
+import { mapOrangeStatus } from "./status";
 
 // Orange Money Web Payment / M Payment API (https://developer.orange.com/apis/om-webpay).
 // Redirect-based flow: we request a payment_url, the payer completes payment on Orange's
-// own page, and Orange calls our notif_url webhook with the final status. There is no
-// merchant-initiated status-check endpoint documented for this API — status updates must
-// come through the webhook (see app/api/v1/billing/webhooks/orange/route.ts).
+// own page, and Orange calls our notif_url webhook. The webhook body is never trusted: the
+// final status is always re-read server-to-server through the transactionstatus endpoint
+// (checkOrangePaymentStatus), which the status poll uses as well.
 
 async function getAccessToken(config: OrangeMoneyConfig): Promise<string> {
   const basicAuth = Buffer.from(`${config.clientId}:${config.clientSecret}`).toString("base64");
@@ -80,4 +81,33 @@ export async function initiateOrangePayment(
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
   }
+}
+
+// Server-to-server status of a Web Payment: order_id is our Payment.id, pay_token the one
+// Orange returned at initiation, amount the amount requested.
+export async function checkOrangePaymentStatus(
+  config: OrangeMoneyConfig,
+  params: { orderId: string; amount: number; payToken: string }
+): Promise<PaymentStatusResult> {
+  const accessToken = await getAccessToken(config);
+
+  const res = await fetch(`https://api.orange.com/orange-money-webpay/${config.country}/v1/transactionstatus`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({ order_id: params.orderId, amount: params.amount, pay_token: params.payToken }),
+  });
+
+  const raw = await res.json().catch(() => null);
+  if (!res.ok) {
+    throw new Error(raw?.message || `Orange Money status check failed (${res.status})`);
+  }
+  // A status for another order is not this payment's status.
+  if (raw?.order_id && raw.order_id !== params.orderId) {
+    throw new Error("Orange Money status check returned another order");
+  }
+  return { status: mapOrangeStatus(raw?.status), raw };
 }

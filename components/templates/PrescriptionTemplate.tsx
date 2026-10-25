@@ -1,6 +1,7 @@
 import React from 'react';
 import { Page, Text, View, Document, StyleSheet, Image } from '@react-pdf/renderer';
 import type { PdfFacility, PdfLabels, PdfSettings } from './types';
+import { TemplateClosing, TemplateFooterText, TemplateIntro, templateTitle } from './TemplateExtras';
 
 const styles = StyleSheet.create({
   page: {
@@ -130,7 +131,8 @@ export const PrescriptionTemplate = ({ data, facility, settings, labels }: Presc
         </View>
       </View>
 
-      <Text style={styles.docTitle}>{labels.prescription}</Text>
+      <Text style={styles.docTitle}>{templateTitle(settings, 'prescriptions', labels.prescription)}</Text>
+      <TemplateIntro settings={settings} id="prescriptions" />
 
       {/* Patient Info */}
       <View style={styles.patientBox}>
@@ -165,8 +167,10 @@ export const PrescriptionTemplate = ({ data, facility, settings, labels }: Presc
       </View>
 
       {/* Footer */}
+      <TemplateClosing settings={settings} id="prescriptions" signatureLabel={labels.signature} />
       <View style={styles.footer}>
         <Text>This document is a valid medical prescription. {facility.phone}</Text>
+        <TemplateFooterText settings={settings} />
         {settings.watermark && (
           <Text style={{ marginTop: 2, color: '#fca5a5', fontSize: 6 }}>OFFICIAL MEDICAL RECORD</Text>
         )}

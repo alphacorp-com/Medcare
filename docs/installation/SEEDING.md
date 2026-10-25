@@ -2,6 +2,8 @@
 
 How to fill a MedCare database with the reference settings and the demo data
 (150 patients, every module, third-party payment), safely and repeatably.
+For a production install, stop after `npm run seed-settings`: see the
+[installation guide](README.md).
 
 > **Never seed a database that holds real patient data.** The demo seed adds
 > 150 fictitious patients, staff accounts with a known password, invoices,
@@ -43,9 +45,8 @@ month.
 
 ## 2. Prerequisites
 
-1. **Code.** Use the branch that contains the whole feature set: today,
-   `chore/complete-rma`, or `main` once it is merged. Run `git status` and
-   `git log -1` to check which version you are on.
+1. **Code.** Use an up-to-date `main`. Run `git status` and `git log -1` to
+   check which version you are on.
 2. **Dependencies.** Run `npm install`. This also runs `prisma generate`; run
    `npm run db:generate` yourself if the schema changed since.
 3. **Target database.** `DATABASE_URL` in `.env` points to the database to

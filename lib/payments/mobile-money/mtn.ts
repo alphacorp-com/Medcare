@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import type { InitiatePaymentParams, InitiatePaymentResult, MtnMomoConfig, PaymentStatusResult } from "./types";
+import { mapMtnStatus } from "./status";
 
 // MTN MoMo Collections API (https://momodeveloper.mtn.com). Push flow: requestToPay
 // triggers a USSD prompt on the payer's phone immediately (no redirect needed), and the
@@ -95,6 +96,5 @@ export async function checkMtnPaymentStatus(
     throw new Error(raw?.message || `MTN MoMo status check failed (${res.status})`);
   }
 
-  const status = raw?.status === "SUCCESSFUL" ? "successful" : raw?.status === "FAILED" ? "failed" : "pending";
-  return { status, raw };
+  return { status: mapMtnStatus(raw?.status), raw };
 }

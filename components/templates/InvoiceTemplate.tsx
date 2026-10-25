@@ -1,6 +1,7 @@
 import React from 'react';
 import { Page, Text, View, Document, StyleSheet, Image } from '@react-pdf/renderer';
-import type { PdfInvoiceData, PdfLabels } from './types';
+import type { PdfInvoiceData, PdfLabels, PdfSettings } from './types';
+import { TemplateClosing, TemplateFooterText, TemplateIntro, templateTitle } from './TemplateExtras';
 
 const styles = StyleSheet.create({
   page: {
@@ -94,12 +95,7 @@ interface InvoiceTemplateProps {
     logoUrl?: string;
     taxId?: string;
   };
-  settings: {
-    showLogo: boolean;
-    includeQR: boolean;
-    digitalSignature: boolean;
-    watermark: boolean;
-  };
+  settings: PdfSettings;
   labels: PdfLabels;
 }
 
@@ -125,7 +121,8 @@ export const InvoiceTemplate = ({ invoice, facility, settings, labels }: Invoice
         </View>
       </View>
 
-      <Text style={styles.invoiceTitle}>{labels.invoice}</Text>
+      <Text style={styles.invoiceTitle}>{templateTitle(settings, 'invoices', labels.invoice)}</Text>
+      <TemplateIntro settings={settings} id="invoices" />
 
       {/* Info Grid */}
       <View style={styles.grid}>
@@ -202,8 +199,10 @@ export const InvoiceTemplate = ({ invoice, facility, settings, labels }: Invoice
       </View>
 
       {/* Footer */}
+      <TemplateClosing settings={settings} id="invoices" signatureLabel={labels.signature} />
       <View style={styles.footer}>
         <Text>{labels.generated_by} Medcare HMS | {facility.name} - {new Date().toLocaleDateString()}</Text>
+        <TemplateFooterText settings={settings} />
         {settings.watermark && (
           <Text style={{ marginTop: 5, color: '#fca5a5' }}>{labels.confidential}</Text>
         )}

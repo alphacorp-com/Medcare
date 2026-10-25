@@ -8,7 +8,6 @@ export type PrescriptionRow = {
   status: string;
   items: number;
   itemsData: PrescriptionItemData[];
-  alert: boolean;
   ipp: string;
   totalCost?: number;
   invoiceId?: string | null;
@@ -25,6 +24,7 @@ export type PrescriptionItemData = {
   dosage?: string;
   frequency?: string;
   duration?: string;
+  instructions?: string;
   quantity?: string | number;
   stockStatus: 'in_stock' | 'out_of_stock' | 'not_in_inventory';
   inventoryStock: number;
