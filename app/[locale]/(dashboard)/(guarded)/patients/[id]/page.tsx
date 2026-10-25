@@ -517,12 +517,13 @@ export default function PatientDetailPage() {
           onNewAdmission={() => setIsStayOpen(true)}
         />
 
-        <div className={`grid gap-4 flex-1 ${isMobile ? "grid-cols-1" : "grid-cols-12 overflow-hidden"}`}>
-          <div className={isMobile ? "w-full" : "col-span-3 overflow-hidden"}>
+        {/* Desktop: the row is as tall as the grid (not as its content), so each column scrolls on its own. */}
+        <div className={`grid gap-4 flex-1 min-h-0 ${isMobile ? "grid-cols-1" : "grid-cols-12 grid-rows-[minmax(0,1fr)] overflow-hidden"}`}>
+          <div className={isMobile ? "w-full" : "col-span-3 min-h-0 overflow-y-auto"}>
             <PatientQuickProfile patient={patient} latestVitals={vitals[0] ?? null} diagnoses={diagnoses} />
           </div>
 
-          <div className={isMobile ? "w-full" : "col-span-9"}>
+          <div className={isMobile ? "w-full" : "col-span-9 min-h-0 flex flex-col"}>
             <PatientTabs
               stays={stays}
               records={records}

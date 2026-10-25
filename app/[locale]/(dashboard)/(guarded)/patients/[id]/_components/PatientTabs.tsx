@@ -120,8 +120,8 @@ export function PatientTabs({
   };
 
   return (
-    <div className="col-span-9 flex flex-col bg-white rounded border border-slate-200 shadow-sm overflow-hidden">
-      <Tabs defaultValue="admissions" className="w-full flex-1 flex flex-col">
+    <div className="flex-1 min-h-0 flex flex-col bg-white rounded border border-slate-200 shadow-sm overflow-hidden">
+      <Tabs defaultValue="admissions" className="w-full flex-1 min-h-0 flex flex-col">
         <div className="px-2 pt-2 border-b border-slate-200 bg-slate-50 shrink-0 overflow-x-auto overflow-y-hidden">
           <TabsList className="h-9 bg-transparent p-0 flex flex-nowrap justify-start gap-4 w-max min-w-full">
             <TabsTrigger
@@ -195,7 +195,7 @@ export function PatientTabs({
           </TabsList>
         </div>
 
-        <div className="flex-1 overflow-auto bg-white p-0">
+        <div className="flex-1 min-h-0 overflow-auto bg-white p-0">
           <TabsContent value="admissions" className="m-0 border-none outline-none">
             <table className="w-full text-left">
               <thead>
