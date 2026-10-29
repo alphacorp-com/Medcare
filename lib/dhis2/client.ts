@@ -5,6 +5,8 @@ import {
   Dhis2SubmitResult,
   Dhis2TestConnectionResult,
 } from "./types";
+import { DHIS2_UID } from "./rma3-export";
+import type { Dhis2DataElementStructure } from "./rma3-mapping";
 
 export interface Dhis2Credentials {
   baseUrl: string;
@@ -50,10 +52,14 @@ export async function submitDataValueSet(
     orgUnitId: string;
     period: string;
     dataValues: { dataElement: string; categoryOptionCombo?: string; value: string }[];
+    // DHIS2 validates the whole payload and reports what it would import, without saving anything.
+    dryRun?: boolean;
   }
 ): Promise<Dhis2SubmitResult> {
   try {
-    const res = await fetch(`${normalizeBaseUrl(credentials.baseUrl)}/api/dataValueSets`, {
+    const url = new URL(`${normalizeBaseUrl(credentials.baseUrl)}/api/dataValueSets`);
+    if (params.dryRun) url.searchParams.set("dryRun", "true");
+    const res = await fetch(url.toString(), {
       method: "POST",
       headers: {
         Authorization: authHeader(credentials),
@@ -159,4 +165,35 @@ export function toDataValues(
   }
 
   return { dataValues, unmapped };
+}
+
+// ── Structure of a data set (for the RMA3 mapping) ─────────────────────────
+
+interface RawCombo { id: string; name: string; code?: string | null }
+interface RawCategoryCombo { categoryOptionCombos?: RawCombo[] }
+interface RawDataSetElement {
+  categoryCombo?: RawCategoryCombo | null;
+  dataElement?: { id: string; name: string; shortName?: string | null; code?: string | null; categoryCombo?: RawCategoryCombo | null } | null;
+}
+
+// The data elements of a data set with their category option combos: the targets the RMA3 values
+// can be sent to. A data set may override an element's category combo; that one wins.
+export async function fetchDataSetStructure(credentials: Dhis2Credentials, dataSetId: string): Promise<Dhis2DataElementStructure[]> {
+  // The id goes into the URL path: only a genuine DHIS2 UID is accepted.
+  if (!DHIS2_UID.test(dataSetId)) throw new Error("Invalid data set id");
+  const fields =
+    "dataSetElements[categoryCombo[categoryOptionCombos[id,name,code]],dataElement[id,name,shortName,code,categoryCombo[categoryOptionCombos[id,name,code]]]]";
+  const res = await fetch(`${normalizeBaseUrl(credentials.baseUrl)}/api/dataSets/${dataSetId}.json?fields=${encodeURIComponent(fields)}`, {
+    headers: { Authorization: authHeader(credentials) },
+  });
+  if (!res.ok) throw new Error(`DHIS2 data set lookup failed (HTTP ${res.status})`);
+  const body = (await res.json()) as { dataSetElements?: RawDataSetElement[] };
+  const out: Dhis2DataElementStructure[] = [];
+  for (const dse of body.dataSetElements ?? []) {
+    const element = dse.dataElement;
+    if (!element) continue;
+    const combos = dse.categoryCombo?.categoryOptionCombos ?? element.categoryCombo?.categoryOptionCombos ?? [];
+    out.push({ id: element.id, name: element.name, shortName: element.shortName ?? null, code: element.code ?? null, combos });
+  }
+  return out;
 }

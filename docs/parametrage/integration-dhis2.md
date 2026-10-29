@@ -99,6 +99,61 @@ activée.
 Ne passez sur l'instance nationale du MINSANTE qu'une fois l'établissement officiellement créé
 dans DHIS2.
 
+## Export du RMA3 complet (fichier ou API)
+
+Au-delà des 18 indicateurs ci-dessus, MedCare sait transformer le **RMA3 du mois** en valeurs
+DHIS2 (un indicateur × une cellule de ventilation = une valeur). Le même calcul sert à deux
+usages, selon ce que le MINSANTE autorise :
+
+| Situation | Ce qu'on fait |
+|---|---|
+| **Pas d'accès API** | Télécharger le fichier **JSON** ou **CSV** et le faire charger dans l'écran d'import de DHIS2 (par le district ou le MINSANTE) |
+| **Compte API autorisé** | **Simuler** l'envoi (DHIS2 valide sans rien enregistrer), puis **Envoyer** |
+
+Réglage : **Paramètres → Intégrations Externes → DHIS2 → Export du RMA3 vers DHIS2**.
+
+### Correspondances (indispensables)
+
+Chaque cellule du RMA3 doit être reliée à un élément de données DHIS2 (et une combinaison de
+catégories). Ces identifiants sont ceux du jeu de données national : **MedCare ne les connaît
+pas** tant que le MINSANTE ne les a pas fournis. Trois façons de les renseigner :
+
+1. **Modèle CSV** : télécharger le modèle (une ligne par cellule produite), compléter
+   `data_element_id` et `category_option_combo_id`, réimporter. Le fichier est **refusé en
+   entier** si une ligne est invalide (identifiant mal formé, cellule inconnue, doublon).
+2. **Proposer depuis DHIS2** (nécessite l'API) : lit le jeu de données et propose uniquement les
+   correspondances **certaines** (code de l'indicateur retrouvé dans un seul élément, combinaison
+   identifiée sans ambiguïté). Aperçu d'abord, application explicite ensuite.
+3. Effacer tout pour recommencer (jeu de données différent, nouvelle version nationale).
+
+Une cellule est identifiée par **(code, table, cellule)** et non par le code seul : 36 codes du
+RMA3 reviennent dans plusieurs tableaux (ex. `II.2-001`, tables PCIMA CNA/CNTI).
+
+### Règles de sécurité
+
+- Les valeurs sont **recalculées côté serveur** depuis les registres de l'établissement de la
+  session ; rien de ce que le navigateur envoie ne fixe les chiffres exportés.
+- Réservé à l'**administrateur** de l'établissement, limité en fréquence, chaque export / envoi /
+  import est **tracé** dans l'audit.
+- Un **envoi réel** exige le **formulaire mensuel validé** (erreur 409 sinon) ; le fichier et la
+  simulation restent possibles sur un mois ouvert.
+- Deux cellules reliées à la même cible DHIS2 ne s'écrasent pas : la seconde n'est pas envoyée
+  et la collision est signalée.
+
+### Limites connues
+
+- Seules les sections qui portent un code RMA3 sont exportées (activité, morbidité, causes,
+  VIH/PTME/hépatites, formulaire mensuel). Les anciennes sections libellées sans code
+  (activité de l'établissement, santé maternelle, vaccination, paludisme, tuberculose, PEV,
+  stock) ne le sont pas encore.
+- Sur 955 indicateurs du dictionnaire, l'application en produit une partie (affichée à l'écran).
+- Pas d'envoi automatique du RMA3 par tâche planifiée (seule la synchronisation des 18
+  indicateurs l'est).
+- Non validé contre le vrai jeu de données national : la disponibilité d'un compte API, le jeu
+  de données et les identifiants dépendent du MINSANTE.
+
+---
+
 ## Dépannage
 
 | Symptôme | Solution |
@@ -118,5 +173,13 @@ dans DHIS2.
 | `lib/dhis2/sync.ts` | Orchestration ; chaque essai écrit une ligne d'audit `dhis2.sync` |
 | `lib/dhis2/crypto.ts` | Chiffrement AES-256-GCM du mot de passe |
 | `app/api/v1/settings/dhis2/*` | Réglages, test, recherche, synchronisation, historique |
+| `lib/dhis2/rma3-values.ts` | Aplatit le rapport RMA3 en valeurs (code, table, cellule, nombre) |
+| `lib/dhis2/rma3-export.ts` | Valeurs → `dataValueSets` JSON / CSV DHIS2, modèle et lecture du CSV de correspondances |
+| `lib/dhis2/rma3-mapping.ts` | Propositions de correspondances depuis la structure du jeu de données |
+| `lib/dhis2/rma3-sync.ts`, `rma3-route.ts` | Accès base, envoi par lots, garde administrateur et limites |
+| `lib/dhis2/rma3-dictionary.*` | Dictionnaire des 955 indicateurs (couverture) |
+| `app/api/v1/settings/dhis2/rma3/*` | Résumé, export, modèle, import/effacement des correspondances, proposition, envoi |
+| `components/settings/dhis2-rma3-panel.tsx` | Panneau d'export du RMA3 |
+| `prisma/migrations/20261104090000_dhis2_rma3_mappings` | Table des correspondances (à appliquer) |
 | `app/api/cron/sync-dhis2/route.ts` | Tâche planifiée |
 | `components/settings/dhis2-integration-settings.tsx`, `dhis2-entity-picker.tsx` | Interface |

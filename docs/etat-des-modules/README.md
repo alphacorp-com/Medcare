@@ -159,6 +159,10 @@ Légende : ✅ complet · ⚠️ partiel ou limité · ❌ manquant
 ### Intégration DHIS2 — ✅
 - 18 indicateurs mensuels ; recherche de métadonnées ; historique et relance ; tâche planifiée.
 - ⚠️ Pas de `vercel.json` dans le dépôt : la tâche planifiée est à déclarer à l'hébergement.
+- **Export du RMA3 vers DHIS2** (fichier JSON/CSV ou API) : correspondances par CSV ou proposées
+  depuis DHIS2, simulation, envoi réservé au formulaire validé. ⚠️ Migration à appliquer, sections
+  libellées sans code non exportées, identifiants nationaux à obtenir du MINSANTE, non testé
+  contre un vrai DHIS2.
 
 ### Licence AlphaCorp — ✅
 - Licence signée Ed25519, activation en ligne ou hors ligne, anti-rejeu, anti-recul d'horloge,

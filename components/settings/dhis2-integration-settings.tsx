@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, CheckCircle2, XCircle, Send, RotateCw } from "lucide-react";
 import { DHIS2_METRIC_KEYS, Dhis2Mapping, Dhis2MetricKey } from "@/lib/dhis2/types";
 import { Dhis2EntityPicker } from "./dhis2-entity-picker";
+import { Dhis2Rma3Panel } from "./dhis2-rma3-panel";
 
 interface Dhis2FormState {
   baseUrl: string;
@@ -369,6 +370,8 @@ export function Dhis2IntegrationSettings() {
           </div>
         )}
       </div>
+
+      <Dhis2Rma3Panel hasPassword={hasPassword} />
 
       <div className="bg-white rounded-2xl md:rounded border border-slate-200 shadow-sm overflow-hidden">
         <div className="p-4 md:p-6 pb-4 md:pb-4">

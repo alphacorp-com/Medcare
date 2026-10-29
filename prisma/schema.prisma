@@ -2526,6 +2526,34 @@ model Rma3ManualPeriod {
   @@schema("tenant_template")
 }
 
+// Where one RMA3 value goes in the national DHIS2: the app's indicator code × table × breakdown
+// cell ("" when the indicator has none) → a DHIS2 data element and, for a disaggregated one, the
+// category option combo of that cell. The table is part of the key because the RMA3 reuses codes:
+// II.2-001 is a screening in one table and a confirmed breast cancer in another. Filled by CSV import or from the data set's structure
+// (lib/dhis2/rma3-mapping.ts); read by the RMA3 export and push (lib/dhis2/rma3-export.ts).
+// DHIS2 UIDs are 11 characters: a letter then 10 letters / digits.
+model Dhis2Rma3Mapping {
+  id                    String   @id @default(uuid()) @db.Uuid
+  tenantId              String   @map("tenant_id") @db.Uuid
+  indicatorCode         String   @map("indicator_code") @db.VarChar(40)
+  // The report table the value comes from, e.g. "activity:IV.6:pcima-cna-ambulatoire"
+  // (lib/dhis2/rma3-values.ts).
+  tableKey              String   @map("table_key") @db.VarChar(120)
+  cellKey               String   @default("") @map("cell_key") @db.VarChar(80)
+  dataElementId         String   @map("data_element_id") @db.VarChar(11)
+  categoryOptionComboId String?  @map("category_option_combo_id") @db.VarChar(11)
+  // How the row got here: "csv" (imported file), "dhis2" (proposed from the data set and
+  // applied by an administrator), "manual".
+  source                String   @default("manual") @db.VarChar(10)
+  updatedById           String   @map("updated_by_id") @db.Uuid
+  updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([tenantId, indicatorCode, tableKey, cellKey])
+  @@index([tenantId])
+  @@map("dhis2_rma3_mappings")
+  @@schema("tenant_template")
+}
+
 // One cell of the form: indicator code (lib/rma3-manual/catalog.ts) × breakdown cell ("" when
 // the indicator has none). No row = not entered, which the report tells apart from 0.
 model Rma3ManualValue {
