@@ -173,6 +173,7 @@ Conservez ce schéma pour toute nouvelle transition. Les transactions interactiv
 | `.env.example`, `docker-compose.yml`, `Dockerfile` | Variables mortes retirées, `CRON_SECRET` documenté ; plus aucun secret dans les fichiers Docker ; scripts `docker:*` cassés retirés |
 | Interactions médicamenteuses | Alerte factice retirée (une vraie vérification exige un référentiel validé cliniquement) |
 | Modèles de documents | Éditeur par modèle (titre, introduction, note de fin), mention de pied de page, bloc signature réel ; option QR (jamais implémentée) retirée ; les 10 modèles sont utilisés (fiche de posologie et rapport de stock mensuel branchés) |
+| Export RMA3 → DHIS2 | `lib/dhis2/rma3-*` : valeurs identifiées par (code, table, cellule), fichier JSON/CSV ou envoi API, correspondances par CSV ou proposées depuis DHIS2 ; migration `20261104090000_dhis2_rma3_mappings` (voir [Intégration DHIS2](../parametrage/integration-dhis2.md)) |
 | Lit à l'admission | Un lit ne s'attribue plus que par « Hospitaliser » ; transfert de lit réservé aux hospitalisés |
 | Seed de démonstration | Hospitalisations par le vrai circuit (`prisma/seed-hospitalization.ts`) ; script de reprise pour les bases déjà seedées |
 | Codes tarifaires | Un acte médical et un examen ne peuvent plus partager un code (`lib/billing/feeCodes.ts`) |

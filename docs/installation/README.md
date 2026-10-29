@@ -152,6 +152,11 @@ npm run start            # port 3000 par défaut ; placez un reverse proxy HTTPS
    étaient vides sur la base Neon vérifiée le 2026-10-25. Les factures des patients
    (`patient_invoices`) ne sont **pas** concernées. Vérifiez quand même qu'elles sont vides, ou
    gardez une sauvegarde, avant de migrer une base plus ancienne.
+
+   La migration `20261104090000_dhis2_rma3_mappings` **ajoute** la table
+   `dhis2_rma3_mappings` (correspondances RMA3 → DHIS2, schéma `tenant_template`). Elle ne
+   modifie ni ne supprime aucune donnée existante ; elle est propre à chaque établissement
+   (voir [Intégration DHIS2](../parametrage/integration-dhis2.md)).
 4. Rebuild et redémarrage (ou redéploiement).
 5. Si la version ajoute des paramètres d'examens : `npm run db:sync-exam-parameters`. Si elle
    modifie les prix du catalogue : `npm run db:sync-fee-schedule`.
