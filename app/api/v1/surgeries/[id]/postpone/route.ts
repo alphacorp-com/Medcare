@@ -2,12 +2,15 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { parseRequiredText, SURGERY_TEXT_LIMITS } from "@/lib/surgery/validation";
+import { auditClinicalAction } from "@/lib/exams/audit";
 import { requireModulePermission } from "@/lib/permissions";
 
 // PATCH /api/v1/surgeries/[id]/postpone
 // Body: { reason }
 // Allowed from "scheduled" only. A postponed case can later be rescheduled
 // (PATCH /api/v1/surgeries/[id] with a new scheduledAt reactivates it to "scheduled").
+// Each postponement and its reason is an audit line, so successive postponements are all kept.
 export async function PATCH(req: Request, context: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
@@ -21,9 +24,10 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
   const { id } = await context.params;
 
   try {
-    const { reason } = await req.json();
-    if (!reason?.trim()) {
-      return NextResponse.json({ error: "A reason is required to postpone a case" }, { status: 400 });
+    const body = await req.json();
+    const reason = parseRequiredText(body?.reason, "reason", SURGERY_TEXT_LIMITS.reason);
+    if (!reason.ok) {
+      return NextResponse.json({ error: reason.error === "reason is required" ? "A reason is required to postpone a case" : reason.error }, { status: 400 });
     }
 
     const surgery = await prisma.surgicalProcedure.findFirst({ where: { id, tenantId: session.user.tenantId } });
@@ -33,12 +37,11 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
       return NextResponse.json({ error: `Cannot postpone a case with status "${surgery.status}"` }, { status: 400 });
     }
 
-    const updated = await prisma.surgicalProcedure.update({
-      where: { id },
-      data: { status: "postponed", complications: { postponeReason: reason } },
-    });
+    const { count } = await prisma.surgicalProcedure.updateMany({ where: { id, status: "scheduled" }, data: { status: "postponed" } });
+    if (count === 0) return NextResponse.json({ error: "The case changed meanwhile, reload it" }, { status: 409 });
 
-    return NextResponse.json(updated);
+    await auditClinicalAction(session, req, "surgery.postpone", { type: "surgical_procedure", id }, { reason: reason.value, scheduledAt: surgery.scheduledAt?.toISOString() ?? null });
+    return NextResponse.json(await prisma.surgicalProcedure.findUnique({ where: { id } }));
   } catch (error) {
     console.error("Error postponing surgery:", error);
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { isPhaseComplete, WhoChecklist } from "@/lib/surgery/checklist";
+import { auditClinicalAction } from "@/lib/exams/audit";
 import { requireModulePermission } from "@/lib/permissions";
 
 // PATCH /api/v1/surgeries/[id]/start
@@ -34,10 +35,17 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
     return NextResponse.json({ error: "The Time Out checklist must be completed before starting" }, { status: 400 });
   }
 
-  const updated = await prisma.surgicalProcedure.update({
-    where: { id },
-    data: { status: "in_progress", startedAt: new Date() },
+  // Row locked and re-checked: a checklist phase redone (unticked) meanwhile blocks the start.
+  const started = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "tenant_template"."surgical_procedures" WHERE id = ${id}::uuid FOR UPDATE`;
+    const current = await tx.surgicalProcedure.findUnique({ where: { id }, select: { status: true, whoChecklist: true } });
+    const phases = (current?.whoChecklist ?? {}) as WhoChecklist;
+    if (!current || current.status !== "scheduled" || !isPhaseComplete("signIn", phases.signIn) || !isPhaseComplete("timeOut", phases.timeOut)) return false;
+    await tx.surgicalProcedure.update({ where: { id }, data: { status: "in_progress", startedAt: new Date() } });
+    return true;
   });
+  if (!started) return NextResponse.json({ error: "The case changed meanwhile, reload it" }, { status: 409 });
 
-  return NextResponse.json(updated);
+  await auditClinicalAction(session, req, "surgery.start", { type: "surgical_procedure", id });
+  return NextResponse.json(await prisma.surgicalProcedure.findUnique({ where: { id } }));
 }

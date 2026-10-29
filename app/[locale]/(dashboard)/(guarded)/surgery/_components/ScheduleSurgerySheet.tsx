@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { PatientSearchAutocomplete } from "@/components/shared/patient-search-autocomplete";
-import { ActiveStay, Doctor, NewSurgeryForm, SurgeryConflict } from "../types";
+import { ActiveStay, Doctor, NewSurgeryForm, OperatingRoom, SurgeryConflict } from "../types";
 
 const EMPTY_FORM: NewSurgeryForm = {
   patientId: "",
@@ -41,6 +41,25 @@ export function ScheduleSurgerySheet({
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [conflicts, setConflicts] = useState<SurgeryConflict[] | null>(null);
+  const [rooms, setRooms] = useState<OperatingRoom[]>([]);
+
+  // The facility's operating rooms (beds of room type "Chirurgie"), loaded when the sheet opens.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/v1/surgeries/rooms");
+        const json = await res.json();
+        if (!cancelled && res.ok) setRooms(json.data ?? []);
+      } catch (err) {
+        console.error("Failed to fetch operating rooms", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
 
   const update = <K extends keyof NewSurgeryForm>(key: K, value: NewSurgeryForm[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -204,11 +223,19 @@ export function ScheduleSurgerySheet({
             </div>
             <div className="space-y-2">
               <Label>{t("room")}</Label>
-              <Input
+              <select
                 value={form.roomId}
                 onChange={(e) => update("roomId", e.target.value)}
-                placeholder="OR-1"
-              />
+                className="flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+              >
+                <option value="">{t("no_room")}</option>
+                {rooms.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.code} · {r.label}
+                  </option>
+                ))}
+              </select>
+              {rooms.length === 0 && <p className="text-[11px] text-slate-500">{t("no_operating_room_hint")}</p>}
             </div>
             <div className="space-y-2">
               <Label>{tc("date")} & {tc("time")}</Label>

@@ -108,6 +108,13 @@ Fiche de l'examen → **Annuler l'Examen** → motif obligatoire.
   les titulaires de `MODULE_HIV` et les administrateurs.
 - Valider un examen déjà facturé ne le refacture pas.
 
+## Cloisonnement avec la radiologie
+
+Les routes du laboratoire n'agissent que sur les examens de **biologie** de l'établissement : un
+identifiant d'examen de radiologie est refusé (et inversement), car les permissions des deux
+modules sont distinctes. Une notification de résultat critique ne peut être enregistrée qu'une
+fois.
+
 ## 🛠️ Repères techniques
 
 | Besoin | Route |

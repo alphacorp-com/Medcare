@@ -16,7 +16,7 @@ Programmée ──Sign In + Time Out validés──► Démarrer ──► Au bl
    │   ▲                                                    │ Sign Out validé
    │   └── Replanifier ── Reportée ◄── Reporter              ▼
    │                                              Terminer & Signer ──► Terminée
-   └──► Annulée (depuis Programmée ou Reportée, définitif)
+   └──► Annulée (depuis Programmée, Reportée ou En cours — « Interrompre » —, définitif)
 ```
 
 ---
@@ -36,7 +36,8 @@ Programmée ──Sign In + Time Out validés──► Démarrer ──► Au bl
 ### Programmer une intervention
 1. **Programmer une Intervention**.
 2. Patient, séjour actif éventuel, **chirurgien**, anesthésiste.
-3. Libellé et code de l'acte, **salle**, date et heure, **score ASA**.
+3. Libellé et code de l'acte, **salle d'opération** (liste des lits de type « Chirurgie »,
+   Paramètres → Lits), date et heure, **score ASA** (1 à 6).
 4. En cas de conflit (« Chirurgien déjà occupé », « Salle déjà occupée »), **Planifier quand même**
    force la programmation.
 
@@ -53,10 +54,11 @@ Programmée ──Sign In + Time Out validés──► Démarrer ──► Au bl
 - Sign Out se remplit pendant qu'elle est **en cours**.
 
 ### Démarrer
-**Démarrer l'Assise** : refusé tant que **Sign In et Time Out** ne sont pas complets.
+**Démarrer l'intervention** : refusé tant que **Sign In et Time Out** ne sont pas complets.
 
 ### Terminer et signer
 **Terminer & Signer** :
+- réservé au **chirurgien de l'intervention** : c'est lui qui signe le compte rendu opératoire ;
 - refusé tant que le **Sign Out** n'est pas complet ;
 - **compte rendu opératoire** obligatoire, compte rendu d'anesthésie et complications (saignement,
   infection, réaction anesthésique, lésion d'organe, aucune) facultatifs.
@@ -70,10 +72,30 @@ Programmée ──Sign In + Time Out validés──► Démarrer ──► Au bl
 - **Reporter** (motif obligatoire), depuis *Programmée* uniquement.
 - **Replanifier** : modifier la date d'une intervention reportée la remet *Programmée*.
 - **Annuler** (motif obligatoire), depuis *Programmée* ou *Reportée*. C'est définitif.
+- **Interrompre** (motif obligatoire) une intervention *en cours* abandonnée : elle passe
+  *Annulée*, avec son heure de fin réelle.
+- Les motifs de report, d'annulation et d'interruption sont conservés dans le **journal d'audit**
+  (chaque report est gardé, pas seulement le dernier).
+
+## Contrôles et traçabilité
+
+- Le patient, le séjour (qui doit être celui du patient), le chirurgien et l'anesthésiste
+  (soignants actifs de l'établissement) et la salle sont vérifiés côté serveur.
+- La détection de conflits ne regarde que les interventions de l'établissement.
+- Chaque étape (programmation, modification, check-list, démarrage, clôture, report, annulation)
+  écrit une ligne d'audit `surgery.*`.
+- Une action sur une intervention modifiée entre-temps par quelqu'un d'autre est refusée
+  (« reload it ») au lieu d'écraser son travail.
 
 ## Limites connues
 
 - Pas d'export PDF du compte rendu opératoire : il est consultable dans le dossier du séjour.
+- Pas de durée prévue : un conflit est détecté dans une fenêtre fixe de 90 minutes autour de
+  l'heure programmée.
+- Pas encore de consentement éclairé, de consultation pré-anesthésique, d'équipe de bloc
+  détaillée, ni de consommables / implants.
+- Une intervention interrompue n'est pas comptée parmi les décès péri-opératoires du RMA3, qui
+  partent des interventions terminées.
 
 ## 🛠️ Repères techniques
 
@@ -84,4 +106,5 @@ Programmée ──Sign In + Time Out validés──► Démarrer ──► Au bl
 | Check-list | `PATCH /api/v1/surgeries/[id]/checklist` |
 | Démarrer / terminer | `PATCH /start`, `PATCH /complete` |
 | Reporter / annuler | `PATCH /postpone`, `PATCH /cancel` |
-| Logique métier | `lib/surgery/` |
+| Salles d'opération | `GET /api/v1/surgeries/rooms` |
+| Logique métier | `lib/surgery/` (check-list, validation des saisies, références) |

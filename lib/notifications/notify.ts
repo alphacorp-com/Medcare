@@ -82,3 +82,33 @@ export async function notifyModule(input: NotifyModuleInput): Promise<number> {
 
   return recipientIds.length;
 }
+
+export interface NotifyUserInput extends Omit<NotifyModuleInput, "action" | "excludeUserId"> {
+  recipientId: string;
+}
+
+// One named recipient (the prescriber of an exam…), still only if they are active in the tenant.
+// Returns whether a notification was created; never notifies the actor themself.
+export async function notifyUser(input: NotifyUserInput): Promise<boolean> {
+  if (input.actorId && input.actorId === input.recipientId) return false;
+  const recipient = await prisma.tenantUser.findFirst({
+    where: { id: input.recipientId, tenantId: input.tenantId, isActive: true },
+    select: { id: true },
+  });
+  if (!recipient) return false;
+  await prisma.notification.create({
+    data: {
+      tenantId: input.tenantId,
+      recipientId: recipient.id,
+      type: input.type ?? "module_event",
+      moduleId: input.moduleId,
+      title: input.title,
+      body: input.body,
+      link: input.link,
+      resourceType: input.resourceType,
+      resourceId: input.resourceId,
+      actorId: input.actorId,
+    },
+  });
+  return true;
+}

@@ -7,6 +7,9 @@ import prisma from "@/lib/prisma";
 export const DEFAULT_CONFLICT_WINDOW_MINUTES = 90;
 
 export interface SurgeryConflictCheck {
+  // Required: conflicts carry patient names back to the caller, so the lookup must never
+  // reach another tenant's surgeries.
+  tenantId: string | null;
   surgeonId: string;
   roomId?: string | null;
   scheduledAt: Date;
@@ -22,6 +25,7 @@ export interface SurgeryConflict {
 }
 
 export async function findSurgeryConflicts({
+  tenantId,
   surgeonId,
   roomId,
   scheduledAt,
@@ -33,6 +37,7 @@ export async function findSurgeryConflicts({
   const candidates = await prisma.surgicalProcedure.findMany({
     where: {
       id: excludeId ? { not: excludeId } : undefined,
+      tenantId,
       status: { in: ["scheduled", "in_progress"] },
       scheduledAt: { gte: windowStart, lte: windowEnd },
       OR: [{ surgeonId }, ...(roomId ? [{ roomId }] : [])],

@@ -3,6 +3,9 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { findSurgeryConflicts } from "@/lib/surgery/conflicts";
+import { checkSurgeryReferences, roomLabels } from "@/lib/surgery/references";
+import { parseAsaScore, parseDate, parseOptionalText, parseRequiredText, SURGERY_TEXT_LIMITS } from "@/lib/surgery/validation";
+import { auditClinicalAction } from "@/lib/exams/audit";
 import { requireModulePermission } from "@/lib/permissions";
 import { SurgicalStatus, type Prisma } from "@prisma/client";
 import { parsePagination } from "@/lib/pagination";
@@ -66,9 +69,10 @@ export async function GET(req: Request) {
       prisma.surgicalProcedure.count({ where }),
       prisma.surgicalProcedure.groupBy({ by: ["status"], where: tenantScope, _count: true }),
     ]);
+    const labels = await roomLabels(session.user.tenantId, surgeries.map((s) => s.roomId));
 
     return NextResponse.json({
-      data: surgeries,
+      data: surgeries.map((s) => ({ ...s, roomLabel: s.roomId ? labels.get(s.roomId) ?? null : null })),
       total,
       page: pagination.page,
       pageSize: pagination.pageSize,
@@ -82,7 +86,7 @@ export async function GET(req: Request) {
 
 // ── POST /api/v1/surgeries ──────────────────────────────────────────────────
 // Body: { patientId, stayId?, surgeonId, anesthesiologistId?, procedureLabel,
-//         procedureCode?, roomId?, scheduledAt, asaScore?, force? }
+//         procedureCode?, roomId? (an operating room, see /surgeries/rooms), scheduledAt, asaScore?, force? }
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
@@ -94,53 +98,29 @@ export async function POST(req: Request) {
   }
 
   try {
-    const body = await req.json();
-    const {
-      patientId,
-      stayId,
-      surgeonId,
-      anesthesiologistId,
-      procedureLabel,
-      procedureCode,
-      roomId,
-      scheduledAt,
-      asaScore,
-      force,
-    } = body;
-
-    if (!patientId || !surgeonId || !procedureLabel || !scheduledAt) {
-      return NextResponse.json(
-        { error: "patientId, surgeonId, procedureLabel and scheduledAt are required" },
-        { status: 400 }
-      );
+    const body = (await req.json()) as Record<string, unknown>;
+    const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
+    const patientId = str(body.patientId);
+    const surgeonId = str(body.surgeonId);
+    if (!patientId || !surgeonId) {
+      return NextResponse.json({ error: "patientId, surgeonId, procedureLabel and scheduledAt are required" }, { status: 400 });
     }
+    const label = parseRequiredText(body.procedureLabel, "procedureLabel", SURGERY_TEXT_LIMITS.procedureLabel);
+    const code = parseOptionalText(body.procedureCode, "procedureCode", SURGERY_TEXT_LIMITS.procedureCode);
+    const scheduled = parseDate(body.scheduledAt, "scheduledAt");
+    const asa = parseAsaScore(body.asaScore);
+    if (!label.ok) return NextResponse.json({ error: label.error }, { status: 400 });
+    if (!code.ok) return NextResponse.json({ error: code.error }, { status: 400 });
+    if (!scheduled.ok) return NextResponse.json({ error: scheduled.error }, { status: 400 });
+    if (!asa.ok) return NextResponse.json({ error: asa.error }, { status: 400 });
 
-    const patient = await prisma.patient.findFirst({
-      where: { id: patientId, tenantId: session.user.tenantId },
-      select: { id: true },
-    });
-    if (!patient) {
-      return NextResponse.json({ error: "Patient not found" }, { status: 404 });
-    }
+    const refs = { patientId, stayId: str(body.stayId), surgeonId, anesthesiologistId: str(body.anesthesiologistId), roomId: str(body.roomId) };
+    const refError = await checkSurgeryReferences(session.user.tenantId, refs);
+    if (refError) return NextResponse.json({ error: refError.error }, { status: refError.status });
 
-    if (stayId) {
-      const stay = await prisma.stay.findFirst({
-        where: { id: stayId, tenantId: session.user.tenantId },
-        select: { id: true },
-      });
-      if (!stay) {
-        return NextResponse.json({ error: "Stay not found" }, { status: 404 });
-      }
-    }
-
-    const scheduledDate = new Date(scheduledAt);
-
+    const force = body.force === true;
     if (!force) {
-      const conflicts = await findSurgeryConflicts({
-        surgeonId,
-        roomId: roomId || null,
-        scheduledAt: scheduledDate,
-      });
+      const conflicts = await findSurgeryConflicts({ tenantId: session.user.tenantId, surgeonId, roomId: refs.roomId, scheduledAt: scheduled.value });
       if (conflicts.length > 0) {
         return NextResponse.json({ error: "Scheduling conflict", conflicts }, { status: 409 });
       }
@@ -150,19 +130,26 @@ export async function POST(req: Request) {
       data: {
         tenantId: session.user.tenantId,
         patientId,
-        stayId: stayId || null,
+        stayId: refs.stayId,
         surgeonId,
-        anesthesiologistId: anesthesiologistId || null,
-        procedureLabel,
-        procedureCode: procedureCode || null,
-        roomId: roomId || null,
-        scheduledAt: scheduledDate,
-        asaScore: asaScore ? Number(asaScore) : null,
+        anesthesiologistId: refs.anesthesiologistId,
+        procedureLabel: label.value,
+        procedureCode: code.value,
+        roomId: refs.roomId,
+        scheduledAt: scheduled.value,
+        asaScore: asa.value,
         status: "scheduled",
       },
       include: { patient: { select: PATIENT_SELECT } },
     });
 
+    await auditClinicalAction(session, req, "surgery.schedule", { type: "surgical_procedure", id: surgery.id }, {
+      patientId,
+      surgeonId,
+      roomId: refs.roomId,
+      scheduledAt: scheduled.value.toISOString(),
+      forced: force,
+    });
     return NextResponse.json(surgery, { status: 201 });
   } catch (error) {
     console.error("Error creating surgery:", error);

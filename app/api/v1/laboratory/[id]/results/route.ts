@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { requireModulePermission } from "@/lib/permissions";
+import { findExamOfModule } from "@/lib/exams/find-exam";
 import { computeIsCritical, ResultParameter } from "@/lib/laboratory/results";
 
 // POST /api/v1/laboratory/[id]/results
@@ -28,7 +29,7 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
       return NextResponse.json({ error: "At least one parameter is required" }, { status: 400 });
     }
 
-    const exam = await prisma.examRequest.findFirst({ where: { id, tenantId: session.user.tenantId } });
+    const exam = await findExamOfModule(id, session.user.tenantId, "laboratory");
     if (!exam) return NextResponse.json({ error: "Exam not found" }, { status: 404 });
 
     if (exam.status !== "in_progress") {

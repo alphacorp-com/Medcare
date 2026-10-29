@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { CHECKLIST_ITEMS, CHECKLIST_PHASES, ChecklistPhase, WhoChecklist } from "@/lib/surgery/checklist";
+import { auditClinicalAction } from "@/lib/exams/audit";
 import { requireModulePermission } from "@/lib/permissions";
 
 // PATCH /api/v1/surgeries/[id]/checklist
@@ -41,26 +42,32 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
       );
     }
 
-    const currentChecklist = (existing.whoChecklist ?? {}) as WhoChecklist;
+    // Only the fixed items of the phase, each true only when explicitly ticked.
     const sanitizedItems = Object.fromEntries(
-      CHECKLIST_ITEMS[phase].map((key) => [key, Boolean(items?.[key])])
+      CHECKLIST_ITEMS[phase].map((key) => [key, items?.[key] === true])
     );
 
-    const updatedChecklist: WhoChecklist = {
-      ...currentChecklist,
-      [phase]: {
-        items: sanitizedItems,
-        completedAt: new Date().toISOString(),
-        completedBy: session.user.id,
-      },
-    };
-
-    const surgery = await prisma.surgicalProcedure.update({
-      where: { id },
-      data: { whoChecklist: updatedChecklist as unknown as Prisma.InputJsonValue },
+    // The row is locked and re-read: two people recording two phases at the same time keep
+    // both, and a case started or cancelled meanwhile is not touched.
+    const saved = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "tenant_template"."surgical_procedures" WHERE id = ${id}::uuid FOR UPDATE`;
+      const current = await tx.surgicalProcedure.findUnique({ where: { id }, select: { status: true, whoChecklist: true } });
+      if (!current || current.status !== allowedStatus) return false;
+      const updatedChecklist: WhoChecklist = {
+        ...((current.whoChecklist ?? {}) as WhoChecklist),
+        [phase]: {
+          items: sanitizedItems,
+          completedAt: new Date().toISOString(),
+          completedBy: session.user.id,
+        },
+      };
+      await tx.surgicalProcedure.update({ where: { id }, data: { whoChecklist: updatedChecklist as unknown as Prisma.InputJsonValue } });
+      return true;
     });
+    if (!saved) return NextResponse.json({ error: "The case changed meanwhile, reload it" }, { status: 409 });
 
-    return NextResponse.json(surgery);
+    await auditClinicalAction(session, req, "surgery.checklist", { type: "surgical_procedure", id }, { phase, items: sanitizedItems });
+    return NextResponse.json(await prisma.surgicalProcedure.findUnique({ where: { id } }));
   } catch (error) {
     console.error("Error updating checklist:", error);
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });

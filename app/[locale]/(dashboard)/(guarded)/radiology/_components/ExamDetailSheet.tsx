@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { safeExternalUrl } from "@/lib/safe-url";
 import { useTranslations } from "next-intl";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -208,9 +209,9 @@ export function ExamDetailSheet({
                       <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">{t("impression")}</div>
                       <p className="text-slate-900 font-medium whitespace-pre-wrap">{latestResult.resultData.impression}</p>
                     </div>
-                    {latestResult.reportUrl && (
+                    {safeExternalUrl(latestResult.reportUrl) && (
                       <a
-                        href={latestResult.reportUrl}
+                        href={safeExternalUrl(latestResult.reportUrl)!}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center text-blue-600 hover:underline text-xs font-semibold"

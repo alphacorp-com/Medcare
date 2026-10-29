@@ -1,6 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { safeExternalUrl } from "@/lib/safe-url";
 import { isConfidentialResult } from "@/lib/hiv/confidential-flag";
 import { format } from "date-fns";
 import { AlertTriangle, ExternalLink, FileCheck2 } from "lucide-react";
@@ -38,17 +39,8 @@ export function getValidatedResult(order: ExamResultOrder): ExamResultView | nul
   return order.status === "completed" && result?.validatedAt ? result : null;
 }
 
-// reportUrl is free text stored on the result, so only ever render it as a link when it is
-// a plain http(s) URL — never a javascript: or data: URL.
-function safeExternalUrl(url: string | null | undefined): string | null {
-  if (!url) return null;
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === "https:" || parsed.protocol === "http:" ? parsed.toString() : null;
-  } catch {
-    return null;
-  }
-}
+// reportUrl is free text stored on the result: rendered as a link only when it is a plain
+// http(s) URL (lib/safe-url), never a javascript: or data: URL.
 
 // Read-only view of a completed lab / radiology order's validated result.
 export function ExamResultSheet({

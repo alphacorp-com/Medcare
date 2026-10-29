@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { safeExternalUrl } from "@/lib/safe-url";
 import { useTranslations } from "next-intl";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -64,8 +65,12 @@ export function ReportEntryDialog({
 
   const handleSave = async () => {
     const parameters = toResultParameters(rows);
-    if (!impression.trim() || (!findings.trim() && parameters.length === 0)) {
+    if (!technique.trim() || !impression.trim() || (!findings.trim() && parameters.length === 0)) {
       setError(t("findings_impression_required"));
+      return;
+    }
+    if (reportUrl.trim() && !safeExternalUrl(reportUrl)) {
+      setError(t("report_url_invalid"));
       return;
     }
     setIsSaving(true);
@@ -127,6 +132,7 @@ export function ReportEntryDialog({
           <div>
             <Label>{t("technique")}</Label>
             <textarea
+              required
               value={technique}
               onChange={(e) => setTechnique(e.target.value)}
               rows={2}

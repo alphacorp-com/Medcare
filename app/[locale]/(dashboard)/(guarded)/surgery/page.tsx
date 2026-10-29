@@ -124,7 +124,7 @@ export default function SurgeryPage() {
       ["ID", tc('patient'), tc('ipp'), t('surgeon'), t('anesthesiologist'), t('room'), t('procedure_type'), tc('status'), tc('date')],
       ...rows.map((s) => [
         s.id, `${s.patient.firstName} ${s.patient.lastName}`, s.patient.ipp,
-        doctorName(s.surgeonId), doctorName(s.anesthesiologistId), s.roomId ?? "",
+        doctorName(s.surgeonId), doctorName(s.anesthesiologistId), s.roomLabel ?? "",
         s.procedureLabel, s.status, s.scheduledAt ?? "",
       ]),
     ]);
@@ -280,7 +280,7 @@ export default function SurgeryPage() {
                       {doctorName(surg.surgeonId)}
                     </TableCell>
                     <TableCell className="p-4 text-sm text-slate-600">
-                      {surg.roomId ?? "—"}
+                      {surg.roomLabel ?? "—"}
                     </TableCell>
                     <TableCell className="p-4">
                        <span className={statusBadgeClass(surg.status)}>{t(surg.status)}</span>
@@ -307,15 +307,21 @@ export default function SurgeryPage() {
                            </>
                          )}
                          {surg.status === 'in_progress' && (
-                            !readyToComplete ? (
-                              <Button variant="outline" size="sm" className="h-7 text-xs bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100" onClick={() => setChecklistSurgery(surg)}>
-                                <ClipboardCheck className="w-3.5 h-3.5 mr-1.5" /> {t('validate_who')}
-                              </Button>
-                            ) : (
-                              <Button size="sm" className="h-7 text-xs bg-green-600 text-white hover:bg-green-700" onClick={() => setCompleteSurgery(surg)}>
-                                <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> {t('complete_sign')}
-                              </Button>
-                            )
+                           <>
+                             {!readyToComplete ? (
+                               <Button variant="outline" size="sm" className="h-7 text-xs bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100" onClick={() => setChecklistSurgery(surg)}>
+                                 <ClipboardCheck className="w-3.5 h-3.5 mr-1.5" /> {t('validate_who')}
+                               </Button>
+                             ) : (
+                               <Button size="sm" className="h-7 text-xs bg-green-600 text-white hover:bg-green-700" onClick={() => setCompleteSurgery(surg)}>
+                                 <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> {t('complete_sign')}
+                               </Button>
+                             )}
+                             {/* An intervention interrupted or abandoned once started. */}
+                             <Button variant="outline" size="sm" className="h-7 text-xs text-red-600 border-red-200 hover:bg-red-50" onClick={() => setCancelPostpone({ surgery: surg, action: 'cancel' })}>
+                               <XCircle className="w-3.5 h-3.5 mr-1.5" /> {t('interrupt_surgery')}
+                             </Button>
+                           </>
                          )}
                          {surg.status === 'postponed' && (
                            <Button size="sm" className="h-7 text-xs bg-amber-600 text-white hover:bg-amber-700" onClick={() => setRescheduleSurgery(surg)}>

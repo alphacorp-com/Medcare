@@ -1713,7 +1713,7 @@
     "in_progress": "In OR (In Progress)",
     "completed": "Completed",
     "validate_who": "Validate WHO",
-    "start_surgery": "Start Surgery",
+    "start_surgery": "Start surgery",
     "complete_sign": "Complete & Sign",
     "checklist_missing": "WHO Checklist Missing",
     "checklist_complete": "Checklist Complete",
@@ -1779,7 +1779,10 @@
     "postpone_error": "Failed to postpone the case.",
     "reschedule_surgery": "Reschedule",
     "reschedule_error": "Failed to reschedule the case.",
-    "start_error": "Failed to start the surgery."
+    "start_error": "Failed to start the surgery.",
+    "no_room": "No room",
+    "no_operating_room_hint": "No operating room: create beds of room type “Surgery” in Settings → Beds.",
+    "interrupt_surgery": "Interrupt"
   },
   "planning": {
     "title": "RH & Staff Planning",
@@ -2767,7 +2770,7 @@
     "clinical_notes_placeholder": "Reason for exam...",
     "prescribe_error": "Failed to create the request.",
     "submit_request": "Submit Request",
-    "findings_impression_required": "Findings and impression are required",
+    "findings_impression_required": "Technique, findings and impression are required",
     "report_save_error": "Failed to save the report.",
     "prior_studies": "Prior Studies",
     "technique": "Technique",
@@ -2830,7 +2833,8 @@
     "in_progress": "In Progress",
     "awaiting_report": "Awaiting Report",
     "completed": "Completed",
-    "cancelled": "Cancelled"
+    "cancelled": "Cancelled",
+    "report_url_invalid": "The report / images link must start with http:// or https://"
   },
   "admissions": {
     "stays_total": "stays in total",

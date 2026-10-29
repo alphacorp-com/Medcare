@@ -4,6 +4,8 @@ import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { requireModulePermission } from "@/lib/permissions";
 import { findRadiologyConflicts } from "@/lib/radiology/conflicts";
+import { findExamOfModule } from "@/lib/exams/find-exam";
+import { auditClinicalAction } from "@/lib/exams/audit";
 
 // PATCH /api/v1/radiology/[id]/schedule
 // Body: { scheduledAt, force? }
@@ -21,11 +23,12 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
 
   try {
     const { scheduledAt, force } = await req.json();
-    if (!scheduledAt) {
-      return NextResponse.json({ error: "scheduledAt is required" }, { status: 400 });
+    const scheduledDate = typeof scheduledAt === "string" ? new Date(scheduledAt) : null;
+    if (!scheduledDate || Number.isNaN(scheduledDate.getTime())) {
+      return NextResponse.json({ error: "scheduledAt must be a valid date" }, { status: 400 });
     }
 
-    const exam = await prisma.examRequest.findFirst({ where: { id, tenantId: session.user.tenantId } });
+    const exam = await findExamOfModule(id, session.user.tenantId, "radiology");
     if (!exam) return NextResponse.json({ error: "Exam not found" }, { status: 404 });
 
     if (exam.status === "awaiting_payment") {
@@ -38,21 +41,22 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
       return NextResponse.json({ error: `Cannot schedule an exam with status "${exam.status}"` }, { status: 400 });
     }
 
-    const scheduledDate = new Date(scheduledAt);
-
-    if (!force) {
+    if (force !== true) {
       const conflicts = await findRadiologyConflicts(exam.patientId, scheduledDate, id);
       if (conflicts.length > 0) {
         return NextResponse.json({ error: "Scheduling conflict", conflicts }, { status: 409 });
       }
     }
 
-    const updated = await prisma.examRequest.update({
-      where: { id },
+    // Only from "requested": a concurrent payment reversal or cancellation wins.
+    const { count } = await prisma.examRequest.updateMany({
+      where: { id, status: "requested" },
       data: { status: "scheduled", scheduledAt: scheduledDate },
     });
+    if (count === 0) return NextResponse.json({ error: "The exam changed meanwhile, reload it" }, { status: 409 });
 
-    return NextResponse.json(updated);
+    await auditClinicalAction(session, req, "radiology.schedule", { type: "exam_request", id }, { scheduledAt: scheduledDate.toISOString(), forced: force === true });
+    return NextResponse.json(await prisma.examRequest.findUnique({ where: { id } }));
   } catch (error) {
     console.error("Error scheduling radiology exam:", error);
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });

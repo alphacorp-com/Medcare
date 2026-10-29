@@ -62,27 +62,46 @@ Examen *En attente de planification* → **Planifier l'Examen** → date et heur
 
 ### Saisir le compte rendu
 **Saisir le Compte-rendu** :
-- **Technique** (obligatoire) ;
+- **Technique** (obligatoire, contrôlé par le serveur) ;
 - **Constatations** : texte libre, ou résultats par paramètre (organe par organe) proposés par la
   fiche de l'examen ;
 - **Conclusion** (obligatoire) ;
 - examens antérieurs comparés ;
 - **URL du compte rendu / des images** : lien vers un PACS ou un serveur d'images, facultatif ;
+  seules les adresses `http://` ou `https://` sont acceptées ;
 - **Marquer comme résultat critique** si besoin.
 
 → **Enregistrer le Compte-rendu**. L'examen attend la validation.
 
 ### Valider ou rejeter (radiologue)
 - **Valider et Publier** : le compte rendu devient officiel, visible dans le dossier patient
-  (onglet *Imagerie* → **Ouvrir Visionneuse**) et dans la consultation.
-- **Rejeter le Compte-rendu** : motif obligatoire.
+  (onglet *Imagerie* → **Ouvrir Visionneuse**) et dans la consultation. Le **prescripteur** reçoit
+  une notification.
+- **Rejeter le Compte-rendu** : motif obligatoire. Le brouillon rejeté (contenu, auteur, date) est
+  conservé dans le journal d'audit.
 
 ### Communiquer un résultat critique
 **Notifier** → **à qui** (obligatoire) et **comment** (appel téléphonique, en personne, message
-sécurisé). MedCare enregistre qui a été prévenu, comment et quand, comme le recommande l'ACR.
+sécurisé). MedCare enregistre qui a été prévenu, comment et quand, comme le recommande l'ACR,
+et notifie dans l'application l'équipe de radiologie **et le prescripteur**.
 
 ### Annuler
-**Annuler l'Examen** → motif obligatoire.
+**Annuler l'Examen** → motif obligatoire. Refusé tant qu'un compte rendu attend la validation : le
+radiologue le valide ou le rejette d'abord.
+
+### Allergie aux produits de contraste
+À la prescription d'un examen avec contraste, MedCare avertit si une allergie du patient évoque
+l'iode, un produit de contraste, le gadolinium ou les fruits de mer / crustacés (en français ou
+en anglais, sans tenir compte des accents). C'est un avertissement, pas un blocage.
+
+## Contrôles et traçabilité
+
+- Chaque route n'agit que sur un examen de **radiologie** de l'établissement : un identifiant
+  d'examen de laboratoire est refusé (et inversement dans le module Laboratoire).
+- Chaque étape (planification, démarrage, compte rendu, validation, rejet, résultat critique,
+  annulation) écrit une ligne d'audit `radiology.*`.
+- Une action sur un examen modifié entre-temps est refusée au lieu d'écraser l'autre action ; deux
+  comptes rendus simultanés ne peuvent pas être créés.
 
 ---
 
@@ -94,6 +113,10 @@ sécurisé). MedCare enregistre qui a été prévenu, comment et quand, comme le
   exemple OHIF).
 - La saisie de la modalité et de la région se fait via le catalogue d'examens (Paramètres → Types
   d'imagerie, Zones anatomiques).
+- Pas d'appareils ni de salles de radiologie : seul un double rendez-vous du même patient est
+  détecté.
+- Pas de contrôle de grossesse ni de fonction rénale avant l'examen, pas de dose enregistrée.
+- Un compte rendu validé ne peut plus être corrigé (pas d'addendum).
 
 ## 🛠️ Repères techniques
 

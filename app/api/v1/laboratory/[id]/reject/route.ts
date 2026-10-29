@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { requireModulePermission } from "@/lib/permissions";
+import { findExamOfModule } from "@/lib/exams/find-exam";
 
 // PATCH /api/v1/laboratory/[id]/reject
 // Body: { reason }
@@ -28,7 +29,7 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
       return NextResponse.json({ error: "A reason is required to reject a result" }, { status: 400 });
     }
 
-    const exam = await prisma.examRequest.findFirst({ where: { id, tenantId: session.user.tenantId } });
+    const exam = await findExamOfModule(id, session.user.tenantId, "laboratory");
     if (!exam) return NextResponse.json({ error: "Exam not found" }, { status: 404 });
 
     const pendingResult = await prisma.examResult.findFirst({

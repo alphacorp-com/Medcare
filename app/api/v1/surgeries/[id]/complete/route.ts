@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { isPhaseComplete, WhoChecklist } from "@/lib/surgery/checklist";
+import { parseComplications, parseOptionalText, parseRequiredText, SURGERY_TEXT_LIMITS } from "@/lib/surgery/validation";
+import { auditClinicalAction } from "@/lib/exams/audit";
 import { requireModulePermission } from "@/lib/permissions";
 import { suggestInvoiceLine } from "@/lib/billing/suggestCharge";
 
@@ -18,7 +20,8 @@ function slugifyProcedure(label: string): string {
 
 // PATCH /api/v1/surgeries/[id]/complete
 // Body: { surgicalReport, anesthesiaReport?, complications? }
-// Requires the Sign Out checklist phase to be complete and a non-empty report.
+// Requires the Sign Out checklist phase to be complete and a non-empty report. The operative
+// report is signed: only the operating surgeon of the case completes it.
 // If the case is linked to a Stay, also files a signed "surgery_report" MedicalRecord.
 export async function PATCH(req: Request, context: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
@@ -33,22 +36,24 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
   const { id } = await context.params;
 
   try {
-    const body = await req.json();
-    const { surgicalReport, anesthesiaReport, complications } = body as {
-      surgicalReport?: string;
-      anesthesiaReport?: string;
-      complications?: string[];
-    };
-
-    if (!surgicalReport?.trim()) {
-      return NextResponse.json({ error: "A surgical report is required to complete the case" }, { status: 400 });
+    const body = (await req.json()) as Record<string, unknown>;
+    const report = parseRequiredText(body.surgicalReport, "surgicalReport", SURGERY_TEXT_LIMITS.surgicalReport);
+    if (!report.ok) {
+      return NextResponse.json({ error: report.error === "surgicalReport is required" ? "A surgical report is required to complete the case" : report.error }, { status: 400 });
     }
+    const anesthesia = parseOptionalText(body.anesthesiaReport, "anesthesiaReport", SURGERY_TEXT_LIMITS.anesthesiaReport);
+    if (!anesthesia.ok) return NextResponse.json({ error: anesthesia.error }, { status: 400 });
+    const complications = parseComplications(body.complications);
+    if (!complications.ok) return NextResponse.json({ error: complications.error }, { status: 400 });
 
     const surgery = await prisma.surgicalProcedure.findFirst({ where: { id, tenantId: session.user.tenantId } });
     if (!surgery) return NextResponse.json({ error: "Surgery not found" }, { status: 404 });
 
     if (surgery.status !== "in_progress") {
       return NextResponse.json({ error: `Cannot complete a case with status "${surgery.status}"` }, { status: 400 });
+    }
+    if (surgery.surgeonId !== session.user.id) {
+      return NextResponse.json({ error: "Only the operating surgeon can sign the operative report" }, { status: 403 });
     }
 
     const checklist = (surgery.whoChecklist ?? {}) as WhoChecklist;
@@ -58,36 +63,38 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
 
     const endedAt = new Date();
 
-    const [updated] = await prisma.$transaction([
-      prisma.surgicalProcedure.update({
-        where: { id },
+    // Conditional on "in_progress": a second click or a concurrent completion files nothing twice.
+    const completed = await prisma.$transaction(async (tx) => {
+      const { count } = await tx.surgicalProcedure.updateMany({
+        where: { id, status: "in_progress" },
         data: {
           status: "completed",
           endedAt,
-          surgicalReport,
-          anesthesiaReport: anesthesiaReport || null,
-          complications: complications ?? [],
+          surgicalReport: report.value,
+          anesthesiaReport: anesthesia.value,
+          complications: complications.value,
         },
-      }),
-      ...(surgery.stayId
-        ? [
-            prisma.medicalRecord.create({
-              data: {
-                tenantId: session.user.tenantId,
-                patientId: surgery.patientId,
-                stayId: surgery.stayId,
-                authorId: session.user.id,
-                type: "surgery_report",
-                title: surgery.procedureLabel,
-                content: surgicalReport,
-                isSigned: true,
-                signedAt: endedAt,
-                signedBy: session.user.id,
-              },
-            }),
-          ]
-        : []),
-    ]);
+      });
+      if (count === 0) return false;
+      if (surgery.stayId) {
+        await tx.medicalRecord.create({
+          data: {
+            tenantId: session.user.tenantId,
+            patientId: surgery.patientId,
+            stayId: surgery.stayId,
+            authorId: session.user.id,
+            type: "surgery_report",
+            title: surgery.procedureLabel,
+            content: report.value,
+            isSigned: true,
+            signedAt: endedAt,
+            signedBy: session.user.id,
+          },
+        });
+      }
+      return true;
+    });
+    if (!completed) return NextResponse.json({ error: "The case changed meanwhile, reload it" }, { status: 409 });
 
     const billing = session.user.tenantId
       ? await suggestInvoiceLine({
@@ -102,6 +109,8 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
         })
       : null;
 
+    await auditClinicalAction(session, req, "surgery.complete", { type: "surgical_procedure", id }, { complications: complications.value, reportFiled: Boolean(surgery.stayId) });
+    const updated = await prisma.surgicalProcedure.findUnique({ where: { id } });
     return NextResponse.json({ ...updated, billing });
   } catch (error) {
     console.error("Error completing surgery:", error);

@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { requireModulePermission } from "@/lib/permissions";
+import { findExamOfModule } from "@/lib/exams/find-exam";
+import { auditClinicalAction } from "@/lib/exams/audit";
 
 // PATCH /api/v1/radiology/[id]/start — patient has arrived, images are being acquired: scheduled -> in_progress
 export async function PATCH(req: Request, context: { params: Promise<{ id: string }> }) {
@@ -16,17 +18,16 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
   }
 
   const { id } = await context.params;
-  const exam = await prisma.examRequest.findFirst({ where: { id, tenantId: session.user.tenantId } });
+  const exam = await findExamOfModule(id, session.user.tenantId, "radiology");
   if (!exam) return NextResponse.json({ error: "Exam not found" }, { status: 404 });
 
   if (exam.status !== "scheduled") {
     return NextResponse.json({ error: `Cannot start an exam with status "${exam.status}"` }, { status: 400 });
   }
 
-  const updated = await prisma.examRequest.update({
-    where: { id },
-    data: { status: "in_progress" },
-  });
+  const { count } = await prisma.examRequest.updateMany({ where: { id, status: "scheduled" }, data: { status: "in_progress" } });
+  if (count === 0) return NextResponse.json({ error: "The exam changed meanwhile, reload it" }, { status: 409 });
 
-  return NextResponse.json(updated);
+  await auditClinicalAction(session, req, "radiology.start", { type: "exam_request", id });
+  return NextResponse.json(await prisma.examRequest.findUnique({ where: { id } }));
 }

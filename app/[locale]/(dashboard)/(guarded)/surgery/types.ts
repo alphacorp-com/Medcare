@@ -15,6 +15,8 @@ export type Surgery = {
   surgeonId: string;
   anesthesiologistId: string | null;
   roomId: string | null;
+  // "SURG-01 · Bloc opératoire 1", resolved by the API.
+  roomLabel?: string | null;
   procedureCode: string | null;
   procedureLabel: string;
   scheduledAt: string | null;
@@ -38,6 +40,12 @@ export type Doctor = {
   id: string;
   fullName: string;
   specialty: string | null;
+};
+
+export type OperatingRoom = {
+  id: string;
+  code: string;
+  label: string;
 };
 
 export type ActiveStay = {

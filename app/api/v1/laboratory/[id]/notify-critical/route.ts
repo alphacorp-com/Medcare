@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { requireModulePermission } from "@/lib/permissions";
+import { examOfModuleWhere } from "@/lib/exams/find-exam";
 import { notifyModule } from "@/lib/notifications/notify";
 
 // PATCH /api/v1/laboratory/[id]/notify-critical
@@ -20,7 +21,8 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
   const { id } = await context.params;
 
   const latestResult = await prisma.examResult.findFirst({
-    where: { requestId: id, tenantId: session.user.tenantId },
+    // Only a result of a laboratory exam: the module permission does not cover radiology.
+    where: { requestId: id, tenantId: session.user.tenantId, request: examOfModuleWhere(session.user.tenantId, "laboratory") },
     orderBy: { createdAt: "desc" },
   });
 
@@ -34,10 +36,15 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
     return NextResponse.json({ error: "This critical result was already notified" }, { status: 400 });
   }
 
-  const updated = await prisma.examResult.update({
-    where: { id: latestResult.id },
+  // Recorded once: a concurrent notification of the same result does not overwrite it.
+  const { count } = await prisma.examResult.updateMany({
+    where: { id: latestResult.id, criticalNotifiedAt: null },
     data: { criticalNotifiedAt: new Date() },
   });
+  if (count === 0) {
+    return NextResponse.json({ error: "This critical result was already notified" }, { status: 400 });
+  }
+  const updated = await prisma.examResult.findUnique({ where: { id: latestResult.id } });
 
   const examRequest = await prisma.examRequest.findFirst({
     where: { id, tenantId: session.user.tenantId },

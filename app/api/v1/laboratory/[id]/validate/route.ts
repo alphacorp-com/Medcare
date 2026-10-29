@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { requireModulePermission } from "@/lib/permissions";
+import { findExamOfModule } from "@/lib/exams/find-exam";
 import { suggestInvoiceLine } from "@/lib/billing/suggestCharge";
 import { recordScreeningFromLab, recordViralLoadFromLab } from "@/lib/hiv/lab-link";
 import type { ResultData } from "@/lib/laboratory/results";
@@ -25,7 +26,7 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
 
   const { id } = await context.params;
 
-  const exam = await prisma.examRequest.findFirst({ where: { id, tenantId: session.user.tenantId } });
+  const exam = await findExamOfModule(id, session.user.tenantId, "laboratory");
   if (!exam) return NextResponse.json({ error: "Exam not found" }, { status: 404 });
 
   const pendingResult = await prisma.examResult.findFirst({

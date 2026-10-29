@@ -1714,7 +1714,7 @@
     "in_progress": "Au Bloc (En cours)",
     "completed": "Terminé",
     "validate_who": "Valider Check-list",
-    "start_surgery": "Démarrer l'Assise",
+    "start_surgery": "Démarrer l'intervention",
     "complete_sign": "Terminer & Signer",
     "checklist_missing": "Check-list OMS manquante",
     "checklist_complete": "Check-list Complète",
@@ -1780,7 +1780,10 @@
     "postpone_error": "Échec du report de l'intervention.",
     "reschedule_surgery": "Replanifier",
     "reschedule_error": "Échec de la replanification.",
-    "start_error": "Échec du démarrage de l'intervention."
+    "start_error": "Échec du démarrage de l'intervention.",
+    "no_room": "Aucune salle",
+    "no_operating_room_hint": "Aucune salle d'opération : créez des lits de type « Chirurgie » dans Paramètres → Lits.",
+    "interrupt_surgery": "Interrompre"
   },
   "planning": {
     "title": "RH & Planning du Staff",
@@ -2768,7 +2771,7 @@
     "clinical_notes_placeholder": "Motif de l'examen...",
     "prescribe_error": "Échec de la création de la demande.",
     "submit_request": "Soumettre la Demande",
-    "findings_impression_required": "Les constatations et la conclusion sont requises",
+    "findings_impression_required": "La technique, les constatations et la conclusion sont requises",
     "report_save_error": "Échec de l'enregistrement du compte-rendu.",
     "prior_studies": "Examens Antérieurs",
     "technique": "Technique",
@@ -2831,7 +2834,8 @@
     "in_progress": "En Cours",
     "awaiting_report": "En Attente de Compte-rendu",
     "completed": "Terminé",
-    "cancelled": "Annulé"
+    "cancelled": "Annulé",
+    "report_url_invalid": "Le lien vers le compte rendu ou les images doit commencer par http:// ou https://"
   },
   "admissions": {
     "stays_total": "séjours au total",
