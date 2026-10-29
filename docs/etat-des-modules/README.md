@@ -18,7 +18,7 @@ Légende : ✅ complet · ⚠️ partiel ou limité · ❌ manquant
 | [Admissions, consultations, sorties](../modules/admissions/README.md) | ✅ | La caution garde le prix de la salle de départ après un changement de salle |
 | [Laboratoire](../modules/laboratoire/README.md) | ✅ | — |
 | [Banque de sang](../modules/banque-de-sang/README.md) | ✅ | — |
-| [Radiologie](../modules/radiologie/README.md) | ⚠️ | Pas de stockage ni de visionneuse d'images (lien externe seulement) |
+| [Radiologie](../modules/radiologie/README.md) | ✅ | Images dans le PACS de l'établissement (lien), pas de stockage DICOM dans MedCare |
 | [Chirurgie](../modules/chirurgie/README.md) | ✅ | Pas d'export PDF du compte rendu opératoire |
 | [Pharmacie et stock](../modules/pharmacie/README.md) | ✅ | Pas de vérification des interactions médicamenteuses (fonction non proposée) |
 | [Maternité et planification familiale](../modules/maternite/README.md) | ✅ | — |
@@ -78,16 +78,20 @@ Légende : ✅ complet · ⚠️ partiel ou limité · ❌ manquant
 - Donneurs, collectes mobiles, poches, qualification sur 4 tests, libération, service, transfusion,
   destruction, avec transitions protégées contre la concurrence.
 
-### Radiologie — ⚠️
-- Planification avec conflits, réalisation, compte rendu structuré, validation / rejet,
-  notification ACR des résultats critiques.
-- Visionneuse du compte rendu validé depuis le dossier patient.
-- ❌ Pas de stockage DICOM ni de visionneuse d'images : seul un lien externe (http/https) est
-  conservé.
+### Radiologie — ✅
+- Planification sur appareil (sans chevauchement) avec n° d'accession ; contrôle avant examen
+  (grossesse, fonction rénale, allergie au contraste) ; compte rendu structuré avec dose reçue ;
+  validation / rejet (double lecture configurable) ; addenda ; notification ACR des résultats
+  critiques et notification du prescripteur.
+- Lien vers la visionneuse du PACS de l'établissement (adresse configurable).
+- ⚠️ Pas de stockage DICOM dans MedCare ni de liste de travail DICOM envoyée aux appareils.
 
 ### Chirurgie — ✅
-- Programmation avec conflits de salle et de chirurgien ; check-list OMS en 3 phases bloquante ;
-  compte rendu signé déposé au séjour ; facturation à la clôture ; report et annulation.
+- Programmation avec durée prévue, salle d'opération, urgence et équipe ; conflits de salle et de
+  chirurgien sur la durée ; consentement éclairé et consultation pré-anesthésique avant de
+  démarrer (sauf urgence) ; check-list OMS en 3 phases bloquante ; compte rendu signé par le
+  chirurgien avec horaires opératoires ; consommables et implants (sortie de stock, traçabilité,
+  facturation) ; report, annulation, interruption.
 - Export CSV, impression et e-mail du programme.
 - ❌ Pas d'export PDF du compte rendu opératoire.
 

@@ -107,6 +107,8 @@ complet de la base (format personnalisé PostgreSQL).
 Voir [Licence AlphaCorp](../licence/README.md).
 
 ### Intégrations
+- **Appareils d'imagerie** (Paramètres → Imagerie) : salles et appareils réservés par la
+  radiologie, adresse de la visionneuse PACS, double lecture des comptes rendus.
 - [DHIS2](integration-dhis2.md) : transmission du RMA3 (fichier ou API, envoi automatique).
 - [Mobile Money](mobile-money.md) : Orange Money et MTN MoMo.
 

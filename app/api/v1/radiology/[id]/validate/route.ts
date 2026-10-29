@@ -7,6 +7,7 @@ import { suggestInvoiceLine } from "@/lib/billing/suggestCharge";
 import { findExamOfModule } from "@/lib/exams/find-exam";
 import { auditClinicalAction } from "@/lib/exams/audit";
 import { notifyUser } from "@/lib/notifications/notify";
+import { getRadiologySettings } from "@/lib/radiology/settings";
 
 // PATCH /api/v1/radiology/[id]/validate — publishes the pending report and completes the exam.
 export async function PATCH(req: Request, context: { params: Promise<{ id: string }> }) {
@@ -35,6 +36,10 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
   });
   if (!pendingResult) {
     return NextResponse.json({ error: "No report is awaiting validation for this exam" }, { status: 400 });
+  }
+  // Double reading, when the facility requires it: the author of a report does not validate it.
+  if (pendingResult.performerId === session.user.id && (await getRadiologySettings(session.user.tenantId)).requireSecondReader) {
+    return NextResponse.json({ error: "second_reader_required" }, { status: 403 });
   }
 
   const now = new Date();

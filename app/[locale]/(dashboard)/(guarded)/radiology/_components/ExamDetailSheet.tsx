@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { safeExternalUrl } from "@/lib/safe-url";
 import { useTranslations } from "next-intl";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
-import { AlertTriangle, BellRing, Check, ExternalLink, FileSignature, Loader2, PlayCircle, ScanLine, Wallet, X, XCircle } from "lucide-react";
-import { deriveWorkflowState, RadiologyExam, UserRef } from "../types";
+import { AlertTriangle, BellRing, Check, ExternalLink, FilePlus2, FileSignature, Loader2, PlayCircle, Radiation, ScanLine, ShieldCheck, Wallet, X, XCircle } from "lucide-react";
+import { deriveWorkflowState, RadiologyExam, RadiologyExamDetail, UserRef } from "../types";
+import { StartExamDialog } from "./StartExamDialog";
 import { ScheduleExamDialog } from "./ScheduleExamDialog";
 import { ReportEntryDialog } from "./ReportEntryDialog";
 import { RejectReportDialog } from "./RejectReportDialog";
@@ -40,28 +41,77 @@ export function ExamDetailSheet({
   const [isRejectOpen, setIsRejectOpen] = useState(false);
   const [isCancelOpen, setIsCancelOpen] = useState(false);
   const [isNotifyOpen, setIsNotifyOpen] = useState(false);
-  const [busyAction, setBusyAction] = useState<"start" | "validate" | null>(null);
+  const [isStartOpen, setIsStartOpen] = useState(false);
+  const [busyAction, setBusyAction] = useState<"validate" | "addendum" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [detail, setDetail] = useState<RadiologyExamDetail | null>(null);
+  const [addendum, setAddendum] = useState("");
+
+  // The worklist row lacks the device, the PACS link and the addenda: the detail is loaded here.
+  const examId = exam?.id;
+  const loadDetail = useCallback(async () => {
+    if (!examId) return;
+    try {
+      const res = await fetch(`/api/v1/radiology/${examId}`);
+      if (res.ok) setDetail((await res.json()) as RadiologyExamDetail);
+    } catch (err) {
+      console.error("Failed to load exam detail", err);
+    }
+  }, [examId]);
+
+  useEffect(() => {
+    if (!open) return;
+    (async () => {
+      await loadDetail();
+    })();
+  }, [open, loadDetail, exam?.status, exam?.results.length]);
 
   if (!exam) return null;
+  const current = detail?.id === exam.id ? detail : null;
 
   const state = deriveWorkflowState(exam);
-  const latestResult = exam.results[0] ?? null;
+  const latestResult = (current ?? exam).results[0] ?? null;
+  const safety = current?.safetyCheck ?? null;
+  const dose = latestResult?.resultData.radiationDose ?? null;
   const userName = (id: string) => usersById.get(id)?.fullName ?? id;
 
-  const runAction = async (action: "start" | "validate") => {
+  const runAction = async (action: "validate") => {
     setBusyAction(action);
     setError(null);
     try {
       const res = await fetch(`/api/v1/radiology/${exam.id}/${action}`, { method: "PATCH" });
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(payload?.error || t("action_error"));
+        setError(payload?.error === "second_reader_required" ? t("second_reader_required") : payload?.error || t("action_error"));
         return;
       }
       if (action === "validate") notifyBillingGenerated(payload?.billing, tc("invoice_generated"));
       onUpdated();
     } catch (err) {
+      setError(t("action_error"));
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const addAddendum = async () => {
+    if (!addendum.trim()) return;
+    setBusyAction("addendum");
+    setError(null);
+    try {
+      const res = await fetch(`/api/v1/radiology/${exam.id}/addenda`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: addendum }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(payload?.error || t("action_error"));
+        return;
+      }
+      setAddendum("");
+      await loadDetail();
+    } catch {
       setError(t("action_error"));
     } finally {
       setBusyAction(null);
@@ -102,6 +152,8 @@ export function ExamDetailSheet({
                   <span className="font-mono">{t("exam_code")}: {exam.examCode}</span>
                   {" • "}{t("prescribed_by", { name: userName(exam.prescriberId), date: format(new Date(exam.requestedAt), "PPP") })}
                   {exam.scheduledAt && <>{" • "}{t("scheduled_for", { date: format(new Date(exam.scheduledAt), "PPP 'at' p") })}</>}
+                  {current?.device && <>{" • "}{current.device.code} · {current.device.label}</>}
+                  {current?.accessionNumber && <>{" • "}<span className="font-mono">{t("accession_number")} {current.accessionNumber}</span></>}
                 </SheetDescription>
               </div>
               {latestResult?.isCritical && (
@@ -169,10 +221,33 @@ export function ExamDetailSheet({
               <div className="bg-white p-4 rounded border border-slate-200 shadow-sm text-center py-10">
                 <ScanLine className="h-10 w-10 text-purple-300 mx-auto mb-3" />
                 <h3 className="text-sm font-bold text-slate-800">{t("scheduled_desc")}</h3>
-                <Button className="mt-4 text-xs h-8 bg-blue-600" disabled={busyAction === "start"} onClick={() => runAction("start")}>
-                  {busyAction === "start" ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : <PlayCircle className="h-3.5 w-3.5 mr-2" />}
+                <Button className="mt-4 text-xs h-8 bg-blue-600" onClick={() => setIsStartOpen(true)}>
+                  <PlayCircle className="h-3.5 w-3.5 mr-2" />
                   {t("start_exam")}
                 </Button>
+              </div>
+            )}
+
+            {safety && (safety.pregnancy || safety.renal || safety.contrastAllergyAcknowledged) && (
+              <div className="bg-white rounded border border-slate-200 shadow-sm p-3 text-xs space-y-1">
+                <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                  <ShieldCheck className="h-3.5 w-3.5 text-green-600" /> {t("pre_exam_summary")}
+                </div>
+                {safety.pregnancy && (
+                  <p>
+                    {t("pregnancy_question")} <strong>{t(`pregnancy_status.${safety.pregnancy.status}`)}</strong>
+                    {safety.pregnancy.justification && ` — ${safety.pregnancy.justification}`}
+                  </p>
+                )}
+                {safety.renal && (
+                  <p>
+                    {t("renal_title")} : {t("renal_assessed_short")}
+                    {safety.renal.creatinineUmolL !== null && ` · ${t("creatinine_umol")} ${safety.renal.creatinineUmolL}`}
+                    {safety.renal.egfr !== null && ` · ${t("egfr")} ${safety.renal.egfr}`}
+                  </p>
+                )}
+                {safety.contrastAllergyAcknowledged && <p className="text-red-700">{t("contrast_allergy_acknowledged")}</p>}
+                <p className="text-[10px] text-slate-400">{userName(safety.checkedBy)} · {format(new Date(safety.checkedAt), "dd/MM/yyyy HH:mm")}</p>
               </div>
             )}
 
@@ -209,6 +284,59 @@ export function ExamDetailSheet({
                       <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">{t("impression")}</div>
                       <p className="text-slate-900 font-medium whitespace-pre-wrap">{latestResult.resultData.impression}</p>
                     </div>
+                    {dose && (
+                      <div className="rounded border border-amber-200 bg-amber-50 p-2">
+                        <div className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase text-amber-700">
+                          <Radiation className="h-3 w-3" /> {t("radiation_dose")}
+                        </div>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-slate-700">
+                          {(["dapMgyCm2", "ctdiVolMgy", "dlpMgyCm", "fluoroscopySeconds"] as const).map((field) =>
+                            dose[field] !== null && dose[field] !== undefined ? (
+                              <span key={field}>
+                                {t(`dose_fields.${field}`)} : <strong>{dose[field]}</strong>
+                              </span>
+                            ) : null
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {(latestResult.addenda?.length ?? 0) > 0 && (
+                      <div className="space-y-2">
+                        <div className="text-[10px] font-bold text-amber-700 uppercase">{t("addenda")}</div>
+                        {latestResult.addenda!.map((a) => (
+                          <div key={a.id} className="rounded border border-amber-200 bg-amber-50 p-2">
+                            <p className="text-slate-900 whitespace-pre-wrap">{a.text}</p>
+                            <p className="mt-1 text-[10px] text-slate-500">{userName(a.authorId)} · {format(new Date(a.createdAt), "dd/MM/yyyy HH:mm")}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {state === "completed" && canValidate && (
+                      <div className="space-y-2 border-t border-slate-100 pt-3">
+                        <div className="text-[10px] font-bold text-slate-400 uppercase">{t("add_addendum")}</div>
+                        <textarea
+                          value={addendum}
+                          onChange={(e) => setAddendum(e.target.value)}
+                          rows={2}
+                          className="flex w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm"
+                          placeholder={t("addendum_placeholder")}
+                        />
+                        <Button size="sm" variant="outline" className="h-7 text-xs" disabled={busyAction === "addendum" || !addendum.trim()} onClick={addAddendum}>
+                          {busyAction === "addendum" ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <FilePlus2 className="h-3.5 w-3.5 mr-1.5" />}
+                          {t("add_addendum")}
+                        </Button>
+                      </div>
+                    )}
+                    {current?.viewerUrl && (
+                      <a
+                        href={current.viewerUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mr-4 inline-flex items-center text-blue-600 hover:underline text-xs font-semibold"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5 mr-1.5" /> {t("open_pacs_viewer")}
+                      </a>
+                    )}
                     {safeExternalUrl(latestResult.reportUrl) && (
                       <a
                         href={safeExternalUrl(latestResult.reportUrl)!}
@@ -268,6 +396,7 @@ export function ExamDetailSheet({
         </SheetContent>
       </Sheet>
 
+      <StartExamDialog open={isStartOpen} onOpenChange={setIsStartOpen} exam={exam} onStarted={onUpdated} />
       <ScheduleExamDialog open={isScheduleOpen} onOpenChange={setIsScheduleOpen} exam={exam} onScheduled={onUpdated} />
       <ReportEntryDialog key={exam.id} open={isReportOpen} onOpenChange={setIsReportOpen} exam={exam} onSaved={onUpdated} />
       <RejectReportDialog open={isRejectOpen} onOpenChange={setIsRejectOpen} exam={exam} onDone={onUpdated} />

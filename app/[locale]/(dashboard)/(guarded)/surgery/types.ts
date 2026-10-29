@@ -1,4 +1,5 @@
 import { ChecklistPhaseState } from "@/lib/surgery/checklist";
+import type { TeamRole } from "@/lib/surgery/validation";
 
 export type SurgicalStatus = "scheduled" | "in_progress" | "completed" | "cancelled" | "postponed";
 
@@ -28,6 +29,20 @@ export type Surgery = {
   surgicalReport: string | null;
   anesthesiaReport: string | null;
   complications: unknown;
+  expectedDurationMinutes: number | null;
+  isEmergency: boolean;
+  consentObtainedAt: string | null;
+  consentObtainedById: string | null;
+  consentNotes: string | null;
+  preAnesthesiaAt: string | null;
+  preAnesthesiaById: string | null;
+  preAnesthesiaNotes: string | null;
+  team: TeamMember[];
+  anesthesiaStartAt: string | null;
+  incisionAt: string | null;
+  closureAt: string | null;
+  anesthesiaEndAt: string | null;
+  statusReason: string | null;
   patient: {
     id: string;
     firstName: string;
@@ -54,6 +69,8 @@ export type ActiveStay = {
   admissionDate: string;
 };
 
+export type TeamMember = { userId: string; role: TeamRole };
+
 export type NewSurgeryForm = {
   patientId: string;
   stayId: string;
@@ -64,6 +81,9 @@ export type NewSurgeryForm = {
   roomId: string;
   scheduledAt: string;
   asaScore: string;
+  expectedDurationMinutes: string;
+  isEmergency: boolean;
+  team: TeamMember[];
 };
 
 export type SurgeryConflict = {

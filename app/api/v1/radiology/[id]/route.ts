@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { requireModulePermission } from "@/lib/permissions";
+import { getRadiologySettings } from "@/lib/radiology/settings";
+import { viewerUrl } from "@/lib/radiology/safety";
 
 const PATIENT_SELECT = { id: true, firstName: true, lastName: true, ipp: true, allergies: true, gender: true } as const;
 
@@ -23,10 +25,19 @@ export async function GET(req: Request, context: { params: Promise<{ id: string 
     where: { id, tenantId: session.user.tenantId, type: "radiology" },
     include: {
       patient: { select: PATIENT_SELECT },
-      results: { orderBy: { createdAt: "desc" } },
+      results: { orderBy: { createdAt: "desc" }, include: { addenda: { orderBy: { createdAt: "asc" } } } },
     },
   });
 
   if (!exam) return NextResponse.json({ error: "Exam not found" }, { status: 404 });
-  return NextResponse.json(exam);
+  const [device, settings] = await Promise.all([
+    exam.deviceId ? prisma.imagingDevice.findFirst({ where: { id: exam.deviceId, tenantId: session.user.tenantId }, select: { code: true, label: true } }) : null,
+    getRadiologySettings(session.user.tenantId),
+  ]);
+  return NextResponse.json({
+    ...exam,
+    device,
+    // Link to the images in the facility's PACS viewer, when one is configured.
+    viewerUrl: viewerUrl(settings.pacsViewerUrlTemplate, exam.accessionNumber),
+  });
 }

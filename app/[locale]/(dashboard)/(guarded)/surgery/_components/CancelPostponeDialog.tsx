@@ -35,6 +35,8 @@ export function CancelPostponeDialog({
   const [error, setError] = useState<string | null>(null);
 
   if (!surgery) return null;
+  // Cancelling a case already under way is an interruption: worded as such.
+  const interrupting = action === "cancel" && surgery.status === "in_progress";
 
   const handleConfirm = async () => {
     if (!reason.trim()) {
@@ -68,7 +70,7 @@ export function CancelPostponeDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{t(action === "cancel" ? "cancel_surgery" : "postpone_surgery")}</DialogTitle>
+          <DialogTitle>{t(interrupting ? "interrupt_surgery_title" : action === "cancel" ? "cancel_surgery" : "postpone_surgery")}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-3">
@@ -76,6 +78,7 @@ export function CancelPostponeDialog({
             <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded p-2">{error}</div>
           )}
           <p className="text-sm text-slate-600">{surgery.procedureLabel} — {surgery.patient.firstName} {surgery.patient.lastName}</p>
+          {interrupting && <p className="rounded bg-red-50 p-2 text-xs text-red-700">{t("interrupt_hint")}</p>}
           <div className="space-y-2">
             <Label>{t("reason")}</Label>
             <textarea

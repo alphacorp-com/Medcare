@@ -52,6 +52,8 @@ export async function GET(
       include: {
         results: {
           orderBy: { createdAt: "desc" },
+          // Addenda appended to a validated imaging report (never an edit of it).
+          include: { addenda: { orderBy: { createdAt: "asc" }, select: { id: true, text: true, authorId: true, createdAt: true } } },
         },
       },
     });
@@ -59,7 +61,7 @@ export async function GET(
     const access = session.user.tenantId ? await loadHivResultAccess(session, session.user.tenantId) : { canSee: true, confidentialCodes: new Set<string>() };
     // Names of who performed and validated each result, for the read-only result viewer.
     const staffIds = [...new Set(examRequests.flatMap((exam) =>
-      exam.results.flatMap((r) => [r.performerId, r.validatedBy]).filter((value): value is string => Boolean(value))
+      exam.results.flatMap((r) => [r.performerId, r.validatedBy, ...r.addenda.map((a) => a.authorId)]).filter((value): value is string => Boolean(value))
     ))];
     const staff = staffIds.length
       ? await prisma.tenantUser.findMany({ where: { tenantId: session.user.tenantId, id: { in: staffIds } }, select: { id: true, fullName: true } })

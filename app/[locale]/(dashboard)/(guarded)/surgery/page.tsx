@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useEffect, useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import { downloadCsv } from "@/lib/csv";
@@ -16,10 +17,12 @@ import { usePdfBranding } from "@/components/templates/usePdfBranding";
 import { DEFAULT_PAGE_SIZE, PaginationBar } from "@/components/shared/pagination-bar";
 import {
   Search, Scissors, Syringe, Clock, CheckCircle2, PlayCircle, ClipboardCheck, Plus,
-  AlertCircle, Printer, Download, Mail, XCircle, CalendarClock,
+  AlertCircle, Printer, Download, Mail, XCircle, CalendarClock, FileSignature, Siren,
 } from "lucide-react";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { isPhaseComplete } from "@/lib/surgery/checklist";
+import { startBlockers } from "@/lib/surgery/validation";
+import { PreopSheet } from "./_components/PreopSheet";
 import { ScheduleSurgerySheet } from "./_components/ScheduleSurgerySheet";
 import { ChecklistSheet } from "./_components/ChecklistSheet";
 import { CompleteSurgerySheet } from "./_components/CompleteSurgerySheet";
@@ -51,6 +54,10 @@ export default function SurgeryPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
+  // Every active colleague (operating team, names in the sheets).
+  const [colleagues, setColleagues] = useState<Doctor[]>([]);
+  const { data: session } = useSession();
+  const currentUserId = session?.user?.id ?? null;
   const queryClient = useQueryClient();
   const { facility } = usePdfBranding();
   // Filter, search (debounced) and paging happen on the server.
@@ -67,20 +74,27 @@ export default function SurgeryPage() {
 
   const [isScheduleOpen, setIsScheduleOpen] = useState(false);
   const [checklistSurgery, setChecklistSurgery] = useState<Surgery | null>(null);
+  const [preopSurgery, setPreopSurgery] = useState<Surgery | null>(null);
   const [completeSurgery, setCompleteSurgery] = useState<Surgery | null>(null);
   const [cancelPostpone, setCancelPostpone] = useState<{ surgery: Surgery; action: "cancel" | "postpone" } | null>(null);
   const [rescheduleSurgery, setRescheduleSurgery] = useState<Surgery | null>(null);
 
-  const doctorsById = useMemo(() => new Map(doctors.map((d) => [d.id, d])), [doctors]);
+  const doctorsById = useMemo(() => new Map([...colleagues, ...doctors].map((d) => [d.id, d])), [doctors, colleagues]);
+  // Doctors first, then the other colleagues, each once.
+  const staff = useMemo(() => [...new Map([...doctors, ...colleagues].map((d) => [d.id, d])).values()], [doctors, colleagues]);
 
   // Kept as the name every action handler already calls: refreshes list and counters.
   const fetchSurgeries = () => queryClient.invalidateQueries({ queryKey: ["surgeries"] });
 
   const fetchDoctors = async () => {
     try {
-      const res = await fetch('/api/v1/doctors');
+      const [res, directory] = await Promise.all([fetch('/api/v1/doctors'), fetch('/api/v1/directory')]);
       const json = await res.json();
       if (json.success) setDoctors(json.data);
+      if (directory.ok) {
+        const people = (await directory.json()) as { id: string; fullName: string; role: string | null }[];
+        setColleagues(people.map((p) => ({ id: p.id, fullName: p.fullName, specialty: p.role })));
+      }
     } catch (err) {
       console.error("Failed to fetch doctors", err);
     }
@@ -93,7 +107,15 @@ export default function SurgeryPage() {
     })();
   }, [hasModule]);
 
-  const doctorName = (id: string | null) => (id ? doctorsById.get(id)?.fullName ?? id : "—");
+  const doctorName = (id: string | null) => (id ? doctorsById.get(id)?.fullName ?? (id === currentUserId ? session?.user?.name ?? "—" : "—") : "—");
+
+  // Reloads one surgery after a sheet changed it (with paging it may not be on the visible page).
+  const reloadSurgery = async (id: string | undefined, set: (updater: (prev: Surgery | null) => Surgery | null) => void) => {
+    void fetchSurgeries();
+    if (!id) return;
+    const fresh = await apiFetch<Surgery>(`/api/v1/surgeries/${encodeURIComponent(id)}`).catch(() => null);
+    set((prev) => (prev?.id === id ? fresh : prev));
+  };
 
   const handleStart = async (surgery: Surgery) => {
     try {
@@ -250,7 +272,9 @@ export default function SurgeryPage() {
               <tbody className="divide-y divide-slate-100/80">
                 {surgeries.map((surg) => {
                   const checklist = surg.whoChecklist ?? {};
-                  const readyToStart = isPhaseComplete("signIn", checklist.signIn) && isPhaseComplete("timeOut", checklist.timeOut);
+                  const blockers = startBlockers(surg, { signIn: isPhaseComplete("signIn", checklist.signIn), timeOut: isPhaseComplete("timeOut", checklist.timeOut) });
+                  const readyToStart = blockers.length === 0;
+                  const preopMissing = blockers.includes("consent") || blockers.includes("preAnesthesia");
                   const readyToComplete = isPhaseComplete("signOut", checklist.signOut);
 
                   return (
@@ -264,8 +288,11 @@ export default function SurgeryPage() {
                       <div className="text-xs text-slate-500 font-mono mt-0.5">IPP: {surg.patient.ipp}</div>
                     </TableCell>
                     <TableCell className="p-4">
-                      <div className="text-sm text-slate-800">{surg.procedureLabel}</div>
-                      {surg.status === 'scheduled' && !readyToStart && (
+                      <div className="text-sm text-slate-800 flex items-center gap-1.5">
+                        {surg.isEmergency && <Siren className="h-3.5 w-3.5 text-red-600 shrink-0" aria-label={t('emergency')} />}
+                        {surg.procedureLabel}
+                      </div>
+                      {surg.status === 'scheduled' && (blockers.includes("signIn") || blockers.includes("timeOut")) && (
                         <span className="inline-flex items-center text-[10px] mt-1 text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-100">
                           <AlertCircle className="w-3 h-3 mr-1" /> {t('checklist_missing')}
                         </span>
@@ -284,15 +311,32 @@ export default function SurgeryPage() {
                     </TableCell>
                     <TableCell className="p-4">
                        <span className={statusBadgeClass(surg.status)}>{t(surg.status)}</span>
+                       {(surg.status === 'cancelled' || surg.status === 'postponed') && surg.statusReason && (
+                         <div className="mt-1 max-w-[12rem] truncate text-[10px] text-slate-500" title={surg.statusReason}>{surg.statusReason}</div>
+                       )}
                     </TableCell>
                     <TableCell className="p-4 text-right">
                        <div className="flex justify-end flex-wrap gap-1.5">
+                         {(surg.status === 'scheduled' || surg.status === 'postponed') && (
+                           <Button
+                             variant="outline"
+                             size="sm"
+                             className={cn("h-7 text-xs", preopMissing && "bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100")}
+                             onClick={() => setPreopSurgery(surg)}
+                           >
+                             <FileSignature className="w-3.5 h-3.5 mr-1.5" /> {t('preop_short')}
+                           </Button>
+                         )}
                          {surg.status === 'scheduled' && (
                            <>
                              {!readyToStart ? (
-                                <Button variant="outline" size="sm" className="h-7 text-xs bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100" onClick={() => setChecklistSurgery(surg)}>
-                                  <ClipboardCheck className="w-3.5 h-3.5 mr-1.5" /> {t('validate_who')}
-                                </Button>
+                                // The checklist button while a phase is missing; otherwise only the
+                                // highlighted "Pré-op" button above says what is left.
+                                (blockers.includes("signIn") || blockers.includes("timeOut")) && (
+                                  <Button variant="outline" size="sm" className="h-7 text-xs bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100" onClick={() => setChecklistSurgery(surg)}>
+                                    <ClipboardCheck className="w-3.5 h-3.5 mr-1.5" /> {t('validate_who')}
+                                  </Button>
+                                )
                              ) : (
                                 <Button size="sm" className="h-7 text-xs bg-blue-600 text-white hover:bg-blue-700" onClick={() => handleStart(surg)}>
                                   <PlayCircle className="w-3.5 h-3.5 mr-1.5" /> {t('start_surgery')}
@@ -313,7 +357,12 @@ export default function SurgeryPage() {
                                  <ClipboardCheck className="w-3.5 h-3.5 mr-1.5" /> {t('validate_who')}
                                </Button>
                              ) : (
-                               <Button size="sm" className="h-7 text-xs bg-green-600 text-white hover:bg-green-700" onClick={() => setCompleteSurgery(surg)}>
+                               <Button
+                                 size="sm"
+                                 className="h-7 text-xs bg-green-600 text-white hover:bg-green-700"
+                                 title={surg.surgeonId !== currentUserId ? t('only_surgeon_signs') : undefined}
+                                 onClick={() => setCompleteSurgery(surg)}
+                               >
                                  <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> {t('complete_sign')}
                                </Button>
                              )}
@@ -351,26 +400,30 @@ export default function SurgeryPage() {
         open={isScheduleOpen}
         onOpenChange={setIsScheduleOpen}
         doctors={doctors}
+        staff={staff}
         onScheduled={fetchSurgeries}
+      />
+      <PreopSheet
+        key={preopSurgery?.id ?? "preop"}
+        open={Boolean(preopSurgery)}
+        onOpenChange={(open) => !open && setPreopSurgery(null)}
+        surgery={preopSurgery}
+        userName={doctorName}
+        onUpdated={() => reloadSurgery(preopSurgery?.id, setPreopSurgery)}
       />
       <ChecklistSheet
         key={checklistSurgery?.id ?? "checklist"}
         open={Boolean(checklistSurgery)}
         onOpenChange={(open) => !open && setChecklistSurgery(null)}
         surgery={checklistSurgery}
-        onUpdated={async () => {
-          // Reload just this surgery: with paging it may not be on the visible page.
-          const id = checklistSurgery?.id;
-          void fetchSurgeries();
-          if (!id) return;
-          const fresh = await apiFetch<Surgery>(`/api/v1/surgeries/${encodeURIComponent(id)}`).catch(() => null);
-          setChecklistSurgery((prev) => (prev?.id === id ? fresh : prev));
-        }}
+        userName={doctorName}
+        onUpdated={() => reloadSurgery(checklistSurgery?.id, setChecklistSurgery)}
       />
       <CompleteSurgerySheet
         open={Boolean(completeSurgery)}
         onOpenChange={(open) => !open && setCompleteSurgery(null)}
         surgery={completeSurgery}
+        isSurgeon={Boolean(completeSurgery && completeSurgery.surgeonId === currentUserId)}
         onCompleted={fetchSurgeries}
       />
       <CancelPostponeDialog

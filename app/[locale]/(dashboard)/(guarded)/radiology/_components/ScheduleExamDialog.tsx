@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertTriangle, Loader2 } from "lucide-react";
-import { RadiologyConflict, RadiologyExam } from "../types";
+import { ImagingDevice, RadiologyConflict, RadiologyExam } from "../types";
+
+const DURATIONS = [10, 15, 20, 30, 45, 60];
 
 export function ScheduleExamDialog({
   open,
@@ -27,6 +29,27 @@ export function ScheduleExamDialog({
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [conflicts, setConflicts] = useState<RadiologyConflict[] | null>(null);
+  const [devices, setDevices] = useState<ImagingDevice[]>([]);
+  const [deviceId, setDeviceId] = useState("");
+  const [duration, setDuration] = useState("20");
+
+  // Active imaging devices of the facility (Settings → Imaging devices).
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/v1/settings/imaging-devices");
+        const json = await res.json();
+        if (!cancelled && res.ok) setDevices((json.data ?? []).filter((d: ImagingDevice) => d.isActive));
+      } catch (err) {
+        console.error("Failed to fetch imaging devices", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
 
   if (!exam) return null;
 
@@ -38,7 +61,7 @@ export function ScheduleExamDialog({
       const res = await fetch(`/api/v1/radiology/${exam.id}/schedule`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ scheduledAt, force }),
+        body: JSON.stringify({ scheduledAt, deviceId: deviceId || undefined, expectedDurationMinutes: duration || undefined, force }),
       });
       if (res.status === 409) {
         const payload = await res.json();
@@ -76,6 +99,38 @@ export function ScheduleExamDialog({
             <Label>{tc("date")} & {tc("time")}</Label>
             <Input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} />
           </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label>{t("device")}</Label>
+              <select
+                value={deviceId}
+                onChange={(e) => setDeviceId(e.target.value)}
+                className="flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-sm shadow-sm"
+              >
+                <option value="">{t("no_device")}</option>
+                {devices.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.code} · {d.label}
+                  </option>
+                ))}
+              </select>
+              {devices.length === 0 && <p className="text-[11px] text-slate-500">{t("no_device_hint")}</p>}
+            </div>
+            <div className="space-y-2">
+              <Label>{t("expected_duration")}</Label>
+              <select
+                value={duration}
+                onChange={(e) => setDuration(e.target.value)}
+                className="flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-sm shadow-sm"
+              >
+                {DURATIONS.map((m) => (
+                  <option key={m} value={m}>
+                    {m} min
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
 
           {conflicts && conflicts.length > 0 && (
             <div className="text-xs text-orange-800 bg-orange-50 border border-orange-200 rounded p-3 space-y-2">
@@ -84,7 +139,9 @@ export function ScheduleExamDialog({
               </div>
               <ul className="space-y-1 list-disc list-inside">
                 {conflicts.map((c) => (
-                  <li key={c.examRequestId}>{c.examLabel}</li>
+                  <li key={`${c.resource ?? "patient"}-${c.examRequestId}`}>
+                    {c.resource === "device" ? t("conflict_device") : t("conflict_patient")} — {c.examLabel}
+                  </li>
                 ))}
               </ul>
             </div>

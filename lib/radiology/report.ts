@@ -1,4 +1,5 @@
 import type { ResultParameter } from "@/lib/laboratory/results";
+import type { RadiationDose } from "./safety";
 
 export interface CriticalCommunication {
   notifiedTo: string;
@@ -16,4 +17,6 @@ export interface RadiologyReportData {
   // entered by the radiographer and signed off by the radiologist with the report.
   parameters?: ResultParameter[];
   criticalCommunication?: CriticalCommunication;
+  // Dose received, as displayed by the device (lib/radiology/safety RadiationDose).
+  radiationDose?: RadiationDose;
 }

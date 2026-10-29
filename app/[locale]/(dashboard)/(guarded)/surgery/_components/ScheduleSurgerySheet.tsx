@@ -2,13 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
+import { format } from "date-fns";
+import { AlertTriangle, CalendarClock, Loader2, Plus, Scissors, Siren, Trash2, User, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { AlertTriangle, Loader2 } from "lucide-react";
 import { PatientSearchAutocomplete } from "@/components/shared/patient-search-autocomplete";
+import { cn } from "@/lib/utils";
+import { TEAM_ROLES, type TeamRole } from "@/lib/surgery/validation";
 import { ActiveStay, Doctor, NewSurgeryForm, OperatingRoom, SurgeryConflict } from "../types";
+import { FieldLabel, SheetError, SheetSection, SurgerySheet, surgerySelectClass } from "./SurgerySheetLayout";
 
 const EMPTY_FORM: NewSurgeryForm = {
   patientId: "",
@@ -20,17 +22,26 @@ const EMPTY_FORM: NewSurgeryForm = {
   roomId: "",
   scheduledAt: "",
   asaScore: "",
+  expectedDurationMinutes: "90",
+  isEmergency: false,
+  team: [],
 };
+
+const DURATION_PRESETS = [30, 60, 90, 120, 180, 240];
+const ASA_SCORES = ["1", "2", "3", "4", "5", "6"];
 
 export function ScheduleSurgerySheet({
   open,
   onOpenChange,
   doctors,
+  staff,
   onScheduled,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   doctors: Doctor[];
+  // Every active account, for the operating team (nurses are not "doctors").
+  staff: Doctor[];
   onScheduled: () => void;
 }) {
   const t = useTranslations("surgery");
@@ -61,8 +72,7 @@ export function ScheduleSurgerySheet({
     };
   }, [open]);
 
-  const update = <K extends keyof NewSurgeryForm>(key: K, value: NewSurgeryForm[K]) =>
-    setForm((prev) => ({ ...prev, [key]: value }));
+  const update = <K extends keyof NewSurgeryForm>(key: K, value: NewSurgeryForm[K]) => setForm((prev) => ({ ...prev, [key]: value }));
 
   const reset = () => {
     setForm(EMPTY_FORM);
@@ -72,8 +82,7 @@ export function ScheduleSurgerySheet({
   };
 
   const handlePatientSelect = async (patient: { id: string } | null) => {
-    update("patientId", patient?.id ?? "");
-    update("stayId", "");
+    setForm((prev) => ({ ...prev, patientId: patient?.id ?? "", stayId: "" }));
     setActiveStays([]);
     if (!patient) return;
     try {
@@ -85,7 +94,12 @@ export function ScheduleSurgerySheet({
     }
   };
 
+  const setTeamMember = (index: number, patch: Partial<NewSurgeryForm["team"][number]>) =>
+    setForm((prev) => ({ ...prev, team: prev.team.map((m, i) => (i === index ? { ...m, ...patch } : m)) }));
+
   const submit = async (force = false) => {
+    if (!form.patientId) return setError(t("patient_required"));
+    if (form.team.some((m) => !m.userId)) return setError(t("team_member_required"));
     setIsSaving(true);
     setError(null);
     if (!force) setConflicts(null);
@@ -103,65 +117,95 @@ export function ScheduleSurgerySheet({
           roomId: form.roomId || undefined,
           scheduledAt: form.scheduledAt,
           asaScore: form.asaScore || undefined,
+          expectedDurationMinutes: form.expectedDurationMinutes || undefined,
+          isEmergency: form.isEmergency,
+          team: form.team,
           force,
         }),
       });
-
       if (res.status === 409) {
         const payload = await res.json();
         setConflicts(payload.conflicts ?? []);
         return;
       }
-
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));
         setError(payload?.error || t("schedule_error"));
         return;
       }
-
       onScheduled();
       onOpenChange(false);
       reset();
-    } catch (err) {
+    } catch {
       setError(t("schedule_error"));
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!form.patientId) {
-      setError(t("patient_required"));
-      return;
-    }
-    submit(false);
-  };
+  const doctorOptions = doctors.map((d) => (
+    <option key={d.id} value={d.id}>
+      {d.fullName}
+      {d.specialty ? ` (${d.specialty})` : ""}
+    </option>
+  ));
 
   return (
-    <Sheet open={open} onOpenChange={(next) => { onOpenChange(next); if (!next) reset(); }}>
-      <SheetContent className="sm:max-w-xl overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle>{t("schedule_intervention")}</SheetTitle>
-        </SheetHeader>
-        <form onSubmit={handleSubmit} className="space-y-6 mt-4">
-          {error && (
-            <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded p-2">{error}</div>
-          )}
+    <SurgerySheet
+      open={open}
+      onOpenChange={(next) => {
+        onOpenChange(next);
+        if (!next) reset();
+      }}
+      title={t("schedule_intervention")}
+      description={t("schedule_intervention_desc")}
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            {tc("cancel")}
+          </Button>
+          <Button type="submit" form="schedule-surgery-form" disabled={isSaving} className="bg-blue-600 text-white hover:bg-blue-700">
+            {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CalendarClock className="h-4 w-4 mr-2" />}
+            {t("schedule_intervention")}
+          </Button>
+        </>
+      }
+    >
+      <form
+        id="schedule-surgery-form"
+        className="space-y-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void submit(false);
+        }}
+      >
+        <SheetError message={error} />
 
-          <div className="space-y-2">
-            <Label>{tc("patient")}</Label>
-            <PatientSearchAutocomplete onSelect={handlePatientSelect} />
+        {conflicts && conflicts.length > 0 && (
+          <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 space-y-2">
+            <div className="flex items-center gap-2 text-sm font-semibold text-amber-800">
+              <AlertTriangle className="h-4 w-4" /> {t("scheduling_conflict")}
+            </div>
+            <ul className="space-y-1 text-xs text-amber-800">
+              {conflicts.map((c) => (
+                <li key={`${c.resource}-${c.procedureId}`}>
+                  <span className="font-semibold">{c.resource === "surgeon" ? t("conflict_surgeon") : t("conflict_room")}</span> — {c.procedureLabel} ·{" "}
+                  {c.patientName} · {format(new Date(c.scheduledAt), "dd/MM HH:mm")}
+                </li>
+              ))}
+            </ul>
+            <Button type="button" size="sm" variant="outline" className="h-8 border-amber-300 text-amber-800" disabled={isSaving} onClick={() => submit(true)}>
+              {t("schedule_anyway")}
+            </Button>
           </div>
+        )}
 
+        <SheetSection icon={User} title={tc("patient")}>
+          <PatientSearchAutocomplete onSelect={handlePatientSelect} />
           {activeStays.length > 0 && (
-            <div className="space-y-2">
-              <Label>{t("link_to_stay")}</Label>
-              <select
-                value={form.stayId}
-                onChange={(e) => update("stayId", e.target.value)}
-                className="flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
-              >
+            <div>
+              <FieldLabel>{t("link_to_stay")}</FieldLabel>
+              <select value={form.stayId} onChange={(e) => update("stayId", e.target.value)} className={surgerySelectClass}>
                 <option value="">{t("no_stay_linked")}</option>
                 {activeStays.map((s) => (
                   <option key={s.id} value={s.id}>
@@ -171,63 +215,66 @@ export function ScheduleSurgerySheet({
               </select>
             </div>
           )}
+        </SheetSection>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>{t("surgeon")}</Label>
-              <select
-                required
-                value={form.surgeonId}
-                onChange={(e) => update("surgeonId", e.target.value)}
-                className="flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
-              >
-                <option value="">{t("select_surgeon")}</option>
-                {doctors.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.fullName}{d.specialty ? ` (${d.specialty})` : ""}
-                  </option>
+        <SheetSection icon={Scissors} title={t("intervention")}>
+          <div>
+            <FieldLabel required>{t("procedure_type")}</FieldLabel>
+            <Input required value={form.procedureLabel} onChange={(e) => update("procedureLabel", e.target.value)} placeholder={t("procedure_placeholder")} />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <FieldLabel>{t("procedure_code")}</FieldLabel>
+              <Input value={form.procedureCode} onChange={(e) => update("procedureCode", e.target.value)} placeholder="CCAM" className="font-mono" />
+            </div>
+            <div>
+              <FieldLabel>{t("asa_score")}</FieldLabel>
+              <div className="flex gap-1" role="radiogroup" aria-label={t("asa_score")}>
+                {ASA_SCORES.map((score) => (
+                  <button
+                    key={score}
+                    type="button"
+                    role="radio"
+                    aria-checked={form.asaScore === score}
+                    onClick={() => update("asaScore", form.asaScore === score ? "" : score)}
+                    className={cn(
+                      "h-9 flex-1 rounded-md border text-xs font-semibold transition-colors",
+                      form.asaScore === score ? "border-blue-600 bg-blue-600 text-white" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                    )}
+                  >
+                    {score}
+                  </button>
                 ))}
-              </select>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>{t("anesthesiologist")}</Label>
-              <select
-                value={form.anesthesiologistId}
-                onChange={(e) => update("anesthesiologistId", e.target.value)}
-                className="flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
-              >
-                <option value="">{t("unassigned")}</option>
-                {doctors.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.fullName}{d.specialty ? ` (${d.specialty})` : ""}
-                  </option>
-                ))}
-              </select>
+          </div>
+          <label
+            className={cn(
+              "flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors",
+              form.isEmergency ? "border-red-300 bg-red-50" : "border-slate-200 hover:bg-slate-50"
+            )}
+          >
+            <input type="checkbox" checked={form.isEmergency} onChange={(e) => update("isEmergency", e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-slate-300" />
+            <span>
+              <span className="flex items-center gap-1 text-sm font-semibold text-slate-900">
+                <Siren className="h-4 w-4 text-red-600" /> {t("emergency")}
+              </span>
+              <span className="block text-[11px] text-slate-500">{t("emergency_hint")}</span>
+            </span>
+          </label>
+        </SheetSection>
+
+        <SheetSection icon={CalendarClock} title={t("planning")}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <FieldLabel required>
+                {tc("date")} & {tc("time")}
+              </FieldLabel>
+              <Input type="datetime-local" required value={form.scheduledAt} onChange={(e) => update("scheduledAt", e.target.value)} />
             </div>
-            <div className="space-y-2 col-span-2">
-              <Label>{t("procedure_type")}</Label>
-              <Input
-                required
-                value={form.procedureLabel}
-                onChange={(e) => update("procedureLabel", e.target.value)}
-                placeholder="Appendectomy"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>{t("procedure_code")}</Label>
-              <Input
-                value={form.procedureCode}
-                onChange={(e) => update("procedureCode", e.target.value)}
-                placeholder="CCAM"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>{t("room")}</Label>
-              <select
-                value={form.roomId}
-                onChange={(e) => update("roomId", e.target.value)}
-                className="flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
-              >
+            <div>
+              <FieldLabel>{t("room")}</FieldLabel>
+              <select value={form.roomId} onChange={(e) => update("roomId", e.target.value)} className={surgerySelectClass}>
                 <option value="">{t("no_room")}</option>
                 {rooms.map((r) => (
                   <option key={r.id} value={r.id}>
@@ -235,66 +282,96 @@ export function ScheduleSurgerySheet({
                   </option>
                 ))}
               </select>
-              {rooms.length === 0 && <p className="text-[11px] text-slate-500">{t("no_operating_room_hint")}</p>}
+              {rooms.length === 0 && <p className="mt-1 text-[11px] text-slate-500">{t("no_operating_room_hint")}</p>}
             </div>
-            <div className="space-y-2">
-              <Label>{tc("date")} & {tc("time")}</Label>
+          </div>
+          <div>
+            <FieldLabel>{t("expected_duration")}</FieldLabel>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {DURATION_PRESETS.map((minutes) => (
+                <button
+                  key={minutes}
+                  type="button"
+                  onClick={() => update("expectedDurationMinutes", String(minutes))}
+                  className={cn(
+                    "h-8 rounded-full border px-3 text-xs font-medium transition-colors",
+                    form.expectedDurationMinutes === String(minutes) ? "border-blue-600 bg-blue-50 text-blue-700" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                  )}
+                >
+                  {minutes < 60 ? `${minutes} min` : `${minutes / 60} h`}
+                </button>
+              ))}
               <Input
-                type="datetime-local"
-                required
-                value={form.scheduledAt}
-                onChange={(e) => update("scheduledAt", e.target.value)}
+                type="number"
+                min={5}
+                max={1440}
+                value={form.expectedDurationMinutes}
+                onChange={(e) => update("expectedDurationMinutes", e.target.value)}
+                className="h-8 w-24 text-xs"
+                aria-label={t("expected_duration")}
               />
+              <span className="text-[11px] text-slate-500">min</span>
             </div>
-            <div className="space-y-2">
-              <Label>{t("asa_score")}</Label>
-              <select
-                value={form.asaScore}
-                onChange={(e) => update("asaScore", e.target.value)}
-                className="flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
-              >
-                <option value="">-</option>
-                {[1, 2, 3, 4, 5].map((n) => (
-                  <option key={n} value={n}>ASA {n}</option>
-                ))}
+          </div>
+        </SheetSection>
+
+        <SheetSection icon={Users} title={t("operating_team")} hint={t("operating_team_hint")}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <FieldLabel required>{t("surgeon")}</FieldLabel>
+              <select required value={form.surgeonId} onChange={(e) => update("surgeonId", e.target.value)} className={surgerySelectClass}>
+                <option value="">{t("select_surgeon")}</option>
+                {doctorOptions}
+              </select>
+            </div>
+            <div>
+              <FieldLabel>{t("anesthesiologist")}</FieldLabel>
+              <select value={form.anesthesiologistId} onChange={(e) => update("anesthesiologistId", e.target.value)} className={surgerySelectClass}>
+                <option value="">{t("unassigned")}</option>
+                {doctorOptions}
               </select>
             </div>
           </div>
-
-          {conflicts && conflicts.length > 0 && (
-            <div className="text-xs text-orange-800 bg-orange-50 border border-orange-200 rounded p-3 space-y-2">
-              <div className="flex items-center gap-2 font-semibold">
-                <AlertTriangle className="h-4 w-4" /> {t("scheduling_conflict")}
-              </div>
-              <ul className="space-y-1 list-disc list-inside">
-                {conflicts.map((c) => (
-                  <li key={c.procedureId}>
-                    {t(`conflict_${c.resource}`)} — {c.procedureLabel} ({c.patientName})
-                  </li>
+          {form.team.map((member, index) => (
+            <div key={index} className="flex flex-col sm:flex-row gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
+              <select value={member.role} onChange={(e) => setTeamMember(index, { role: e.target.value as TeamRole })} className={cn(surgerySelectClass, "sm:w-48")}>
+                {TEAM_ROLES.map((role) => (
+                  <option key={role} value={role}>
+                    {t(`team_roles.${role}`)}
+                  </option>
                 ))}
-              </ul>
+              </select>
+              <select value={member.userId} onChange={(e) => setTeamMember(index, { userId: e.target.value })} className={surgerySelectClass}>
+                <option value="">{t("select_member")}</option>
+                {staff.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.fullName}
+                  </option>
+                ))}
+              </select>
               <Button
                 type="button"
+                variant="ghost"
                 size="sm"
-                variant="outline"
-                className="border-orange-300 text-orange-800 hover:bg-orange-100"
-                disabled={isSaving}
-                onClick={() => submit(true)}
+                className="h-9 text-red-600 hover:bg-red-50"
+                aria-label={tc("delete")}
+                onClick={() => setForm((prev) => ({ ...prev, team: prev.team.filter((_, i) => i !== index) }))}
               >
-                {t("schedule_anyway")}
+                <Trash2 className="h-4 w-4" />
               </Button>
             </div>
-          )}
-
-          <div className="flex justify-end gap-3 pt-6 border-t">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{tc("cancel")}</Button>
-            <Button type="submit" disabled={isSaving} className="bg-blue-600 text-white hover:bg-blue-700">
-              {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              {t("schedule_intervention")}
-            </Button>
-          </div>
-        </form>
-      </SheetContent>
-    </Sheet>
+          ))}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs"
+            onClick={() => setForm((prev) => ({ ...prev, team: [...prev.team, { userId: "", role: "scrub_nurse" }] }))}
+          >
+            <Plus className="h-3.5 w-3.5 mr-1.5" /> {t("add_team_member")}
+          </Button>
+        </SheetSection>
+      </form>
+    </SurgerySheet>
   );
 }

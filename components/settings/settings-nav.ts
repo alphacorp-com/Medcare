@@ -5,7 +5,7 @@ import {
   BedDouble, BedSingle, CalendarDays, DoorOpen, ShieldCheck,
   FolderTree, Stethoscope, FlaskConical, BookOpen,
   Beaker, Warehouse, Truck, ScanLine, PersonStanding, Syringe, FileText, Clock,
-  ListTree, IdCard, Landmark, HandHeart, type LucideIcon,
+  ListTree, IdCard, Landmark, HandHeart, MonitorCog, type LucideIcon,
 } from "lucide-react";
 
 export type SettingsNavItem = { href: string; label: string; icon: LucideIcon };
@@ -58,6 +58,7 @@ export function useSettingsNavGroups(): SettingsNavGroup[] {
       items: [
         { href: "/settings/imaging-types", label: t("imagingTypes"), icon: ScanLine },
         { href: "/settings/anatomical-zones", label: t("anatomicalZones"), icon: PersonStanding },
+        { href: "/settings/imaging-devices", label: t("imagingDevices"), icon: MonitorCog },
       ],
     },
     {

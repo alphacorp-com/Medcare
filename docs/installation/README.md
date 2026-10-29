@@ -154,6 +154,11 @@ npm run start            # port 3000 par défaut ; placez un reverse proxy HTTPS
    (`patient_invoices`) ne sont **pas** concernées. Vérifiez quand même qu'elles sont vides, ou
    gardez une sauvegarde, avant de migrer une base plus ancienne.
 
+   La migration `20261105090000_surgery_radiology_safety` **ajoute** des colonnes (chirurgie :
+   durée, urgence, consentement, pré-anesthésie, équipe, horaires, motif ; radiologie : appareil,
+   durée, n° d'accession, contrôle avant examen) et trois tables (`surgical_supply_uses`,
+   `exam_result_addenda`, `imaging_devices`). Elle ne modifie aucune donnée existante.
+
    La migration `20261104090000_dhis2_rma3_mappings` **ajoute** la table
    `dhis2_rma3_mappings` (correspondances RMA3 → DHIS2, schéma `tenant_template`). Elle ne
    modifie ni ne supprime aucune donnée existante ; elle est propre à chaque établissement

@@ -1,4 +1,5 @@
 import { RadiologyReportData } from "@/lib/radiology/report";
+import type { SafetyCheck } from "@/lib/radiology/safety";
 
 export type ExamRequestStatus = "awaiting_payment" | "requested" | "scheduled" | "in_progress" | "completed" | "cancelled";
 export type ExamUrgency = "routine" | "urgent" | "stat";
@@ -14,6 +15,8 @@ export type RadiologyResult = {
   performerId: string;
   reportUrl: string | null;
   createdAt: string;
+  // Corrections appended after validation (exam detail only).
+  addenda?: { id: string; text: string; authorId: string; createdAt: string }[];
 };
 
 export type RadiologyExam = {
@@ -29,6 +32,10 @@ export type RadiologyExam = {
   scheduledAt: string | null;
   completedAt: string | null;
   notes: string | null;
+  deviceId?: string | null;
+  expectedDurationMinutes?: number | null;
+  accessionNumber?: string | null;
+  safetyCheck?: SafetyCheck | null;
   patient: {
     id: string;
     firstName: string;
@@ -72,6 +79,22 @@ export type RadiologyConflict = {
   examRequestId: string;
   examLabel: string;
   scheduledAt: string;
+  // "patient": the same patient elsewhere; "device": the device is booked.
+  resource?: "patient" | "device";
+};
+
+export type ImagingDevice = {
+  id: string;
+  code: string;
+  label: string;
+  isActive: boolean;
+  modality: { id: string; code: string; nameFr: string } | null;
+};
+
+// Extra fields of GET /api/v1/radiology/[id] (the worklist does not carry them).
+export type RadiologyExamDetail = RadiologyExam & {
+  device: { code: string; label: string } | null;
+  viewerUrl: string | null;
 };
 
 export type UserRef = {

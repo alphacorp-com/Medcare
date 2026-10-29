@@ -31,6 +31,8 @@ export function ReportEntryDialog({
   const [findings, setFindings] = useState("");
   const [impression, setImpression] = useState("");
   const [reportUrl, setReportUrl] = useState("");
+  // Dose received, as displayed by the device (optional; ionizing exams).
+  const [dose, setDose] = useState({ dapMgyCm2: "", ctdiVolMgy: "", dlpMgyCm: "", fluoroscopySeconds: "" });
   const [isCritical, setIsCritical] = useState(false);
   const [rows, setRows] = useState<ParameterRow[]>([]);
   const [priorStudies, setPriorStudies] = useState<{ id: string; examLabel: string; requestedAt: string }[]>([]);
@@ -79,7 +81,7 @@ export function ReportEntryDialog({
       const res = await fetch(`/api/v1/radiology/${exam.id}/report`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ technique, findings, impression, parameters, isCritical, reportUrl: reportUrl || undefined }),
+        body: JSON.stringify({ technique, findings, impression, parameters, isCritical, reportUrl: reportUrl || undefined, radiationDose: dose }),
       });
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));
@@ -168,6 +170,17 @@ export function ReportEntryDialog({
               placeholder={t("impression_placeholder")}
             />
           </div>
+          <details className="rounded-md border border-slate-200 p-3">
+            <summary className="cursor-pointer text-xs font-semibold text-slate-700">{t("radiation_dose")}</summary>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              {(["dapMgyCm2", "ctdiVolMgy", "dlpMgyCm", "fluoroscopySeconds"] as const).map((field) => (
+                <div key={field}>
+                  <Label className="text-[11px]">{t(`dose_fields.${field}`)}</Label>
+                  <Input type="number" min={0} step="any" value={dose[field]} onChange={(e) => setDose((prev) => ({ ...prev, [field]: e.target.value }))} className="h-8 text-xs" />
+                </div>
+              ))}
+            </div>
+          </details>
           <div>
             <Label>{t("report_url")}</Label>
             <Input

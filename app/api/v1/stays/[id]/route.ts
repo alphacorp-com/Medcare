@@ -103,7 +103,7 @@ export async function GET(
         },
         examRequests: {
           orderBy: { requestedAt: "desc" },
-          include: { results: { orderBy: { createdAt: "desc" }, take: 1 } },
+          include: { results: { orderBy: { createdAt: "desc" }, take: 1, include: { addenda: { orderBy: { createdAt: "asc" }, select: { id: true, text: true, authorId: true, createdAt: true } } } } },
         },
         vitalSigns: {
           orderBy: { recordedAt: "desc" },
@@ -141,7 +141,7 @@ export async function GET(
             in: Array.from(new Set([
               ...stay.medicalRecords.map((record) => record.authorId),
               ...stay.prescriptions.map((rx) => rx.prescriberId),
-              ...stay.examRequests.flatMap((exam) => [exam.prescriberId, exam.results[0]?.performerId, exam.results[0]?.validatedBy]),
+              ...stay.examRequests.flatMap((exam) => [exam.prescriberId, exam.results[0]?.performerId, exam.results[0]?.validatedBy, ...(exam.results[0]?.addenda ?? []).map((a) => a.authorId)]),
               stay.attendingDoctorId,
             ].filter((userId): userId is string => Boolean(userId)))),
           },

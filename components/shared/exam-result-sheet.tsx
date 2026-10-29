@@ -19,6 +19,8 @@ export type ExamResultView = {
   isCritical: boolean;
   reportUrl: string | null;
   resultData: { parameters?: ResultParameter[] } & Partial<RadiologyReportData>;
+  // Imaging: corrections / complements appended after validation, oldest first.
+  addenda?: { id: string; text: string; authorId: string; createdAt: string }[];
 };
 
 // What the sheet needs of an exam order (results newest first), shared by the admission and
@@ -125,6 +127,20 @@ export function ExamResultSheet({
                       <p className="text-slate-900 font-medium whitespace-pre-wrap">{data.impression}</p>
                     </div>
                   )}
+                </div>
+              )}
+
+              {(result.addenda?.length ?? 0) > 0 && (
+                <div className="space-y-2">
+                  <div className="text-[10px] font-bold text-amber-700 uppercase">{tr("addenda")}</div>
+                  {result.addenda!.map((addendum) => (
+                    <div key={addendum.id} className="rounded border border-amber-200 bg-amber-50 p-2 text-xs">
+                      <p className="text-slate-900 whitespace-pre-wrap">{addendum.text}</p>
+                      <p className="mt-1 text-[10px] text-slate-500">
+                        {name(addendum.authorId)} · {new Date(addendum.createdAt).toLocaleString()}
+                      </p>
+                    </div>
+                  ))}
                 </div>
               )}
 

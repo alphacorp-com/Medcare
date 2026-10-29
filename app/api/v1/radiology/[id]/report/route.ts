@@ -9,6 +9,7 @@ import { computeIsCritical, type ResultParameter } from "@/lib/laboratory/result
 import { findExamOfModule } from "@/lib/exams/find-exam";
 import { auditClinicalAction } from "@/lib/exams/audit";
 import { safeExternalUrl } from "@/lib/safe-url";
+import { parseRadiationDose } from "@/lib/radiology/safety";
 
 // Upper bounds of a report (a free-text field is never unbounded).
 const MAX = { technique: 4_000, findings: 30_000, impression: 8_000, parameters: 200, parameterText: 500, priorStudies: 20 };
@@ -16,7 +17,8 @@ const MAX = { technique: 4_000, findings: 30_000, impression: 8_000, parameters:
 const text = (value: unknown) => (typeof value === "string" ? value.trim() : "");
 
 // POST /api/v1/radiology/[id]/report
-// Body: { technique, findings?, impression, parameters?, priorStudyIds?, isCritical?, reportUrl? }
+// Body: { technique, findings?, impression, parameters?, priorStudyIds?, isCritical?, reportUrl?,
+//         radiationDose?: { dapMgyCm2?, ctdiVolMgy?, dlpMgyCm?, fluoroscopySeconds? } }
 // findings may be left empty when the structured parameters (organ by organ) carry them.
 export async function POST(req: Request, context: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
@@ -51,6 +53,9 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
       return NextResponse.json({ error: "The report is too long" }, { status: 413 });
     }
 
+    const dose = parseRadiationDose(body.radiationDose);
+    if (!dose.ok) return NextResponse.json({ error: dose.error }, { status: 400 });
+
     // A link to the images is optional, but only a plain http(s) URL is stored (never javascript:…).
     const rawUrl = text(body.reportUrl);
     const reportUrl = rawUrl ? safeExternalUrl(rawUrl) : null;
@@ -82,6 +87,7 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
       impression,
       priorStudyIds,
       ...(structured.length > 0 ? { parameters: structured } : {}),
+      ...(dose.value ? { radiationDose: dose.value } : {}),
     };
 
     // One pending report per exam: the exam row is locked while checking, so two concurrent

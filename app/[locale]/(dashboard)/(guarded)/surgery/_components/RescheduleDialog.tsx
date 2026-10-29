@@ -78,6 +78,11 @@ export function RescheduleDialog({
             <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded p-2">{error}</div>
           )}
           <p className="text-sm text-slate-600">{surgery.procedureLabel} — {surgery.patient.firstName} {surgery.patient.lastName}</p>
+          {surgery.statusReason && (
+            <p className="rounded bg-amber-50 p-2 text-xs text-amber-800">
+              {t("postponed_because")} {surgery.statusReason}
+            </p>
+          )}
           <div className="space-y-2">
             <Label>{tc("date")} & {tc("time")}</Label>
             <Input
