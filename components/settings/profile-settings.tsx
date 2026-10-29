@@ -31,7 +31,7 @@ export function ProfileSettings({ profileData, setProfileData, currentUser, t, t
           {currentUser?.fullName?.charAt(0) || "U"}
         </div>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 @xl:grid-cols-2 gap-5">
         <div>
           <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 block">{tc('name')}</label>
           <Input

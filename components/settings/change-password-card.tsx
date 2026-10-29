@@ -70,7 +70,7 @@ export function ChangePasswordCard({ t, tc }: ChangePasswordCardProps) {
         <p className="text-xs text-slate-500">{t("change_password_desc")}</p>
       </div>
       <div className="h-px bg-slate-100 w-full" />
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 @2xl:grid-cols-3 gap-5">
         <div>
           <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 block">
             {t("current_password")}

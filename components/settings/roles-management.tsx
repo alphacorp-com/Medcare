@@ -8,7 +8,6 @@ import { Sheet, SheetContent, SheetHeader, SheetFooter, SheetTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PlusCircle, Edit2, Trash2, ShieldCheck, Stethoscope, Users } from "lucide-react";
 import { SettingsList, SettingsListItem, SettingsPageHeader, SettingsPill, settingsActionButtonClass } from "@/components/settings/settings-ui";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import { ModulePermissionMatrix } from "@/components/settings/module-permission-matrix";
@@ -32,7 +31,6 @@ export type SystemRole = {
 };
 
 export function RolesManagement() {
-  const isMobile = useIsMobile();
   const [roles, setRoles] = useState<SystemRole[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
@@ -165,7 +163,7 @@ export function RolesManagement() {
       />
 
       <Sheet open={isOpen} onOpenChange={(v) => { setIsOpen(v); if (!v) resetForm(); }}>
-        <SheetContent className="overflow-y-auto sm:max-w-2xl p-6 sm:p-8">
+        <SheetContent className="overflow-y-auto sm:max-w-2xl p-4 sm:p-8">
           <SheetHeader>
             <SheetTitle>{editingRole ? t('edit_role') : t('add_role')}</SheetTitle>
           </SheetHeader>
@@ -231,7 +229,8 @@ export function RolesManagement() {
         </SheetContent>
       </Sheet>
 
-      {isMobile ? (
+      {/* Cards while the content area is narrow, table once it fits (container query, no JS). */}
+      <div className="@3xl:hidden">
         <SettingsList isLoading={isLoading} isEmpty={roles.length === 0} emptyLabel={tc('no_data')}>
           {roles.map((role) => (
             <SettingsListItem
@@ -257,7 +256,8 @@ export function RolesManagement() {
             />
           ))}
         </SettingsList>
-      ) : (
+      </div>
+      <div className="hidden @3xl:block">
         <div className="border border-slate-200 rounded-md overflow-hidden">
           <Table>
             <TableHeader className="bg-slate-50">
@@ -312,7 +312,7 @@ export function RolesManagement() {
             </TableBody>
           </Table>
         </div>
-      )}
+      </div>
     </div>
   );
 }

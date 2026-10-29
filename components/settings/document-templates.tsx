@@ -85,7 +85,7 @@ export function DocumentTemplates({ facility, templateSettings, setTemplateSetti
       </div>
       <div className="h-px bg-slate-100 w-full" />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 @2xl:grid-cols-2 gap-4">
         {TEMPLATE_IDS.map((id) => (
           <div key={id} className="border border-slate-200 rounded-lg p-4 hover:border-blue-300 hover:bg-blue-50/20 transition-all group flex flex-col">
             <div className="flex justify-between items-start mb-2 gap-2">
@@ -134,7 +134,7 @@ export function DocumentTemplates({ facility, templateSettings, setTemplateSetti
               <h4 className="text-sm font-bold text-slate-800">{ttpl('global_branding')}</h4>
               <p className="text-xs text-slate-500 mt-0.5">{ttpl('global_branding_desc')}</p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 @2xl:grid-cols-3 gap-4">
               {(
                 [
                   { id: 'showLogo', label: ttpl('show_logo') },

@@ -171,7 +171,7 @@ export default function BedsPage() {
               </>
             }
             badges={
-              <span className={cn("px-2 py-0.5 rounded text-[10px] uppercase font-bold max-md:rounded-full max-md:py-1", STATUS_STYLES[item.status])}>
+              <span className={cn("px-2 py-0.5 rounded text-[10px] uppercase font-bold @max-2xl:rounded-full @max-2xl:py-1", STATUS_STYLES[item.status])}>
                 {t(`status_${item.status}`)}
               </span>
             }

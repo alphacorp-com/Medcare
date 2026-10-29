@@ -8,6 +8,7 @@ import { Settings } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import StandardMobileTemplate from "@/components/layout/mobile/StandardMobileTemplate";
 import { SettingsMobileBackButton } from "@/components/settings/settings-ui";
+import { SettingsNavPicker } from "@/components/settings/settings-nav-picker";
 import {
   useSettingsNavGroups,
   isSettingsNavItemActive,
@@ -39,7 +40,8 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
         subtitle={subtitle}
         actions={<SettingsMobileBackButton href={backHref} label={backLabel} />}
       >
-        {children}
+        {/* Container for the @-variants used by the settings screens (see the desktop branch). */}
+        <div className="@container">{children}</div>
       </StandardMobileTemplate>
     );
   }
@@ -47,9 +49,16 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
   // The "General" tab (profile, password, etc.) stays available to every user —
   // only the tenant-configuration groups below it are admin-only, mirroring how
   // the existing tabbed settings page hides (not blocks) its own admin-only tabs.
+  //
+  // Responsive: the application's own menu already takes 240px, so the settings sidebar only
+  // fits from `xl` (1280px). Below, the same destinations are a compact picker above the
+  // content. The content area is also a container (`@container`): the screens inside lay
+  // themselves out from its real width (`@xl:`, `@2xl:`…) rather than from the viewport.
   return (
-    <div className="flex h-full gap-4 min-h-0">
-      <nav className="w-56 shrink-0 overflow-y-auto bg-white rounded border border-slate-200 shadow-sm py-2">
+    <div className="flex h-full min-h-0 flex-col gap-3 xl:flex-row xl:gap-4">
+      <SettingsNavPicker isAdmin={isSysAdmin} className="shrink-0 xl:hidden" />
+
+      <nav className="hidden w-56 shrink-0 overflow-y-auto rounded border border-slate-200 bg-white py-2 shadow-sm xl:block">
         <Link
           href="/settings"
           className={cn(
@@ -87,7 +96,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
         ))}
       </nav>
 
-      <div className="flex-1 min-w-0 overflow-y-auto">
+      <div className="@container min-h-0 min-w-0 flex-1 overflow-y-auto">
         {children}
       </div>
     </div>

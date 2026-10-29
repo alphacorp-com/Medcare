@@ -15,7 +15,6 @@ import { definitionsFromDrafts, draftsFromDefinitions, type ParameterDraft } fro
 import { validateExamParameters, type ParameterErrorCode } from "@/lib/exam-catalog/validate-parameters";
 import { LAB_PARAMETERS, RADIOLOGY_PARAMETERS } from "@/lib/exam-catalog/standard-parameters";
 import { cn } from "@/lib/utils";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { SettingsPageHeader } from "@/components/settings/settings-ui";
 import { useConfirm } from "@/components/providers/confirm-provider";
 
@@ -46,7 +45,6 @@ export default function ExamTypesPage() {
   const [types, setTypes] = useState<ExamType[]>([]);
   const [selectedType, setSelectedType] = useState<ExamType | null>(null);
   const entriesPanelRef = useRef<HTMLDivElement>(null);
-  const isMobile = useIsMobile();
   const [entries, setEntries] = useState<ExamEntry[]>([]);
   const [imagingItems, setImagingItems] = useState<RefItem[]>([]);
   const [zoneItems, setZoneItems] = useState<RefItem[]>([]);
@@ -250,7 +248,9 @@ export default function ExamTypesPage() {
   // On mobile the entries panel stacks below the type list, so bring it into view.
   const selectType = (type: ExamType) => {
     setSelectedType(type);
-    if (isMobile) entriesPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    // Stacked layout (types above entries): bring the entries panel into view. Side by side it is
+    // already visible, and "nearest" then does not move the page.
+    entriesPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   };
 
   return (
@@ -269,8 +269,8 @@ export default function ExamTypesPage() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-        <div className="md:col-span-4 bg-white rounded-2xl md:rounded border border-slate-200 shadow-sm overflow-hidden">
+      <div className="grid grid-cols-1 @3xl:grid-cols-12 gap-4">
+        <div className="@3xl:col-span-4 bg-white rounded-2xl md:rounded border border-slate-200 shadow-sm overflow-hidden">
           <div className="p-2 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
             <span className="text-[10px] font-bold text-slate-500 uppercase">{t("exam_types")}</span>
             <Button size="sm" variant="ghost" className="h-8 md:h-6 text-[10px] text-blue-600" onClick={openCreateType}>
@@ -296,7 +296,7 @@ export default function ExamTypesPage() {
           )}
         </div>
 
-        <div ref={entriesPanelRef} className="md:col-span-8 scroll-mt-20 bg-white rounded-2xl md:rounded border border-slate-200 shadow-sm overflow-hidden">
+        <div ref={entriesPanelRef} className="@3xl:col-span-8 scroll-mt-20 bg-white rounded-2xl md:rounded border border-slate-200 shadow-sm overflow-hidden">
           <div className="p-2 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
             <span className="text-[10px] font-bold text-slate-500 uppercase">
               {selectedType ? t("exams_in_type", { name: selectedType.nameFr }) : t("select_type")}

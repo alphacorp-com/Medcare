@@ -228,8 +228,8 @@ export function Dhis2IntegrationSettings() {
 
         <div className="h-px bg-slate-100 w-full" />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          <div className="md:col-span-2">
+        <div className="grid grid-cols-1 @xl:grid-cols-2 gap-5">
+          <div className="@xl:col-span-2">
             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 block">
               {t("dhis2.base_url")}
             </label>
@@ -324,7 +324,7 @@ export function Dhis2IntegrationSettings() {
           {DHIS2_METRIC_KEYS.map((metricKey) => {
             const mapping = mappingFor(form.mappings, metricKey);
             return (
-              <div key={metricKey} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr] gap-3 items-end border-b border-slate-100 pb-3 last:border-0">
+              <div key={metricKey} className="grid grid-cols-1 @2xl:grid-cols-[1fr_1fr_1fr] gap-3 items-end border-b border-slate-100 pb-3 last:border-0">
                 <div>
                   <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">
                     {t(`dhis2.metrics.${metricKey}`)}

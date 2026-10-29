@@ -69,8 +69,8 @@ export function OrganizationSettings({ orgData, setOrgData, t, tc }: Organizatio
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          <div className="md:col-span-2">
+        <div className="grid grid-cols-1 @xl:grid-cols-2 gap-5">
+          <div className="@xl:col-span-2">
             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 block">{t('facility_name')}</label>
             <Input 
               value={orgData.name} 
@@ -104,7 +104,7 @@ export function OrganizationSettings({ orgData, setOrgData, t, tc }: Organizatio
               className="text-sm h-10 transition-all focus-visible:ring-blue-500 bg-white" 
             />
           </div>
-          <div className="md:col-span-2">
+          <div className="@xl:col-span-2">
             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 block">{t('website')}</label>
             <Input 
               value={orgData.website} 
@@ -113,7 +113,7 @@ export function OrganizationSettings({ orgData, setOrgData, t, tc }: Organizatio
               className="text-sm h-10 transition-all focus-visible:ring-blue-500 bg-white" 
             />
           </div>
-          <div className="md:col-span-2">
+          <div className="@xl:col-span-2">
             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 block">{t('physical_address')}</label>
             <Input 
               value={orgData.address} 

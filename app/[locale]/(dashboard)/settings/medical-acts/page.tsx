@@ -10,7 +10,6 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Loader2, Plus, Pencil, Trash2, Upload } from "lucide-react";
 import { CsvImportDialog } from "@/components/settings/csv-import-dialog";
 import { cn } from "@/lib/utils";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { SettingsCode, SettingsList, SettingsListItem, SettingsPageHeader, settingsActionButtonClass } from "@/components/settings/settings-ui";
 import { useConfirm } from "@/components/providers/confirm-provider";
 
@@ -40,7 +39,6 @@ export default function MedicalActsPage() {
   const t = useTranslations("settings.medicalActs");
   const confirm = useConfirm();
   const tc = useTranslations("common");
-  const isMobile = useIsMobile();
 
   const [items, setItems] = useState<MedicalAct[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -190,7 +188,8 @@ export default function MedicalActsPage() {
         }
       />
 
-      {isMobile ? (
+      {/* Cards while the content area is narrow, table once it fits (container query, no JS). */}
+      <div className="@3xl:hidden">
         <SettingsList toolbar={searchInput} isLoading={isLoading} isEmpty={filtered.length === 0} emptyLabel={t("no_items")}>
           {filtered.map((item) => (
             <SettingsListItem
@@ -218,7 +217,8 @@ export default function MedicalActsPage() {
             />
           ))}
         </SettingsList>
-      ) : (
+      </div>
+      <div className="hidden @3xl:block">
         <div className="bg-white rounded border border-slate-200 shadow-sm overflow-hidden">
           <div className="p-2 border-b border-slate-200 bg-slate-50">
             {searchInput}
@@ -270,7 +270,7 @@ export default function MedicalActsPage() {
             </table>
           )}
         </div>
-      )}
+      </div>
 
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <DialogContent className="sm:max-w-md">

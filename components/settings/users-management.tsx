@@ -12,7 +12,6 @@ import { useTranslations } from "next-intl";
 import { ModulePermissionMatrix } from "@/components/settings/module-permission-matrix";
 import { LastLoginBadge } from "@/components/settings/activity/last-login-badge";
 import { SettingsList, SettingsListItem, SettingsPageHeader, SettingsPill, settingsActionButtonClass } from "@/components/settings/settings-ui";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { useConfirm } from "@/components/providers/confirm-provider";
 
@@ -45,7 +44,6 @@ type RoleOption = {
 
 export function UsersManagement() {
   const router = useRouter();
-  const isMobile = useIsMobile();
 
   const [users, setUsers] = useState<SystemUser[]>([]);
   const [roles, setRoles] = useState<RoleOption[]>([]);
@@ -235,7 +233,7 @@ export function UsersManagement() {
           setSelectedRoleId(roles[0]?.id ?? "");
         }
       }}>
-        <SheetContent className="overflow-y-auto sm:max-w-2xl p-6 sm:p-8">
+        <SheetContent className="overflow-y-auto sm:max-w-2xl p-4 sm:p-8">
           <SheetHeader>
             <SheetTitle>{editingUser ? t('edit_user') : t('add_new_user')}</SheetTitle>
           </SheetHeader>
@@ -328,7 +326,8 @@ export function UsersManagement() {
         </div>
       </div>
 
-      {isMobile ? (
+      {/* Cards while the content area is narrow, table once it fits (container query, no JS). */}
+      <div className="@3xl:hidden">
         <SettingsList isLoading={isLoading} isEmpty={filteredUsers.length === 0} emptyLabel={tc('no_data')}>
           {filteredUsers.map((user) => (
             <SettingsListItem
@@ -352,7 +351,8 @@ export function UsersManagement() {
             />
           ))}
         </SettingsList>
-      ) : (
+      </div>
+      <div className="hidden @3xl:block">
         <div className="border border-slate-200 rounded-md overflow-hidden">
           <Table>
             <TableHeader className="bg-slate-50">
@@ -410,7 +410,7 @@ export function UsersManagement() {
             </TableBody>
           </Table>
         </div>
-      )}
+      </div>
     </div>
   );
 }

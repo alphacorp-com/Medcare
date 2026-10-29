@@ -117,7 +117,7 @@ export function CsvImportDialog({
               <div className="bg-slate-50 px-3 py-1.5 text-[10px] font-bold text-slate-500 uppercase">
                 {t("preview_rows", { count: rows.length })}
               </div>
-              <div className="max-h-40 overflow-y-auto">
+              <div className="max-h-40 overflow-auto">
                 <table className="w-full text-left text-[10px]">
                   <thead>
                     <tr className="border-b border-slate-100">

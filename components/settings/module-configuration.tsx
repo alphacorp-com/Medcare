@@ -111,7 +111,7 @@ export function ModuleConfiguration({
                         </span>
                       )}
                     </h3>
-                    <span className="hidden md:inline text-[10px] font-mono text-slate-400">{mod.id}</span>
+                    <span className="hidden @xl:inline text-[10px] font-mono text-slate-400">{mod.id}</span>
                   </div>
                   <p className={cn("text-xs mt-1 leading-relaxed max-w-lg", isActive ? "text-slate-600" : "text-slate-400")}>
                     {mod.desc}

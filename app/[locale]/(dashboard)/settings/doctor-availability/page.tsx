@@ -142,7 +142,7 @@ export default function DoctorAvailabilityPage() {
   };
 
   return (
-    <div className="bg-white rounded-2xl md:rounded border border-slate-200 shadow-sm p-4 md:p-6 space-y-6">
+    <div className="bg-white rounded-2xl @2xl:rounded border border-slate-200 shadow-sm p-4 @2xl:p-6 space-y-6">
       <div>
         <h2 className="text-lg font-bold text-slate-900">{t("title")}</h2>
         <p className="text-xs text-slate-500">{t("description")}</p>
@@ -170,8 +170,8 @@ export default function DoctorAvailabilityPage() {
           ) : (
             <div className="space-y-2">
               {rows.map((row) => (
-                <div key={row.weekday} className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3 md:py-2 md:flex-nowrap border-b border-slate-100 last:border-0">
-                  <label className="flex items-center gap-2 w-full md:w-32 shrink-0 text-sm font-medium text-slate-700">
+                <div key={row.weekday} className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3 @2xl:py-2 @2xl:flex-nowrap border-b border-slate-100 last:border-0">
+                  <label className="flex items-center gap-2 w-full @2xl:w-32 shrink-0 text-sm font-medium text-slate-700">
                     <input
                       type="checkbox"
                       checked={row.active}
@@ -185,7 +185,7 @@ export default function DoctorAvailabilityPage() {
                     disabled={!row.active}
                     value={row.startTime}
                     onChange={(e) => updateRow(row.weekday, { startTime: e.target.value })}
-                    className="flex-1 min-w-0 md:flex-none md:w-32 h-10 md:h-9 text-sm"
+                    className="flex-1 min-w-0 @2xl:flex-none @2xl:w-32 h-10 @2xl:h-9 text-sm"
                   />
                   <span className="text-slate-400 text-xs">{tc("to")}</span>
                   <Input
@@ -193,7 +193,7 @@ export default function DoctorAvailabilityPage() {
                     disabled={!row.active}
                     value={row.endTime}
                     onChange={(e) => updateRow(row.weekday, { endTime: e.target.value })}
-                    className="flex-1 min-w-0 md:flex-none md:w-32 h-10 md:h-9 text-sm"
+                    className="flex-1 min-w-0 @2xl:flex-none @2xl:w-32 h-10 @2xl:h-9 text-sm"
                   />
                   <div className="flex items-center gap-2">
                     <Input
@@ -203,7 +203,7 @@ export default function DoctorAvailabilityPage() {
                       disabled={!row.active}
                       value={row.slotMinutes}
                       onChange={(e) => updateRow(row.weekday, { slotMinutes: e.target.value })}
-                      className="w-20 h-10 md:h-9 text-sm"
+                      className="w-20 h-10 @2xl:h-9 text-sm"
                     />
                     <span className="text-xs text-slate-500">{t("min_per_slot")}</span>
                   </div>

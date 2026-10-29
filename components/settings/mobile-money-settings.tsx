@@ -174,7 +174,7 @@ export function MobileMoneySettings() {
 
         <div className="h-px bg-slate-100 w-full" />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 @xl:grid-cols-2 gap-5">
           <div>
             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 block">{t("payments.client_id")}</label>
             <Input value={orange.clientId} onChange={(e) => setOrange({ ...orange, clientId: e.target.value })} className="text-sm h-10 bg-white" />
@@ -232,7 +232,7 @@ export function MobileMoneySettings() {
 
         <div className="h-px bg-slate-100 w-full" />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 @xl:grid-cols-2 gap-5">
           <div>
             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 block">{t("payments.subscription_key")}</label>
             <Input
@@ -261,7 +261,7 @@ export function MobileMoneySettings() {
             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 block">{t("payments.target_environment")}</label>
             <Input value={mtn.targetEnvironment} onChange={(e) => setMtn({ ...mtn, targetEnvironment: e.target.value })} className="text-sm h-10 bg-white" />
           </div>
-          <div className="md:col-span-2">
+          <div className="@xl:col-span-2">
             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 block">{t("payments.base_url")}</label>
             <Input value={mtn.baseUrl} onChange={(e) => setMtn({ ...mtn, baseUrl: e.target.value })} className="text-sm h-10 bg-white" />
           </div>

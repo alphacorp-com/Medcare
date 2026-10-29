@@ -23,19 +23,19 @@ export function UserIdentityCard({ user, t, tc }: UserIdentityCardProps) {
   const roleLabel = user.role;
 
   return (
-    <div className="bg-white p-4 md:p-6 rounded-2xl md:rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 md:gap-6 md:items-center items-start">
+    <div className="bg-white p-4 @2xl:p-6 rounded-2xl @2xl:rounded-xl border border-slate-200 shadow-sm flex flex-col @2xl:flex-row gap-4 @2xl:gap-6 @2xl:items-center items-start">
       <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-2xl font-bold shrink-0">
         {user.fullName.charAt(0)}
       </div>
       <div className="flex-1">
-        <h1 className="text-xl md:text-2xl font-bold text-slate-900 break-words">{user.fullName}</h1>
+        <h1 className="text-xl @2xl:text-2xl font-bold text-slate-900 break-words">{user.fullName}</h1>
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mt-2 text-sm text-slate-500">
           <span className="flex items-center gap-1.5"><Building2 className="w-4 h-4 text-slate-400" /> {roleLabel}</span>
           <span className="flex min-w-0 items-center gap-1.5 break-all"><Mail className="w-4 h-4 shrink-0 text-slate-400" /> {user.email}</span>
           <span className="flex items-center gap-1.5"><ShieldCheck className="w-4 h-4 text-slate-400" /> {user.modules?.length || 0} {t('authorized')}</span>
         </div>
       </div>
-      <div className="shrink-0 right-0 top-0 mt-4 md:mt-0 text-right">
+      <div className="shrink-0 right-0 top-0 mt-4 @2xl:mt-0 text-right">
         <span className={cn(
           "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-widest",
           user.status === 'active' ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600"

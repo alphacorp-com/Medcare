@@ -118,6 +118,22 @@ Conservez ce schéma pour toute nouvelle transition. Les transactions interactiv
   d'affichage : le contrôle réel est côté API.
 - Une URL externe saisie par un utilisateur n'est rendue comme lien que si elle est en `http(s)`
   (voir `components/shared/exam-result-sheet.tsx`).
+- **Responsive des écrans de paramètres** : la place disponible varie (le menu de l'application
+  prend 240 px, la navigation des paramètres 224 px de plus à partir de 1280 px). Les écrans de
+  `/settings` se règlent donc sur la **largeur de leur conteneur**, pas sur celle de l'écran :
+  - `settings/layout.tsx` déclare la zone de contenu `@container` (les branches mobiles aussi) ;
+  - utilisez les variantes `@xl:` (36 rem), `@2xl:` (42 rem), `@3xl:` (48 rem), `@5xl:` (64 rem)
+    pour les colonnes et les bascules cartes / lignes, et `@max-2xl:` pour le contraire. Les
+    composants de `components/settings/settings-ui.tsx` le font déjà ;
+  - le contenu d'une boîte de dialogue ou d'un tiroir est rendu hors du conteneur (portail) :
+    il garde les variantes d'écran (`sm:`, `lg:`) ;
+  - sous 1280 px la navigation des paramètres devient un sélecteur
+    (`components/settings/settings-nav-picker.tsx`) ; les sections de la page principale forment
+    une barre d'onglets défilante, verticale à partir de `@5xl`.
+- **Tiroirs (`Sheet`)** : `components/ui/sheet.tsx` définit la largeur par défaut avec des classes
+  simples (pleine largeur sur téléphone, 3/4 jusqu'à `max-w-sm` dès `sm`), si bien qu'un
+  `sm:max-w-2xl` passé par l'appelant s'applique. Avant le 2026-10-29, ces largeurs passaient par des
+  variantes `data-[side=…]:` de spécificité supérieure et toute largeur demandée était ignorée.
 - **Confirmations et messages** : jamais `window.confirm` ni `alert`. Pour confirmer une action :
   `const confirm = useConfirm();` puis `if (!(await confirm({ message, tone: "danger" }))) return;`
   (`components/providers/confirm-provider.tsx`, monté une fois dans le layout racine). Pour une

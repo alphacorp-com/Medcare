@@ -341,7 +341,7 @@ function SettingsPageContent() {
           subtitle={selected.label}
           actions={<SettingsMobileBackButton label={tnav("all_settings")} onClick={closeSection} />}
         >
-          <div className="space-y-4">
+          <div className="@container space-y-4">
             {selected.content}
             {/* handleSaveSettings persists only these sections; the others save through their own panels. */}
             {selected.savable && (
@@ -412,46 +412,47 @@ function SettingsPageContent() {
     );
   }
 
+  // Section list: a horizontally scrolling tab bar while the content area is narrow, a vertical
+  // sidebar from @5xl (the container is the settings content area, not the viewport — the app
+  // menu and the settings navigation already use part of the screen).
   const tabTriggerClass =
-    "justify-start px-4 py-2.5 text-sm rounded-md text-slate-600 transition-all data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:font-semibold data-[state=active]:shadow-none hover:bg-slate-100";
+    "h-auto flex-none justify-start px-3 py-2 text-sm rounded-md text-slate-600 transition-all hover:bg-slate-100 data-active:bg-blue-50 data-active:text-blue-700 data-active:font-semibold data-active:shadow-none data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:font-semibold data-[state=active]:shadow-none @5xl:w-full @5xl:px-4 @5xl:py-2.5";
 
   return (
-    <div className="flex flex-col h-full space-y-4 w-full pb-8">
-      <div className="bg-white border-b border-slate-200 px-3 py-3 sm:px-4 shrink-0">
-        <div>
+    <div className="flex h-full w-full flex-col gap-4 pb-8">
+      <div className="flex shrink-0 flex-col gap-3 border-b border-slate-200 bg-white px-3 py-3 @xl:flex-row @xl:items-center @xl:justify-between sm:px-4">
+        <div className="min-w-0">
           <h1 className="text-xl font-bold text-slate-800">{t('title')}</h1>
-          <p className="text-xs text-slate-500 mt-1">{t('description')}</p>
+          <p className="mt-1 text-xs text-slate-500">{t('description')}</p>
         </div>
-        <div className="flex gap-2">
-          {isLoading && <Loader2 className="h-4 w-4 animate-spin text-slate-400 self-center mr-2" />}
-          <Button onClick={handleSaveSettings} disabled={isSaving || isLoading} className="bg-blue-600 text-white hover:bg-blue-700 text-xs h-8">
+        <div className="flex shrink-0 items-center gap-2">
+          {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin self-center text-slate-400" />}
+          <Button onClick={handleSaveSettings} disabled={isSaving || isLoading} className="h-9 w-full bg-blue-600 text-xs text-white hover:bg-blue-700 @xl:h-8 @xl:w-auto">
             {isSaving ? tc('saving') : tc('save_changes')}
           </Button>
         </div>
       </div>
 
-      <div className="flex flex-col md:flex-row gap-6 flex-1 items-start">
-        <Tabs defaultValue={initialTab} onValueChange={setActiveTab} orientation="vertical" className="flex-1 w-full flex flex-col md:flex-row gap-8">
-          <TabsList className="flex flex-col justify-start h-auto bg-transparent items-stretch space-y-1 md:w-64 shrink-0 p-0">
-            {sections.map((section) => (
-              <Fragment key={section.key}>
-                {section.separatorBefore && <div className="h-px bg-slate-200 my-4 mx-2"></div>}
-                <TabsTrigger value={section.key} className={tabTriggerClass}>
-                  <section.icon className="h-4 w-4 mr-3" /> {section.label}
-                </TabsTrigger>
-              </Fragment>
-            ))}
-          </TabsList>
+      <Tabs defaultValue={initialTab} onValueChange={setActiveTab} className="flex w-full flex-1 flex-col gap-4 @5xl:flex-row @5xl:items-start @5xl:gap-8">
+        <TabsList className="flex h-auto w-full flex-row items-stretch justify-start gap-1 overflow-x-auto rounded-none bg-transparent p-0 group-data-horizontal/tabs:h-auto @5xl:w-64 @5xl:shrink-0 @5xl:flex-col @5xl:space-y-1 @5xl:overflow-visible">
+          {sections.map((section) => (
+            <Fragment key={section.key}>
+              {section.separatorBefore && <div className="mx-1 my-auto h-6 w-px shrink-0 bg-slate-200 @5xl:mx-2 @5xl:my-4 @5xl:h-px @5xl:w-auto" />}
+              <TabsTrigger value={section.key} className={tabTriggerClass}>
+                <section.icon className="mr-2 h-4 w-4 shrink-0 @5xl:mr-3" /> {section.label}
+              </TabsTrigger>
+            </Fragment>
+          ))}
+        </TabsList>
 
-          <div className="flex-1 min-w-0">
-            {sections.map((section) => (
-              <TabsContent key={section.key} value={section.key} className="m-0 mt-0 focus-visible:outline-none">
-                {section.content}
-              </TabsContent>
-            ))}
-          </div>
-        </Tabs>
-      </div>
+        <div className="min-w-0 flex-1">
+          {sections.map((section) => (
+            <TabsContent key={section.key} value={section.key} className="m-0 mt-0 focus-visible:outline-none">
+              {section.content}
+            </TabsContent>
+          ))}
+        </div>
+      </Tabs>
     </div>
   );
 }

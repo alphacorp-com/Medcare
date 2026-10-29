@@ -160,7 +160,7 @@ export default function Rma3MappingPage() {
         <p className="text-sm text-red-600">{t("load_error")}</p>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-          <table className="w-full text-left text-xs">
+          <table className="w-full min-w-[44rem] text-left text-xs">
             <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500">
               <tr>
                 <th className="px-3 py-2 w-14">{t("col_code")}</th>
