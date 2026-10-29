@@ -4,10 +4,10 @@ import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { findSurgeryConflicts } from "@/lib/surgery/conflicts";
 import { checkSurgeryReferences, roomLabels } from "@/lib/surgery/references";
-import { parseAsaScore, parseDate, parseOptionalText, parseRequiredText, SURGERY_TEXT_LIMITS } from "@/lib/surgery/validation";
+import { DEFAULT_SURGERY_DURATION_MINUTES, parseAsaScore, parseDate, parseDuration, parseOptionalText, parseRequiredText, parseTeam, SURGERY_TEXT_LIMITS } from "@/lib/surgery/validation";
 import { auditClinicalAction } from "@/lib/exams/audit";
 import { requireModulePermission } from "@/lib/permissions";
-import { SurgicalStatus, type Prisma } from "@prisma/client";
+import { Prisma, SurgicalStatus } from "@prisma/client";
 import { parsePagination } from "@/lib/pagination";
 
 const PATIENT_SELECT = { id: true, firstName: true, lastName: true, ipp: true } as const;
@@ -86,7 +86,8 @@ export async function GET(req: Request) {
 
 // ── POST /api/v1/surgeries ──────────────────────────────────────────────────
 // Body: { patientId, stayId?, surgeonId, anesthesiologistId?, procedureLabel,
-//         procedureCode?, roomId? (an operating room, see /surgeries/rooms), scheduledAt, asaScore?, force? }
+//         procedureCode?, roomId? (an operating room, see /surgeries/rooms), scheduledAt, asaScore?,
+//         expectedDurationMinutes?, isEmergency?, team? ([{ userId, role }]), force? }
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
@@ -113,14 +114,24 @@ export async function POST(req: Request) {
     if (!code.ok) return NextResponse.json({ error: code.error }, { status: 400 });
     if (!scheduled.ok) return NextResponse.json({ error: scheduled.error }, { status: 400 });
     if (!asa.ok) return NextResponse.json({ error: asa.error }, { status: 400 });
+    const duration = parseDuration(body.expectedDurationMinutes);
+    if (!duration.ok) return NextResponse.json({ error: duration.error }, { status: 400 });
+    const team = parseTeam(body.team);
+    if (!team.ok) return NextResponse.json({ error: team.error }, { status: 400 });
 
-    const refs = { patientId, stayId: str(body.stayId), surgeonId, anesthesiologistId: str(body.anesthesiologistId), roomId: str(body.roomId) };
+    const refs = { patientId, stayId: str(body.stayId), surgeonId, anesthesiologistId: str(body.anesthesiologistId), roomId: str(body.roomId), teamUserIds: team.value.map((m) => m.userId) };
     const refError = await checkSurgeryReferences(session.user.tenantId, refs);
     if (refError) return NextResponse.json({ error: refError.error }, { status: refError.status });
 
     const force = body.force === true;
     if (!force) {
-      const conflicts = await findSurgeryConflicts({ tenantId: session.user.tenantId, surgeonId, roomId: refs.roomId, scheduledAt: scheduled.value });
+      const conflicts = await findSurgeryConflicts({
+        tenantId: session.user.tenantId,
+        surgeonId,
+        roomId: refs.roomId,
+        scheduledAt: scheduled.value,
+        durationMinutes: duration.value ?? DEFAULT_SURGERY_DURATION_MINUTES,
+      });
       if (conflicts.length > 0) {
         return NextResponse.json({ error: "Scheduling conflict", conflicts }, { status: 409 });
       }
@@ -138,6 +149,9 @@ export async function POST(req: Request) {
         roomId: refs.roomId,
         scheduledAt: scheduled.value,
         asaScore: asa.value,
+        expectedDurationMinutes: duration.value,
+        isEmergency: body.isEmergency === true,
+        team: team.value as unknown as Prisma.InputJsonValue,
         status: "scheduled",
       },
       include: { patient: { select: PATIENT_SELECT } },

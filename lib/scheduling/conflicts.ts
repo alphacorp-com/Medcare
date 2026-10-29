@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import { overlaps } from "@/lib/surgery/validation";
 
 // Shared by every "is this resource already busy around this time" check in the app
 // (surgery scheduling, appointment booking) — there's no stored end time for either,
@@ -13,6 +14,8 @@ export interface SurgeryConflictCheck {
   surgeonId: string;
   roomId?: string | null;
   scheduledAt: Date;
+  // Planned length of the new booking (default 90 minutes).
+  durationMinutes?: number;
   excludeId?: string;
 }
 
@@ -24,28 +27,37 @@ export interface SurgeryConflict {
   patientName: string;
 }
 
+// Longest case considered when looking back for one still running at the requested time.
+const MAX_SURGERY_MINUTES = 24 * 60;
+
+// A surgery occupies its surgeon and room from scheduledAt to scheduledAt + its planned duration
+// (90 minutes when none is given): two bookings conflict when these intervals overlap.
 export async function findSurgeryConflicts({
   tenantId,
   surgeonId,
   roomId,
   scheduledAt,
+  durationMinutes = DEFAULT_CONFLICT_WINDOW_MINUTES,
   excludeId,
 }: SurgeryConflictCheck): Promise<SurgeryConflict[]> {
-  const windowStart = new Date(scheduledAt.getTime() - DEFAULT_CONFLICT_WINDOW_MINUTES * 60_000);
-  const windowEnd = new Date(scheduledAt.getTime() + DEFAULT_CONFLICT_WINDOW_MINUTES * 60_000);
+  const windowStart = new Date(scheduledAt.getTime() - MAX_SURGERY_MINUTES * 60_000);
+  const windowEnd = new Date(scheduledAt.getTime() + durationMinutes * 60_000);
 
   const candidates = await prisma.surgicalProcedure.findMany({
     where: {
       id: excludeId ? { not: excludeId } : undefined,
       tenantId,
       status: { in: ["scheduled", "in_progress"] },
-      scheduledAt: { gte: windowStart, lte: windowEnd },
+      scheduledAt: { gte: windowStart, lt: windowEnd },
       OR: [{ surgeonId }, ...(roomId ? [{ roomId }] : [])],
     },
     include: { patient: { select: { firstName: true, lastName: true } } },
   });
 
-  return candidates.map((c) => ({
+  const busy = candidates.filter(
+    (c) => c.scheduledAt && overlaps(scheduledAt, durationMinutes, c.scheduledAt, c.expectedDurationMinutes ?? DEFAULT_CONFLICT_WINDOW_MINUTES)
+  );
+  return busy.map((c) => ({
     resource: c.surgeonId === surgeonId ? "surgeon" : "room",
     procedureId: c.id,
     procedureLabel: c.procedureLabel,

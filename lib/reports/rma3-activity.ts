@@ -127,6 +127,9 @@ export interface SurgeryRow {
   patientId: string;
   endedAt: Date;
   patient: Person;
+  // An intervention started then interrupted (status cancelled): not an "intervention
+  // carried out" (V.1-007), but a death that follows it is peri-operative (V.1-008).
+  interrupted?: boolean;
 }
 
 export interface MalariaCaseRow {
@@ -172,7 +175,7 @@ export interface Rma3ActivityInput {
   recordedMaternalDeaths?: { patientId: string; at: Date; patient: Person }[];
   stays: StayRow[]; // admitted, hospitalized, discharged or open during the month
   deaths: DeathRow[]; // deaths of the month (deceased stays + deaths outside a stay)
-  surgeries: SurgeryRow[]; // completed from PERIOPERATIVE_WINDOW_DAYS before the month
+  surgeries: SurgeryRow[]; // completed or interrupted from PERIOPERATIVE_WINDOW_DAYS before the month
   malariaCases: MalariaCaseRow[]; // diagnosed this month
   tbCases: TbCaseRow[]; // notified, started on treatment or followed up this month
   tbHivOnArtPatientIds: ReadonlySet<string>; // IV.3-013, from the HIV report
@@ -388,7 +391,7 @@ export function buildActivityTables(input: Rma3ActivityInput): ActivityTable[] {
     const days = Math.round((to - from) / DAY);
     return days > 0 ? [{ id: s.id, at: new Date(from), person: s.patient, weight: days }] : [];
   });
-  const surgeries = input.surgeries.filter((s) => inMonth(s.endedAt));
+  const surgeries = input.surgeries.filter((s) => !s.interrupted && inMonth(s.endedAt));
   const perioperativeDeaths = deaths.filter((d) =>
     input.surgeries.some((s) => s.patientId === d.patientId && s.endedAt <= d.diedAt && d.diedAt.getTime() - s.endedAt.getTime() <= PERIOPERATIVE_WINDOW_DAYS * DAY)
   );

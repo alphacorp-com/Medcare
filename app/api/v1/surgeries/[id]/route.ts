@@ -4,7 +4,8 @@ import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { findSurgeryConflicts } from "@/lib/surgery/conflicts";
 import { checkSurgeryReferences, roomLabels } from "@/lib/surgery/references";
-import { parseAsaScore, parseDate, parseOptionalText, parseRequiredText, SURGERY_TEXT_LIMITS } from "@/lib/surgery/validation";
+import { DEFAULT_SURGERY_DURATION_MINUTES, parseAsaScore, parseDate, parseDuration, parseOptionalText, parseRequiredText, parseTeam, SURGERY_TEXT_LIMITS } from "@/lib/surgery/validation";
+import { Prisma } from "@prisma/client";
 import { auditClinicalAction } from "@/lib/exams/audit";
 import { requireModulePermission } from "@/lib/permissions";
 
@@ -35,7 +36,7 @@ export async function GET(req: Request, context: { params: Promise<{ id: string 
 // Reschedule/edit — only allowed while the case is still scheduled or postponed.
 // Editing a postponed case re-activates it back to "scheduled".
 // Body: { scheduledAt?, roomId?, surgeonId?, anesthesiologistId?, procedureLabel?,
-//         procedureCode?, asaScore?, force? }
+//         procedureCode?, asaScore?, expectedDurationMinutes?, isEmergency?, team?, force? }
 export async function PATCH(req: Request, context: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
@@ -71,6 +72,10 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
     if (code && !code.ok) return NextResponse.json({ error: code.error }, { status: 400 });
     const asa = has("asaScore") ? parseAsaScore(body.asaScore) : null;
     if (asa && !asa.ok) return NextResponse.json({ error: asa.error }, { status: 400 });
+    const duration = has("expectedDurationMinutes") ? parseDuration(body.expectedDurationMinutes) : null;
+    if (duration && !duration.ok) return NextResponse.json({ error: duration.error }, { status: 400 });
+    const team = has("team") ? parseTeam(body.team) : null;
+    if (team && !team.ok) return NextResponse.json({ error: team.error }, { status: 400 });
     if (has("surgeonId") && !str(body.surgeonId)) return NextResponse.json({ error: "surgeonId cannot be empty" }, { status: 400 });
 
     const refError = await checkSurgeryReferences(
@@ -79,6 +84,7 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
         surgeonId: has("surgeonId") ? str(body.surgeonId)! : undefined,
         anesthesiologistId: has("anesthesiologistId") ? str(body.anesthesiologistId) : undefined,
         roomId: has("roomId") ? str(body.roomId) : undefined,
+        teamUserIds: team?.ok ? team.value.map((m) => m.userId) : undefined,
       },
       existing.patientId
     );
@@ -87,6 +93,7 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
     const nextSurgeonId = has("surgeonId") ? str(body.surgeonId)! : existing.surgeonId;
     const nextRoomId = has("roomId") ? str(body.roomId) : existing.roomId;
     const nextScheduledAt = scheduled?.ok ? scheduled.value : existing.scheduledAt;
+    const nextDuration = duration?.ok ? duration.value : existing.expectedDurationMinutes;
     const force = body.force === true;
 
     if (!force && nextScheduledAt) {
@@ -95,6 +102,7 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
         surgeonId: nextSurgeonId,
         roomId: nextRoomId,
         scheduledAt: nextScheduledAt,
+        durationMinutes: nextDuration ?? DEFAULT_SURGERY_DURATION_MINUTES,
         excludeId: id,
       });
       if (conflicts.length > 0) {
@@ -113,6 +121,10 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
         procedureLabel: label?.ok ? label.value : undefined,
         procedureCode: code?.ok ? code.value : undefined,
         asaScore: asa?.ok ? asa.value : undefined,
+        expectedDurationMinutes: duration?.ok ? duration.value : undefined,
+        isEmergency: has("isEmergency") ? body.isEmergency === true : undefined,
+        team: team?.ok ? (team.value as unknown as Prisma.InputJsonValue) : undefined,
+        statusReason: existing.status === "postponed" ? null : undefined,
         status: existing.status === "postponed" ? "scheduled" : undefined,
       },
     });

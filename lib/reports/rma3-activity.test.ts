@@ -196,6 +196,17 @@ describe("buildActivityTables — general activity and malaria", () => {
     assert.equal(rowOf(tables, "V.1-006").total, 1);
   });
 
+  it("counts a death after an interrupted intervention as peri-operative, without counting the intervention", () => {
+    const withInterrupted = buildActivityTables({
+      ...empty,
+      asOf: d("2026-11-01"),
+      deaths: [{ id: "x2", patientId: "p7", diedAt: d("2026-10-10"), patient: man45, pregnancies: [] }],
+      surgeries: [{ id: "op2", patientId: "p7", endedAt: d("2026-10-09"), patient: man45, interrupted: true }],
+    });
+    assert.equal(rowOf(withInterrupted, "V.1-008").total, 1);
+    assert.equal(rowOf(withInterrupted, "V.1-007").total, 0);
+  });
+
   it("counts a death within 30 days of a surgery as peri-operative", () => {
     assert.equal(rowOf(tables, "V.1-008").total, 1);
     assert.equal(rowOf(tables, "V.1-010").total, 1);

@@ -37,7 +37,7 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
       return NextResponse.json({ error: `Cannot postpone a case with status "${surgery.status}"` }, { status: 400 });
     }
 
-    const { count } = await prisma.surgicalProcedure.updateMany({ where: { id, status: "scheduled" }, data: { status: "postponed" } });
+    const { count } = await prisma.surgicalProcedure.updateMany({ where: { id, status: "scheduled" }, data: { status: "postponed", statusReason: reason.value } });
     if (count === 0) return NextResponse.json({ error: "The case changed meanwhile, reload it" }, { status: 409 });
 
     await auditClinicalAction(session, req, "surgery.postpone", { type: "surgical_procedure", id }, { reason: reason.value, scheduledAt: surgery.scheduledAt?.toISOString() ?? null });

@@ -34,6 +34,8 @@ export interface SurgeryReferences {
   surgeonId?: string;
   anesthesiologistId?: string | null;
   roomId?: string | null;
+  // Operating team members: any active account of the facility (nurses are not clinicians).
+  teamUserIds?: readonly string[];
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -44,7 +46,7 @@ export async function checkSurgeryReferences(
   refs: SurgeryReferences,
   existingPatientId?: string
 ): Promise<{ error: string; status: number } | null> {
-  const given = Object.entries(refs).filter(([, v]) => typeof v === "string" && v !== "") as [keyof SurgeryReferences, string][];
+  const given = Object.entries(refs).filter(([, v]) => typeof v === "string" && v !== "") as [string, string][];
   const malformed = given.find(([, v]) => !UUID.test(v));
   if (malformed) return { error: `${malformed[0]} is not a valid id`, status: 400 };
 
@@ -68,6 +70,12 @@ export async function checkSurgeryReferences(
     const ok = new Set(found.map((u) => u.id));
     if (refs.surgeonId && !ok.has(refs.surgeonId)) return { error: "The surgeon must be an active clinician of this facility", status: 400 };
     if (refs.anesthesiologistId && !ok.has(refs.anesthesiologistId)) return { error: "The anesthesiologist must be an active clinician of this facility", status: 400 };
+  }
+
+  if (refs.teamUserIds?.length) {
+    const ids = [...new Set(refs.teamUserIds)];
+    const members = await prisma.tenantUser.count({ where: { id: { in: ids }, tenantId, isActive: true } });
+    if (members !== ids.length) return { error: "Every team member must be an active account of this facility", status: 400 };
   }
 
   if (refs.roomId) {

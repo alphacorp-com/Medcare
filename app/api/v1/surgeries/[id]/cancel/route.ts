@@ -10,8 +10,8 @@ import { requireModulePermission } from "@/lib/permissions";
 // Body: { reason }
 // Allowed from "scheduled", "postponed" or "in_progress" — an intervention interrupted or
 // abandoned once started (patient unstable, death on the table…) must not stay "in progress"
-// forever. Terminal. The reason is kept in the audit log; the complications field stays for
-// clinical complications only.
+// forever. Terminal. The reason is shown on the case (statusReason) and every one is kept in the
+// audit log; the complications field stays for clinical complications only.
 export async function PATCH(req: Request, context: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
@@ -41,7 +41,7 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
     const { count } = await prisma.surgicalProcedure.updateMany({
       where: { id, status: surgery.status },
       // An interrupted intervention keeps its real end time.
-      data: { status: "cancelled", ...(surgery.status === "in_progress" ? { endedAt: new Date() } : {}) },
+      data: { status: "cancelled", statusReason: reason.value, ...(surgery.status === "in_progress" ? { endedAt: new Date() } : {}) },
     });
     if (count === 0) return NextResponse.json({ error: "The case changed meanwhile, reload it" }, { status: 409 });
 

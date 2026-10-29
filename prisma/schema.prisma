@@ -1018,6 +1018,12 @@ model ExamRequest {
   scheduledAt  DateTime?         @map("scheduled_at") @db.Timestamptz
   completedAt  DateTime?         @map("completed_at") @db.Timestamptz
   notes        String?
+  // Imaging: the device booked (ImagingDevice) and for how long, the DICOM accession number
+  // (links the exam to its images in a PACS), and the pre-exam safety check (lib/radiology/safety).
+  deviceId                String?           @map("device_id") @db.Uuid
+  expectedDurationMinutes Int?              @map("expected_duration_minutes") @db.SmallInt
+  accessionNumber         String?           @map("accession_number") @db.VarChar(32)
+  safetyCheck             Json?             @map("safety_check")
   createdAt    DateTime          @default(now()) @map("created_at") @db.Timestamptz
 
   patient   Patient      @relation(fields: [patientId], references: [id])
@@ -1025,10 +1031,12 @@ model ExamRequest {
   pregnancy Pregnancy?   @relation(fields: [pregnancyId], references: [id])
   results   ExamResult[]
 
+  @@unique([tenantId, accessionNumber])
   @@index([tenantId])
   @@index([patientId])
   @@index([status])
   @@index([pregnancyId])
+  @@index([deviceId, scheduledAt])
   @@map("exam_requests")
   @@schema("tenant_template")
 }
@@ -1050,12 +1058,49 @@ model ExamResult {
   request ExamRequest @relation(fields: [requestId], references: [id])
   patient Patient     @relation(fields: [patientId], references: [id])
 
+  addenda      ExamResultAddendum[]
   malariaCases MalariaCase[]
   tbCases      TbCase[]
 
   @@index([tenantId])
   @@index([isCritical])
   @@map("exam_results")
+  @@schema("tenant_template")
+}
+
+// Correction or complement of a validated report, appended (never edited) by a validator.
+model ExamResultAddendum {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String?  @map("tenant_id") @db.Uuid
+  resultId  String   @map("result_id") @db.Uuid
+  text      String
+  authorId  String   @map("author_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  result ExamResult @relation(fields: [resultId], references: [id])
+
+  @@index([tenantId])
+  @@index([resultId])
+  @@map("exam_result_addenda")
+  @@schema("tenant_template")
+}
+
+// An imaging device / room (X-ray room 1, CT, ultrasound…): exams are booked on it, and two
+// exams cannot overlap on the same device.
+model ImagingDevice {
+  id             String   @id @default(uuid()) @db.Uuid
+  tenantId       String?  @map("tenant_id") @db.Uuid
+  code           String   @db.VarChar(30)
+  label          String   @db.VarChar(150)
+  // Modality (ReferenceCatalogItem of type imaging_type).
+  modalityItemId String?  @map("modality_item_id") @db.Uuid
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@map("imaging_devices")
   @@schema("tenant_template")
 }
 
@@ -1078,14 +1123,65 @@ model SurgicalProcedure {
   surgicalReport     String?        @map("surgical_report")
   anesthesiaReport   String?        @map("anesthesia_report")
   complications      Json           @default("[]")
+  // Planned length: the room and the surgeon are busy from scheduledAt to scheduledAt + duration.
+  expectedDurationMinutes Int?           @map("expected_duration_minutes") @db.SmallInt
+  // An emergency may start without the informed consent / pre-anaesthesia visit on record.
+  isEmergency             Boolean        @default(false) @map("is_emergency")
+  consentObtainedAt       DateTime?      @map("consent_obtained_at") @db.Timestamptz
+  consentObtainedById     String?        @map("consent_obtained_by_id") @db.Uuid
+  consentNotes            String?        @map("consent_notes")
+  preAnesthesiaAt         DateTime?      @map("pre_anesthesia_at") @db.Timestamptz
+  preAnesthesiaById       String?        @map("pre_anesthesia_by_id") @db.Uuid
+  preAnesthesiaNotes      String?        @map("pre_anesthesia_notes")
+  // Operating team besides surgeon and anaesthetist: [{ userId, role }] (lib/surgery/team).
+  team                    Json           @default("[]")
+  anesthesiaStartAt       DateTime?      @map("anesthesia_start_at") @db.Timestamptz
+  incisionAt              DateTime?      @map("incision_at") @db.Timestamptz
+  closureAt               DateTime?      @map("closure_at") @db.Timestamptz
+  anesthesiaEndAt         DateTime?      @map("anesthesia_end_at") @db.Timestamptz
+  // Reason of the last postponement / cancellation / interruption (all of them: audit log).
+  statusReason            String?        @map("status_reason")
   createdAt          DateTime       @default(now()) @map("created_at") @db.Timestamptz
   updatedAt          DateTime       @updatedAt @map("updated_at") @db.Timestamptz
 
   patient Patient @relation(fields: [patientId], references: [id])
   stay    Stay?   @relation(fields: [stayId], references: [id])
+  supplies SurgicalSupplyUse[]
 
   @@index([tenantId])
   @@map("surgical_procedures")
+  @@schema("tenant_template")
+}
+
+enum SurgicalSupplyKind {
+  consumable
+  implant
+
+  @@schema("tenant_template")
+}
+
+// A consumable or an implant used during a surgery. Taken from stock (itemId, lot chosen FEFO)
+// when it is a stock article; an implant brought from outside is recorded with its lot / serial
+// number for traceability.
+model SurgicalSupplyUse {
+  id           String             @id @default(uuid()) @db.Uuid
+  tenantId     String?            @map("tenant_id") @db.Uuid
+  surgeryId    String             @map("surgery_id") @db.Uuid
+  kind         SurgicalSupplyKind
+  itemId       String?            @map("item_id") @db.Uuid
+  itemName     String             @map("item_name") @db.VarChar(255)
+  quantity     Int
+  lotNumber    String?            @map("lot_number") @db.VarChar(60)
+  serialNumber String?            @map("serial_number") @db.VarChar(120)
+  manufacturer String?            @db.VarChar(255)
+  recordedById String             @map("recorded_by_id") @db.Uuid
+  createdAt    DateTime           @default(now()) @map("created_at") @db.Timestamptz
+
+  surgery SurgicalProcedure @relation(fields: [surgeryId], references: [id])
+
+  @@index([tenantId])
+  @@index([surgeryId])
+  @@map("surgical_supply_uses")
   @@schema("tenant_template")
 }
 

@@ -94,8 +94,13 @@ export async function computeActivityTables(tenantId: string, start: Date, end: 
       select: { id: true, deceasedAt: true, birthDate: true, gender: true, pregnancies: pregnancySelect },
     }),
     prisma.surgicalProcedure.findMany({
-      where: { tenantId, status: "completed", endedAt: { gte: new Date(start.getTime() - PERIOPERATIVE_WINDOW_DAYS * DAY), lt: end } },
-      select: { id: true, patientId: true, endedAt: true, patient: person },
+      where: {
+        tenantId,
+        // Completed, or started then interrupted (cancelled with a start time).
+        OR: [{ status: "completed" }, { status: "cancelled", startedAt: { not: null } }],
+        endedAt: { gte: new Date(start.getTime() - PERIOPERATIVE_WINDOW_DAYS * DAY), lt: end },
+      },
+      select: { id: true, patientId: true, endedAt: true, status: true, patient: person },
     }),
     prisma.malariaCase.findMany({
       where: { tenantId, diagnosedAt: month },
@@ -175,7 +180,7 @@ export async function computeActivityTables(tenantId: string, start: Date, end: 
         pregnancies: p.pregnancies.map(toPeriod),
       })),
     ],
-    surgeries: surgeries.map((s) => ({ ...s, endedAt: s.endedAt! })),
+    surgeries: surgeries.map(({ status, ...s }) => ({ ...s, endedAt: s.endedAt!, interrupted: status === "cancelled" })),
     malariaCases,
     tbCases: tbCases.map(({ followUps, ...c }) => ({ ...c, labFollowUpDates: followUps.map((f) => f.followUpDate) })),
     tbHivOnArtPatientIds: new Set(tbHivOnArtPatientIds),
