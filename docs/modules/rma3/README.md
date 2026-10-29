@@ -91,8 +91,8 @@ Programmes de santé → VIH / Hépatites.
 
 ## DHIS2
 
-En plus du RMA3, MedCare peut pousser chaque mois des **indicateurs agrégés** vers DHIS2 :
-voir [Intégration DHIS2](../../parametrage/integration-dhis2.md).
+Le RMA3 est le seul contenu transmis à DHIS2 : voir
+[Intégration DHIS2](../../parametrage/integration-dhis2.md).
 
 Le **RMA3 lui-même** peut aussi être exporté vers DHIS2, en fichier JSON/CSV (sans accès API) ou
 par l'API, une fois les correspondances renseignées : même page, section « Export du RMA3

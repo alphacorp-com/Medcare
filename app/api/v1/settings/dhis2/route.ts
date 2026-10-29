@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { encryptSecret } from "@/lib/dhis2/crypto";
-import { getDhis2Config, saveDhis2Config } from "@/lib/dhis2/sync";
-import { Dhis2Mapping } from "@/lib/dhis2/types";
+import { getDhis2Config, saveDhis2Config } from "@/lib/dhis2/config";
 import { requireTenantAdmin } from "@/lib/permissions";
 
 export async function GET() {
@@ -23,7 +22,6 @@ export async function GET() {
     username: config?.username ?? "",
     orgUnitId: config?.orgUnitId ?? "",
     dataSetId: config?.dataSetId ?? "",
-    mappings: config?.mappings ?? [],
     enabled: config?.enabled ?? false,
     hasPassword: Boolean(config?.encryptedPassword),
   });
@@ -41,13 +39,12 @@ export async function PUT(req: Request) {
 
   try {
     const data = await req.json();
-    const { baseUrl, username, password, orgUnitId, dataSetId, mappings, enabled } = data as {
+    const { baseUrl, username, password, orgUnitId, dataSetId, enabled } = data as {
       baseUrl: string;
       username: string;
       password?: string;
       orgUnitId: string;
       dataSetId: string;
-      mappings: Dhis2Mapping[];
       enabled: boolean;
     };
 
@@ -68,12 +65,13 @@ export async function PUT(req: Request) {
     await saveDhis2Config(
       session.user.tenantId,
       {
+        // Whatever else is stored (the legacy per-metric mapping) is kept as it was.
+        ...existing,
         baseUrl,
         username,
         encryptedPassword,
         orgUnitId,
         dataSetId,
-        mappings: mappings ?? [],
         enabled: Boolean(enabled),
       },
       session.user.id

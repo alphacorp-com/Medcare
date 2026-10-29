@@ -190,8 +190,7 @@ La **dose de Td** des CPN suit le même circuit depuis la maternité.
 4. **Nouveau-né** : dossier patient créé automatiquement avec son IPP ; suivi néonatal.
 5. **Post-natal** : contacts 0-48 h, J6-J10, 6 semaines.
 6. **Planification familiale** ensuite, rattachée à la patiente.
-7. Le tout alimente le RMA3 (santé de la mère et de l'enfant) et DHIS2 (CPN1, CPN4+,
-   accouchements, césariennes, Td, TPI, dépistage VIH, nouveau-nés).
+7. Le tout alimente le RMA3 (santé de la mère et de l'enfant), transmis ensuite à DHIS2.
 
 ---
 
@@ -209,8 +208,10 @@ Check-list du gestionnaire des données, en début de mois, pour le mois écoul�
    **Valider le mois**.
 3. **Déclarations d'état civil** transmises dans le mois.
 4. **Paramètres → Rapport RMA3** : générer le document Word et le transmettre au district.
-5. **DHIS2** : la tâche planifiée envoie le mois le 1er. Sinon, **Synchroniser maintenant** ; vérifier
-   l'**historique** et relancer en cas d'échec.
+5. **DHIS2** (Paramètres → Intégrations Externes → DHIS2) :
+   - sans accès API : télécharger le **fichier** du mois et le remettre au district ;
+   - avec l'API : l'**envoi automatique** part après la validation du mois, ou **Envoyer à DHIS2** ;
+     vérifier l'**historique** et réessayer en cas d'échec.
 6. En cas d'erreur sur un mois validé : un administrateur le **rouvre** avec un motif, puis on
    corrige et on revalide.
 

@@ -107,7 +107,7 @@ complet de la base (format personnalisé PostgreSQL).
 Voir [Licence AlphaCorp](../licence/README.md).
 
 ### Intégrations
-- [DHIS2](integration-dhis2.md) : envoi mensuel des indicateurs agrégés et export du RMA3 (fichier ou API).
+- [DHIS2](integration-dhis2.md) : transmission du RMA3 (fichier ou API, envoi automatique).
 - [Mobile Money](mobile-money.md) : Orange Money et MTN MoMo.
 
 ---

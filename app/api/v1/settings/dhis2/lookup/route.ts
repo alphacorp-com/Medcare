@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { requireTenantAdmin } from "@/lib/permissions";
 import { searchOrgUnits, searchDataSets, searchDataElements } from "@/lib/dhis2/client";
 import { decryptSecret } from "@/lib/dhis2/crypto";
-import { getDhis2Config } from "@/lib/dhis2/sync";
+import { getDhis2Config } from "@/lib/dhis2/config";
 
 // GET /api/v1/settings/dhis2/lookup?type=orgUnits|dataSets|dataElements&query=...&dataSetId=...
 // Searches DHIS2 metadata by name using the tenant's already-saved connection settings.

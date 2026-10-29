@@ -21,12 +21,6 @@ export const DHIS2_METRIC_KEYS = [
 
 export type Dhis2MetricKey = (typeof DHIS2_METRIC_KEYS)[number];
 
-export interface Dhis2Mapping {
-  metricKey: Dhis2MetricKey;
-  dataElementId: string;
-  categoryOptionComboId?: string;
-}
-
 /** Shape stored in TenantSetting.value under key "dhis2". Password is stored encrypted. */
 export interface Dhis2Config {
   baseUrl: string;
@@ -34,8 +28,11 @@ export interface Dhis2Config {
   encryptedPassword: string;
   orgUnitId: string;
   dataSetId: string;
-  mappings: Dhis2Mapping[];
+  // Automatic send of each validated RMA3 month (cron), when the account has API access.
   enabled: boolean;
+  // Legacy: per-metric mapping of the former 18-indicator push, no longer read. Kept as stored
+  // (the RMA3 mappings live in the dhis2_rma3_mappings table).
+  mappings?: unknown;
 }
 
 export interface Dhis2MetricValue {

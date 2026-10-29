@@ -85,9 +85,10 @@ simultanées. Le secret est comparé en temps constant. Le premier administrateu
 3. Appliquez les migrations depuis un poste qui pointe sur la base de production
    (`npm run db:migrate:deploy`). Le build Vercel ne le fait pas.
 4. Après chaque modification de variable : **Redeploy**.
-5. Tâche planifiée DHIS2 (facultatif) : ajoutez un `vercel.json` (il n'y en a pas dans le dépôt) :
+5. Envoi automatique DHIS2 (facultatif) : ajoutez un `vercel.json` (il n'y en a pas dans le dépôt).
+   La tâche est quotidienne ; elle n'envoie que les mois RMA3 validés et pas encore envoyés :
    ```json
-   { "crons": [{ "path": "/api/cron/sync-dhis2", "schedule": "0 3 1 * *" }] }
+   { "crons": [{ "path": "/api/cron/sync-dhis2", "schedule": "0 3 * * *" }] }
    ```
 
 ### Docker

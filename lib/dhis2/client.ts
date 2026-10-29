@@ -1,7 +1,6 @@
 import {
   Dhis2Conflict,
   Dhis2ImportCount,
-  Dhis2MetricValue,
   Dhis2SubmitResult,
   Dhis2TestConnectionResult,
 } from "./types";
@@ -141,30 +140,6 @@ export function searchDataElements(
 ): Promise<Dhis2EntityRef[]> {
   const extraFilters = dataSetId ? [`dataSetElements.dataSet.id:eq:${dataSetId}`] : [];
   return searchEntities(credentials, "dataElements", query, extraFilters);
-}
-
-export function toDataValues(
-  values: Dhis2MetricValue[],
-  mappings: { metricKey: string; dataElementId: string; categoryOptionComboId?: string }[]
-) {
-  const mappingByMetric = new Map(mappings.map((m) => [m.metricKey, m]));
-  const dataValues: { dataElement: string; categoryOptionCombo?: string; value: string }[] = [];
-  const unmapped: string[] = [];
-
-  for (const { metricKey, value } of values) {
-    const mapping = mappingByMetric.get(metricKey);
-    if (!mapping) {
-      unmapped.push(metricKey);
-      continue;
-    }
-    dataValues.push({
-      dataElement: mapping.dataElementId,
-      categoryOptionCombo: mapping.categoryOptionComboId,
-      value: String(value),
-    });
-  }
-
-  return { dataValues, unmapped };
 }
 
 // ── Structure of a data set (for the RMA3 mapping) ─────────────────────────

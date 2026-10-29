@@ -31,7 +31,7 @@ app/
     login/, setup/
   api/
     v1/                 API REST de l'application (une route = un fichier route.ts)
-    cron/               tâche planifiée DHIS2
+    cron/               envoi automatique du RMA3 à DHIS2
     auth/               NextAuth
 components/             composants partagés (layout, settings, templates PDF, shared, ui…)
 lib/                    logique métier, une bibliothèque par domaine (billing, coverage, stock, reports…)
@@ -206,6 +206,6 @@ autre modification.
 4. Écran sous `app/[locale]/(dashboard)/(guarded)/<module>/`, entrée de menu dans
    `components/layout/navigation.ts`, traductions fr et en.
 5. Facturation : passer par `suggestInvoiceLine` et un tarif `FeeSchedule`.
-6. Rapports : brancher le RMA3 (`lib/reports/`) et, si pertinent, DHIS2 (`lib/dhis2/indicators.ts`).
+6. Rapports : brancher le RMA3 (`lib/reports/`) ; une ligne codée du RMA3 part aussi vers DHIS2 (`lib/dhis2/rma3-values.ts`).
 7. Documentation : guide dans `docs/modules/<module>/README.md`, mise à jour de
    l'[état des modules](../etat-des-modules/README.md).

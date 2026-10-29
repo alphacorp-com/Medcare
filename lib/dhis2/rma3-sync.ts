@@ -2,7 +2,7 @@ import prisma from "@/lib/prisma";
 import { computeRma3Report } from "@/lib/reports/rma3";
 import { submitDataValueSet, fetchDataSetStructure } from "./client";
 import { decryptSecret } from "./crypto";
-import { getDhis2Config } from "./sync";
+import { getDhis2Config } from "./config";
 import { buildDataValues, buildDataValueSet, chunk, isMonthlyPeriod, mappingCoverage, type Rma3Mapping } from "./rma3-export";
 import { proposeMappings } from "./rma3-mapping";
 import { flattenRma3Report } from "./rma3-values";

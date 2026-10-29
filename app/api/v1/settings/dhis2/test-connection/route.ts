@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { testConnection } from "@/lib/dhis2/client";
 import { decryptSecret } from "@/lib/dhis2/crypto";
-import { getDhis2Config } from "@/lib/dhis2/sync";
+import { getDhis2Config } from "@/lib/dhis2/config";
 import { requireTenantAdmin } from "@/lib/permissions";
 
 export async function POST(req: Request) {

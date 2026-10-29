@@ -123,8 +123,7 @@ Garde-fous :
 
 Les actions sensibles sont enregistrées : connexions, modifications de comptes et de rôles,
 paiements, dérogations de paiement, remboursements, rejets d'organismes, modifications du tiers
-payant, saisie et validation du RMA3, génération d'un rapport RMA3, synchronisations DHIS2,
-export, envoi et correspondances du RMA3 vers DHIS2 (`dhis2.rma3_*`),
+payant, saisie et validation du RMA3, génération d'un rapport RMA3, export, envoi (manuel ou automatique) et correspondances du RMA3 vers DHIS2 (`dhis2.rma3_*`),
 ouverture d'un dossier VIH, modification des modèles de documents, téléchargement d'une
 sauvegarde de la base…
 

@@ -28,7 +28,7 @@ Légende : ✅ complet · ⚠️ partiel ou limité · ❌ manquant
 | [Planning](../modules/planning/README.md) | ✅ | Pas de circuit de demande de congés |
 | [Messagerie](../modules/messagerie/README.md) | ⚠️ | Rafraîchissement périodique, pas de temps réel |
 | [RMA3 et rapports](../modules/rma3/README.md) | ✅ | — |
-| [Intégration DHIS2](../parametrage/integration-dhis2.md) | ✅ | 18 indicateurs (activité, maternité) |
+| [Intégration DHIS2](../parametrage/integration-dhis2.md) | ✅ | RMA3 par fichier ou API, envoi automatique ; identifiants nationaux à renseigner |
 | [Licence AlphaCorp](../licence/README.md) | ✅ | Re-liaison d'empreinte manuelle côté AlphaCorp |
 | [Paramétrage](../parametrage/README.md) | ✅ | Sauvegarde intégrée indisponible sans `pg_dump` sur le serveur (Vercel) |
 | Documents PDF | ✅ | Quelques pieds de page encore en anglais en dur |
@@ -117,7 +117,7 @@ Légende : ✅ complet · ⚠️ partiel ou limité · ❌ manquant
   tuberculose (cas, suivis, dépistage actif), nutrition (PCIMA, croissance), oxygène (parc et
   épisodes), maladies chroniques, VIH / PTME / hépatites / IST (`MODULE_HIV`, accès audité).
 - Exploités par le RMA3.
-- ⚠️ Aucun indicateur DHIS2 ne provient encore de ces registres.
+- ⚠️ Les sections RMA3 libellées sans code (paludisme, tuberculose, PEV…) ne sont pas encore exportées vers DHIS2.
 - ℹ️ Ces registres ne facturent pas, par choix. Les gratuités de soins facturés passent par le
   tiers payant.
 
@@ -157,12 +157,15 @@ Légende : ✅ complet · ⚠️ partiel ou limité · ❌ manquant
   personnel, déclarations d'état civil.
 
 ### Intégration DHIS2 — ✅
-- 18 indicateurs mensuels ; recherche de métadonnées ; historique et relance ; tâche planifiée.
+- Un seul circuit, le **RMA3** : fichier JSON/CSV à importer (sans API) ou envoi par l'API
+  (simulation, envoi manuel, envoi automatique quotidien de chaque mois validé), historique
+  unifié et relance. Correspondances par CSV ou proposées depuis DHIS2.
+- L'ancien envoi des 18 indicateurs agrégés est retiré : il faisait doublon, sans ventilation, avec
+  le RMA3.
+- ⚠️ Migration `20261104090000_dhis2_rma3_mappings` à appliquer ; identifiants du jeu de données
+  national à renseigner ; sections libellées sans code non exportées ; non testé contre un vrai
+  DHIS2.
 - ⚠️ Pas de `vercel.json` dans le dépôt : la tâche planifiée est à déclarer à l'hébergement.
-- **Export du RMA3 vers DHIS2** (fichier JSON/CSV ou API) : correspondances par CSV ou proposées
-  depuis DHIS2, simulation, envoi réservé au formulaire validé. ⚠️ Migration à appliquer, sections
-  libellées sans code non exportées, identifiants nationaux à obtenir du MINSANTE, non testé
-  contre un vrai DHIS2.
 
 ### Licence AlphaCorp — ✅
 - Licence signée Ed25519, activation en ligne ou hors ligne, anti-rejeu, anti-recul d'horloge,

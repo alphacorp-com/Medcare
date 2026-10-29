@@ -40,7 +40,8 @@ function previousMonth(): string {
 
 const toInputValue = (period: string) => `${period.slice(0, 4)}-${period.slice(4)}`;
 
-export function Dhis2Rma3Panel({ hasPassword }: { hasPassword: boolean }) {
+// onSent: called after every send or simulation (the history lists them).
+export function Dhis2Rma3Panel({ hasPassword, onSent }: { hasPassword: boolean; onSent?: () => void }) {
   const t = useTranslations("settings");
   const confirm = useConfirm();
   const fileInput = useRef<HTMLInputElement>(null);
@@ -205,6 +206,7 @@ export function Dhis2Rma3Panel({ hasPassword }: { hasPassword: boolean }) {
       setFeedback({ ok: false, message: t("dhis2.rma3.push_failed") });
     } finally {
       setBusy(null);
+      onSent?.();
     }
   };
 

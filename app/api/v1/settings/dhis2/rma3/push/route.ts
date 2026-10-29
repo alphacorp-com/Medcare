@@ -23,7 +23,7 @@ export async function POST(request: Request) {
       action: "dhis2.rma3_push",
       resourceType: "dhis2_rma3",
       resourceId: parsed.period,
-      payload: { period: parsed.period, dryRun, ok: result.ok, sent: result.sent, importCount: result.importCount, conflicts: result.conflicts.length, error: result.error ?? null },
+      payload: { period: parsed.period, trigger: "manual", dryRun, ok: result.ok, sent: result.sent, importCount: result.importCount, conflicts: result.conflicts.length, error: result.error ?? null },
       ...extractRequestMeta(request.headers),
     });
     return NextResponse.json(result, { status: result.ok ? 200 : 502 });

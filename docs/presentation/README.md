@@ -116,7 +116,7 @@ Aucun module ne fonctionne seul. Exemple : un patient arrive aux urgences.
    caution est régularisée selon la durée réelle, et la fiche de sortie est imprimable.
 8. **Facturation et tiers payant** — chaque acte ajoute sa ligne à la facture. Si le patient est
    couvert, la part de l'organisme est déduite puis réclamée par **bordereau**.
-9. **Rapports** — ces données alimentent automatiquement le **RMA3** et les indicateurs **DHIS2**.
+9. **Rapports** — ces données alimentent automatiquement le **RMA3**, transmis à **DHIS2**.
 
 📄 Les parcours détaillés sont dans [Workflows inter-modules](../workflows/README.md).
 
@@ -172,5 +172,5 @@ Aucun module ne fonctionne seul. Exemple : un patient arrive aux urgences.
 | **FEFO** | « Premier périmé, premier sorti » : les lots qui expirent le plus tôt sortent en premier. |
 | **CMM** | Consommation moyenne mensuelle d'un article. |
 | **RMA3** | Rapport mensuel d'activités des formations sanitaires du MINSANTE (Cameroun). |
-| **DHIS2** | Système d'information sanitaire national, qui reçoit les indicateurs agrégés. |
+| **DHIS2** | Système d'information sanitaire national, qui reçoit le RMA3. |
 | **PACS** | Système d'archivage et de visualisation des images médicales. MedCare n'en intègre pas : un compte rendu peut seulement pointer vers un lien externe. |

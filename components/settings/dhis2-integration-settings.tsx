@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CheckCircle2, XCircle, Send, RotateCw } from "lucide-react";
-import { DHIS2_METRIC_KEYS, Dhis2Mapping, Dhis2MetricKey } from "@/lib/dhis2/types";
+import { Loader2, CheckCircle2, XCircle, RotateCw } from "lucide-react";
+import { useConfirm } from "@/components/providers/confirm-provider";
 import { Dhis2EntityPicker } from "./dhis2-entity-picker";
 import { Dhis2Rma3Panel } from "./dhis2-rma3-panel";
 
@@ -16,18 +16,20 @@ interface Dhis2FormState {
   password: string;
   orgUnitId: string;
   dataSetId: string;
-  mappings: Dhis2Mapping[];
   enabled: boolean;
 }
 
+// Shape returned by GET /api/v1/settings/dhis2/history.
 interface Dhis2HistoryEntry {
   id: string;
   createdAt: string;
   period: string;
+  trigger: "auto" | "manual";
+  dryRun: boolean;
   status: "success" | "skipped" | "failed";
-  dataValueCount?: number;
-  unmappedMetrics?: string[];
-  error?: string;
+  values: number | null;
+  error: string | null;
+  legacy: boolean;
 }
 
 const EMPTY_FORM: Dhis2FormState = {
@@ -36,26 +38,21 @@ const EMPTY_FORM: Dhis2FormState = {
   password: "",
   orgUnitId: "",
   dataSetId: "",
-  mappings: [],
   enabled: false,
 };
 
-function mappingFor(mappings: Dhis2Mapping[], metricKey: Dhis2MetricKey): Dhis2Mapping {
-  return mappings.find((m) => m.metricKey === metricKey) ?? { metricKey, dataElementId: "" };
-}
-
 export function Dhis2IntegrationSettings() {
   const t = useTranslations("settings");
+  const confirm = useConfirm();
 
   const [form, setForm] = useState<Dhis2FormState>(EMPTY_FORM);
   const [hasPassword, setHasPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
   const [retryingPeriod, setRetryingPeriod] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
-  const [syncResult, setSyncResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [retryResult, setRetryResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [history, setHistory] = useState<Dhis2HistoryEntry[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
@@ -74,7 +71,6 @@ export function Dhis2IntegrationSettings() {
             password: "",
             orgUnitId: data.orgUnitId ?? "",
             dataSetId: data.dataSetId ?? "",
-            mappings: data.mappings ?? [],
             enabled: Boolean(data.enabled),
           });
           setHasPassword(Boolean(data.hasPassword));
@@ -90,7 +86,7 @@ export function Dhis2IntegrationSettings() {
     };
   }, []);
 
-  const fetchHistory = async () => {
+  const fetchHistory = useCallback(async () => {
     setIsLoadingHistory(true);
     try {
       const res = await fetch("/api/v1/settings/dhis2/history");
@@ -103,21 +99,13 @@ export function Dhis2IntegrationSettings() {
     } finally {
       setIsLoadingHistory(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     (async () => {
       await fetchHistory();
     })();
-  }, []);
-
-  const updateMapping = (metricKey: Dhis2MetricKey, field: "dataElementId" | "categoryOptionComboId", value: string) => {
-    setForm((prev) => {
-      const others = prev.mappings.filter((m) => m.metricKey !== metricKey);
-      const current = mappingFor(prev.mappings, metricKey);
-      return { ...prev, mappings: [...others, { ...current, [field]: value }] };
-    });
-  };
+  }, [fetchHistory]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -132,7 +120,6 @@ export function Dhis2IntegrationSettings() {
           password: form.password || undefined,
           orgUnitId: form.orgUnitId,
           dataSetId: form.dataSetId,
-          mappings: form.mappings.filter((m) => m.dataElementId),
           enabled: form.enabled,
         }),
       });
@@ -172,36 +159,37 @@ export function Dhis2IntegrationSettings() {
     }
   };
 
-  const handleSyncNow = async (period?: string) => {
-    if (period) setRetryingPeriod(period);
-    else setIsSyncing(true);
-    setSyncResult(null);
+  // Server error codes are translated; DHIS2's own messages are shown as they are.
+  const errorText = (code: string | null | undefined) =>
+    !code ? t("dhis2.rma3.push_failed") : t.has(`dhis2.rma3.errors.${code}`) ? t(`dhis2.rma3.errors.${code}`) : code;
+
+  // Sends a failed month again through the API (same route and checks as the RMA3 panel).
+  const handleRetry = async (period: string) => {
+    if (!(await confirm({ message: t("dhis2.rma3.push_confirm", { period }), description: t("dhis2.rma3.push_confirm_desc") }))) return;
+    setRetryingPeriod(period);
+    setRetryResult(null);
     try {
-      const res = await fetch("/api/v1/settings/dhis2/sync-now", {
+      const res = await fetch("/api/v1/settings/dhis2/rma3/push", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(period ? { period } : {}),
+        body: JSON.stringify({ period, dryRun: false }),
       });
-      const summary = await res.json();
-      if (summary.status === "success") {
-        setSyncResult({
-          ok: true,
-          message: t("dhis2.sync_success", {
-            period: summary.period,
-            imported: (summary.importCount?.imported ?? 0) + (summary.importCount?.updated ?? 0),
-          }),
-        });
-      } else {
-        setSyncResult({ ok: false, message: summary.error || t("dhis2.sync_failed") });
-      }
+      const data = await res.json().catch(() => null);
+      setRetryResult(
+        res.ok && data?.ok
+          ? { ok: true, message: t("dhis2.rma3.push_ok", { imported: data.importCount?.imported ?? 0, updated: data.importCount?.updated ?? 0, ignored: data.importCount?.ignored ?? 0 }) }
+          : { ok: false, message: errorText(data?.error) }
+      );
       await fetchHistory();
-    } catch (error) {
-      setSyncResult({ ok: false, message: t("dhis2.sync_failed") });
+    } catch {
+      setRetryResult({ ok: false, message: t("dhis2.rma3.push_failed") });
     } finally {
-      setIsSyncing(false);
       setRetryingPeriod(null);
     }
   };
+
+  const modeLabel = (entry: Dhis2HistoryEntry) =>
+    entry.legacy ? t("dhis2.mode_legacy") : entry.dryRun ? t("dhis2.mode_dry_run") : entry.trigger === "auto" ? t("dhis2.mode_auto") : t("dhis2.mode_manual");
 
   const historyStatusLabel = (status: Dhis2HistoryEntry["status"]) =>
     status === "success" ? t("dhis2.history_status_success") : status === "skipped" ? t("dhis2.history_status_skipped") : t("dhis2.history_status_failed");
@@ -315,68 +303,18 @@ export function Dhis2IntegrationSettings() {
         )}
       </div>
 
-      <div className="bg-white rounded-2xl md:rounded border border-slate-200 shadow-sm p-4 md:p-6 space-y-4">
-        <div>
-          <h3 className="text-sm font-bold text-slate-900">{t("dhis2.mapping_title")}</h3>
-          <p className="text-xs text-slate-500">{t("dhis2.mapping_desc")}</p>
-        </div>
-
-        <div className="space-y-3">
-          {DHIS2_METRIC_KEYS.map((metricKey) => {
-            const mapping = mappingFor(form.mappings, metricKey);
-            return (
-              <div key={metricKey} className="grid grid-cols-1 @2xl:grid-cols-[1fr_1fr_1fr] gap-3 items-end border-b border-slate-100 pb-3 last:border-0">
-                <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">
-                    {t(`dhis2.metrics.${metricKey}`)}
-                  </label>
-                  <p className="text-[11px] text-slate-400 font-mono">{metricKey}</p>
-                </div>
-                <Dhis2EntityPicker
-                  type="dataElements"
-                  dataSetId={form.dataSetId}
-                  currentId={mapping.dataElementId}
-                  onSelect={(entity) => updateMapping(metricKey, "dataElementId", entity?.id ?? "")}
-                  placeholder={t("dhis2.data_element_uid")}
-                />
-                <Input
-                  value={mapping.categoryOptionComboId ?? ""}
-                  onChange={(e) => updateMapping(metricKey, "categoryOptionComboId", e.target.value)}
-                  placeholder={t("dhis2.category_option_combo_uid_optional")}
-                  className="text-xs h-9 font-mono bg-white"
-                />
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="bg-white rounded-2xl md:rounded border border-slate-200 shadow-sm p-4 md:p-6 space-y-4">
-        <div className="flex items-start justify-between flex-wrap gap-3">
-          <div>
-            <h3 className="text-sm font-bold text-slate-900">{t("dhis2.sync_title")}</h3>
-            <p className="text-xs text-slate-500">{t("dhis2.sync_desc")}</p>
-          </div>
-          <Button onClick={() => handleSyncNow()} disabled={isSyncing || !hasPassword} className="text-xs h-8">
-            {isSyncing ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <Send className="h-3 w-3 mr-2" />}
-            {t("dhis2.sync_now")}
-          </Button>
-        </div>
-
-        {syncResult && (
-          <div className={`flex items-center gap-2 text-xs ${syncResult.ok ? "text-green-700" : "text-red-600"}`}>
-            {syncResult.ok ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
-            {syncResult.message}
-          </div>
-        )}
-      </div>
-
-      <Dhis2Rma3Panel hasPassword={hasPassword} />
+      <Dhis2Rma3Panel hasPassword={hasPassword} onSent={fetchHistory} />
 
       <div className="bg-white rounded-2xl md:rounded border border-slate-200 shadow-sm overflow-hidden">
         <div className="p-4 md:p-6 pb-4 md:pb-4">
           <h3 className="text-sm font-bold text-slate-900">{t("dhis2.history_title")}</h3>
           <p className="text-xs text-slate-500">{t("dhis2.history_desc")}</p>
+          {retryResult && (
+            <div className={`mt-2 flex items-center gap-2 text-xs ${retryResult.ok ? "text-green-700" : "text-red-600"}`}>
+              {retryResult.ok ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
+              {retryResult.message}
+            </div>
+          )}
         </div>
         {isLoadingHistory ? (
           <div className="p-10 flex items-center justify-center">
@@ -388,6 +326,7 @@ export function Dhis2IntegrationSettings() {
               <thead>
                 <tr className="bg-slate-50 text-[10px] text-slate-500 uppercase font-bold border-b border-slate-200">
                   <th className="px-6 py-2">{t("dhis2.history_period")}</th>
+                  <th className="px-6 py-2">{t("dhis2.history_mode")}</th>
                   <th className="px-6 py-2">{t("dhis2.history_status")}</th>
                   <th className="px-6 py-2 text-right">{t("dhis2.history_values")}</th>
                   <th className="px-6 py-2">{t("dhis2.history_detail")}</th>
@@ -397,12 +336,16 @@ export function Dhis2IntegrationSettings() {
               <tbody className="text-xs divide-y divide-slate-100">
                 {history.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-slate-400 italic">{t("dhis2.no_history")}</td>
+                    <td colSpan={6} className="px-6 py-8 text-center text-slate-400 italic">{t("dhis2.no_history")}</td>
                   </tr>
                 )}
                 {history.map((entry) => (
                   <tr key={entry.id}>
-                    <td className="px-6 py-3 font-mono text-slate-700">{entry.period}</td>
+                    <td className="px-6 py-3 font-mono text-slate-700">
+                      {entry.period}
+                      <span className="block text-[10px] text-slate-400 font-sans">{new Date(entry.createdAt).toLocaleString()}</span>
+                    </td>
+                    <td className="px-6 py-3 text-slate-600">{modeLabel(entry)}</td>
                     <td className="px-6 py-3">
                       <span
                         className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold ${
@@ -416,18 +359,18 @@ export function Dhis2IntegrationSettings() {
                         {historyStatusLabel(entry.status)}
                       </span>
                     </td>
-                    <td className="px-6 py-3 text-right font-mono">{entry.dataValueCount ?? "—"}</td>
-                    <td className="px-6 py-3 text-slate-500 max-w-xs truncate" title={entry.error || entry.unmappedMetrics?.join(", ")}>
-                      {entry.error || (entry.unmappedMetrics?.length ? `${t("dhis2.unmapped")}: ${entry.unmappedMetrics.join(", ")}` : "—")}
+                    <td className="px-6 py-3 text-right font-mono">{entry.values ?? "—"}</td>
+                    <td className="px-6 py-3 text-slate-500 max-w-xs truncate" title={entry.error ? errorText(entry.error) : undefined}>
+                      {entry.error ? errorText(entry.error) : "—"}
                     </td>
                     <td className="px-6 py-3 text-right">
-                      {(entry.status === "failed" || entry.status === "skipped") && (
+                      {entry.status === "failed" && !entry.dryRun && !entry.legacy && hasPassword && (
                         <Button
                           size="sm"
                           variant="outline"
                           className="h-7 text-[10px]"
                           disabled={retryingPeriod === entry.period}
-                          onClick={() => handleSyncNow(entry.period)}
+                          onClick={() => handleRetry(entry.period)}
                         >
                           {retryingPeriod === entry.period ? (
                             <Loader2 className="h-3 w-3 animate-spin mr-1.5" />
