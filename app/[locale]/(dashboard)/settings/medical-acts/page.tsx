@@ -273,7 +273,7 @@ export default function MedicalActsPage() {
       </div>
 
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-md">
           <DialogHeader><DialogTitle>{editingItem ? t("edit_item") : t("new_item")}</DialogTitle></DialogHeader>
           <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
             {error && <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded p-2">{error}</div>}
@@ -289,7 +289,7 @@ export default function MedicalActsPage() {
               </select>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div className="space-y-1"><Label>{t("code")}</Label><Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} className="h-9 text-xs font-mono uppercase" /></div>
               <div className="space-y-1"><Label>{t("unit")}</Label><Input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} className="h-9 text-xs" /></div>
             </div>
@@ -297,7 +297,7 @@ export default function MedicalActsPage() {
             <div className="space-y-1"><Label>{t("name_fr")}</Label><Input value={form.nameFr} onChange={(e) => setForm({ ...form, nameFr: e.target.value })} className="h-9 text-xs" /></div>
             <div className="space-y-1"><Label>{t("name_en")}</Label><Input value={form.nameEn} onChange={(e) => setForm({ ...form, nameEn: e.target.value })} className="h-9 text-xs" /></div>
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div className="space-y-1"><Label>{t("base_price")} (XAF)</Label><Input type="number" min="0" value={form.basePrice} onChange={(e) => setForm({ ...form, basePrice: e.target.value })} className="h-9 text-xs" /></div>
               <div className="space-y-1"><Label>{t("pec_coverage")} (%)</Label><Input type="number" min="0" max="100" placeholder="—" value={form.defaultPecCoveragePercent} onChange={(e) => setForm({ ...form, defaultPecCoveragePercent: e.target.value })} className="h-9 text-xs" /><p className="text-[11px] text-slate-400">{t("pec_coverage_hint")}</p></div>
             </div>

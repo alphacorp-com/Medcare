@@ -308,7 +308,7 @@ function SettingsPageContent() {
         <>
           <div className="mb-4">
             <h2 className="text-lg font-bold text-slate-900">{t("integrations")}</h2>
-            <p className="text-xs text-slate-500">Manage HL7 pipelines, DICOM servers, and generic APIs.</p>
+            <p className="text-xs text-slate-500">{t("integrations_desc")}</p>
           </div>
           <Dhis2IntegrationSettings />
           <div className="mt-8 mb-4">
@@ -340,6 +340,7 @@ function SettingsPageContent() {
           title={t("title")}
           subtitle={selected.label}
           actions={<SettingsMobileBackButton label={tnav("all_settings")} onClick={closeSection} />}
+          noRoundedContainer
         >
           <div className="@container space-y-4">
             {selected.content}
@@ -366,12 +367,12 @@ function SettingsPageContent() {
       .join("");
 
     return (
-      <StandardMobileTemplate title={t("title")} subtitle={t("description")}>
+      <StandardMobileTemplate title={t("title")} subtitle={t("description")} noRoundedContainer>
         <div className="space-y-5">
           <button
             type="button"
             onClick={() => openSection("profile")}
-            className="flex w-full items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/80 p-3 text-left shadow-sm transition hover:bg-slate-100"
+            className="flex w-full items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:bg-slate-50"
           >
             <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-semibold text-white">
               {initials || <User className="h-5 w-5" />}

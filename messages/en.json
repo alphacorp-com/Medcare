@@ -1728,7 +1728,8 @@
         "device_in_use": "This device has already been booked: deactivate it instead.",
         "invalid_viewer_template": "The address must be http(s) and contain '{accession}'."
       }
-    }
+    },
+    "integrations_desc": "RMA3 transmission to DHIS2 and Mobile Money payments."
   },
   "surgery": {
     "postpone": "Postpone",

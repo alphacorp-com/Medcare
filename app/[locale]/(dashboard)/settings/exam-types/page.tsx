@@ -336,7 +336,7 @@ export default function ExamTypesPage() {
       </div>
 
       <Dialog open={isTypeFormOpen} onOpenChange={setIsTypeFormOpen}>
-        <DialogContent className="sm:max-w-sm">
+        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-sm">
           <DialogHeader><DialogTitle>{t("new_type")}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             {typeError && <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded p-2">{typeError}</div>}

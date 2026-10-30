@@ -183,7 +183,7 @@ export default function ImagingDevicesPage() {
       </section>
 
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="sm:max-w-sm">
+        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>{editing ? t("edit_item") : t("new_item")}</DialogTitle>
           </DialogHeader>

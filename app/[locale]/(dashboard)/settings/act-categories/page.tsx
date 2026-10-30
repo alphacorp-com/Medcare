@@ -167,11 +167,11 @@ export default function ActCategoriesPage() {
       </SettingsList>
 
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-md">
           <DialogHeader><DialogTitle>{editingItem ? t("edit_item") : t("new_item")}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             {error && <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded p-2">{error}</div>}
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div className="space-y-1"><Label>{t("code")}</Label><Input value={code} onChange={(e) => setCode(e.target.value)} className="h-9 text-xs font-mono uppercase" /></div>
               <div className="space-y-1"><Label>{t("order")}</Label><Input type="number" value={order} onChange={(e) => setOrder(e.target.value)} className="h-9 text-xs" /></div>
             </div>

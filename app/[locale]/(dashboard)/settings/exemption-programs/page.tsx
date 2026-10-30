@@ -101,7 +101,7 @@ function ProgramDialog({ program, onClose }: { program: Program | null; onClose:
   const articleName = new Map((articles.data?.data ?? []).map((a) => [a.id, a.name]));
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl">
         <DialogHeader><DialogTitle>{program ? program.name : t("new")}</DialogTitle></DialogHeader>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Field label={t("code")}><Input value={form.code} maxLength={40} onChange={(e) => set({ code: e.target.value.toUpperCase() })} className="h-8 font-mono text-xs" /></Field>
@@ -156,7 +156,7 @@ function ProgramDialog({ program, onClose }: { program: Program | null; onClose:
         ) : (
           <p className="text-[11px] text-slate-500">{t("enrolment_hint")}</p>
         )}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label={t("valid_from")}><Input type="date" value={form.validFrom} onChange={(e) => set({ validFrom: e.target.value })} className="h-8 text-xs" /></Field>
           <Field label={t("valid_to")}><Input type="date" value={form.validTo} onChange={(e) => set({ validTo: e.target.value })} className="h-8 text-xs" /></Field>
         </div>

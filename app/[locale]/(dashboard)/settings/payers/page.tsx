@@ -125,9 +125,9 @@ function PayerDialog({ payer, onClose }: { payer: Payer | null; onClose: () => v
   const save = useSave(onClose);
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg">
         <DialogHeader><DialogTitle>{payer ? payer.name : t("new_payer")}</DialogTitle></DialogHeader>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label={t("code")}><Input value={form.code} maxLength={40} onChange={(e) => set({ code: e.target.value.toUpperCase() })} className="h-8 font-mono text-xs" /></Field>
           <Field label={t("insurance_type")}>
             <select value={form.insuranceTypeId} onChange={(e) => set({ insuranceTypeId: e.target.value })} className={selectClass}>
@@ -135,12 +135,12 @@ function PayerDialog({ payer, onClose }: { payer: Payer | null; onClose: () => v
               {types.data?.filter((i) => i.isActive).map((i) => <option key={i.id} value={i.id}>{i.nameFr}</option>)}
             </select>
           </Field>
-          <Field label={t("name")} className="col-span-2"><Input value={form.name} maxLength={150} onChange={(e) => set({ name: e.target.value })} className="h-8 text-xs" /></Field>
+          <Field label={t("name")} className="sm:col-span-2"><Input value={form.name} maxLength={150} onChange={(e) => set({ name: e.target.value })} className="h-8 text-xs" /></Field>
           <Field label={t("contact")}><Input value={form.contactName} maxLength={150} onChange={(e) => set({ contactName: e.target.value })} className="h-8 text-xs" /></Field>
           <Field label={t("phone")}><Input value={form.phone} maxLength={30} onChange={(e) => set({ phone: e.target.value })} className="h-8 text-xs" /></Field>
           <Field label={t("email")}><Input type="email" value={form.email} maxLength={150} onChange={(e) => set({ email: e.target.value })} className="h-8 text-xs" /></Field>
           <Field label={t("address")}><Input value={form.address} maxLength={255} onChange={(e) => set({ address: e.target.value })} className="h-8 text-xs" /></Field>
-          <div className="col-span-2"><Check label={t("active")} checked={form.isActive} onChange={(v) => set({ isActive: v })} /></div>
+          <div className="sm:col-span-2"><Check label={t("active")} checked={form.isActive} onChange={(v) => set({ isActive: v })} /></div>
         </div>
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={onClose}>{tc("cancel")}</Button>
@@ -182,7 +182,7 @@ function AgreementDialog({ payer, agreement, onClose }: { payer: Payer; agreemen
   });
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl">
         <DialogHeader><DialogTitle>{agreement ? agreement.name : t("new_agreement")} — {payer.name}</DialogTitle></DialogHeader>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Field label={t("code")}><Input value={form.code} maxLength={40} onChange={(e) => set({ code: e.target.value.toUpperCase() })} className="h-8 font-mono text-xs" /></Field>
@@ -210,7 +210,7 @@ function AgreementDialog({ payer, agreement, onClose }: { payer: Payer; agreemen
         </div>
         <Check label={t("use_nomenclature")} checked={form.useNomenclatureRates} onChange={(v) => set({ useNomenclatureRates: v })} />
         <p className="-mt-2 text-[11px] text-slate-400">{t("use_nomenclature_hint")}</p>
-        <div className="grid grid-cols-2 items-end gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 items-end gap-3">
           <Check label={t("requires_authorization")} checked={form.requiresAuthorization} onChange={(v) => set({ requiresAuthorization: v })} />
           {form.requiresAuthorization && (
             <Field label={t("authorization_threshold")}><Input type="number" min={0} placeholder={t("always")} value={form.authorizationThreshold} onChange={(e) => set({ authorizationThreshold: e.target.value })} className="h-8 text-xs" /></Field>

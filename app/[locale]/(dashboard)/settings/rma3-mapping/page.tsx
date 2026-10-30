@@ -80,6 +80,39 @@ export default function Rma3MappingPage() {
     return Boolean(d && (d.label !== r.label || d.icd10Ranges !== r.icd10Ranges || d.isActive !== r.isActive));
   };
 
+  // Save / reset of one rubric: the same buttons in the card (narrow) and in the table row.
+  const rubricActions = (r: Rubric, rangesValid: boolean) => {
+    const saving = mutation.isPending && mutation.variables?.id === r.id;
+    return (
+      <div className="flex justify-end gap-1">
+        <Button
+          type="button"
+          size="sm"
+          className="h-7 bg-blue-600 px-2 text-[11px] text-white hover:bg-blue-700 @max-3xl:h-9 @max-3xl:flex-1"
+          disabled={!isDirty(r) || !rangesValid || saving}
+          onClick={() => mutation.mutate({ id: r.id, body: draftOf(r) })}
+        >
+          {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+          <span className="ml-1">{t("save")}</span>
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          className="h-7 px-2 text-[11px] @max-3xl:h-9 @max-3xl:border @max-3xl:border-slate-200"
+          title={t("reset_hint")}
+          aria-label={t("reset_hint")}
+          disabled={saving}
+          onClick={async () => {
+            if (await confirm({ message: t("reset_confirm", { label: r.label }), tone: "danger" })) mutation.mutate({ id: r.id, body: { reset: true } });
+          }}
+        >
+          <RotateCcw className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+    );
+  };
+
   const normalizedTest = normalizeIcd10Code(testCode);
   const labelByCode = new Map(rubrics.map((r) => [r.code, r.label]));
 
@@ -120,7 +153,7 @@ export default function Rma3MappingPage() {
         )}
       </div>
 
-      <div className="flex flex-wrap gap-0.5 rounded-md bg-slate-100 p-0.5" role="tablist">
+      <div className="-mx-1 flex gap-0.5 overflow-x-auto rounded-md bg-slate-100 p-0.5 @3xl:mx-0 @3xl:flex-wrap" role="tablist">
         {SECTIONS.map(({ section: s, title }) => (
           <button
             key={s}
@@ -128,7 +161,7 @@ export default function Rma3MappingPage() {
             role="tab"
             aria-selected={section === s}
             onClick={() => setSection(s)}
-            className={cn("rounded px-3 py-1.5 text-xs font-semibold", section === s ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700")}
+            className={cn("shrink-0 whitespace-nowrap rounded px-3 py-1.5 text-xs font-semibold", section === s ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700")}
           >
             {rma3FormSection(s)} — {title}
           </button>
@@ -159,7 +192,42 @@ export default function Rma3MappingPage() {
       ) : query.isError ? (
         <p className="text-sm text-red-600">{t("load_error")}</p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+        <>
+          {/* Narrow screen: one editable card per rubric. */}
+          <div className="space-y-3 @3xl:hidden">
+            {sectionRubrics.map((r) => {
+              const d = draftOf(r);
+              const rangesValid = parseIcd10Ranges(d.icd10Ranges).ok;
+              return (
+                <div key={r.id} className={cn("space-y-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm", !d.isActive && "bg-slate-50")}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-mono text-[11px] text-slate-500">{r.code.replace(`RMA3-${r.section}-`, "")}</span>
+                    <label className="flex items-center gap-1.5 text-xs text-slate-600">
+                      <input type="checkbox" checked={d.isActive} onChange={(e) => setDraft(r, { isActive: e.target.checked })} className="h-4 w-4 rounded border-slate-300" />
+                      {t("col_active")}
+                    </label>
+                  </div>
+                  <label className="block space-y-1">
+                    <span className="text-[11px] font-semibold text-slate-500">{t("col_label")}</span>
+                    <Input value={d.label} maxLength={255} onChange={(e) => setDraft(r, { label: e.target.value })} className="h-10 text-sm" />
+                  </label>
+                  <label className="block space-y-1">
+                    <span className="text-[11px] font-semibold text-slate-500">{t("col_ranges")}</span>
+                    <Input
+                      value={d.icd10Ranges}
+                      onChange={(e) => setDraft(r, { icd10Ranges: e.target.value })}
+                      aria-invalid={!rangesValid || undefined}
+                      placeholder="B50-B54, A39"
+                      className={cn("h-10 font-mono text-sm", !rangesValid && "border-red-300")}
+                    />
+                    {!rangesValid && <p className="text-[11px] text-red-600">{t("ranges_invalid")}</p>}
+                  </label>
+                  {rubricActions(r, rangesValid)}
+                </div>
+              );
+            })}
+          </div>
+        <div className="hidden overflow-x-auto rounded-lg border border-slate-200 bg-white @3xl:block">
           <table className="w-full min-w-[44rem] text-left text-xs">
             <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500">
               <tr>
@@ -174,7 +242,6 @@ export default function Rma3MappingPage() {
               {sectionRubrics.map((r) => {
                 const d = draftOf(r);
                 const rangesValid = parseIcd10Ranges(d.icd10Ranges).ok;
-                const saving = mutation.isPending && mutation.variables?.id === r.id;
                 return (
                   <tr key={r.id} className={cn(!d.isActive && "bg-slate-50 text-slate-400")}>
                     <td className="px-3 py-2 font-mono text-[11px] text-slate-500">{r.code.replace(`RMA3-${r.section}-`, "")}</td>
@@ -194,39 +261,14 @@ export default function Rma3MappingPage() {
                     <td className="px-3 py-2 text-center">
                       <input type="checkbox" checked={d.isActive} onChange={(e) => setDraft(r, { isActive: e.target.checked })} aria-label={t("col_active")} className="rounded border-slate-300" />
                     </td>
-                    <td className="px-3 py-2">
-                      <div className="flex justify-end gap-1">
-                        <Button
-                          type="button"
-                          size="sm"
-                          className="h-7 bg-blue-600 px-2 text-[11px] text-white hover:bg-blue-700"
-                          disabled={!isDirty(r) || !rangesValid || saving}
-                          onClick={() => mutation.mutate({ id: r.id, body: d })}
-                        >
-                          {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-                          <span className="ml-1">{t("save")}</span>
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 px-2 text-[11px]"
-                          title={t("reset_hint")}
-                          disabled={saving}
-                          onClick={async () => {
-                            if ((await confirm({ message: t("reset_confirm", { label: r.label }), tone: "danger" }))) mutation.mutate({ id: r.id, body: { reset: true } });
-                          }}
-                        >
-                          <RotateCcw className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    </td>
+                    <td className="px-3 py-2">{rubricActions(r, rangesValid)}</td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
         </div>
+        </>
       )}
     </div>
   );

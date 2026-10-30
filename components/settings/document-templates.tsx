@@ -174,7 +174,7 @@ export function DocumentTemplates({ facility, templateSettings, setTemplateSetti
       </div>
 
       <Dialog open={editing !== null} onOpenChange={(open) => !open && setEditing(null)}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg">
           {editing && (
             <>
               <DialogHeader>

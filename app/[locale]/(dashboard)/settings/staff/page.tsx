@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useFormatter, useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2, Pencil, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -12,6 +12,8 @@ import { Check, Field, jsonInit, selectClass } from "@/components/programs/form-
 import { useProgramError } from "@/components/programs/use-program-error";
 import { apiFetch } from "@/lib/api-client";
 import { STAFF_CADRES, STAFF_CADRES_BY_CODE } from "@/lib/hr/cadres";
+import { cn } from "@/lib/utils";
+import { SettingsList, SettingsListItem, SettingsPageHeader, SettingsPill, settingsActionButtonClass } from "@/components/settings/settings-ui";
 
 // Staff register (RMA3 VI.5): one line per person, whether or not they have a user account
 // (drivers, guards…). Tenant administrators only (the API checks it).
@@ -43,17 +45,47 @@ export default function StaffPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-lg font-semibold text-slate-900">{t("title")}</h1>
-          <p className="text-xs text-slate-500">{t("subtitle")}</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Check label={t("show_left")} checked={showLeft} onChange={setShowLeft} />
-          <Button size="sm" className="h-8 text-xs" onClick={() => setEditing("new")}><Plus className="h-3.5 w-3.5" /> {t("new_member")}</Button>
-        </div>
+      <SettingsPageHeader
+        title={t("title")}
+        description={t("subtitle")}
+        actions={
+          <Button size="sm" className={cn("h-8 text-xs", settingsActionButtonClass)} onClick={() => setEditing("new")}>
+            <Plus className="h-3.5 w-3.5" /> {t("new_member")}
+          </Button>
+        }
+      />
+      <Check label={t("show_left")} checked={showLeft} onChange={setShowLeft} />
+
+      {/* Cards while the content area is narrow, table once it fits (container query). */}
+      <div className="@3xl:hidden">
+        {staff.isError ? (
+          <p className="text-sm text-red-600">{(staff.error as Error).message}</p>
+        ) : (
+          <SettingsList isLoading={staff.isLoading} isEmpty={Boolean(staff.data) && list.length === 0} emptyLabel={t("empty")}>
+            {list.map((s) => (
+              <SettingsListItem
+                key={s.id}
+                title={<span className={s.leftAt ? "text-slate-400" : undefined}>{s.fullName}</span>}
+                meta={
+                  <>
+                    <span>{STAFF_CADRES_BY_CODE.get(s.cadre)?.label ?? s.cadre}</span>
+                    <span>{s.sex}</span>
+                    <span>{t(`payer_${s.payer}`)}</span>
+                    {s.retirementDate && (
+                      <span>
+                        {t("retirement_date")} : {format.dateTime(new Date(s.retirementDate), { dateStyle: "medium", timeZone: "UTC" })}
+                      </span>
+                    )}
+                  </>
+                }
+                badges={<SettingsPill tone={s.inPost ? "green" : "slate"}>{t("in_post")} : {s.inPost ? t("yes") : t("no")}</SettingsPill>}
+                actions={[{ label: t("edit"), icon: Pencil, onClick: () => setEditing(s) }]}
+              />
+            ))}
+          </SettingsList>
+        )}
       </div>
-      <div className="overflow-x-auto rounded border border-slate-200 bg-white">
+      <div className="hidden @3xl:block overflow-x-auto rounded border border-slate-200 bg-white">
         <table className="w-full text-left text-xs">
           <thead className="bg-slate-50 text-[10px] uppercase text-slate-500">
             <tr>
@@ -111,11 +143,11 @@ function StaffDialog({ member, onClose }: { member: Staff | null; onClose: () =>
   });
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-md">
         <DialogHeader><DialogTitle>{member ? t("edit") : t("new_member")}</DialogTitle></DialogHeader>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label={t("full_name")} className="col-span-2"><Input value={form.fullName} maxLength={150} onChange={(e) => set({ fullName: e.target.value })} className="h-8 text-xs" /></Field>
-          <Field label={t("cadre")} className="col-span-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Field label={t("full_name")} className="sm:col-span-2"><Input value={form.fullName} maxLength={150} onChange={(e) => set({ fullName: e.target.value })} className="h-8 text-xs" /></Field>
+          <Field label={t("cadre")} className="sm:col-span-2">
             <select value={form.cadre} onChange={(e) => set({ cadre: e.target.value })} className={selectClass}>
               {STAFF_CADRES.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
             </select>
@@ -136,8 +168,8 @@ function StaffDialog({ member, onClose }: { member: Staff | null; onClose: () =>
           <Field label={t("hired_at")}><Input type="date" value={form.hiredAt} onChange={(e) => set({ hiredAt: e.target.value })} className="h-8 text-xs" /></Field>
           <Field label={t("retirement_date")}><Input type="date" value={form.retirementDate} onChange={(e) => set({ retirementDate: e.target.value })} className="h-8 text-xs" /></Field>
           <Field label={t("left_at")}><Input type="date" value={form.leftAt} onChange={(e) => set({ leftAt: e.target.value })} className="h-8 text-xs" /></Field>
-          <div className="col-span-2"><Check label={t("in_post")} checked={form.inPost} onChange={(v) => set({ inPost: v })} /></div>
-          <p className="col-span-2 text-[10px] text-slate-400">{t("hint")}</p>
+          <div className="sm:col-span-2"><Check label={t("in_post")} checked={form.inPost} onChange={(v) => set({ inPost: v })} /></div>
+          <p className="sm:col-span-2 text-[10px] text-slate-400">{t("hint")}</p>
         </div>
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={onClose}>{tp("cancel")}</Button>

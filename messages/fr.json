@@ -1729,7 +1729,8 @@
         "device_in_use": "Cet appareil a déjà été réservé : désactivez-le plutôt.",
         "invalid_viewer_template": "L'adresse doit être en http(s) et contenir '{accession}'."
       }
-    }
+    },
+    "integrations_desc": "Transmission du RMA3 à DHIS2 et paiements Mobile Money."
   },
   "surgery": {
     "postpone": "Reporter",

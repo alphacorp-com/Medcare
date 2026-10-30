@@ -188,6 +188,17 @@ export function Dhis2IntegrationSettings() {
     }
   };
 
+  const statusClass = (status: Dhis2HistoryEntry["status"]) =>
+    status === "success" ? "bg-green-100 text-green-700" : status === "skipped" ? "bg-slate-100 text-slate-500" : "bg-red-100 text-red-700";
+
+  const retryButton = (entry: Dhis2HistoryEntry) =>
+    entry.status === "failed" && !entry.dryRun && !entry.legacy && hasPassword ? (
+      <Button size="sm" variant="outline" className="h-7 text-[10px]" disabled={retryingPeriod === entry.period} onClick={() => handleRetry(entry.period)}>
+        {retryingPeriod === entry.period ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : <RotateCw className="h-3 w-3 mr-1.5" />}
+        {t("dhis2.retry")}
+      </Button>
+    ) : null;
+
   const modeLabel = (entry: Dhis2HistoryEntry) =>
     entry.legacy ? t("dhis2.mode_legacy") : entry.dryRun ? t("dhis2.mode_dry_run") : entry.trigger === "auto" ? t("dhis2.mode_auto") : t("dhis2.mode_manual");
 
@@ -321,7 +332,29 @@ export function Dhis2IntegrationSettings() {
             <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          {/* Narrow content area (phone, settings beside the menu): one card per send. */}
+          <ul className="divide-y divide-slate-100 border-t border-slate-100 @2xl:hidden">
+            {history.length === 0 && <li className="px-4 py-8 text-center text-xs italic text-slate-400">{t("dhis2.no_history")}</li>}
+            {history.map((entry) => (
+              <li key={entry.id} className="space-y-1.5 px-4 py-3 text-xs">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <span className="font-mono font-semibold text-slate-800">{entry.period}</span>
+                    <span className="ml-2 text-slate-500">{modeLabel(entry)}</span>
+                    <span className="block text-[10px] text-slate-400">{new Date(entry.createdAt).toLocaleString()}</span>
+                  </div>
+                  <span className={`shrink-0 rounded px-2 py-0.5 text-[10px] font-bold uppercase ${statusClass(entry.status)}`}>{historyStatusLabel(entry.status)}</span>
+                </div>
+                <div className="text-slate-600">
+                  {t("dhis2.history_values")} : <span className="font-mono">{entry.values ?? "—"}</span>
+                </div>
+                {entry.error && <p className="break-words text-red-600">{errorText(entry.error)}</p>}
+                {retryButton(entry)}
+              </li>
+            ))}
+          </ul>
+          <div className="hidden overflow-x-auto @2xl:block">
             <table className="w-full min-w-[640px] text-left">
               <thead>
                 <tr className="bg-slate-50 text-[10px] text-slate-500 uppercase font-bold border-b border-slate-200">
@@ -347,15 +380,7 @@ export function Dhis2IntegrationSettings() {
                     </td>
                     <td className="px-6 py-3 text-slate-600">{modeLabel(entry)}</td>
                     <td className="px-6 py-3">
-                      <span
-                        className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold ${
-                          entry.status === "success"
-                            ? "bg-green-100 text-green-700"
-                            : entry.status === "skipped"
-                            ? "bg-slate-100 text-slate-500"
-                            : "bg-red-100 text-red-700"
-                        }`}
-                      >
+                      <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold ${statusClass(entry.status)}`}>
                         {historyStatusLabel(entry.status)}
                       </span>
                     </td>
@@ -363,29 +388,13 @@ export function Dhis2IntegrationSettings() {
                     <td className="px-6 py-3 text-slate-500 max-w-xs truncate" title={entry.error ? errorText(entry.error) : undefined}>
                       {entry.error ? errorText(entry.error) : "—"}
                     </td>
-                    <td className="px-6 py-3 text-right">
-                      {entry.status === "failed" && !entry.dryRun && !entry.legacy && hasPassword && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 text-[10px]"
-                          disabled={retryingPeriod === entry.period}
-                          onClick={() => handleRetry(entry.period)}
-                        >
-                          {retryingPeriod === entry.period ? (
-                            <Loader2 className="h-3 w-3 animate-spin mr-1.5" />
-                          ) : (
-                            <RotateCw className="h-3 w-3 mr-1.5" />
-                          )}
-                          {t("dhis2.retry")}
-                        </Button>
-                      )}
-                    </td>
+                    <td className="px-6 py-3 text-right">{retryButton(entry)}                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
     </div>

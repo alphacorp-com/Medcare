@@ -39,6 +39,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
         title={ts("title")}
         subtitle={subtitle}
         actions={<SettingsMobileBackButton href={backHref} label={backLabel} />}
+        noRoundedContainer
       >
         {/* Container for the @-variants used by the settings screens (see the desktop branch). */}
         <div className="@container">{children}</div>
