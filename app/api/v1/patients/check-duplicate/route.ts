@@ -2,13 +2,12 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { requireModulePermission } from "@/lib/permissions";
-import prisma from "@/lib/prisma";
+import { findDuplicateCandidates } from "@/lib/patients/duplicate-lookup";
 
 // ── GET /api/v1/patients/check-duplicate ────────────────────────────────────
-// Query params: firstName, lastName, birthDate (YYYY-MM-DD), nss?
-// Strict exact-match lookup (unlike the loose `contains` search behind the
-// patient-search typeahead) used to warn before creating a likely-duplicate
-// patient record. Matches on exact lastName+firstName+birthDate, OR exact nss.
+// Query params: firstName, lastName, birthDate (YYYY-MM-DD), nss?, phone?
+// Likely duplicates of a patient about to be created (rules: lib/patients/duplicates). The
+// creation route applies the same check itself; this one lets a screen warn earlier.
 export async function GET(request: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
@@ -20,41 +19,19 @@ export async function GET(request: Request) {
   }
 
   const { searchParams } = new URL(request.url);
-  const firstName = searchParams.get("firstName")?.trim();
-  const lastName = searchParams.get("lastName")?.trim();
-  const birthDate = searchParams.get("birthDate")?.trim();
-  const nss = searchParams.get("nss")?.trim();
-
-  const nameMatch = firstName && lastName && birthDate
-    ? {
-        firstName: { equals: firstName, mode: "insensitive" as const },
-        lastName: { equals: lastName, mode: "insensitive" as const },
-        birthDate: new Date(birthDate),
-      }
-    : null;
-
-  if (!nameMatch && !nss) {
+  const firstName = searchParams.get("firstName")?.trim() ?? "";
+  const lastName = searchParams.get("lastName")?.trim() ?? "";
+  const birthDate = new Date(searchParams.get("birthDate")?.trim() ?? "");
+  if (!lastName || Number.isNaN(birthDate.getTime())) {
     return NextResponse.json({ matches: [], success: true });
   }
 
-  const matches = await prisma.patient.findMany({
-    where: {
-      tenantId: session.user.tenantId,
-      OR: [
-        ...(nameMatch ? [nameMatch] : []),
-        ...(nss ? [{ nss }] : []),
-      ],
-    },
-    select: {
-      id: true,
-      ipp: true,
-      firstName: true,
-      lastName: true,
-      birthDate: true,
-      nss: true,
-    },
-    take: 5,
+  const matches = await findDuplicateCandidates(session.user.tenantId, {
+    firstName,
+    lastName,
+    birthDate,
+    nss: searchParams.get("nss"),
+    phone: searchParams.get("phone"),
   });
-
   return NextResponse.json({ matches, success: true });
 }

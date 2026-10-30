@@ -146,7 +146,8 @@ function PatientsPageContent() {
     [form],
   );
 
-  const doCreatePatient = async () => {
+  // confirmDuplicate: the user saw the likely duplicates and chose to create anyway.
+  const doCreatePatient = async (confirmDuplicate = false) => {
     setSaving(true);
     setSaveError(null);
     try {
@@ -170,6 +171,7 @@ function PatientsPageContent() {
             : {},
         allergies: form.allergies,
         chronicConditions: form.chronicConditions,
+        confirmDuplicate,
       };
       const res = await fetch("/api/v1/patients", {
         method: "POST",
@@ -177,6 +179,11 @@ function PatientsPageContent() {
         body: JSON.stringify(payload),
       });
       const json = await res.json();
+      if (res.status === 409 && json.error === "possible_duplicate") {
+        setDuplicateMatches(json.matches ?? []);
+        setShowDuplicateDialog(true);
+        return;
+      }
       if (!res.ok || !json.success) throw new Error(json.error ?? t('error_save'));
       setIsNewPatientOpen(false);
       setForm(EMPTY_FORM);
@@ -197,28 +204,11 @@ function PatientsPageContent() {
     }
   };
 
+  // The duplicate check is the creation route's own (409 possible_duplicate): nothing can be
+  // created by-passing it, and a failed check fails the creation instead of letting it through.
   const handleSave = async () => {
     if (!canSubmit || saving) return;
-    setSaving(true);
-    setSaveError(null);
-    try {
-      const url = new URL("/api/v1/patients/check-duplicate", window.location.origin);
-      url.searchParams.set("firstName", form.firstName);
-      url.searchParams.set("lastName", form.lastName);
-      url.searchParams.set("birthDate", form.birthDate);
-      if (form.nss) url.searchParams.set("nss", form.nss);
-      const res = await fetch(url.toString());
-      const json = await res.json();
-      if (json.success && json.matches?.length > 0) {
-        setDuplicateMatches(json.matches);
-        setShowDuplicateDialog(true);
-        setSaving(false);
-        return;
-      }
-    } catch {
-      // If the duplicate check itself fails, don't block patient creation on it.
-    }
-    await doCreatePatient();
+    await doCreatePatient(false);
   };
 
   // ── Guard ──────────────────────────────────────────────────────────────────
@@ -299,7 +289,10 @@ function PatientsPageContent() {
               <div key={m.id} className="flex items-center justify-between border border-slate-200 rounded p-2 text-xs">
                 <div>
                   <div className="font-semibold text-slate-800">{m.firstName} {m.lastName}</div>
-                  <div className="text-slate-500 font-mono">{m.ipp} — {format(new Date(m.birthDate), "MMM d, yyyy")}</div>
+                  <div className="text-slate-500 font-mono">{m.ipp} — {format(new Date(m.birthDate), "dd/MM/yyyy")}</div>
+                  {m.reasons && m.reasons.length > 0 && (
+                    <div className="mt-0.5 text-[10px] text-amber-700">{m.reasons.map((r) => t(`duplicate_reason_${r}`)).join(" · ")}</div>
+                  )}
                 </div>
                 <Link href={`/patients/${m.id}`} className="text-blue-600 hover:underline font-medium">
                   {t("view_existing")}
@@ -309,7 +302,7 @@ function PatientsPageContent() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDuplicateDialog(false)} disabled={saving}>{tc("cancel")}</Button>
-            <Button className="bg-amber-600 text-white hover:bg-amber-700" onClick={doCreatePatient} disabled={saving}>
+            <Button className="bg-amber-600 text-white hover:bg-amber-700" onClick={() => doCreatePatient(true)} disabled={saving}>
               {t("create_anyway")}
             </Button>
           </DialogFooter>

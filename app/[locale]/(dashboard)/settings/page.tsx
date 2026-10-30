@@ -57,6 +57,8 @@ function SettingsPageContent() {
   const initialTab = searchParams.get("tab") || "profile";
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  // Deployment switches (MOBILE_MONEY_SETTINGS_ENABLED…), read at run time from the server.
+  const [features, setFeatures] = useState<{ mobileMoneySettings: boolean }>({ mobileMoneySettings: false });
   const [activeTab, setActiveTab] = useState(initialTab);
   // Mobile shows the section list first; a `?tab=` deep link opens that section directly.
   const [mobileSelected, setMobileSelected] = useState<string | null>(searchParams.get("tab"));
@@ -105,10 +107,12 @@ function SettingsPageContent() {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const [orgRes, tplRes] = await Promise.all([
+        const [orgRes, tplRes, featuresRes] = await Promise.all([
           fetch('/api/v1/settings/organization'),
           fetch('/api/v1/settings/templates'),
+          fetch('/api/v1/settings/features'),
         ]);
+        if (featuresRes.ok) setFeatures(await featuresRes.json());
 
         if (orgRes.ok) {
           const data = await orgRes.json();
@@ -309,14 +313,18 @@ function SettingsPageContent() {
         <>
           <div className="mb-4">
             <h2 className="text-lg font-bold text-slate-900">{t("integrations")}</h2>
-            <p className="text-xs text-slate-500">{t("integrations_desc")}</p>
+            <p className="text-xs text-slate-500">{t(features.mobileMoneySettings ? "integrations_desc" : "integrations_desc_dhis2_only")}</p>
           </div>
           <Dhis2IntegrationSettings />
-          <div className="mt-8 mb-4">
-            <h2 className="text-lg font-bold text-slate-900">{t("payments.title")}</h2>
-            <p className="text-xs text-slate-500">{t("payments.description")}</p>
-          </div>
-          <MobileMoneySettings />
+          {features.mobileMoneySettings && (
+            <>
+              <div className="mt-8 mb-4">
+                <h2 className="text-lg font-bold text-slate-900">{t("payments.title")}</h2>
+                <p className="text-xs text-slate-500">{t("payments.description")}</p>
+              </div>
+              <MobileMoneySettings />
+            </>
+          )}
         </>
       ),
     },

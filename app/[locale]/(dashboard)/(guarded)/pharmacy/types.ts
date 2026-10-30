@@ -15,6 +15,7 @@ export type PrescriptionRow = {
   invoiceTotal?: number | null;
   patientId?: string;
   stayId?: string | null;
+  notes?: string | null;
 };
 
 export type PrescriptionItemData = {

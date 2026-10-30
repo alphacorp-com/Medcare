@@ -61,7 +61,11 @@ Fiche du rendez-vous → **Reprogrammer** : nouvelle date, nouveau créneau ou n
 Possible tant que le rendez-vous est réservé ou confirmé ; le nouveau créneau est revérifié.
 
 ### Enregistrer l'arrivée du patient
-Fiche du rendez-vous → **Enregistrer l'arrivée** :
+**Arrivée** (liste) ou fiche du rendez-vous → **Enregistrer l'arrivée** → choisissez l'**acte** à
+facturer (consultation générale, spécialisée…), comme à l'admission :
+- l'acte est **obligatoire** tant que la facturation est active (le serveur refuse sinon) ;
+- il est facturé aussitôt et le patient passe **à la caisse avant la consultation** (file
+  « en attente de paiement »), comme un patient admis à l'accueil ;
 - un **séjour** de type *Programmé* est créé et relié au rendez-vous ;
 - le patient entre dans la **file de consultation** (voir [Admissions](../admissions/README.md)) ;
 - deux clics simultanés ne créent qu'un seul séjour.
@@ -74,16 +78,13 @@ Fiche du rendez-vous → **Enregistrer l'arrivée** :
 
 ## Règles
 
-- Le rendez-vous lui-même ne génère **aucune facture** : c'est la consultation qui suit qui est
-  facturée.
+- Le rendez-vous lui-même ne génère **aucune facture** : l'acte choisi à l'arrivée est facturé, et
+  le patient le règle avant la consultation (même règle « payer d'abord » que l'admission).
 - Une série mensuelle garde le même jour du mois (le 31 devient le dernier jour des mois plus
   courts).
 
 ## Limites connues
 
-- L'API d'arrivée accepte un acte d'admission (paiement avant consultation), mais **l'écran ne le
-  propose pas encore** : le patient sur rendez-vous entre directement dans la file, sans passer par
-  la caisse.
 - Il n'y a pas d'action explicite « Terminer » le rendez-vous.
 
 ## 🛠️ Repères techniques

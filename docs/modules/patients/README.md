@@ -49,10 +49,19 @@ Le module Patients est le point d'entrée de MedCare : chaque patient y reçoit 
 2. Renseignez au minimum **nom, prénom, date de naissance et sexe**. Complétez si possible :
    téléphone, adresse, NSS, groupe sanguin, nom de jeune fille, lieu de naissance, personne à
    prévenir, allergies, antécédents chroniques, consentement au traitement des données.
-3. Avant la création, MedCare cherche un **doublon probable** : même nom, prénom et date de
-   naissance, ou même NSS. S'il en trouve un, ouvrez la fiche existante plutôt que d'en créer une
-   seconde.
-4. Validez : l'IPP est attribué automatiquement.
+3. À la création, le **serveur** cherche un **doublon probable** et refuse tant que vous ne
+   confirmez pas :
+   - même **NSS** ;
+   - même **date de naissance** et même **nom** — sans tenir compte des majuscules, accents, tirets
+     ou espaces, avec nom et prénom éventuellement **inversés**, et un prénom court qui commence
+     le prénom complet (« Marie » / « Marie-Claire ») ;
+   - même **téléphone** (les 9 derniers chiffres : +237, 00237 ou les espaces ne comptent pas) avec
+     la même date de naissance ou le même nom.
+
+   Les dossiers trouvés s'affichent avec la raison. Ouvrez la fiche existante plutôt que d'en créer
+   une seconde ; **Créer quand même** est tracé dans le journal d'audit.
+4. Validez : l'IPP est attribué automatiquement (« 10 » + 7 chiffres, après le plus grand
+   existant ; deux créations simultanées ne reçoivent jamais le même).
 
 ### Corriger l'identité d'un patient
 Fiche patient → **Modifier** → corrigez → enregistrez. Toute modification est tracée.
@@ -99,6 +108,9 @@ tuberculose et suivi. Voir [Programmes de santé](../programmes-de-sante/README.
 ## Limites connues
 
 - Pas de fusion de deux dossiers créés en doublon : la détection n'intervient qu'à la création.
+- Une faute de frappe dans le nom (« Ngono » / « Ngonno ») ou une date de naissance mal saisie
+  n'est pas détectée (pas de comparaison approchée).
+- Le NSS est unique dans toute la base, pas par établissement.
 - Pas de visionneuse d'images DICOM : la radiologie stocke un compte rendu et, au plus, un lien
   externe (PACS).
 

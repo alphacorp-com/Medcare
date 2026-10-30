@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { AlertTriangle, CheckCircle2, Loader2, UserX, XCircle } from "lucide-react";
 import { Appointment, AppointmentConflict, Doctor } from "../types";
+import { CheckInDialog } from "./CheckInDialog";
 
 export function AppointmentDetailSheet({
   open,
@@ -30,6 +31,7 @@ export function AppointmentDetailSheet({
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [conflicts, setConflicts] = useState<AppointmentConflict[] | null>(null);
+  const [isCheckInOpen, setIsCheckInOpen] = useState(false);
 
   if (!appointment) return null;
 
@@ -66,7 +68,7 @@ export function AppointmentDetailSheet({
     }
   };
 
-  const runAction = async (action: "check-in" | "cancel" | "no-show", body?: Record<string, unknown>) => {
+  const runAction = async (action: "cancel" | "no-show", body?: Record<string, unknown>) => {
     setIsSaving(true);
     setError(null);
     try {
@@ -139,7 +141,7 @@ export function AppointmentDetailSheet({
 
           <div className="flex flex-wrap gap-2 border-t pt-4">
             {canEdit && (
-              <Button size="sm" className="bg-green-600 text-white hover:bg-green-700" disabled={isSaving} onClick={() => runAction("check-in")}>
+              <Button size="sm" className="bg-green-600 text-white hover:bg-green-700" disabled={isSaving} onClick={() => setIsCheckInOpen(true)}>
                 <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> {t("check_in")}
               </Button>
             )}
@@ -168,6 +170,14 @@ export function AppointmentDetailSheet({
           </div>
         </div>
       </SheetContent>
+      <CheckInDialog
+        appointment={isCheckInOpen ? appointment : null}
+        onOpenChange={setIsCheckInOpen}
+        onCheckedIn={() => {
+          onUpdated();
+          onOpenChange(false);
+        }}
+      />
     </Sheet>
   );
 }

@@ -890,7 +890,10 @@
     "vitals_height": "Taille",
     "vitals_spo2": "SpO2",
     "no_vitals_recorded": "Aucune constante enregistrée pour le moment.",
-    "latest_vitals": "Dernières Constantes"
+    "latest_vitals": "Dernières Constantes",
+    "duplicate_reason_nss": "Même NSS",
+    "duplicate_reason_name_birth_date": "Même nom et date de naissance",
+    "duplicate_reason_phone": "Même téléphone"
   },
   "record": {
     "new_medical_record": "Nouveau Dossier Médical",
@@ -965,7 +968,12 @@
     "dispensed_tab": "Historique des Délivrances",
     "inventory_value": "Valeur Totale du Stock",
     "patient": "Patient",
-    "patient_sheet": "Fiche patient"
+    "patient_sheet": "Fiche patient",
+    "cancel_rx_title": "Annuler l'ordonnance",
+    "cancel_rx_desc": "L'ordonnance ne pourra plus être délivrée. Les lignes de facture non payées sont retirées.",
+    "cancel_rx_reason": "Motif (obligatoire)",
+    "cancel_rx_confirm": "Annuler l'ordonnance",
+    "cancel_rx_done": "Ordonnance annulée."
   },
   "settings": {
     "validate_permission": "Valider",
@@ -1730,7 +1738,18 @@
         "invalid_viewer_template": "L'adresse doit être en http(s) et contenir '{accession}'."
       }
     },
-    "integrations_desc": "Transmission du RMA3 à DHIS2 et paiements Mobile Money."
+    "integrations_desc": "Transmission du RMA3 à DHIS2 et paiements Mobile Money.",
+    "integrations_desc_dhis2_only": "Transmission du RMA3 à DHIS2.",
+    "onprem_mode_title": "Activer ou renouveler la licence",
+    "onprem_mode_desc": "Choisissez d'abord comment cette installation obtient sa licence.",
+    "onprem_mode_online": "En ligne",
+    "onprem_mode_online_hint": "Ce serveur contacte AlphaCorp directement. Il faut un accès internet.",
+    "onprem_mode_offline": "Hors ligne (fichier)",
+    "onprem_mode_offline_hint": "Téléchargez un fichier de demande, envoyez-le à AlphaCorp, puis importez le fichier de licence reçu.",
+    "onprem_mode_online_desc": "Activation en ligne : ce serveur contacte AlphaCorp.",
+    "onprem_mode_offline_desc": "Activation hors ligne : par fichier de demande et fichier de licence.",
+    "onprem_mode_change": "Changer de mode",
+    "onprem_mode_online_unavailable": "Non configurée sur ce serveur (identifiants ou adresse AlphaCorp manquants)."
   },
   "surgery": {
     "postpone": "Reporter",
@@ -2674,7 +2693,11 @@
     "summary_empty": "Sélectionnez le patient, le médecin et un créneau.",
     "doctor_required": "Veuillez sélectionner un médecin.",
     "slot_required": "Veuillez choisir un créneau ou saisir une heure.",
-    "series_partial": "{created} rendez-vous créé(s), {skipped} ignoré(s) pour cause de conflit."
+    "series_partial": "{created} rendez-vous créé(s), {skipped} ignoré(s) pour cause de conflit.",
+    "check_in_act_required": "Choisissez l'acte à facturer : le patient le règle à la caisse avant la consultation.",
+    "check_in_payment_hint": "L'acte est facturé maintenant ; le patient passe à la caisse avant d'entrer dans la file de consultation.",
+    "check_in_no_acts": "Aucun acte n'est configuré (Paramètres → Actes médicaux).",
+    "checked_in_awaiting_payment": "Arrivée enregistrée : le patient doit régler l'acte à la caisse."
   },
   "billing": {
     "method_credit_transfer": "Transfert de trop-perçu",

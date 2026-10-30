@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { NewAppointmentSheet } from "./_components/NewAppointmentSheet";
 import { AppointmentDetailSheet } from "./_components/AppointmentDetailSheet";
+import { CheckInDialog } from "./_components/CheckInDialog";
 import { useDeepLinkedItem } from "@/hooks/use-deep-linked-item";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Appointment, Doctor } from "./types";
@@ -38,6 +39,7 @@ function AppointmentsPageContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [isNewOpen, setIsNewOpen] = useState(false);
   const [detailAppointment, setDetailAppointment] = useState<Appointment | null>(null);
+  const [checkInAppointment, setCheckInAppointment] = useState<Appointment | null>(null);
   // ?appointment=<id> (dashboard panels) opens it once the day's list has loaded.
   const appointmentLink = useDeepLinkedItem("appointment", appointments);
   const openAppointment = detailAppointment ?? appointmentLink.linked;
@@ -118,20 +120,8 @@ function AppointmentsPageContent() {
 
   const doctorName = (id: string) => doctorsById.get(id)?.fullName ?? id;
 
-  const quickCheckIn = async (appointment: Appointment) => {
-    try {
-      const res = await fetch(`/api/v1/appointments/${appointment.id}/check-in`, { method: "POST" });
-      if (!res.ok) {
-        const payload = await res.json().catch(() => ({}));
-        toast.error(payload?.error || t("action_error"));
-        return;
-      }
-      toast.success(t("checked_in_success"));
-      fetchAppointments();
-    } catch {
-      toast.error(t("action_error"));
-    }
-  };
+  // Check-in goes through the act / payment dialog (CheckInDialog).
+  const quickCheckIn = (appointment: Appointment) => setCheckInAppointment(appointment);
 
   const isToday = dayBounds(selectedDate).start.getTime() === dayBounds(new Date()).start.getTime();
   const waitingCount = appointments.filter((a) => a.status === "booked" || a.status === "confirmed").length;
@@ -316,6 +306,7 @@ function AppointmentsPageContent() {
         doctors={doctors}
         onCreated={fetchAppointments}
       />
+      <CheckInDialog appointment={checkInAppointment} onOpenChange={(open) => !open && setCheckInAppointment(null)} onCheckedIn={fetchAppointments} />
       <AppointmentDetailSheet
         open={Boolean(openAppointment)}
         onOpenChange={(open) => {

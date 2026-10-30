@@ -109,7 +109,8 @@ export function PrescriptionQueue({
                       "px-2 py-0.5 rounded text-[10px] uppercase font-semibold",
                       rx.status === 'Pending Queue' ? "bg-yellow-100 text-yellow-700" :
                         rx.status === 'Validated' ? "bg-blue-100 text-blue-700" :
-                          "bg-green-100 text-green-700"
+                          rx.status === 'Cancelled' ? "bg-red-100 text-red-700" :
+                            "bg-green-100 text-green-700"
                     )}>
                       {rx.status}
                     </span>

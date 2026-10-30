@@ -9,6 +9,10 @@ import { Prisma, type PrescriptionStatus } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import { StockError, consumeStock, stockErrorResponse } from "@/lib/stock/movements";
 import { lineDrugName, lineUnits, parseStoredLines, resolveLineArticle, type StoredPrescriptionLine } from "@/lib/stock/prescription-items";
+import { removeUnpaidCharge } from "@/lib/billing/paymentGate";
+import { extractRequestMeta, recordAuditEvent } from "@/lib/audit";
+
+const MAX_CANCEL_REASON = 1_000;
 
 // A line the prescriber marked as a drug the pharmacy does not stock (inventoryId: null):
 // neither billed nor dispensed by the pharmacy.
@@ -42,7 +46,10 @@ export async function PATCH(
     const body = await request.json();
     const { status } = body;
 
-    if (!status || !['pending', 'validated', 'dispensed'].includes(status)) {
+    // Forward transitions only: pending → validated → dispensed, or cancelled (with a reason)
+    // before dispensing. Going back to "pending" is not a transition: it let a dispensed
+    // prescription be validated and dispensed again (stock taken out twice).
+    if (!status || !['validated', 'dispensed', 'cancelled'].includes(status)) {
       return NextResponse.json(
         { error: "Invalid status", success: false },
         { status: 400 }
@@ -218,8 +225,50 @@ export async function PATCH(
         }
         throw error;
       }
-    } else {
-      await prisma.prescription.update({ where: { id }, data: { status: status as PrescriptionStatus } });
+    } else if (status === 'cancelled') {
+      const reason = typeof body.reason === "string" ? body.reason.trim() : "";
+      if (!reason) {
+        return NextResponse.json({ error: "A reason is required to cancel a prescription", success: false }, { status: 400 });
+      }
+      if (reason.length > MAX_CANCEL_REASON) {
+        return NextResponse.json({ error: "The reason is too long", success: false }, { status: 413 });
+      }
+      // A validated prescription is billed: it is cancelled only while nothing has been paid on
+      // its lines (a payment is refunded through billing, not by cancelling the prescription).
+      const billedLines = await prisma.patientInvoiceLine.findMany({
+        where: { sourceType: "pharmacy_dispensation", sourceId: { startsWith: `${currentRx.id}:` } },
+        select: { sourceId: true, invoice: { select: { status: true, paidAmount: true } } },
+      });
+      if (billedLines.some((line) => line.invoice.status !== "cancelled" && Number(line.invoice.paidAmount) > 0)) {
+        return NextResponse.json(
+          { error: "This prescription's invoice has already been paid: refund it from billing first", success: false },
+          { status: 409 }
+        );
+      }
+      const stamp = `[Annulée : ${reason}]`;
+      const claimed = await prisma.prescription.updateMany({
+        where: { id, tenantId, status: { in: ['pending', 'validated'] } },
+        data: { status: 'cancelled', notes: currentRx.notes ? `${currentRx.notes}\n${stamp}` : stamp },
+      });
+      if (claimed.count !== 1) {
+        return NextResponse.json(
+          { error: "Only a pending or validated prescription can be cancelled", success: false },
+          { status: 409 }
+        );
+      }
+      for (const line of billedLines) {
+        if (line.sourceId) await removeUnpaidCharge("pharmacy_dispensation", line.sourceId);
+      }
+      await recordAuditEvent({
+        tenantId,
+        actorId: session.user.id,
+        actorType: "tenant_user",
+        action: "pharmacy.prescription_cancelled",
+        resourceType: "prescription",
+        resourceId: id,
+        payload: { reason, previousStatus: currentRx.status, removedInvoiceLines: billedLines.length },
+        ...extractRequestMeta(request.headers),
+      });
     }
 
     const prescription = await prisma.prescription.findUnique({ where: { id } });

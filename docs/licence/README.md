@@ -87,8 +87,13 @@ usage. Le secret brut n'est jamais journalisé ni renvoyé au client.
 
 ## 3. Activation en ligne
 
-**👤** Paramètres → **Licence** → section **"Activer en Ligne"** → bouton **Activer en Ligne**.
-En cas de succès, la date de validité s'affiche immédiatement.
+**👤** Paramètres → **Licence** → **Activer ou renouveler la licence** : choisissez d'abord le
+**mode** — *En ligne* ou *Hors ligne (fichier)* —, seule l'interface de ce mode s'affiche ensuite
+(**Changer de mode** pour revenir). *En ligne* est grisé tant que le serveur n'a pas ses
+identifiants et l'adresse AlphaCorp (section 2).
+
+*En ligne* → bouton **Activer en Ligne**. En cas de succès, la date de validité s'affiche
+immédiatement.
 
 **Prérequis côté AlphaCorp** : le client doit avoir un **abonnement (plan) actif** assigné sur sa
 fiche — sinon l'activation en ligne est refusée avec *"assign a plan before activation"*. C'est la
@@ -120,7 +125,8 @@ source d'expiration/validité automatiquement utilisée : pas besoin de ressaisi
 **👤** Utile sans accès internet sortant depuis le site MedCare. Se fait en 3 allers-retours, avec
 seulement 2 petits fichiers `.json` à transporter (clé USB, email, etc.) :
 
-1. **Sur MedCare** — Paramètres → Licence → **"Télécharger le Fichier de Demande"**.
+1. **Sur MedCare** — Paramètres → Licence → mode **Hors ligne (fichier)** → **"Télécharger le
+   Fichier de Demande"**.
 2. **Transférer ce fichier vers AlphaCorp** (il ne contient pas le secret en clair, juste sa
    signature — pas sensible en soi).
 3. **Sur AlphaCorp** — fiche du même client → section **"Émettre une licence hors-ligne"** → uploader

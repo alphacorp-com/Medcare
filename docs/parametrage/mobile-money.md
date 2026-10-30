@@ -3,6 +3,10 @@
 Configuration des paiements Mobile Money à la caisse. Réservé à l'**administrateur** :
 **Paramètres → Intégrations Externes → Mobile Money**.
 
+> **Affichage** : la section est visible sauf si le serveur est configuré avec
+> `MOBILE_MONEY_SETTINGS_ENABLED=false` (lu au démarrage, sans reconstruire l'application). Masquée,
+> ses routes de réglage sont fermées aussi ; les paiements déjà configurés continuent de fonctionner.
+
 > Avant toute mise en production, lisez les prérequis et les limites en fin de page : aucun des
 > deux opérateurs n'a encore été validé en conditions réelles.
 

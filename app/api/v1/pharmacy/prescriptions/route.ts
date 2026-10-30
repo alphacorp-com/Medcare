@@ -167,7 +167,10 @@ export async function GET(req: Request) {
         patientName: `${rx.patient.firstName} ${rx.patient.lastName}`,
         prescriber: doctorMap.get(rx.prescriberId) || `ID: ${rx.prescriberId}`,
         date: rx.prescribedAt,
-        status: rx.status === 'pending' ? 'Pending Queue' : rx.status === 'validated' ? 'Validated' : 'Dispensed',
+        status: rx.status === 'pending' ? 'Pending Queue' : rx.status === 'validated' ? 'Validated' : rx.status === 'dispensed' ? 'Dispensed' : 'Cancelled',
+        patientId: rx.patientId,
+        // Cancellation reason(s), appended to the notes by the status route.
+        notes: rx.notes,
         items: itemsList.length || 0,
         itemsData: enrichedItems,
         ipp: rx.patient.ipp,

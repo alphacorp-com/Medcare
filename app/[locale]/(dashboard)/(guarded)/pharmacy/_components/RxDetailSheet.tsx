@@ -16,10 +16,12 @@ import {
   Receipt,
   PillBottle,
   Printer,
-  FileText
+  FileText,
+  Loader2,
 } from "lucide-react";
 import { format } from "date-fns";
 import { useState } from "react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { Link } from "@/i18n/routing";
 import { PrescriptionRow } from "../types";
@@ -32,6 +34,8 @@ interface RxDetailSheetProps {
   onClose: () => void;
   onValidate: (id: string) => Promise<void>;
   onDispense: (id: string) => Promise<void>;
+  // Resolves to an error message, or null once cancelled.
+  onCancel: (id: string, reason: string) => Promise<string | null>;
 }
 
 export function RxDetailSheet({
@@ -39,11 +43,16 @@ export function RxDetailSheet({
   onClose,
   onValidate,
   onDispense,
+  onCancel,
 }: RxDetailSheetProps) {
   const t = useTranslations('pharmacy');
   const tc = useTranslations('common');
   const [printTemplate, setPrintTemplate] = useState<"prescriptions" | "medications" | null>(null);
   const { facility: pdfFacility, settings: pdfSettings } = usePdfBranding();
+  const [isCancelOpen, setIsCancelOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelError, setCancelError] = useState<string | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   if (!rx) return null;
 
@@ -85,6 +94,7 @@ export function RxDetailSheet({
                   "px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider",
                   rx.status === 'Pending Queue' ? "bg-yellow-100 text-yellow-700" :
                   rx.status === 'Validated' ? "bg-blue-100 text-blue-700" :
+                  rx.status === 'Cancelled' ? "bg-red-100 text-red-700" :
                   "bg-green-100 text-green-700"
                 )}>
                   {rx.status}
@@ -108,7 +118,11 @@ export function RxDetailSheet({
                 <div className="text-[10px] font-mono text-slate-500">{tc('ipp')}: {rx.ipp}</div>
               </div>
             </div>
-            <Button variant="outline" size="sm" className="text-xs h-7">{tc('view')}</Button>
+            {rx.patientId && (
+              <Link href={`/patients/${rx.patientId}`}>
+                <Button variant="outline" size="sm" className="text-xs h-7">{tc('view')}</Button>
+              </Link>
+            )}
           </div>
 
 
@@ -199,7 +213,15 @@ export function RxDetailSheet({
             </Button>
             {rx.status === 'Pending Queue' && (
               <>
-                <Button variant="outline" className="text-xs h-8 border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800">
+                <Button
+                  variant="outline"
+                  className="text-xs h-8 border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+                  onClick={() => {
+                    setCancelReason("");
+                    setCancelError(null);
+                    setIsCancelOpen(true);
+                  }}
+                >
                   <X className="mr-2 h-3.5 w-3.5" /> {tc('cancel')}
                 </Button>
                 <Button 
@@ -236,7 +258,48 @@ export function RxDetailSheet({
         </SheetFooter>
       </SheetContent>
     </Sheet>
-    <PDFPreviewModal
+    <Dialog open={isCancelOpen} onOpenChange={(open) => !isCancelling && setIsCancelOpen(open)}>
+        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('cancel_rx_title')}</DialogTitle>
+            <DialogDescription>{t('cancel_rx_desc')}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            {cancelError && <div className="rounded border border-red-200 bg-red-50 p-2 text-xs text-red-700">{cancelError}</div>}
+            <label className="text-[11px] font-semibold text-slate-600">{t('cancel_rx_reason')}</label>
+            <textarea
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              rows={3}
+              maxLength={1000}
+              className="flex w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" disabled={isCancelling} onClick={() => setIsCancelOpen(false)}>{tc('close')}</Button>
+            <Button
+              className="bg-red-600 text-white hover:bg-red-700"
+              disabled={isCancelling || !cancelReason.trim()}
+              onClick={async () => {
+                setIsCancelling(true);
+                setCancelError(null);
+                const error = await onCancel(rx.id, cancelReason.trim());
+                setIsCancelling(false);
+                if (error) {
+                  setCancelError(error);
+                  return;
+                }
+                setIsCancelOpen(false);
+                onClose();
+              }}
+            >
+              {isCancelling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <X className="mr-2 h-4 w-4" />}
+              {t('cancel_rx_confirm')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <PDFPreviewModal
       isOpen={printTemplate !== null}
       onClose={() => setPrintTemplate(null)}
       templateId={printTemplate ?? "prescriptions"}

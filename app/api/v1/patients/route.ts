@@ -4,6 +4,8 @@ import { authOptions } from "@/lib/auth";
 import { requireModulePermission } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { findDuplicateCandidates, withNextIpp } from "@/lib/patients/duplicate-lookup";
+import { extractRequestMeta, recordAuditEvent } from "@/lib/audit";
 
 // ── GET /api/v1/patients ──────────────────────────────────────────────────────
 // Query params:
@@ -123,6 +125,7 @@ export async function POST(request: Request) {
       allergies,
       chronicConditions,
       gdprConsent,
+      confirmDuplicate,
     } = body;
 
     // Validate required fields
@@ -133,20 +136,33 @@ export async function POST(request: Request) {
       );
     }
 
-    // Generate IPP: "10" + 7-digit zero-padded count+1 (scoped to tenant since
-    // Patient.ipp is unique per-tenant, not globally)
-    const count = await prisma.patient.count({
-      where: { tenantId: session.user.tenantId },
-    });
-    const ipp = `10${String(count + 1).padStart(7, "0")}`;
+    const parsedBirthDate = new Date(birthDate);
+    if (Number.isNaN(parsedBirthDate.getTime())) {
+      return NextResponse.json({ error: "birthDate must be a valid date", success: false }, { status: 400 });
+    }
 
-    const patient = await prisma.patient.create({
+    // Likely duplicates are checked here, not only by the screen: a direct call, a failed
+    // check in the browser or a second tab cannot create one silently. Creating anyway is an
+    // explicit choice (confirmDuplicate), recorded in the audit log.
+    const duplicates = await findDuplicateCandidates(session.user.tenantId, {
+      firstName: String(firstName),
+      lastName: String(lastName),
+      birthDate: parsedBirthDate,
+      nss: nss || null,
+      phone: phone || null,
+    });
+    if (duplicates.length > 0 && confirmDuplicate !== true) {
+      return NextResponse.json({ error: "possible_duplicate", matches: duplicates, success: false }, { status: 409 });
+    }
+
+    // IPP "10" + 7 digits, unique per facility; a simultaneous creation is retried with the next.
+    const patient = await withNextIpp(session.user.tenantId, (ipp) => prisma.patient.create({
       data: {
         tenantId: session.user.tenantId,
         ipp,
         firstName,
         lastName,
-        birthDate: new Date(birthDate),
+        birthDate: parsedBirthDate,
         gender,
         phone: phone ?? null,
         email: email ?? null,
@@ -161,13 +177,28 @@ export async function POST(request: Request) {
         gdprConsent: gdprConsent ?? false,
         gdprConsentAt: gdprConsent ? new Date() : null,
       },
-    });
+    }));
+
+    if (duplicates.length > 0) {
+      await recordAuditEvent({
+        tenantId: session.user.tenantId,
+        actorId: session.user.id,
+        actorType: "tenant_user",
+        action: "patient.created_despite_duplicate",
+        resourceType: "patient",
+        resourceId: patient.id,
+        payload: { possibleDuplicates: duplicates.map((d) => ({ id: d.id, ipp: d.ipp, reasons: d.reasons })) },
+        ...extractRequestMeta(request.headers),
+      });
+    }
 
     return NextResponse.json({ data: patient, success: true }, { status: 201 });
   } catch (error) {
+    // Only the NSS can still collide here (IPP collisions are retried by withNextIpp).
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      const nssTaken = JSON.stringify(error.meta?.target ?? "").includes("nss");
       return NextResponse.json(
-        { error: "A patient with this NSS already exists", success: false },
+        { error: nssTaken ? "A patient with this NSS already exists" : "This patient number is already used, retry", success: false },
         { status: 409 }
       );
     }

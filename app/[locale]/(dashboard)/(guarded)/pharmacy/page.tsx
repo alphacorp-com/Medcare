@@ -155,6 +155,24 @@ function PharmacyPageContent() {
     }
   };
 
+  // Cancels a prescription before dispensing (reason required; unpaid charges are removed).
+  const handleCancelRx = async (id: string, reason: string): Promise<string | null> => {
+    try {
+      const res = await fetch(`/api/v1/pharmacy/prescriptions/${id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'cancelled', reason }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) return json?.error || tc("unknown_error");
+      toast.success(t("cancel_rx_done"));
+      await refreshPrescriptions();
+      return null;
+    } catch {
+      return tc("unknown_error");
+    }
+  };
+
   const handleSaveMed = async () => {
     setSavingMed(true);
     setMedError(null);
@@ -285,6 +303,7 @@ function PharmacyPageContent() {
         }}
         onValidate={handleValidateRx}
         onDispense={handleDispenseRx}
+        onCancel={handleCancelRx}
       />
 
       <AddMedicationSheet

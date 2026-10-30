@@ -53,6 +53,8 @@ export type DuplicateMatch = {
   lastName: string;
   birthDate: string;
   nss: string | null;
+  // Why it looks like the same patient (lib/patients/duplicates).
+  reasons?: ("nss" | "name_birth_date" | "phone")[];
 };
 
 export function ageFromBirthDate(iso: string): number {

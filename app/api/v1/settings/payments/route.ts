@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { requireTenantAdmin } from "@/lib/permissions";
+import { isMobileMoneySettingsEnabled } from "@/lib/features";
 import { encryptSecret } from "@/lib/payments/crypto";
 import { getMobileMoneyConfig, saveMobileMoneyConfig, MobileMoneyStoredConfig } from "@/lib/payments/config";
 
@@ -13,6 +14,10 @@ export async function GET() {
   const permCheck = requireTenantAdmin(session);
   if (!permCheck.ok) {
     return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
+  }
+  // Hidden by the deployment (MOBILE_MONEY_SETTINGS_ENABLED=false): the routes are closed too.
+  if (!isMobileMoneySettingsEnabled()) {
+    return NextResponse.json({ error: "feature_disabled" }, { status: 404 });
   }
 
   const config = await getMobileMoneyConfig(session.user.tenantId);
@@ -48,6 +53,10 @@ export async function PUT(req: Request) {
   const permCheck = requireTenantAdmin(session);
   if (!permCheck.ok) {
     return NextResponse.json({ error: permCheck.error }, { status: permCheck.status });
+  }
+  // Hidden by the deployment (MOBILE_MONEY_SETTINGS_ENABLED=false): the routes are closed too.
+  if (!isMobileMoneySettingsEnabled()) {
+    return NextResponse.json({ error: "feature_disabled" }, { status: 404 });
   }
 
   try {

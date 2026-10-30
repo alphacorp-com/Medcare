@@ -49,6 +49,16 @@ Un lot est utilisable **jusqu'au jour de sa péremption inclus**, et périmé d�
 5. **À dispenser → Délivrer** : quand la facturation est active, la délivrance est **refusée tant
    que la facture n'est pas payée**. La délivrance sort le stock **lot par lot (FEFO)**.
 
+**Annuler** (ordonnance à valider ou validée, avant délivrance) : motif obligatoire, conservé dans
+les notes de l'ordonnance et dans le journal d'audit. Les lignes de facture **non payées** sont
+retirées ; si la facture a déjà reçu un paiement, l'annulation est refusée (remboursez d'abord
+depuis la facturation). Une ordonnance délivrée ne s'annule pas.
+
+**Voir** (à côté du patient) ouvre son dossier.
+
+Une ordonnance ne revient jamais à « à valider » : seules les étapes à valider → validée →
+délivrée, ou l'annulation, sont possibles (un retour en arrière permettait de délivrer deux fois).
+
 **Fiche patient** : depuis l'ordonnance, imprime pour le patient comment prendre chaque
 médicament (dose, fréquence, durée, instructions du prescripteur). Elle ne contient que ce que le
 prescripteur a écrit : MedCare n'a pas de monographie de médicaments et n'imprime jamais de mise

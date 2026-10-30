@@ -12,8 +12,9 @@ import { chargeAdmissionAct, isPaymentGateActive } from "@/lib/billing/paymentGa
 // "scheduled", already in the consultation queue via consultationStatus "waiting") and
 // links it back to the appointment. Everything downstream — triage, the consultation
 // queue, billing — already understands Stay and needs no appointment-specific code.
-// Body (optional): { medicalActCode } — billed right away, and the stay waits for payment
-// before reaching the consultation queue, same as a front-desk admission.
+// Body: { medicalActCode } — billed right away, and the stay waits for payment before reaching
+// the consultation queue, same as a front-desk admission. Required while billing is active:
+// an appointment is not a way round the cashier.
 export async function POST(req: Request, context: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
@@ -52,7 +53,11 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
     if (body.medicalActCode && !act) {
       return NextResponse.json({ error: `Medical act "${body.medicalActCode}" was not found or is inactive` }, { status: 404 });
     }
-    const awaitingPayment = Boolean(act) && (await isPaymentGateActive(session.user.tenantId));
+    const gateActive = await isPaymentGateActive(session.user.tenantId);
+    if (gateActive && !act) {
+      return NextResponse.json({ error: "medical_act_required" }, { status: 400 });
+    }
+    const awaitingPayment = gateActive && Boolean(act);
 
     const { stay, updated } = await withNextStayNumber(session.user.tenantId, (stayNumber) => prisma.$transaction(async (tx) => {
       // Claim the appointment first, conditionally: the status check above ran outside

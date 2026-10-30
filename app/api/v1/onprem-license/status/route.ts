@@ -32,5 +32,10 @@ export async function GET() {
     guard,
     fingerprint,
     fingerprintWarning: fingerprintInstabilityReason(),
+    // Whether online activation can be attempted at all (credentials and AlphaCorp URL set):
+    // only the fact, never the values.
+    onlineActivationAvailable: Boolean(
+      process.env.ONPREM_LICENSE_CLIENT_ID?.trim() && process.env.ONPREM_LICENSE_CLIENT_SECRET?.trim() && process.env.ALPHACORP_LICENSE_API_URL?.trim()
+    ),
   });
 }

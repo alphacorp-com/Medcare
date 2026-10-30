@@ -5,8 +5,13 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  ServerCog, Loader2, Wifi, Upload, Download, AlertTriangle, ShieldAlert, Fingerprint, CheckCircle2,
+  ServerCog, Loader2, Wifi, WifiOff, Upload, Download, AlertTriangle, ShieldAlert, Fingerprint, CheckCircle2, ArrowLeft,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+// How the administrator activates or renews the license: online (this server calls AlphaCorp)
+// or offline (request file out, license file in). Chosen first; only that flow is shown.
+type ActivationMode = "online" | "offline";
 
 type LicenseStatus = {
   license: {
@@ -29,6 +34,7 @@ type LicenseStatus = {
   };
   fingerprint: string;
   fingerprintWarning?: string | null;
+  onlineActivationAvailable?: boolean;
 };
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -63,6 +69,7 @@ export function OnPremLicensePanel() {
   const [importError, setImportError] = useState<string | null>(null);
   const [importSuccess, setImportSuccess] = useState<string | null>(null);
   const [importFileName, setImportFileName] = useState("");
+  const [mode, setMode] = useState<ActivationMode | null>(null);
 
   // When the status was last read: the deadline countdown is computed from it rather than
   // from the clock during render (rendering stays pure).
@@ -301,6 +308,51 @@ export function OnPremLicensePanel() {
       </div>
 
       <div className="bg-white rounded-2xl md:rounded border border-slate-200 shadow-sm p-4 md:p-6 space-y-4">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-700">{t("onprem_mode_title")}</h3>
+            <p className="text-xs text-slate-500 mt-1">{mode ? t(`onprem_mode_${mode}_desc`) : t("onprem_mode_desc")}</p>
+          </div>
+          {mode && (
+            <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => setMode(null)}>
+              <ArrowLeft className="h-3.5 w-3.5 mr-1.5" /> {t("onprem_mode_change")}
+            </Button>
+          )}
+        </div>
+
+        {!mode && (
+          <div className="grid grid-cols-1 gap-3 @xl:grid-cols-2">
+            {([
+              { value: "online" as const, icon: Wifi, available: status?.onlineActivationAvailable !== false },
+              { value: "offline" as const, icon: WifiOff, available: true },
+            ]).map(({ value, icon: Icon, available }) => (
+              <button
+                key={value}
+                type="button"
+                disabled={!available}
+                onClick={() => setMode(value)}
+                className={cn(
+                  "flex items-start gap-3 rounded-xl border p-4 text-left transition-colors",
+                  available ? "border-slate-200 hover:border-blue-400 hover:bg-blue-50/40" : "cursor-not-allowed border-slate-100 bg-slate-50 opacity-70"
+                )}
+              >
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                  <Icon className="h-4 w-4" />
+                </span>
+                <span>
+                  <span className="block text-sm font-semibold text-slate-900">{t(`onprem_mode_${value}`)}</span>
+                  <span className="block text-xs text-slate-500 mt-0.5">{t(`onprem_mode_${value}_hint`)}</span>
+                  {!available && <span className="mt-1 block text-[11px] font-medium text-amber-700">{t("onprem_mode_online_unavailable")}</span>}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {mode === "online" && (
+        <>
+      <div className="bg-white rounded-2xl md:rounded border border-slate-200 shadow-sm p-4 md:p-6 space-y-4">
         <div>
           <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
             <Wifi className="h-4 w-4 text-slate-400" /> {t("onprem_activate_online")}
@@ -325,6 +377,11 @@ export function OnPremLicensePanel() {
         </Button>
       </div>
 
+        </>
+      )}
+
+      {mode === "offline" && (
+        <>
       <div className="bg-white rounded-2xl md:rounded border border-slate-200 shadow-sm p-4 md:p-6 space-y-4">
         <div>
           <h3 className="text-sm font-semibold text-slate-700">{t("onprem_download_request")}</h3>
@@ -368,6 +425,8 @@ export function OnPremLicensePanel() {
           </p>
         )}
       </div>
+        </>
+      )}
     </div>
   );
 }

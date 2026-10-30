@@ -32,6 +32,7 @@ Copiez `.env.example` vers `.env`, puis renseignez :
 | `ALPHACORP_LICENSE_API_URL` | Pour l'activation en ligne | Exemple : `https://alphacorp.vercel.app/api/license/activate`. Inutile en activation hors ligne. |
 | `ONPREM_INSTALL_ID` | Oui en Docker / cloud | Identifiant stable de l'installation (`openssl rand -hex 16`), généré **une fois** et jamais modifié. Sans lui, l'empreinte de licence change à chaque recréation du conteneur ou du déploiement. |
 | `ONPREM_LICENSE_PUBLIC_KEY_PEM` | Non | Remplace la clé publique de vérification des licences, uniquement après une rotation de clé AlphaCorp. |
+| `MOBILE_MONEY_SETTINGS_ENABLED` | Non | `false` masque la section Mobile Money des paramètres (et ferme ses routes de réglage). Par défaut : affichée. Lue au démarrage, sans reconstruire. |
 | `CRON_SECRET` | Recommandé | Protège la tâche planifiée DHIS2 (`/api/cron/sync-dhis2`). Sans lui, l'URL est appelable sans authentification. |
 | `POSTGRES_PASSWORD` | Docker Compose uniquement | Mot de passe du conteneur PostgreSQL fourni ; le conteneur de l'application en déduit son `DATABASE_URL`. |
 

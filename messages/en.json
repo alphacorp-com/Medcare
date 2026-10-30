@@ -891,7 +891,10 @@
     "vitals_height": "Height",
     "vitals_spo2": "SpO2",
     "no_vitals_recorded": "No vital signs recorded yet.",
-    "latest_vitals": "Latest Vitals"
+    "latest_vitals": "Latest Vitals",
+    "duplicate_reason_nss": "Same NSS",
+    "duplicate_reason_name_birth_date": "Same name and birth date",
+    "duplicate_reason_phone": "Same phone"
   },
   "record": {
     "new_medical_record": "New Medical Record",
@@ -964,7 +967,12 @@
     "unit_price": "Unit Price",
     "storage_location": "Storage Location",
     "supplier": "Supplier",
-    "patient_sheet": "Patient sheet"
+    "patient_sheet": "Patient sheet",
+    "cancel_rx_title": "Cancel the prescription",
+    "cancel_rx_desc": "The prescription can no longer be dispensed. Unpaid invoice lines are removed.",
+    "cancel_rx_reason": "Reason (required)",
+    "cancel_rx_confirm": "Cancel the prescription",
+    "cancel_rx_done": "Prescription cancelled."
   },
   "settings": {
     "validate_permission": "Validate",
@@ -1729,7 +1737,18 @@
         "invalid_viewer_template": "The address must be http(s) and contain '{accession}'."
       }
     },
-    "integrations_desc": "RMA3 transmission to DHIS2 and Mobile Money payments."
+    "integrations_desc": "RMA3 transmission to DHIS2 and Mobile Money payments.",
+    "integrations_desc_dhis2_only": "RMA3 transmission to DHIS2.",
+    "onprem_mode_title": "Activate or renew the license",
+    "onprem_mode_desc": "First choose how this installation gets its license.",
+    "onprem_mode_online": "Online",
+    "onprem_mode_online_hint": "This server contacts AlphaCorp directly. Internet access is required.",
+    "onprem_mode_offline": "Offline (file)",
+    "onprem_mode_offline_hint": "Download a request file, send it to AlphaCorp, then import the license file you receive.",
+    "onprem_mode_online_desc": "Online activation: this server contacts AlphaCorp.",
+    "onprem_mode_offline_desc": "Offline activation: with a request file and a license file.",
+    "onprem_mode_change": "Change mode",
+    "onprem_mode_online_unavailable": "Not configured on this server (credentials or AlphaCorp address missing)."
   },
   "surgery": {
     "postpone": "Postpone",
@@ -2673,7 +2692,11 @@
     "summary_empty": "Select the patient, the doctor and a time slot.",
     "doctor_required": "Please select a doctor.",
     "slot_required": "Please pick a slot or enter a time.",
-    "series_partial": "{created} appointment(s) booked, {skipped} skipped because of a conflict."
+    "series_partial": "{created} appointment(s) booked, {skipped} skipped because of a conflict.",
+    "check_in_act_required": "Choose the act to bill: the patient pays it at the cashier before the consultation.",
+    "check_in_payment_hint": "The act is billed now; the patient pays at the cashier before entering the consultation queue.",
+    "check_in_no_acts": "No act is configured (Settings → Medical acts).",
+    "checked_in_awaiting_payment": "Check-in recorded: the patient must pay the act at the cashier."
   },
   "billing": {
     "method_credit_transfer": "Overpayment transfer",
