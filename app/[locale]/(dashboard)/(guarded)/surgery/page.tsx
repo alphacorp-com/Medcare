@@ -1,5 +1,6 @@
 "use client";
 
+import { PageLoader } from "@/components/shared/page-loader";
 import { useAppStore } from "@/lib/store/useAppStore";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -249,7 +250,7 @@ export default function SurgeryPage() {
 
         <div className="flex-1 overflow-auto">
           {isLoading ? (
-             <div className="flex items-center justify-center h-full text-slate-400">{tc('loading')}</div>
+             <PageLoader className="min-h-[240px]" />
           ) : surgeries.length === 0 ? (
              <div className="flex items-center justify-center h-full text-slate-400 text-sm flex-col">
                <Scissors className="h-8 w-8 mb-2 opacity-50" />

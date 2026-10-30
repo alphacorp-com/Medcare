@@ -340,7 +340,6 @@ function SettingsPageContent() {
           title={t("title")}
           subtitle={selected.label}
           actions={<SettingsMobileBackButton label={tnav("all_settings")} onClick={closeSection} />}
-          noRoundedContainer
         >
           <div className="@container space-y-4">
             {selected.content}
@@ -367,7 +366,7 @@ function SettingsPageContent() {
       .join("");
 
     return (
-      <StandardMobileTemplate title={t("title")} subtitle={t("description")} noRoundedContainer>
+      <StandardMobileTemplate title={t("title")} subtitle={t("description")}>
         <div className="space-y-5">
           <button
             type="button"
