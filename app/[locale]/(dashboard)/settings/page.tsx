@@ -11,6 +11,7 @@ import { useState, useEffect, Suspense, Fragment } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import StandardMobileTemplate from "@/components/layout/mobile/StandardMobileTemplate";
+import { scrollMobileContentToTop } from "@/components/layout/mobile/MobileLayout";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { SettingsMobileBackButton, SettingsMobileMenu } from "@/components/settings/settings-ui";
 import { useSettingsNavGroups } from "@/components/settings/settings-nav";
@@ -325,11 +326,11 @@ function SettingsPageContent() {
     const openSection = (key: string) => {
       setMobileSelected(key);
       setActiveTab(key);
-      window.scrollTo({ top: 0 });
+      scrollMobileContentToTop();
     };
     const closeSection = () => {
       setMobileSelected(null);
-      window.scrollTo({ top: 0 });
+      scrollMobileContentToTop();
     };
 
     const selected = sections.find((section) => section.key === mobileSelected);
