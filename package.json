@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "eslint .",
     "test": "tsx --test \"lib/**/*.test.ts\" \"components/**/*.test.ts\"",
+    "test:dhis2-e2e": "tsx --test lib/dhis2/e2e/dhis2.e2e.ts",
     "seed": "tsx prisma/seed.ts",
     "seed-settings": "tsx prisma/seed-reference-data.ts",
     "seed-programs": "tsx prisma/seed-programs.ts",

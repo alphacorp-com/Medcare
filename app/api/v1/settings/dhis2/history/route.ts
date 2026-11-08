@@ -17,6 +17,8 @@ export interface Dhis2HistoryEntry {
   status: "success" | "failed" | "skipped";
   values: number | null;
   error: string | null;
+  // Failed after DHIS2 stored part of the values (month incomplete in DHIS2).
+  partial: boolean;
   legacy: boolean;
 }
 
@@ -26,6 +28,7 @@ interface PushPayload {
   dryRun?: boolean;
   ok?: boolean;
   sent?: number;
+  partial?: boolean;
   error?: string | null;
 }
 
@@ -59,7 +62,7 @@ export async function GET() {
     const trigger = log.actorType === "system" ? "auto" : "manual";
     if (log.action === LEGACY_SYNC_ACTION) {
       const p = (log.payload ?? {}) as LegacyPayload;
-      return { id: log.id, createdAt: log.createdAt, period: p.period ?? "", trigger, dryRun: false, status: p.status ?? "failed", values: p.dataValueCount ?? null, error: p.error ?? null, legacy: true };
+      return { id: log.id, createdAt: log.createdAt, period: p.period ?? "", trigger, dryRun: false, status: p.status ?? "failed", values: p.dataValueCount ?? null, error: p.error ?? null, partial: false, legacy: true };
     }
     const p = (log.payload ?? {}) as PushPayload;
     return {
@@ -71,6 +74,7 @@ export async function GET() {
       status: p.ok ? "success" : "failed",
       values: p.sent ?? null,
       error: p.error ?? null,
+      partial: p.partial === true,
       legacy: false,
     };
   });

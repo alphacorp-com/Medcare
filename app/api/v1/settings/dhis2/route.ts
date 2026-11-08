@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { encryptSecret } from "@/lib/dhis2/crypto";
 import { getDhis2Config, saveDhis2Config } from "@/lib/dhis2/config";
 import { requireTenantAdmin } from "@/lib/permissions";
+import { safeExternalUrl } from "@/lib/safe-url";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -55,6 +56,12 @@ export async function PUT(req: Request) {
       );
     }
 
+    // The server calls this URL with the account's credentials: only a plain http(s) URL.
+    const safeBaseUrl = safeExternalUrl(baseUrl);
+    if (!safeBaseUrl) {
+      return NextResponse.json({ error: "baseUrl must be a valid http(s) URL" }, { status: 400 });
+    }
+
     const existing = await getDhis2Config(session.user.tenantId);
     const encryptedPassword = password ? encryptSecret(password) : existing?.encryptedPassword;
 
@@ -67,7 +74,7 @@ export async function PUT(req: Request) {
       {
         // Whatever else is stored (the legacy per-metric mapping) is kept as it was.
         ...existing,
-        baseUrl,
+        baseUrl: safeBaseUrl.replace(/\/+$/, ""),
         username,
         encryptedPassword,
         orgUnitId,

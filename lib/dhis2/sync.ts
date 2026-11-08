@@ -1,8 +1,8 @@
 import prisma from "@/lib/prisma";
 import { recordAuditEvent } from "@/lib/audit";
 import { DHIS2_SETTING_KEY, getDhis2Config, hasApiAccess } from "./config";
-import { pushRma3, Rma3ExportError } from "./rma3-sync";
-import { periodsToSend, AUTO_SEND_WINDOW_DAYS } from "./rma3-schedule";
+import { pushAuditDetail, pushRma3, Rma3ExportError } from "./rma3-sync";
+import { periodsToSend, AUTO_SEND_WINDOW_DAYS, type SendAttempt } from "./rma3-schedule";
 import type { Dhis2Config } from "./types";
 
 // Automatic send of the RMA3 to DHIS2 through its API (cron /api/cron/sync-dhis2). The only DHIS2
@@ -11,7 +11,7 @@ import type { Dhis2Config } from "./types";
 // cells of the same data element).
 //
 // Runs only for a facility that enabled it and has an API account. Sends each validated month
-// not sent since its validation (see rma3-schedule.ts). Every attempt is an audit line
+// not sent since its validation, and retries the failed ones (see rma3-schedule.ts). Every attempt is an audit line
 // `dhis2.rma3_push` (trigger "auto"), shown in the DHIS2 history next to the manual sends.
 
 // Fixed placeholder actor for cron-written audit rows (AuditLog.actorId is non-nullable).
@@ -26,19 +26,20 @@ export interface Rma3AutoSendResult {
   error?: string;
 }
 
-// Last real send attempt (simulations excluded) of each of these months.
-async function lastAttempts(tenantId: string, periods: readonly string[]): Promise<Map<string, Date>> {
+// Last real send attempt (simulations excluded) of each of these months. The period is read from
+// the audit payload: audit_logs.resource_id is a UUID column and cannot hold "202610".
+async function lastAttempts(tenantId: string, periods: readonly string[]): Promise<Map<string, SendAttempt>> {
   if (periods.length === 0) return new Map();
   const rows = await prisma.auditLog.findMany({
-    where: { tenantId, action: RMA3_PUSH_ACTION, resourceId: { in: [...periods] } },
-    select: { resourceId: true, createdAt: true, payload: true },
+    where: { tenantId, action: RMA3_PUSH_ACTION, OR: periods.map((period) => ({ payload: { path: ["period"], equals: period } })) },
+    select: { createdAt: true, payload: true },
     orderBy: { createdAt: "desc" },
   });
-  const last = new Map<string, Date>();
+  const last = new Map<string, SendAttempt>();
   for (const row of rows) {
-    if (!row.resourceId || last.has(row.resourceId)) continue;
-    if ((row.payload as { dryRun?: boolean } | null)?.dryRun === true) continue;
-    last.set(row.resourceId, row.createdAt);
+    const payload = row.payload as { period?: string; dryRun?: boolean; ok?: boolean } | null;
+    if (!payload?.period || payload.dryRun === true || last.has(payload.period)) continue;
+    last.set(payload.period, { at: row.createdAt, ok: payload.ok === true });
   }
   return last;
 }
@@ -49,7 +50,7 @@ async function sendPeriod(tenantId: string, period: string): Promise<Rma3AutoSen
   try {
     const push = await pushRma3(tenantId, period, { dryRun: false });
     result = { tenantId, period, ok: push.ok, sent: push.sent, error: push.error };
-    detail = { importCount: push.importCount, conflicts: push.conflicts.length };
+    detail = pushAuditDetail(push);
   } catch (error) {
     // Configuration problems (nothing mapped, form reopened meanwhile…) keep their code; anything
     // else is logged server side and recorded without its internal message.
@@ -62,7 +63,6 @@ async function sendPeriod(tenantId: string, period: string): Promise<Rma3AutoSen
     actorType: "system",
     action: RMA3_PUSH_ACTION,
     resourceType: "dhis2_rma3",
-    resourceId: period,
     payload: { period, trigger: "auto", dryRun: false, ok: result.ok, sent: result.sent ?? 0, error: result.error ?? null, ...detail },
   });
   return result;

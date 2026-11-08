@@ -60,7 +60,24 @@ export interface Rma3PushResult {
   chunks: number;
   importCount: Dhis2ImportCount;
   conflicts: Dhis2Conflict[];
+  // Some values were stored (imported or updated) although DHIS2 rejected others: the month is
+  // incomplete in DHIS2 and the send is reported as failed, so it is retried.
+  partial: boolean;
   error?: string;
+}
+
+const AUDIT_CONFLICT_SAMPLE = 5;
+
+// What the audit log keeps of a send, shared by the manual and the automatic circuits: the counts
+// DHIS2 reported and a sample of its conflicts (error code + message: aggregate data, no patient),
+// enough to diagnose a failure from the history without reading DHIS2's logs.
+export function pushAuditDetail(push: Pick<Rma3PushResult, "importCount" | "conflicts" | "partial">) {
+  return {
+    importCount: push.importCount,
+    conflicts: push.conflicts.length,
+    partial: push.partial,
+    conflictSample: push.conflicts.slice(0, AUDIT_CONFLICT_SAMPLE).map((c) => ({ errorCode: c.errorCode ?? null, property: c.property ?? null, value: (c.value ?? "").slice(0, 200) })),
+  };
 }
 
 export async function pushRma3(tenantId: string, period: string, { dryRun }: { dryRun: boolean }): Promise<Rma3PushResult> {
@@ -84,10 +101,11 @@ export async function pushRma3(tenantId: string, period: string, { dryRun }: { d
     for (const k of ["imported", "updated", "ignored", "deleted"] as const) total[k] += result.importCount?.[k] ?? 0;
     for (const c of result.conflicts ?? []) if (conflicts.length < MAX_REPORTED_CONFLICTS) conflicts.push(c);
     if (!result.ok) {
-      return { ok: false, dryRun, sent: built.dataValues.length, chunks: parts.length, importCount: total, conflicts, error: result.error ?? `DHIS2 responded with HTTP ${result.status}` };
+      const partial = !dryRun && total.imported + total.updated > 0;
+      return { ok: false, dryRun, sent: built.dataValues.length, chunks: parts.length, importCount: total, conflicts, partial, error: result.error ?? `DHIS2 responded with HTTP ${result.status}` };
     }
   }
-  return { ok: true, dryRun, sent: built.dataValues.length, chunks: parts.length, importCount: total, conflicts };
+  return { ok: true, dryRun, sent: built.dataValues.length, chunks: parts.length, importCount: total, conflicts, partial: false };
 }
 
 // Reads the national data set and proposes the mappings it can establish with certainty.

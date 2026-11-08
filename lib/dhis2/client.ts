@@ -22,11 +22,43 @@ function normalizeBaseUrl(baseUrl: string): string {
   return baseUrl.replace(/\/+$/, "");
 }
 
+// A DHIS2 that hangs must not hang the request (or the cron run) that called it.
+const LOOKUP_TIMEOUT_MS = 20_000;
+const SUBMIT_TIMEOUT_MS = 120_000;
+
+function networkError(error: unknown): string {
+  if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) return "DHIS2 did not answer in time";
+  return error instanceof Error ? error.message : "Network error contacting DHIS2";
+}
+
+// Documented import options of POST /api/dataValueSets. Without them DHIS2 is lenient and stores,
+// answering 200 SUCCESS, a value for a data element outside the data set, for an organisation unit
+// not assigned to it, or — worst — a value without category option combo for a data element that
+// is broken down (it lands in the "default" cell). Verified on DHIS2 2.42.7; the strict flags turn
+// each of these into a conflict (HTTP 409) that nothing is imported for.
+export const STRICT_IMPORT_PARAMS = {
+  strictPeriods: "true",
+  strictDataElements: "true",
+  strictCategoryOptionCombos: "true",
+  strictOrganisationUnits: "true",
+} as const;
+
+// The first conflict explains a failure better than DHIS2's generic "please check import summary".
+export function describeSubmitFailure(message: string | undefined, conflicts: readonly Dhis2Conflict[] | undefined, status: number): string {
+  const first = conflicts?.[0];
+  if (first) {
+    const more = conflicts!.length > 1 ? ` (+${conflicts!.length - 1})` : "";
+    return `${first.errorCode ? `${first.errorCode}: ` : ""}${first.value ?? first.property ?? "conflict"}${more}`;
+  }
+  return message || `DHIS2 responded with HTTP ${status}`;
+}
+
 export async function testConnection(credentials: Dhis2Credentials): Promise<Dhis2TestConnectionResult> {
   try {
     const res = await fetch(`${normalizeBaseUrl(credentials.baseUrl)}/api/me.json?fields=id,displayName`, {
       method: "GET",
       headers: { Authorization: authHeader(credentials) },
+      signal: AbortSignal.timeout(LOOKUP_TIMEOUT_MS),
     });
 
     if (!res.ok) {
@@ -36,11 +68,7 @@ export async function testConnection(credentials: Dhis2Credentials): Promise<Dhi
     const body = await res.json();
     return { ok: true, status: res.status, displayName: body.displayName };
   } catch (error) {
-    return {
-      ok: false,
-      status: 0,
-      error: error instanceof Error ? error.message : "Network error contacting DHIS2",
-    };
+    return { ok: false, status: 0, error: networkError(error) };
   }
 }
 
@@ -58,8 +86,10 @@ export async function submitDataValueSet(
   try {
     const url = new URL(`${normalizeBaseUrl(credentials.baseUrl)}/api/dataValueSets`);
     if (params.dryRun) url.searchParams.set("dryRun", "true");
+    for (const [name, value] of Object.entries(STRICT_IMPORT_PARAMS)) url.searchParams.set(name, value);
     const res = await fetch(url.toString(), {
       method: "POST",
+      signal: AbortSignal.timeout(SUBMIT_TIMEOUT_MS),
       headers: {
         Authorization: authHeader(credentials),
         "Content-Type": "application/json",
@@ -79,23 +109,24 @@ export async function submitDataValueSet(
     const importCount: Dhis2ImportCount | undefined = summary.importCount;
     const conflicts: Dhis2Conflict[] | undefined = summary.conflicts;
 
-    if (!res.ok) {
+    const importStatus = summary.status as Dhis2SubmitResult["importStatus"];
+
+    // DHIS2 answers 409 when anything was rejected (even if the rest was imported); a 200 whose
+    // summary is not SUCCESS is treated the same way — HTTP success alone proves nothing.
+    if (!res.ok || (importStatus && importStatus !== "SUCCESS")) {
       return {
         ok: false,
         status: res.status,
+        importStatus,
         importCount,
         conflicts,
-        error: body?.message || `DHIS2 responded with HTTP ${res.status}`,
+        error: describeSubmitFailure(body?.message, conflicts, res.status),
       };
     }
 
-    return { ok: true, status: res.status, importCount, conflicts };
+    return { ok: true, status: res.status, importStatus, importCount, conflicts };
   } catch (error) {
-    return {
-      ok: false,
-      status: 0,
-      error: error instanceof Error ? error.message : "Network error contacting DHIS2",
-    };
+    return { ok: false, status: 0, error: networkError(error) };
   }
 }
 
@@ -117,7 +148,7 @@ async function searchEntities(
   if (query.trim()) url.searchParams.set("filter", `name:ilike:${query.trim()}`);
   for (const filter of extraFilters) url.searchParams.append("filter", filter);
 
-  const res = await fetch(url.toString(), { headers: { Authorization: authHeader(credentials) } });
+  const res = await fetch(url.toString(), { headers: { Authorization: authHeader(credentials) }, signal: AbortSignal.timeout(LOOKUP_TIMEOUT_MS) });
   if (!res.ok) {
     throw new Error(`DHIS2 ${entity} lookup failed (HTTP ${res.status})`);
   }
@@ -160,6 +191,7 @@ export async function fetchDataSetStructure(credentials: Dhis2Credentials, dataS
     "dataSetElements[categoryCombo[categoryOptionCombos[id,name,code]],dataElement[id,name,shortName,code,categoryCombo[categoryOptionCombos[id,name,code]]]]";
   const res = await fetch(`${normalizeBaseUrl(credentials.baseUrl)}/api/dataSets/${dataSetId}.json?fields=${encodeURIComponent(fields)}`, {
     headers: { Authorization: authHeader(credentials) },
+    signal: AbortSignal.timeout(LOOKUP_TIMEOUT_MS),
   });
   if (!res.ok) throw new Error(`DHIS2 data set lookup failed (HTTP ${res.status})`);
   const body = (await res.json()) as { dataSetElements?: RawDataSetElement[] };

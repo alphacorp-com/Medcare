@@ -27,7 +27,7 @@ export async function GET(request: Request) {
       actorType: "tenant_user",
       action: "dhis2.rma3_export",
       resourceType: "dhis2_rma3",
-      resourceId: parsed.period,
+      // The period lives in the payload: audit_logs.resource_id is a UUID column.
       payload: { period: parsed.period, format, values: built.dataValues.length, unmapped: built.unmapped.length },
       ...extractRequestMeta(request.headers),
     });

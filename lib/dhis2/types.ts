@@ -57,6 +57,8 @@ export interface Dhis2Conflict {
 export interface Dhis2SubmitResult {
   ok: boolean;
   status: number;
+  // Status of DHIS2's import summary (SUCCESS, WARNING = partly rejected, ERROR).
+  importStatus?: "SUCCESS" | "WARNING" | "ERROR";
   importCount?: Dhis2ImportCount;
   conflicts?: Dhis2Conflict[];
   error?: string;

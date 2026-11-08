@@ -69,6 +69,13 @@ Dans **Export du RMA3 vers DHIS2**, choisissez le mois :
 - **Simuler l'envoi** : DHIS2 contrôle et compte sans rien enregistrer ; possible sur tout mois.
 - **Envoyer à DHIS2** : seulement si le **formulaire mensuel est validé** (erreur 409 sinon).
   DHIS2 importe de façon idempotente : renvoyer un mois met ses valeurs à jour.
+- **Contrôles stricts** : MedCare demande à DHIS2 les options officielles `strictPeriods`,
+  `strictDataElements`, `strictCategoryOptionCombos` et `strictOrganisationUnits`. Sans elles, DHIS2
+  accepte en « succès » une valeur d'un élément hors du jeu de données, d'une unité non rattachée, ou
+  — pire — **sans combinaison de catégories** pour un élément ventilé (elle tombe dans la cellule
+  « default »). Désormais ces cas sont refusés avec un code lisible (E7632/E7633/E7634/E7636).
+- **Envoi partiel** : si DHIS2 refuse certaines valeurs mais en enregistre d'autres, l'envoi est
+  marqué **échoué** et « partiel » dans l'historique ; le renvoi n'ajoute que le manquant.
 
 ## Envoi automatique
 
@@ -78,8 +85,8 @@ Si la case est cochée et qu'un compte API est configuré, la tâche planifiée 
 - un mois rouvert puis revalidé est renvoyé ;
 - au plus 3 mois par établissement et par passage, du plus ancien au plus récent ;
 - les mois validés il y a plus de 62 jours sont laissés à l'envoi manuel ;
-- un échec est retenté au passage suivant (le lendemain avec une tâche quotidienne), et chaque
-  tentative est inscrite dans l'historique.
+- un échec (y compris un **envoi partiel**) est retenté au passage suivant au moins 12 h plus tard
+  (le lendemain avec une tâche quotidienne) ; chaque tentative est inscrite dans l'historique.
 
 ## Historique et relance
 
@@ -105,6 +112,14 @@ qui l'ont activé.
   ```
 
 ## Tester sans toucher au DHIS2 national
+
+**Recommandé : l'environnement local `dhis2-local/`** (DHIS2 2.42.7 officiel en Docker, métadonnées de
+démonstration camerounaises fictives, compte technique à droits restreints, suite de tests e2e qui
+relit DHIS2). Voir `dhis2-local/README.md` et `dhis2-local/docs/ARCHITECTURE.md`. Lancer les tests :
+`node scripts/run-e2e.mjs` depuis `dhis2-local/` (`npm run test:dhis2-e2e` avec une base **jetable**
+et un DHIS2 **local** ; la suite refuse toute autre cible).
+
+Alternative : une instance publique de démonstration.
 
 1. Utilisez une instance de démonstration DHIS2 (voir le
    [DHIS2 Instance Manager](https://im.dhis2.org/public/instances) ; identifiants `admin` /
@@ -147,7 +162,7 @@ dans DHIS2.
 | « Aucune cellule n'est associée à DHIS2 » | Importer le modèle de correspondances complété |
 | « Le formulaire mensuel doit être validé » | Valider le mois dans **RMA3 → Saisie du mois** (ou utiliser le fichier / la simulation) |
 | Rien n'est envoyé automatiquement | Case cochée ? compte API complet ? mois validé depuis moins de 62 jours ? tâche planifiée déclarée ? |
-| Conflits DHIS2 | Unité non rattachée au jeu de données, jeu de données non mensuel, ou combinaison de catégories requise manquante |
+| Conflits DHIS2 | Unité non rattachée au jeu de données (E7636), jeu de données non mensuel (E7632), combinaison de catégories manquante (E7634) ou inconnue (E7613) ; le détail du 1er conflit est dans l'historique et 5 conflits sont gardés dans `audit_logs.payload.conflictSample` |
 
 ## 🛠️ Repères techniques
 
@@ -160,7 +175,8 @@ dans DHIS2.
 | `lib/dhis2/rma3-export.ts` | Valeurs → `dataValueSets` JSON / CSV DHIS2, modèle et lecture du CSV de correspondances |
 | `lib/dhis2/rma3-mapping.ts` | Propositions de correspondances depuis la structure du jeu de données |
 | `lib/dhis2/rma3-sync.ts`, `rma3-route.ts` | Accès base, envoi par lots, garde administrateur et limites |
-| `lib/dhis2/rma3-schedule.ts` | Choix des mois dus à l'envoi automatique (testé) |
+| `lib/dhis2/rma3-schedule.ts` | Choix des mois dus à l'envoi automatique, avec nouvelle tentative des échecs (testé) |
+| `lib/dhis2/e2e/dhis2.e2e.ts` | Tests de bout en bout contre un DHIS2 local réel (`npm run test:dhis2-e2e`) |
 | `lib/dhis2/sync.ts` | Envoi automatique ; audit `dhis2.rma3_push` (trigger `auto`) |
 | `lib/dhis2/rma3-dictionary.*` | Dictionnaire des 955 indicateurs (couverture) |
 | `lib/dhis2/indicators.ts`, `types.ts` | 18 chiffres mensuels du rapport Word (plus envoyés à DHIS2) |

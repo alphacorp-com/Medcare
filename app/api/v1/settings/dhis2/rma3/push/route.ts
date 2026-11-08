@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { extractRequestMeta, recordAuditEvent } from "@/lib/audit";
-import { pushRma3 } from "@/lib/dhis2/rma3-sync";
+import { pushAuditDetail, pushRma3 } from "@/lib/dhis2/rma3-sync";
 import { failure, periodFrom, rma3Guard } from "@/lib/dhis2/rma3-route";
 
 // POST /api/v1/settings/dhis2/rma3/push — Body: { period, dryRun? }. Sends the month's mapped
@@ -22,8 +22,8 @@ export async function POST(request: Request) {
       actorType: "tenant_user",
       action: "dhis2.rma3_push",
       resourceType: "dhis2_rma3",
-      resourceId: parsed.period,
-      payload: { period: parsed.period, trigger: "manual", dryRun, ok: result.ok, sent: result.sent, importCount: result.importCount, conflicts: result.conflicts.length, error: result.error ?? null },
+      // The period lives in the payload: audit_logs.resource_id is a UUID column.
+      payload: { period: parsed.period, trigger: "manual", dryRun, ok: result.ok, sent: result.sent, error: result.error ?? null, ...pushAuditDetail(result) },
       ...extractRequestMeta(request.headers),
     });
     return NextResponse.json(result, { status: result.ok ? 200 : 502 });
