@@ -1,4 +1,5 @@
 import type { Rma3ReportData } from "@/lib/reports/rma3";
+import { BREAKDOWN_COLUMNS, RMA3_MANUAL_SECTIONS } from "@/lib/rma3-manual/catalog";
 
 // The RMA3 report as one flat list of values — (indicator, breakdown cell, number) — the shape
 // DHIS2 stores them in. Pure, unit-tested in rma3-values.test.ts.
@@ -182,4 +183,19 @@ export function flattenRma3Report(
     values.push(v);
   }
   return { values, duplicates };
+}
+
+// Every cell the monthly form CAN hold, entered or not this month. The report only carries the cells
+// entered, but a mapping must not depend on what happens to be filled in: importing the mapping of
+// the whole form has to be accepted in any month.
+export function manualCatalogCells(): Pick<Rma3IndicatorValue, "indicatorCode" | "tableKey" | "cellKey">[] {
+  return RMA3_MANUAL_SECTIONS.flatMap((section) =>
+    section.indicators.flatMap((indicator) =>
+      BREAKDOWN_COLUMNS[indicator.breakdown].map((column) => ({
+        indicatorCode: normalizeIndicatorCode(indicator.code),
+        tableKey: tableKeyOf("manual", section.code),
+        cellKey: column.key,
+      }))
+    )
+  );
 }

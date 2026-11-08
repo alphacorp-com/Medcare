@@ -1,6 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { flattenRma3Report, normalizeIndicatorCode } from "./rma3-values";
+import { flattenRma3Report, manualCatalogCells, normalizeIndicatorCode } from "./rma3-values";
+import { BREAKDOWN_COLUMNS, RMA3_MANUAL_SECTIONS } from "@/lib/rma3-manual/catalog";
+import { buildManualReport } from "@/lib/rma3-manual/report";
 
 const emptyHiv = {
   hivTesting: [], artFollowUp: [], pmtctAntenatal: [], antenatalScreening: [], pmtctMaternity: [], pmtctReferrals: [], pmtctViralLoad: [], pmtctPostnatal: [], hepatitisSti: [],
@@ -128,4 +130,15 @@ test("the same code in two tables is two indicators; a repeat inside one table k
   assert.equal(values.length, 1);
   assert.equal(values[0].value, 1);
   assert.deepEqual(duplicates, [{ indicatorCode: "RMA3-IV.4-001", tableKey: "activity:a:a", cellKey: "" }]);
+});
+
+test("every cell of a fully filled monthly form is one of the catalog cells (mapping import accepts the whole form)", () => {
+  const entered: Record<string, Record<string, number>> = {};
+  for (const section of RMA3_MANUAL_SECTIONS)
+    for (const indicator of section.indicators) entered[indicator.code] = Object.fromEntries(BREAKDOWN_COLUMNS[indicator.breakdown].map((c) => [c.key, 1]));
+  const { values } = flattenRma3Report(report({ manual: buildManualReport(entered, "draft", null) }), { includeZeros: false });
+  const catalog = manualCatalogCells();
+  const key = (c: { indicatorCode: string; tableKey: string; cellKey: string }) => `${c.indicatorCode}|${c.tableKey}|${c.cellKey}`;
+  assert.deepEqual(new Set(values.map(key)), new Set(catalog.map(key)));
+  assert.equal(new Set(catalog.map(key)).size, catalog.length, "no duplicated catalog cell");
 });

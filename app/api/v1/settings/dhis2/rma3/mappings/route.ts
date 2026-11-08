@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { extractRequestMeta, recordAuditEvent } from "@/lib/audit";
 import { parseMappingCsv } from "@/lib/dhis2/rma3-export";
 import { buildRma3Export, saveRma3Mappings } from "@/lib/dhis2/rma3-sync";
+import { manualCatalogCells } from "@/lib/dhis2/rma3-values";
 import { failure, periodFrom, rma3Guard } from "@/lib/dhis2/rma3-route";
 
 // A mapping file of the whole RMA3 is a few hundred KB; this stops anything much larger.
@@ -10,8 +11,8 @@ const MAX_CSV_CHARS = 3_000_000;
 const MAX_REPORTED_ERRORS = 50;
 
 // POST /api/v1/settings/dhis2/rma3/mappings — Body: { period, csv }. Applies a filled mapping CSV
-// (see mapping-template). Every line is checked against the cells the report really produces
-// that month; if ANY line is invalid, nothing is saved and the errors come back with their line.
+// (see mapping-template). Every line is checked against the cells the report produces and the cells
+// of the monthly form; if ANY line is invalid, nothing is saved and the errors come back with their line.
 export async function POST(request: Request) {
   const guard = await rma3Guard("heavy");
   if (!guard.ok) return guard.response;
@@ -23,7 +24,9 @@ export async function POST(request: Request) {
 
   try {
     const built = await buildRma3Export(guard.tenantId, parsed.period);
-    const result = parseMappingCsv(body.csv, built.values);
+    // Known cells: those the report produces this month, plus every cell of the monthly form (only the
+    // entered ones are in the report, yet their mapping must be importable in any month).
+    const result = parseMappingCsv(body.csv, [...built.values, ...manualCatalogCells()]);
     if (result.errors.length > 0) {
       return NextResponse.json({ error: "invalid_mapping_file", errors: result.errors.slice(0, MAX_REPORTED_ERRORS), errorCount: result.errors.length }, { status: 422 });
     }

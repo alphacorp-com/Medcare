@@ -5,6 +5,7 @@ import { encryptSecret } from "@/lib/dhis2/crypto";
 import { getDhis2Config, saveDhis2Config } from "@/lib/dhis2/config";
 import { requireTenantAdmin } from "@/lib/permissions";
 import { safeExternalUrl } from "@/lib/safe-url";
+import { DHIS2_UID } from "@/lib/dhis2/rma3-export";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -40,20 +41,28 @@ export async function PUT(req: Request) {
 
   try {
     const data = await req.json();
-    const { baseUrl, username, password, orgUnitId, dataSetId, enabled } = data as {
+    const { baseUrl, username, password, orgUnitId: orgUnitId_, dataSetId: dataSetId_, enabled } = data as {
       baseUrl: string;
       username: string;
       password?: string;
-      orgUnitId: string;
-      dataSetId: string;
-      enabled: boolean;
+      orgUnitId?: string;
+      dataSetId?: string;
+      enabled?: boolean;
     };
 
-    if (!baseUrl || !username || !orgUnitId || !dataSetId) {
-      return NextResponse.json(
-        { error: "baseUrl, username, orgUnitId and dataSetId are required" },
-        { status: 400 }
-      );
+    // The connection comes first: the organisation unit and data set are searched by name through
+    // the SAVED connection (lookup route), so they cannot be required to save it. They stay empty
+    // until chosen; without them nothing is sent (dhis2_target_missing) and auto-send stays off.
+    if (!baseUrl || !username) {
+      return NextResponse.json({ error: "baseUrl and username are required" }, { status: 400 });
+    }
+    const orgUnitId = (orgUnitId_ ?? "").trim();
+    const dataSetId = (dataSetId_ ?? "").trim();
+    if ((orgUnitId && !DHIS2_UID.test(orgUnitId)) || (dataSetId && !DHIS2_UID.test(dataSetId))) {
+      return NextResponse.json({ error: "orgUnitId and dataSetId must be DHIS2 identifiers" }, { status: 400 });
+    }
+    if (enabled && (!orgUnitId || !dataSetId)) {
+      return NextResponse.json({ error: "orgUnitId and dataSetId are required to enable the automatic send" }, { status: 400 });
     }
 
     // The server calls this URL with the account's credentials: only a plain http(s) URL.
